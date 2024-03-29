@@ -11,6 +11,11 @@
     <AvaloniaResource Include="Assets\**" />
   </ItemGroup>
 
+  
+  <ItemGroup>
+    <None Remove="Assets\afm-logo.ico" />
+  </ItemGroup>
+
   <ItemGroup>
     <PackageReference Include="Albion.Network" Version="5.0.1" />
     <PackageReference Include="AlbionData.Models" Version="0.1.13" />

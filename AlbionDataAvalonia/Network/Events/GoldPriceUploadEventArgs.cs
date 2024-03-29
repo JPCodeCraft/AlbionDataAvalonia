@@ -1,5 +1,4 @@
-﻿
-using AlbionData.Models;
+﻿using AlbionData.Models;
 using AlbionDataAvalonia.Network.Models;
 using System;
 

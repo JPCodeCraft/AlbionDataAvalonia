@@ -6,7 +6,9 @@
         xmlns:views="clr-namespace:AlbionDataAvalonia.Views"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="AlbionDataAvalonia.Views.MainWindow"
-        Icon="/Assets/avalonia-logo.ico"
-        Title="AlbionDataAvalonia">
-        <views:MainView />
+        Icon="/Assets/afm-logo.ico"
+        Title="Albion Data Client"
+		ExtendClientAreaToDecorationsHint="False">
+	<views:MainView />
+	
 </Window>
