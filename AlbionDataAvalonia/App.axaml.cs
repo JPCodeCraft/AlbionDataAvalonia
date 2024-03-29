@@ -4,6 +4,7 @@ using AlbionDataAvalonia.State;
 using AlbionDataAvalonia.ViewModels;
 using AlbionDataAvalonia.Views;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
@@ -13,6 +14,7 @@ namespace AlbionDataAvalonia;
 
 public partial class App : Application
 {
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
@@ -33,8 +35,11 @@ public partial class App : Application
 
 
         var vm = services.GetRequiredService<MainViewModel>();
+
+        this.DataContext = vm;
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
+            desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
             desktop.MainWindow = new MainWindow
             {
                 DataContext = vm
@@ -49,11 +54,6 @@ public partial class App : Application
         }
 
         base.OnFrameworkInitializationCompleted();
-    }
-    private void ConfigureServices(IServiceCollection services)
-    {
-        services.AddSingleton<NetworkListenerService>();
-        // Add other services here
     }
 }
 public static class ServiceCollectionExtensions
