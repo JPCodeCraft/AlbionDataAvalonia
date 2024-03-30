@@ -1,6 +1,6 @@
 <Application xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-			 xmlns:vms="clr-namespace:AlbionDataAvalonia.ViewModels"
+			 xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
              x:Class="AlbionDataAvalonia.App"
              RequestedThemeVariant="Default">
 	<!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
@@ -14,7 +14,7 @@
 			<TrayIcon Icon="/Assets/afm-logo.ico"
                       ToolTipText="Albion Data Client">
 				<TrayIcon.Menu>
-					<NativeMenu x:DataType="vms:MainViewModel">
+					<NativeMenu x:DataType="vm:MainViewModel">
 						<NativeMenuItem Header="Show Window" Command="{Binding ShowMainWindowCommand}"/>
 						<NativeMenuItem Header="Exit" Command="{Binding ExitCommand}"/>
 					</NativeMenu>

@@ -3,19 +3,62 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
+			 xmlns:ani="clr-namespace:Avalonia.Animation;assembly=Avalonia.Animation"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="AlbionDataAvalonia.Views.MainView"
              x:DataType="vm:MainViewModel">
 	<Design.DataContext>
-		<!-- This only sets the DataContext for the previewer in an IDE,
-             to set the actual DataContext for runtime, set the DataContext property in code (look at App.axaml.cs) -->
 		<vm:MainViewModel />
 	</Design.DataContext>
-	<Panel Background="Gray">
-		<StackPanel>
-			<TextBlock Text="{Binding PlayerName}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-			<TextBlock Text="{Binding Location}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
-			<TextBlock Text="{Binding AlbionServer.Name}" HorizontalAlignment="Center" VerticalAlignment="Center"/>
+
+	<UserControl.Styles>
+		<Style Selector="Button">
+			<Setter Property="Background" Value="Transparent" />
+			<Setter Property="Foreground" Value="White" />
+			<Setter Property="Padding" Value="10" />
+			<Setter Property="Margin" Value="10" />
+			<Setter Property="HorizontalAlignment" Value="Stretch" />
+		</Style>
+
+		<Style Selector="Button:pointerover /template/ ContentPresenter">
+			<Setter Property="Background" Value="rgba(255, 255, 255, 0.1)" />
+			<Setter Property="Foreground" Value="White" />
+		</Style>
+
+		<Style Selector="TextBlock">
+			<Setter Property="Foreground" Value="White" />
+		</Style>
+
+		<Style Selector="Border.card">
+			<Setter Property="Background" Value="rgba(255, 255, 255, 0.05)" />
+			<Setter Property="CornerRadius" Value="10" />
+			<Setter Property="Padding" Value="20" />
+			<Setter Property="Margin" Value="0 0 20 20" />
+			<Setter Property="HorizontalAlignment" Value="Stretch" />
+		</Style>
+	</UserControl.Styles>
+	<Grid>
+		<Grid.ColumnDefinitions>
+			<ColumnDefinition Width="200" />
+			<ColumnDefinition Width="*" />
+		</Grid.ColumnDefinitions>
+
+		<!-- Sidebar -->
+		<StackPanel Grid.Column="0">
+
+			<TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold"
+					   Text="Albion Data Client" Padding="0 15 10 15" />
+			<Button Content="Main" Margin="10" HorizontalAlignment="Stretch" Command="{Binding ShowDashboardCommand}" />
+			<Button Content="Settings" Margin="10" HorizontalAlignment="Stretch" Command="{Binding ShowSettingsCommand}" />
+
 		</StackPanel>
-	</Panel>
+
+		<!-- Main Content -->
+		<ScrollViewer Grid.Column="1" Margin="20">
+			<ContentControl Content="{Binding CurrentView}">
+
+			</ContentControl>
+		</ScrollViewer>
+
+	</Grid>
 </UserControl>

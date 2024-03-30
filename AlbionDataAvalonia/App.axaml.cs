@@ -37,6 +37,7 @@ public partial class App : Application
         var vm = services.GetRequiredService<MainViewModel>();
 
         this.DataContext = vm;
+
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
