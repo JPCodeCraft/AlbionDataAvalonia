@@ -2,6 +2,7 @@
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.State;
 using AlbionDataAvalonia.State.Events;
+using AlbionDataAvalonia.Views;
 using Avalonia;
 using Avalonia.Controls.ApplicationLifetimes;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -18,10 +19,13 @@ public partial class MainViewModel : ViewModelBase
     private AlbionData.Models.Location location;
 
     [ObservableProperty]
-    private string playerName;
+    private string playerName = "Not set";
 
     [ObservableProperty]
     private AlbionServer? albionServer;
+
+    [ObservableProperty]
+    private object currentView;
 
     public MainViewModel()
     {
@@ -31,6 +35,8 @@ public partial class MainViewModel : ViewModelBase
     {
         _playerState = playerState;
         networkListener.Run();
+
+        currentView = new DashboardView();
 
         _playerState.OnPlayerStateChanged += UpdateState;
     }
@@ -46,7 +52,7 @@ public partial class MainViewModel : ViewModelBase
     private void Exit()
     {
         Log.Verbose("Exiting application");
-        if (Application.Current.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.Shutdown();
         };
@@ -55,9 +61,24 @@ public partial class MainViewModel : ViewModelBase
     private void ShowMainWindow()
     {
         Log.Verbose("Showing MainWindow");
-        if (Application.Current.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.MainWindow.IsVisible = true;
+            if (desktop.MainWindow != null)
+            {
+                desktop.MainWindow.IsVisible = true;
+            }
         }
+    }
+
+    [RelayCommand]
+    private void ShowDashboard()
+    {
+        CurrentView = new DashboardView();
+    }
+
+    [RelayCommand]
+    private void ShowSettings()
+    {
+        CurrentView = new SettingsView();
     }
 }

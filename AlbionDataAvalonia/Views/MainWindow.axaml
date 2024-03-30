@@ -8,7 +8,17 @@
         x:Class="AlbionDataAvalonia.Views.MainWindow"
         Icon="/Assets/afm-logo.ico"
         Title="Albion Data Client"
-		ExtendClientAreaToDecorationsHint="False">
-	<views:MainView />
+		ExtendClientAreaToDecorationsHint="True"
+		ExtendClientAreaTitleBarHeightHint="30">
 	
+	<Window.Styles>
+		<Style Selector="Window">
+			<Setter Property="Background" Value="rgba(50, 50, 50, 1)" />
+		</Style>
+	</Window.Styles>
+	
+	<Grid Margin="0 30 0 0" Background="rgba(0,0,0,0.05)">
+		<views:MainView />
+	</Grid>
+
 </Window>
