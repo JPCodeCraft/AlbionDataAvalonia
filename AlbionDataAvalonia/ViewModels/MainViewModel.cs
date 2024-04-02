@@ -1,4 +1,5 @@
-﻿using AlbionDataAvalonia.Network.Models;
+﻿using AlbionData.Models;
+using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
@@ -10,6 +11,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Serilog;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
@@ -32,7 +34,25 @@ public partial class MainViewModel : ViewModelBase
     private AlbionServer? albionServer;
 
     [ObservableProperty]
+    private bool isInGame;
+
+    [ObservableProperty]
+    private bool isNotInGame;
+
+    [ObservableProperty]
     private object currentView;
+
+    [ObservableProperty]
+    private int uploadQueueSize;
+
+    [ObservableProperty]
+    private int uploadedMarketOffersCount;
+    [ObservableProperty]
+    private int uploadedMarketRequestsCount;
+    [ObservableProperty]
+    private Dictionary<Timescale, int> uploadedHistoriesCountDic;
+    [ObservableProperty]
+    private int uploadedGoldHistoriesCount;
 
     public MainViewModel()
     {
@@ -45,7 +65,19 @@ public partial class MainViewModel : ViewModelBase
         _settingsManager = settingsManager;
         _settingsViewModel = settingsViewModel;
 
+        Location = _playerState.Location;
+        PlayerName = _playerState.PlayerName;
+        AlbionServer = _playerState.AlbionServer;
+        IsNotInGame = !IsInGame;
+        UploadQueueSize = _playerState.UploadQueueSize;
+
+        UploadedHistoriesCountDic = _playerState.UploadedHistoriesCountDic;
+
         _playerState.OnPlayerStateChanged += UpdateState;
+        _playerState.OnUploadedMarketRequestsCountChanged += count => UploadedMarketRequestsCount = count;
+        _playerState.OnUploadedMarketOffersCountChanged += count => UploadedMarketOffersCount = count;
+        _playerState.OnUploadedHistoriesCountDicChanged += dic => UploadedHistoriesCountDic = dic;
+        _playerState.OnUploadedGoldHistoriesCountChanged += count => UploadedGoldHistoriesCount = count;
 
         if (NpCapInstallationChecker.IsNpCapInstalled())
         {
@@ -62,6 +94,9 @@ public partial class MainViewModel : ViewModelBase
         Location = e.Location;
         PlayerName = e.Name;
         AlbionServer = e.AlbionServer;
+        IsInGame = e.IsInGame;
+        IsNotInGame = !e.IsInGame;
+        UploadQueueSize = e.UploadQueueSize;
     }
 
     [RelayCommand]

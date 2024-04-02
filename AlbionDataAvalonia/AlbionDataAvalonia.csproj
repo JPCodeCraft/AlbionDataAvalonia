@@ -35,11 +35,11 @@
   </ItemGroup>
 
   <ItemGroup>
-    <Compile Update="Views\PCapView.axaml.cs">
-      <DependentUpon>PCapView.axaml</DependentUpon>
-    </Compile>
     <Compile Update="Views\DashboardView.axaml.cs">
       <DependentUpon>DashboardView.axaml</DependentUpon>
+    </Compile>
+    <Compile Update="Views\PCapView.axaml.cs">
+      <DependentUpon>PCapView.axaml</DependentUpon>
     </Compile>
   </ItemGroup>
 

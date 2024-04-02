@@ -35,6 +35,8 @@ namespace AlbionDataAvalonia.Network.Services
             ReceiverBuilder builder = ReceiverBuilder.Create();
 
             //ADD HANDLERS HERE
+            //EVENTS
+            //builder.AddEventHandler(new LeaveEventHandler(_playerState));
             //RESPONSE
             builder.AddResponseHandler(new AuctionGetOffersResponseHandler(_uploader, _playerState));
             builder.AddResponseHandler(new AuctionGetRequestsResponseHandler(_uploader, _playerState));
@@ -68,7 +70,9 @@ namespace AlbionDataAvalonia.Network.Services
                         Mode = DeviceModes.MaxResponsiveness,
                         ReadTimeout = 5000
                     });
-                    device.Filter = "(host 5.45.187 or host 5.188.125) and udp port 5056";
+                    var ips = AlbionServers.GetAllServers().Select(s => $"host {s.IpBase}");
+                    var filter = $"({string.Join(" or ", ips)}) and udp port 5056";
+                    device.Filter = filter;
                     device.StartCapture();
                 })
                 .Start();
@@ -87,6 +91,8 @@ namespace AlbionDataAvalonia.Network.Services
             }
             try
             {
+                _playerState.LastPacketTime = DateTime.UtcNow;
+
                 UdpPacket packet = Packet.ParsePacket(e.GetPacket().LinkLayerType, e.GetPacket().Data).Extract<UdpPacket>();
                 if (packet != null)
                 {
