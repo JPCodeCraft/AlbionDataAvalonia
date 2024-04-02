@@ -1,5 +1,6 @@
 ﻿using AlbionDataAvalonia.Network.Pow;
 using AlbionDataAvalonia.Network.Services;
+using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
 using AlbionDataAvalonia.ViewModels;
 using AlbionDataAvalonia.Views;
@@ -35,17 +36,24 @@ public partial class App : Application
 
 
         var vm = services.GetRequiredService<MainViewModel>();
+        var settings = services.GetRequiredService<SettingsManager>();
+        var listener = services.GetRequiredService<NetworkListenerService>();
+
+        listener.Run();
 
         this.DataContext = vm;
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
-            desktop.MainWindow = new MainWindow
+
+            if (!settings.UserSettings.StartHidden)
             {
-                DataContext = vm
-            };
+                desktop.MainWindow = new MainWindow(settings);
+                desktop.MainWindow.DataContext = vm;
+            }
         }
+
         else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
         {
             singleViewPlatform.MainView = new MainView
@@ -55,6 +63,7 @@ public partial class App : Application
         }
 
         base.OnFrameworkInitializationCompleted();
+
     }
 }
 public static class ServiceCollectionExtensions
@@ -64,10 +73,13 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<NetworkListenerService>();
         collection.AddSingleton<PlayerState>();
         collection.AddSingleton<ConnectionService>();
+        collection.AddSingleton<SettingsManager>();
+
 
         collection.AddTransient<PowSolver>();
         collection.AddTransient<Uploader>();
 
         collection.AddTransient<MainViewModel>();
+        collection.AddTransient<SettingsViewModel>();
     }
 }

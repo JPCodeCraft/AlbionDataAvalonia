@@ -14,6 +14,7 @@
   
   <ItemGroup>
     <None Remove="Assets\afm-logo.ico" />
+    <None Remove="Assets\albiondata-client.ico" />
   </ItemGroup>
 
   <ItemGroup>
@@ -30,11 +31,30 @@
     <PackageReference Include="Serilog" Version="3.1.1" />
     <PackageReference Include="Serilog.Sinks.Console" Version="5.0.1" />
     <PackageReference Include="SharpPcap" Version="6.3.0" />
+    <PackageReference Include="System.ServiceProcess.ServiceController" Version="8.0.0" />
   </ItemGroup>
 
   <ItemGroup>
+    <Compile Update="Views\PCapView.axaml.cs">
+      <DependentUpon>PCapView.axaml</DependentUpon>
+    </Compile>
     <Compile Update="Views\DashboardView.axaml.cs">
       <DependentUpon>DashboardView.axaml</DependentUpon>
     </Compile>
+  </ItemGroup>
+
+  <ItemGroup>
+    <None Update="WinPCap\WinPCap-1.79.exe">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="WinPCap\WinPcap_4_1_3.exe">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="WinPCap\WinPCap_4_1_3.exe">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
+    <None Update="UserSettings.json">
+      <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+    </None>
   </ItemGroup>
 </Project>

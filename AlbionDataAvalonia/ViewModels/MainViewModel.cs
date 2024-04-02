@@ -1,5 +1,6 @@
 ﻿using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Services;
+using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
 using AlbionDataAvalonia.State.Events;
 using AlbionDataAvalonia.Views;
@@ -14,6 +15,9 @@ namespace AlbionDataAvalonia.ViewModels;
 public partial class MainViewModel : ViewModelBase
 {
     private readonly PlayerState _playerState;
+    private readonly NetworkListenerService _networkListener;
+    private readonly SettingsManager _settingsManager;
+    private readonly SettingsViewModel _settingsViewModel;
 
     [ObservableProperty]
     private AlbionData.Models.Location location;
@@ -27,18 +31,32 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private object currentView;
 
+    [ObservableProperty]
+    private bool pcapIsInstalled = false;
+
     public MainViewModel()
     {
     }
 
-    public MainViewModel(NetworkListenerService networkListener, PlayerState playerState)
+    public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, SettingsManager settingsManager, SettingsViewModel settingsViewModel)
     {
         _playerState = playerState;
-        networkListener.Run();
-
-        currentView = new DashboardView();
+        _networkListener = networkListener;
+        _settingsManager = settingsManager;
+        _settingsViewModel = settingsViewModel;
 
         _playerState.OnPlayerStateChanged += UpdateState;
+
+        pcapIsInstalled = WinPCapInstallationChecker.IsWinPCapInstalled();
+
+        if (pcapIsInstalled)
+        {
+            CurrentView = new DashboardView();
+        }
+        else
+        {
+            CurrentView = new PCapView();
+        }
     }
 
     private void UpdateState(object? sender, PlayerStateEventArgs e)
@@ -66,6 +84,14 @@ public partial class MainViewModel : ViewModelBase
             if (desktop.MainWindow != null)
             {
                 desktop.MainWindow.IsVisible = true;
+                desktop.MainWindow.Activate();
+            }
+            else
+            {
+                desktop.MainWindow = new MainWindow(_settingsManager);
+                desktop.MainWindow.DataContext = this;
+                desktop.MainWindow.Show();
+                desktop.MainWindow.Activate();
             }
         }
     }
@@ -73,12 +99,33 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private void ShowDashboard()
     {
-        CurrentView = new DashboardView();
+        if (PcapIsInstalled)
+        {
+            CurrentView = new DashboardView();
+        }
+        else
+        {
+            CurrentView = new PCapView();
+        }
     }
 
     [RelayCommand]
     private void ShowSettings()
     {
-        CurrentView = new SettingsView();
+        CurrentView = new SettingsView(_settingsViewModel);
+    }
+
+    [RelayCommand]
+    private void InstallWinPCap()
+    {
+        if (WinPCapInstallationChecker.InstallWinPCap())
+        {
+            if (WinPCapInstallationChecker.IsWinPCapInstalled())
+            {
+                PcapIsInstalled = true;
+                CurrentView = new DashboardView();
+                _networkListener.Run();
+            }
+        }
     }
 }

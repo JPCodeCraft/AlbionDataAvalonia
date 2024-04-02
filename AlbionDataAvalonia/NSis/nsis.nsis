@@ -1,0 +1,40 @@
+Outfile "AOData.exe"
+InstallDir $PROGRAMFILES\AODataClient
+
+; Set the installer and uninstaller icons
+Icon "C:\Users\augus\source\repos\augusto501\AlbionDataAvalonia\AlbionDataAvalonia\Assets\albiondata-client.ico"
+UninstallIcon "C:\Users\augus\source\repos\augusto501\AlbionDataAvalonia\AlbionDataAvalonia\Assets\albiondata-client.ico"
+
+Section "Albion Online Data Client"
+SetOutPath $INSTDIR
+File /r "C:\Users\augus\source\repos\augusto501\AlbionDataAvalonia\AlbionDataAvalonia.Desktop\bin\Debug\net7.0\*.*"
+File "C:\Users\augus\source\repos\augusto501\AlbionDataAvalonia\AlbionDataAvalonia.Desktop\bin\Debug\net7.0\WinPCap\WinPCap_4_1_3.exe"
+WriteUninstaller "$INSTDIR\Uninstall.exe"
+
+; Add to Add/Remove Programs list
+WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Albion Online Data Client" "DisplayName" "Albion Online Data Client"
+WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Albion Online Data Client" "UninstallString" "$\"$INSTDIR\Uninstall.exe$\""
+WriteRegStr HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Albion Online Data Client" "Publisher" "AO-Data"
+
+; Create Start Menu shortcut
+CreateDirectory $SMPROGRAMS\AlbionOnlineDataClient
+CreateShortCut "$SMPROGRAMS\AlbionOnlineDataClient\Albion Online Data Client.lnk" "$INSTDIR\AlbionDataAvalonia.Desktop.exe" "" "$INSTDIR\albiondata-client.ico"
+SectionEnd
+
+Section "WinPCap"
+ExecWait '"$INSTDIR\WinPCap_4_1_3.exe" /S' ; The /S argument makes the installer run silently
+SectionEnd
+
+Section "StartupShortcut"
+WriteRegStr HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Albion Online Data Client" '"$INSTDIR\AlbionDataAvalonia.Desktop.exe" /startup'
+SectionEnd
+
+Section "Uninstall"
+Delete "$INSTDIR\AlbionDataAvalonia.Desktop.exe"
+Delete "$INSTDIR\WinPCap_4_1_3.exe"
+DeleteRegValue HKCU "Software\Microsoft\Windows\CurrentVersion\Run" "Albion Online Data Client"
+DeleteRegKey HKLM "Software\Microsoft\Windows\CurrentVersion\Uninstall\Albion Online Data Client"
+Delete "$SMPROGRAMS\AlbionOnlineDataClient\Albion Online Data Client.lnk"
+RMDir "$SMPROGRAMS\AlbionOnlineDataClient"
+RMDir /r $INSTDIR
+SectionEnd

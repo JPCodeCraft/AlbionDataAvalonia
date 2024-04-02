@@ -1,12 +1,16 @@
-﻿using Avalonia.Controls;
+﻿using AlbionDataAvalonia.Settings;
+using Avalonia.Controls;
 using System.ComponentModel;
 
 namespace AlbionDataAvalonia.Views;
 
 public partial class MainWindow : Window
 {
-    public MainWindow()
+    private readonly SettingsManager _settingsManager;
+    public MainWindow(SettingsManager settingsManager)
     {
+        _settingsManager = settingsManager;
+
         InitializeComponent();
         Closing += OnClosing;
     }
