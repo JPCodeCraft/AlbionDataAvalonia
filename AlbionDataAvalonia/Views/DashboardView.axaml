@@ -12,8 +12,8 @@
 		<!-- Card 1 -->
 		<Border Classes="card">
 			<StackPanel>
-				<TextBlock Text="You need to install WinPCap for the client to work." />
-				<Button Content="Click Here To Install" Command="{Binding InstallWinPCapCommand}" />
+				<TextBlock Text="You need to install NpCap for the client to work." />
+				<Button Content="Click Here To Install" Command="{Binding InstallNpCapCommand}" />
 			</StackPanel>
 		</Border>
 

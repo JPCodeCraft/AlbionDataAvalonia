@@ -10,7 +10,7 @@
 	<Identity
 	  Name="b11db679-2205-4c0c-8b1b-457c15e04f17"
 	  Publisher="CN=JPCodeCraft"
-	  Version="0.1.11.0" />
+	  Version="0.1.13.0" />
 
 	<Properties>
 		<DisplayName>Albion Online Data Client</DisplayName>

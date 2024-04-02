@@ -47,13 +47,13 @@
     <None Update="AppSettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="WinPCap\WinPCap-1.79.exe">
+    <None Update="NpCap\NpCap-1.79.exe">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="WinPCap\WinPcap_4_1_3.exe">
+    <None Update="NpCap\WinPcap_4_1_3.exe">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="WinPCap\WinPCap_4_1_3.exe">
+    <None Update="NpCap\NpCap_4_1_3.exe">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="UserSettings.json">
