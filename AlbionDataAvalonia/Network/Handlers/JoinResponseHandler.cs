@@ -15,6 +15,7 @@ public class JoinResponseHandler : ResponsePacketHandler<JoinResponse>
 
     protected override async Task OnActionAsync(JoinResponse value)
     {
+        playerState.UserObjectId = value.userObjectId;
         playerState.PlayerName = value.playerName;
         playerState.Location = value.playerLocation;
         await Task.CompletedTask;

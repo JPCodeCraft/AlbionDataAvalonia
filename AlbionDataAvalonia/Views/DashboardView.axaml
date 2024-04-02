@@ -4,32 +4,42 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="AlbionDataAvalonia.Views.PCapView">
+             x:Class="AlbionDataAvalonia.Views.DashboardView">
 
 	<StackPanel x:DataType="vm:MainViewModel">
-		<TextBlock Text="PCap Installation" FontWeight="Bold" Margin="0 0 0 20" />
+		<TextBlock Text="Dashboard" FontWeight="Bold" Margin="0 0 0 20" />
 
 		<!-- Card 1 -->
-		<Border Classes="card">
+		<Border Classes="card" IsVisible="{Binding IsInGame}">
 			<StackPanel>
-				<TextBlock Text="You need to install NpCap for the client to work." />
-				<Button Content="Click Here To Install" Command="{Binding InstallNpCapCommand}" />
+				<TextBlock Text="{Binding PlayerName}" />
+				<TextBlock Text="{Binding Location}" />
+				<TextBlock Text="{Binding AlbionServer.Name}" />
+			</StackPanel>
+		</Border>
+		<!-- Card for UploadQueueSize -->
+		<Border Classes="card" IsVisible="{Binding IsInGame}">
+			<TextBlock Text="{Binding UploadQueueSize}" />
+		</Border>
+
+		<!-- Card for UploadedMarketOffersCount and UploadedMarketRequestsCount -->
+		<Border Classes="card" IsVisible="{Binding IsInGame}">
+			<StackPanel>
+				<TextBlock Text="{Binding UploadedMarketOffersCount}" />
+				<TextBlock Text="{Binding UploadedMarketRequestsCount}" />
 			</StackPanel>
 		</Border>
 
-		<!-- Card 2 -->
-		<Border Classes="card">
-			<StackPanel>
-				<TextBlock Text="Card 2" FontSize="18" FontWeight="Bold" />
-				<TextBlock Text="This is the content of card 2." TextWrapping="Wrap" Margin="0 10 0 0" />
-			</StackPanel>
-		</Border>
+		<!--Card for UploadedHistoriesCountDic-->
 
-		<!-- Card 3 -->
-		<Border Classes="card">
+
+		<!-- Card for UploadedGoldHistoriesCount -->
+		<Border Classes="card" IsVisible="{Binding IsInGame}">
+			<TextBlock Text="{Binding UploadedGoldHistoriesCount}" />
+		</Border>
+		<Border Classes="card" IsVisible="{Binding IsNotInGame}">
 			<StackPanel>
-				<TextBlock Text="Card 3" FontSize="18" FontWeight="Bold" />
-				<TextBlock Text="This is the content of card 3." TextWrapping="Wrap" Margin="0 10 0 0" />
+				<TextBlock Text="You're good to go, just start the game" />
 			</StackPanel>
 		</Border>
 	</StackPanel>

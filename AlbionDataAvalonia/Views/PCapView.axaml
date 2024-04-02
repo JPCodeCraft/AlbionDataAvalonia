@@ -4,34 +4,17 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="AlbionDataAvalonia.Views.DashboardView">
-		
-  			<StackPanel x:DataType="vm:MainViewModel">
-				<TextBlock Text="Dashboard" FontWeight="Bold" Margin="0 0 0 20" />
+             x:Class="AlbionDataAvalonia.Views.PCapView">
 
-					<!-- Card 1 -->
-					<Border Classes="card">
-						<StackPanel>
-							<TextBlock Text="{Binding PlayerName}" />
-							<TextBlock Text="{Binding Location}" />
-							<TextBlock Text="{Binding AlbionServer.Name}" />
-						</StackPanel>
-					</Border>
+	<StackPanel x:DataType="vm:MainViewModel">
+		<TextBlock Text="PCap Installation" FontWeight="Bold" Margin="0 0 0 20" />
 
-					<!-- Card 2 -->
-					<Border Classes="card">
-						<StackPanel>
-							<TextBlock Text="Card 2" FontSize="18" FontWeight="Bold" />
-							<TextBlock Text="This is the content of card 2." TextWrapping="Wrap" Margin="0 10 0 0" />
-						</StackPanel>
-					</Border>
-
-					<!-- Card 3 -->
-					<Border Classes="card">
-						<StackPanel>
-							<TextBlock Text="Card 3" FontSize="18" FontWeight="Bold" />
-							<TextBlock Text="This is the content of card 3." TextWrapping="Wrap" Margin="0 10 0 0" />
-						</StackPanel>
-					</Border>
+		<!-- Card 1 -->
+		<Border Classes="card">
+			<StackPanel>
+				<TextBlock Text="You need to install NpCap for the client to work." />
+				<Button Content="Click Here To Install" Command="{Binding InstallNpCapCommand}" />
 			</StackPanel>
+		</Border>
+	</StackPanel>
 </UserControl>
