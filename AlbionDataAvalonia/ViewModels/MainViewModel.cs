@@ -9,6 +9,9 @@ using Avalonia.Controls.ApplicationLifetimes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Serilog;
+using System;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 namespace AlbionDataAvalonia.ViewModels;
 
@@ -31,9 +34,6 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private object currentView;
 
-    [ObservableProperty]
-    private bool pcapIsInstalled = false;
-
     public MainViewModel()
     {
     }
@@ -47,9 +47,7 @@ public partial class MainViewModel : ViewModelBase
 
         _playerState.OnPlayerStateChanged += UpdateState;
 
-        pcapIsInstalled = WinPCapInstallationChecker.IsWinPCapInstalled();
-
-        if (pcapIsInstalled)
+        if (NpCapInstallationChecker.IsNpCapInstalled())
         {
             CurrentView = new DashboardView();
         }
@@ -99,7 +97,7 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private void ShowDashboard()
     {
-        if (PcapIsInstalled)
+        if (NpCapInstallationChecker.IsNpCapInstalled())
         {
             CurrentView = new DashboardView();
         }
@@ -116,16 +114,31 @@ public partial class MainViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void InstallWinPCap()
+    private void InstallNpCap()
     {
-        if (WinPCapInstallationChecker.InstallWinPCap())
+        try
         {
-            if (WinPCapInstallationChecker.IsWinPCapInstalled())
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                PcapIsInstalled = true;
-                CurrentView = new DashboardView();
-                _networkListener.Run();
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = _settingsManager.AppSettings.NPCapDownloadUrl,
+                    UseShellExecute = true
+                });
             }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "/bin/bash",
+                    Arguments = "-c \"sudo apt-get install libpcap-dev\"",
+                    UseShellExecute = false
+                });
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"An error occurred while trying to install NpCap: {ex.Message}");
         }
     }
 }

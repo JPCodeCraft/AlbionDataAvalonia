@@ -26,9 +26,9 @@ namespace AlbionDataAvalonia.Network.Services
 
         public void Run()
         {
-            if (WinPCapInstallationChecker.IsWinPCapInstalled() == false)
+            if (NpCapInstallationChecker.IsNpCapInstalled() == false)
             {
-                Log.Error("WinPCap is not installed, please install it to use this application");
+                Log.Error("NpCap is not installed, please install it to use this application");
                 return;
             }
 
