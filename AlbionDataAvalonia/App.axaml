@@ -11,7 +11,7 @@
 
 	<TrayIcon.Icons>
 		<TrayIcons>
-			<TrayIcon Icon="/Assets/afm-logo.ico"
+			<TrayIcon Icon="/Assets/albiondata-client.ico"
                       ToolTipText="Albion Data Client">
 				<TrayIcon.Menu>
 					<NativeMenu x:DataType="vm:MainViewModel">

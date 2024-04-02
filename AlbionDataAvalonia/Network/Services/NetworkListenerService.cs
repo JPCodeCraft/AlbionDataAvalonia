@@ -26,6 +26,12 @@ namespace AlbionDataAvalonia.Network.Services
 
         public void Run()
         {
+            if (WinPCapInstallationChecker.IsWinPCapInstalled() == false)
+            {
+                Log.Error("WinPCap is not installed, please install it to use this application");
+                return;
+            }
+
             ReceiverBuilder builder = ReceiverBuilder.Create();
 
             //ADD HANDLERS HERE
