@@ -8,7 +8,9 @@ namespace AlbionDataAvalonia.Settings;
 public class SettingsManager
 {
     private string userSettingsFilePath = Path.Combine(Directory.GetCurrentDirectory(), "UserSettings.json");
+    private string appSettingsDownloadUrl = "";
     public UserSettings UserSettings { get; private set; } = new UserSettings();
+    public AppSettings AppSettings { get; private set; } = new AppSettings();
 
     public SettingsManager()
     {
