@@ -34,7 +34,7 @@ public class UserSettings : INotifyPropertyChanged
         }
     }
 
-    protected virtual void OnPropertyChanged(string propertyName = null)
+    protected virtual void OnPropertyChanged(string propertyName)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
     }
