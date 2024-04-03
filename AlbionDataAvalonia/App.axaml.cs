@@ -34,7 +34,6 @@ public partial class App : Application
         // Creates a ServiceProvider containing services from the provided IServiceCollection
         var services = collection.BuildServiceProvider();
 
-
         var vm = services.GetRequiredService<MainViewModel>();
         var settings = services.GetRequiredService<SettingsManager>();
         var listener = services.GetRequiredService<NetworkListenerService>();
@@ -52,6 +51,8 @@ public partial class App : Application
             {
                 desktop.MainWindow = new MainWindow(settings);
                 desktop.MainWindow.DataContext = vm;
+                desktop.MainWindow.Show();
+                desktop.MainWindow.Activate();
             }
         }
 
