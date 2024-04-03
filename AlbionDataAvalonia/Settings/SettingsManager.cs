@@ -11,17 +11,15 @@ public class SettingsManager
 {
     private string userSettingsFilePath = Path.Combine(Directory.GetCurrentDirectory(), "UserSettings.json");
     private string appSettingsDownloadUrl = "https://raw.githubusercontent.com/JPCodeCraft/AlbionDataAvalonia/master/AlbionDataAvalonia/AppSettings.json";
-    public UserSettings UserSettings { get; private set; } = new UserSettings();
-    public AppSettings AppSettings { get; private set; } = new AppSettings();
-
+    public UserSettings UserSettings { get; private set; }
+    public AppSettings AppSettings { get; private set; }
     public SettingsManager()
     {
-        Initialize();
+        LoadUserSettings();
     }
 
-    public async void Initialize()
+    public async Task Initialize()
     {
-        LoadUserSettings();
         await LoadAppSettingsAsync();
     }
 
@@ -46,7 +44,7 @@ public class SettingsManager
         SaveSettings();
     }
 
-    public async Task LoadAppSettingsAsync()
+    private async Task LoadAppSettingsAsync()
     {
         try
         {
@@ -65,7 +63,7 @@ public class SettingsManager
         }
     }
 
-    public void SaveSettings()
+    private void SaveSettings()
     {
         try
         {
@@ -77,6 +75,4 @@ public class SettingsManager
             Log.Error($"Error in SaveSettings: {ex}");
         }
     }
-
-
 }
