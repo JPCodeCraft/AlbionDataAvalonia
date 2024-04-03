@@ -27,10 +27,6 @@ public class Uploader : IDisposable
     private ConnectionService _connectionService;
     private SettingsManager _settingsManager;
 
-    private readonly string marketOrdersIngestSubject = "marketorders.ingest";
-    private readonly string marketHistoriesIngestSubject = "markethistories.ingest";
-    private readonly string goldDataIngestSubject = "goldprices.ingest";
-
     public event EventHandler<MarketUploadEventArgs> OnMarketUpload;
     public event EventHandler<GoldPriceUploadEventArgs> OnGoldPriceUpload;
     public event EventHandler<MarketHistoriesUploadEventArgs> OnMarketHistoryUpload;
@@ -56,7 +52,7 @@ public class Uploader : IDisposable
         var offers = marketUpload.Orders.Where(x => x.AuctionType == "offer").Count();
         var requests = marketUpload.Orders.Where(x => x.AuctionType == "request").Count();
         var data = SerializeData(marketUpload);
-        if (await UploadData(data, _playerState.AlbionServer, marketOrdersIngestSubject))
+        if (await UploadData(data, _playerState.AlbionServer, _settingsManager.AppSettings.MarketOrdersIngestSubject ?? ""))
         {
             OnMarketUpload?.Invoke(this, new MarketUploadEventArgs(marketUpload, _playerState.AlbionServer));
         }
@@ -73,7 +69,7 @@ public class Uploader : IDisposable
         var amount = goldHistoryUpload.Prices.Length;
         var data = SerializeData(goldHistoryUpload);
 
-        if (await UploadData(data, _playerState.AlbionServer, goldDataIngestSubject))
+        if (await UploadData(data, _playerState.AlbionServer, _settingsManager.AppSettings.GoldDataIngestSubject ?? ""))
         {
             OnGoldPriceUpload?.Invoke(this, new GoldPriceUploadEventArgs(goldHistoryUpload, _playerState.AlbionServer));
         }
@@ -91,7 +87,7 @@ public class Uploader : IDisposable
         var timescale = marketHistoriesUpload.Timescale;
         var data = SerializeData(marketHistoriesUpload);
 
-        if (await UploadData(data, _playerState.AlbionServer, marketHistoriesIngestSubject))
+        if (await UploadData(data, _playerState.AlbionServer, _settingsManager.AppSettings.MarketHistoriesIngestSubject ?? ""))
         {
             OnMarketHistoryUpload?.Invoke(this, new MarketHistoriesUploadEventArgs(marketHistoriesUpload, _playerState.AlbionServer));
         }
