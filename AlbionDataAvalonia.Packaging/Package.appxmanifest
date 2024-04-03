@@ -8,13 +8,13 @@
   IgnorableNamespaces="uap rescap uap5">
 
 	<Identity
-	  Name="b11db679-2205-4c0c-8b1b-457c15e04f17"
-	  Publisher="CN=JPCodeCraft"
-	  Version="0.1.13.0" />
+	  Name="23924JPCodeCraft.2500993883806"
+	  Publisher="CN=475C3F25-EB6A-4E18-BE18-E6FC75362747"
+	  Version="0.1.16.0" />
 
 	<Properties>
-		<DisplayName>Albion Online Data Client</DisplayName>
-		<PublisherDisplayName>AO-DATA</PublisherDisplayName>
+		<DisplayName>Albion Free Market Data Client</DisplayName>
+		<PublisherDisplayName>JP CodeCraft</PublisherDisplayName>
 		<Logo>Images\StoreLogo.png</Logo>
 	</Properties>
 
@@ -32,7 +32,7 @@
 		  Executable="$targetnametoken$.exe"
 		  EntryPoint="$targetentrypoint$">
 			<uap:VisualElements
-			  DisplayName="Albion Online Data Client"
+			  DisplayName="Albion Free Market Data Client"
 			  Description="Albion Online Data Project Client"
 			  BackgroundColor="transparent"
 			  Square150x150Logo="Images\Square150x150Logo.png"

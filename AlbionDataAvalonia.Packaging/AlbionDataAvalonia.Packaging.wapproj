@@ -64,6 +64,7 @@
     <HoursBetweenUpdateChecks>0</HoursBetweenUpdateChecks>
     <EntryPointProjectUniqueName>..\AlbionDataAvalonia.Desktop\AlbionDataAvalonia.Desktop.csproj</EntryPointProjectUniqueName>
     <PackageCertificateKeyFile>AlbionDataAvalonia.Packaging_TemporaryKey.pfx</PackageCertificateKeyFile>
+    <GenerateTemporaryStoreCertificate>True</GenerateTemporaryStoreCertificate>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x86'">
     <AppxBundle>Always</AppxBundle>
@@ -102,6 +103,7 @@
   </ItemGroup>
   <ItemGroup>
     <Content Include="Images\Wide310x150Logo.scale-400.png" />
+    <None Include="Package.StoreAssociation.xml" />
     <None Include="AlbionDataAvalonia.Packaging_TemporaryKey.pfx" />
     <Content Include="Images\LargeTile.scale-100.png" />
     <Content Include="Images\LargeTile.scale-125.png" />
