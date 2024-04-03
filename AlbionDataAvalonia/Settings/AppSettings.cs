@@ -8,4 +8,7 @@ public class AppSettings
     public string? NPCapDownloadUrl { get; set; }
     public string? PacketFilterPortText { get; set; }
     public List<AlbionServer> AlbionServers { get; set; } = new List<AlbionServer>();
+    public string? MarketOrdersIngestSubject { get; set; }
+    public string? MarketHistoriesIngestSubject { get; set; }
+    public string? GoldDataIngestSubject { get; set; }
 }
