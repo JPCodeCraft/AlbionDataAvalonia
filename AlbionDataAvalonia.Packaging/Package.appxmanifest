@@ -10,7 +10,7 @@
 	<Identity
 	  Name="23924JPCodeCraft.2500993883806"
 	  Publisher="CN=475C3F25-EB6A-4E18-BE18-E6FC75362747"
-	  Version="0.1.16.0" />
+	  Version="0.1.22.0" />
 
 	<Properties>
 		<DisplayName>Albion Free Market Data Client</DisplayName>
@@ -39,6 +39,7 @@
 			  Square44x44Logo="Images\Square44x44Logo.png">
 				<uap:DefaultTile Wide310x150Logo="Images\Wide310x150Logo.png"  Square71x71Logo="Images\SmallTile.png" Square310x310Logo="Images\LargeTile.png"/>
 				<uap:SplashScreen Image="Images\SplashScreen.png" />
+				<uap:LockScreen BadgeLogo="Images\BadgeLogo.png" Notification="badge"/>
 			</uap:VisualElements>
 			<Extensions>
 				<uap5:Extension Category="windows.startupTask">
