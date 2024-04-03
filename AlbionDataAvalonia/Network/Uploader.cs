@@ -2,6 +2,7 @@
 using AlbionDataAvalonia.Network.Events;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Pow;
+using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
 using Serilog;
 using System;
@@ -24,6 +25,7 @@ public class Uploader : IDisposable
     private PlayerState _playerState;
     private PowSolver _powSolver;
     private ConnectionService _connectionService;
+    private SettingsManager _settingsManager;
 
     private readonly string marketOrdersIngestSubject = "marketorders.ingest";
     private readonly string marketHistoriesIngestSubject = "markethistories.ingest";
@@ -32,11 +34,12 @@ public class Uploader : IDisposable
     public event EventHandler<MarketUploadEventArgs> OnMarketUpload;
     public event EventHandler<GoldPriceUploadEventArgs> OnGoldPriceUpload;
     public event EventHandler<MarketHistoriesUploadEventArgs> OnMarketHistoryUpload;
-    public Uploader(PlayerState playerState, PowSolver powSolver, ConnectionService connectionService)
+    public Uploader(PlayerState playerState, PowSolver powSolver, ConnectionService connectionService, SettingsManager settingsManager)
     {
         _playerState = playerState;
         _powSolver = powSolver;
         _connectionService = connectionService;
+        _settingsManager = settingsManager;
 
         OnGoldPriceUpload += _playerState.GoldPriceUploadHandler;
         OnMarketUpload += _playerState.MarketUploadHandler;
@@ -132,7 +135,7 @@ public class Uploader : IDisposable
                 var powRequest = await _powSolver.GetPowRequest(server, _connectionService.httpClient);
                 if (powRequest is not null)
                 {
-                    var solution = await _powSolver.SolvePow(powRequest, _playerState.ThreadLimitPercentage);
+                    var solution = await _powSolver.SolvePow(powRequest, _settingsManager.UserSettings.ThreadLimitPercentage);
                     if (!string.IsNullOrEmpty(solution))
                     {
                         await UploadWithPow(powRequest, solution, data, topic, server, _connectionService.httpClient);

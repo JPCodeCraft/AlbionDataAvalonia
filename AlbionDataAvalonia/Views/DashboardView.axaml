@@ -7,39 +7,88 @@
              x:Class="AlbionDataAvalonia.Views.DashboardView">
 
 	<StackPanel x:DataType="vm:MainViewModel">
-		<TextBlock Text="Dashboard" FontWeight="Bold" Margin="0 0 0 20" />
+		<Label Content="Dashboard" FontWeight="Bold" Margin="0 0 0 20" />
 
-		<!-- Card 1 -->
+
+		<!-- Card for Server info -->
 		<Border Classes="card" IsVisible="{Binding IsInGame}">
 			<StackPanel>
-				<TextBlock Text="{Binding PlayerName}" />
-				<TextBlock Text="{Binding Location}" />
-				<TextBlock Text="{Binding AlbionServer.Name}" />
+				<StackPanel Orientation="Horizontal">
+					<Label Content="Current server: " />
+					<Label Content="{Binding AlbionServer.Name}" />
+				</StackPanel>
+			</StackPanel>
+		</Border>
+
+		<!-- Card for Player info -->
+		<Border Classes="card" IsVisible="{Binding IsInGame}">
+			<StackPanel>
+				<StackPanel Orientation="Horizontal">
+					<Label Content="Player name: " />
+					<Label Content="{Binding PlayerName}" />
+				</StackPanel>
+				<StackPanel Orientation="Horizontal">
+					<Label Content="Current Location: " />
+					<Label Content="{Binding Location}" />
+				</StackPanel>
 			</StackPanel>
 		</Border>
 		<!-- Card for UploadQueueSize -->
 		<Border Classes="card" IsVisible="{Binding IsInGame}">
-			<TextBlock Text="{Binding UploadQueueSize}" />
+			<StackPanel>
+				<Label Classes="title" Content="Upload queue size" />
+				<StackPanel Orientation="Horizontal">
+					<Label Content="{Binding UploadQueueSize}" />
+					<Label Content=" data packets on queue." />
+				</StackPanel>
+			</StackPanel>
 		</Border>
 
 		<!-- Card for UploadedMarketOffersCount and UploadedMarketRequestsCount -->
 		<Border Classes="card" IsVisible="{Binding IsInGame}">
 			<StackPanel>
-				<TextBlock Text="{Binding UploadedMarketOffersCount}" />
-				<TextBlock Text="{Binding UploadedMarketRequestsCount}" />
+				<Label Classes="title" Content="Amount of uploaded prices" />
+				<StackPanel Orientation="Horizontal">
+					<Label Content="Offers: " />
+					<Label Content="{Binding UploadedMarketOffersCount}" />
+				</StackPanel>
+				<StackPanel Orientation="Horizontal">
+					<Label Content="Requests: " />
+					<Label Content="{Binding UploadedMarketRequestsCount}" />
+				</StackPanel>
 			</StackPanel>
 		</Border>
 
 		<!--Card for UploadedHistoriesCountDic-->
-
+		<Border Classes="card" IsVisible="{Binding IsInGame}">
+			<StackPanel>
+				<Label Classes="title" Content="Amount of uploaded histories" />
+				<ItemsControl ItemsSource="{Binding UploadedHistoriesCountCollection}">
+					<ItemsControl.ItemTemplate>
+						<DataTemplate>
+							<StackPanel Orientation="Horizontal">
+								<Label Content="{Binding Key}" />
+								<Label Content=": " />
+								<Label Content="{Binding Value}" />
+							</StackPanel>
+						</DataTemplate>
+					</ItemsControl.ItemTemplate>
+				</ItemsControl>
+			</StackPanel>
+		</Border>
 
 		<!-- Card for UploadedGoldHistoriesCount -->
 		<Border Classes="card" IsVisible="{Binding IsInGame}">
-			<TextBlock Text="{Binding UploadedGoldHistoriesCount}" />
+			<StackPanel>
+				<Label Classes="title" Content="Amount of uploaded gold data" />
+				<Label Content="{Binding UploadedGoldHistoriesCount}" />
+			</StackPanel>
 		</Border>
+
+		<!-- Card for Player not in game -->
 		<Border Classes="card" IsVisible="{Binding IsNotInGame}">
 			<StackPanel>
-				<TextBlock Text="You're good to go, just start the game" />
+				<Label Content="You're good to go, join the game" />
 			</StackPanel>
 		</Border>
 	</StackPanel>

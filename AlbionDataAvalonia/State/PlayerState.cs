@@ -16,7 +16,6 @@ namespace AlbionDataAvalonia.State
         private bool isInGame = false;
         private int uploadQueueSize = 0;
 
-        public float ThreadLimitPercentage => .75f;
         public MarketHistoryInfo[] MarketHistoryIDLookup { get; init; }
         public ulong CacheSize => 8192;
         private Queue<string> SentDataHashs = new Queue<string>();

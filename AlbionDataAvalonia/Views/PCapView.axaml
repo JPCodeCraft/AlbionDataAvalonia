@@ -7,12 +7,12 @@
              x:Class="AlbionDataAvalonia.Views.PCapView">
 
 	<StackPanel x:DataType="vm:MainViewModel">
-		<TextBlock Text="PCap Installation" FontWeight="Bold" Margin="0 0 0 20" />
+		<Label Content="PCap Installation" FontWeight="Bold" Margin="0 0 0 20" />
 
 		<!-- Card 1 -->
 		<Border Classes="card">
 			<StackPanel>
-				<TextBlock Text="You need to install NpCap for the client to work." />
+				<Label Content="You need to install NpCap for the client to work." />
 				<Button Content="Click Here To Install" Command="{Binding InstallNpCapCommand}" />
 			</StackPanel>
 		</Border>

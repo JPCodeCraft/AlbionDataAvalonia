@@ -21,6 +21,12 @@ public class SettingsManager
 
     public async void Initialize()
     {
+        LoadUserSettings();
+        await LoadAppSettingsAsync();
+    }
+
+    private void LoadUserSettings()
+    {
         if (File.Exists(userSettingsFilePath))
         {
             string json = File.ReadAllText(userSettingsFilePath);
@@ -30,10 +36,16 @@ public class SettingsManager
             {
                 UserSettings = settings;
             }
-        }
 
-        await LoadAppSettingsAsync();
+            UserSettings.PropertyChanged += UserSettings_PropertyChanged;
+        }
     }
+
+    private void UserSettings_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
+    {
+        SaveSettings();
+    }
+
     public async Task LoadAppSettingsAsync()
     {
         try

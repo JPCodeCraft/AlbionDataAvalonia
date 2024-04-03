@@ -1,3 +1,4 @@
 {
-  "StartHidden": true
+  "StartHidden": true,
+  "ThreadLimitPercentage": 0.3
 }
