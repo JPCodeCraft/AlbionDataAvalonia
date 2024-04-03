@@ -12,6 +12,7 @@ using CommunityToolkit.Mvvm.Input;
 using Serilog;
 using System;
 using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
@@ -50,7 +51,7 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private int uploadedMarketRequestsCount;
     [ObservableProperty]
-    private Dictionary<Timescale, int> uploadedHistoriesCountDic;
+    private ObservableCollection<KeyValuePair<Timescale, int>> uploadedHistoriesCountCollection = new();
     [ObservableProperty]
     private int uploadedGoldHistoriesCount;
 
@@ -71,12 +72,12 @@ public partial class MainViewModel : ViewModelBase
         IsNotInGame = !IsInGame;
         UploadQueueSize = _playerState.UploadQueueSize;
 
-        UploadedHistoriesCountDic = _playerState.UploadedHistoriesCountDic;
+        UploadedHistoriesCountCollection = new ObservableCollection<KeyValuePair<Timescale, int>>(_playerState.UploadedHistoriesCountDic);
 
         _playerState.OnPlayerStateChanged += UpdateState;
         _playerState.OnUploadedMarketRequestsCountChanged += count => UploadedMarketRequestsCount = count;
         _playerState.OnUploadedMarketOffersCountChanged += count => UploadedMarketOffersCount = count;
-        _playerState.OnUploadedHistoriesCountDicChanged += dic => UploadedHistoriesCountDic = dic;
+        _playerState.OnUploadedHistoriesCountDicChanged += dic => UploadedHistoriesCountCollection = new ObservableCollection<KeyValuePair<Timescale, int>>(dic);
         _playerState.OnUploadedGoldHistoriesCountChanged += count => UploadedGoldHistoriesCount = count;
 
         if (NpCapInstallationChecker.IsNpCapInstalled())

@@ -25,8 +25,14 @@
 			<Setter Property="Foreground" Value="White" />
 		</Style>
 
-		<Style Selector="TextBlock">
+		<Style Selector="Label">
 			<Setter Property="Foreground" Value="White" />
+		</Style>
+		
+		<Style Selector="Label.title">
+			<Setter Property="FontWeight" Value="DemiBold" />
+			<Setter Property="FontSize" Value="14" />
+			<Setter Property="Margin" Value="0, 3, 0, 3"/>
 		</Style>
 
 		<Style Selector="Border.card">
@@ -46,8 +52,8 @@
 		<!-- Sidebar -->
 		<StackPanel Grid.Column="0">
 
-			<TextBlock HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold"
-					   Text="Albion Data Client" Padding="0 15 10 15" />
+			<Label HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold"
+					   Content="Albion Data Client" Padding="0 15 10 15" />
 			<Button Content="Main" Margin="10" HorizontalAlignment="Stretch" Command="{Binding ShowDashboardCommand}" />
 			<Button Content="Settings" Margin="10" HorizontalAlignment="Stretch" Command="{Binding ShowSettingsCommand}" />
 

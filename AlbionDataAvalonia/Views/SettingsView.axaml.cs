@@ -10,5 +10,9 @@ namespace AlbionDataAvalonia.Views
             InitializeComponent();
             this.DataContext = settingsViewModel;
         }
+
+        private void Binding(object? sender, Avalonia.Controls.NumericUpDownValueChangedEventArgs e)
+        {
+        }
     }
 }
