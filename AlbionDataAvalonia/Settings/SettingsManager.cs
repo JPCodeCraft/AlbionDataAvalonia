@@ -9,7 +9,8 @@ namespace AlbionDataAvalonia.Settings;
 
 public class SettingsManager
 {
-    private string userSettingsFilePath = Path.Combine(Directory.GetCurrentDirectory(), "UserSettings.json");
+    string userSettingsDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AFMDataClient");
+    private string deafultUserSettingsFilePath = Path.Combine(AppContext.BaseDirectory, "UserSettings.json");
     private string appSettingsDownloadUrl = "https://raw.githubusercontent.com/JPCodeCraft/AlbionDataAvalonia/master/AlbionDataAvalonia/AppSettings.json";
     public UserSettings UserSettings { get; private set; }
     public AppSettings AppSettings { get; private set; }
@@ -25,9 +26,18 @@ public class SettingsManager
 
     private void LoadUserSettings()
     {
-        if (File.Exists(userSettingsFilePath))
+        // Get the path to the user settings file in the local app data directory
+        string localUserSettingsFilePath = Path.Combine(userSettingsDirectory, "UserSettings.json");
+
+        // If the user settings file doesn't exist in the local app data directory, use the default settings file
+        if (!File.Exists(localUserSettingsFilePath))
         {
-            string json = File.ReadAllText(userSettingsFilePath);
+            localUserSettingsFilePath = deafultUserSettingsFilePath;
+        }
+
+        if (File.Exists(localUserSettingsFilePath))
+        {
+            string json = File.ReadAllText(localUserSettingsFilePath);
             var settings = JsonSerializer.Deserialize<UserSettings>(json);
 
             if (settings != null)
@@ -68,6 +78,13 @@ public class SettingsManager
         try
         {
             string json = JsonSerializer.Serialize(UserSettings);
+
+            // Ensure the directory exists
+            Directory.CreateDirectory(userSettingsDirectory);
+
+            // Get the path to the user settings file in the local app data directory
+            string userSettingsFilePath = Path.Combine(userSettingsDirectory, "UserSettings.json");
+
             File.WriteAllText(userSettingsFilePath, json);
         }
         catch (Exception ex)
