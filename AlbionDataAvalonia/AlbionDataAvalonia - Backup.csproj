@@ -14,7 +14,6 @@
   
   <ItemGroup>
     <None Remove="Assets\afm-logo.ico" />
-    <None Remove="Assets\afm-logo.png" />
     <None Remove="Assets\logo.ico" />
     <None Remove="Assets\logo.ico" />
   </ItemGroup>
