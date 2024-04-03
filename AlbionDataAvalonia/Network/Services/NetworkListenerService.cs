@@ -1,6 +1,6 @@
 ﻿using Albion.Network;
 using AlbionDataAvalonia.Network.Handlers;
-using AlbionDataAvalonia.Network.Models;
+using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
 using PacketDotNet;
 using Serilog;
@@ -13,15 +13,18 @@ namespace AlbionDataAvalonia.Network.Services
 {
     public class NetworkListenerService : IDisposable
     {
-        private IPhotonReceiver? receiver;
-        private CaptureDeviceList? devices;
         private readonly Uploader _uploader;
         private readonly PlayerState _playerState;
+        private readonly SettingsManager _settingsManager;
 
-        public NetworkListenerService(Uploader uploader, PlayerState playerState)
+        private IPhotonReceiver? receiver;
+        private CaptureDeviceList? devices;
+
+        public NetworkListenerService(Uploader uploader, PlayerState playerState, SettingsManager settingsManager)
         {
             _uploader = uploader;
             _playerState = playerState;
+            _settingsManager = settingsManager;
         }
 
         public void Run()
@@ -70,8 +73,8 @@ namespace AlbionDataAvalonia.Network.Services
                         Mode = DeviceModes.MaxResponsiveness,
                         ReadTimeout = 5000
                     });
-                    var ips = AlbionServers.GetAllServers().Select(s => $"host {s.IpBase}");
-                    var filter = $"({string.Join(" or ", ips)}) and udp port 5056";
+                    var ips = _settingsManager.AppSettings.AlbionServers.Select(s => $"host {s.HostIp}");
+                    var filter = $"({string.Join(" or ", ips)}) and {_settingsManager.AppSettings.PacketFilterPortText}";
                     device.Filter = filter;
                     device.StartCapture();
                 })
@@ -102,7 +105,7 @@ namespace AlbionDataAvalonia.Network.Services
                         Log.Verbose("Packet Source IP null or empty, ignoring");
                         return;
                     }
-                    var server = AlbionServers.GetAllServers().SingleOrDefault(x => srcIp.Contains(x.IpBase));
+                    var server = _settingsManager.AppSettings.AlbionServers.SingleOrDefault(x => srcIp.Contains(x.HostIp));
                     if (server is not null)
                     {
                         Log.Verbose("Packet from {server} server from IP {ip}", server.Name, srcIp);
