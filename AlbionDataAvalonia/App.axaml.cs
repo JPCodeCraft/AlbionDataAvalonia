@@ -47,10 +47,11 @@ public partial class App : Application
         {
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
 
-            if (!settings.UserSettings.StartHidden)
+            desktop.MainWindow = new MainWindow(settings);
+            desktop.MainWindow.DataContext = vm;
+
+            if (!settings.UserSettings.StartHidden || !NpCapInstallationChecker.IsNpCapInstalled())
             {
-                desktop.MainWindow = new MainWindow(settings);
-                desktop.MainWindow.DataContext = vm;
                 desktop.MainWindow.Show();
                 desktop.MainWindow.Activate();
             }
