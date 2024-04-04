@@ -10,7 +10,10 @@ namespace AlbionDataAvalonia.Settings;
 public class SettingsManager
 {
     string userSettingsDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AFMDataClient");
-    private string deafultUserSettingsFilePath = Path.Combine(AppContext.BaseDirectory, "UserSettings.json");
+
+    private string deafultUserSettingsFilePath = Path.Combine(AppContext.BaseDirectory, "DefaultUserSettings.json");
+    private string deafultAppSettingsFilePath = Path.Combine(AppContext.BaseDirectory, "DefaultAppSettings.json");
+
     private string appSettingsDownloadUrl = "https://raw.githubusercontent.com/JPCodeCraft/AlbionDataAvalonia/master/AlbionDataAvalonia/AppSettings.json";
     public UserSettings UserSettings { get; private set; }
     public AppSettings AppSettings { get; private set; }
@@ -33,9 +36,16 @@ public class SettingsManager
         if (!File.Exists(localUserSettingsFilePath))
         {
             localUserSettingsFilePath = deafultUserSettingsFilePath;
-        }
+            string json = File.ReadAllText(localUserSettingsFilePath);
+            var settings = JsonSerializer.Deserialize<UserSettings>(json);
 
-        if (File.Exists(localUserSettingsFilePath))
+            if (settings != null)
+            {
+                UserSettings = settings;
+                SaveSettings(); // Save the default settings to a new user settings file
+            }
+        }
+        else
         {
             string json = File.ReadAllText(localUserSettingsFilePath);
             var settings = JsonSerializer.Deserialize<UserSettings>(json);
@@ -44,9 +54,9 @@ public class SettingsManager
             {
                 UserSettings = settings;
             }
-
-            UserSettings.PropertyChanged += UserSettings_PropertyChanged;
         }
+
+        UserSettings.PropertyChanged += UserSettings_PropertyChanged;
     }
 
     private void UserSettings_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
@@ -60,6 +70,12 @@ public class SettingsManager
         {
             using HttpClient client = new HttpClient();
             string json = await client.GetStringAsync(appSettingsDownloadUrl);
+
+            if (string.IsNullOrEmpty(json))
+            {
+                throw new Exception("Downloaded app settings is null or empty.");
+            }
+
             var settings = JsonSerializer.Deserialize<AppSettings>(json);
 
             if (settings != null)
@@ -70,6 +86,18 @@ public class SettingsManager
         catch (Exception ex)
         {
             Log.Error($"Error in LoadAppSettingsAsync: {ex}");
+
+            // If the download fails or the downloaded JSON is null or empty, load the default settings
+            if (File.Exists(deafultAppSettingsFilePath))
+            {
+                string json = File.ReadAllText(deafultAppSettingsFilePath);
+                var settings = JsonSerializer.Deserialize<AppSettings>(json);
+
+                if (settings != null)
+                {
+                    AppSettings = settings;
+                }
+            }
         }
     }
 
