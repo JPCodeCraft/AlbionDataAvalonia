@@ -46,7 +46,7 @@
   </ItemGroup>
 
   <ItemGroup>
-    <None Update="AppSettings.json">
+    <None Update="DefaultAppSettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
     <None Update="NpCap\NpCap-1.79.exe">
@@ -58,7 +58,7 @@
     <None Update="NpCap\NpCap_4_1_3.exe">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
-    <None Update="UserSettings.json">
+    <None Update="DefaultUserSettings.json">
       <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
     </None>
   </ItemGroup>
