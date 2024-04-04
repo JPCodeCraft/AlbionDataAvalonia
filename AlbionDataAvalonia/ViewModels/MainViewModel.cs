@@ -122,8 +122,11 @@ public partial class MainViewModel : ViewModelBase
             }
             else
             {
-                desktop.MainWindow = new MainWindow(_settingsManager);
-                desktop.MainWindow.DataContext = this;
+                if (desktop.MainWindow == null)
+                {
+                    desktop.MainWindow = new MainWindow(_settingsManager);
+                    desktop.MainWindow.DataContext = this;
+                }
                 desktop.MainWindow.Show();
                 desktop.MainWindow.Activate();
             }
