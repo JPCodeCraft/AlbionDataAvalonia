@@ -65,6 +65,8 @@
 					Command="{Binding ShowDashboardCommand}" />
 				<Button Content="Settings" Margin="10" HorizontalAlignment="Stretch"
 					Command="{Binding ShowSettingsCommand}" />
+				<Button Content="Logs" Margin="10" HorizontalAlignment="Stretch"
+					Command="{Binding ShowLogsCommand}" />
 			</StackPanel>
 
 			<Rectangle Grid.Column="1" Width="1" Fill="rgba(255,255,255,.1)" VerticalAlignment="Stretch" />

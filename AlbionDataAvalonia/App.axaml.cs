@@ -1,4 +1,5 @@
-﻿using AlbionDataAvalonia.Network.Pow;
+﻿using AlbionDataAvalonia.Logging;
+using AlbionDataAvalonia.Network.Pow;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
@@ -10,6 +11,8 @@ using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
 using Microsoft.Extensions.DependencyInjection;
+using Serilog;
+using Serilog.Events;
 
 namespace AlbionDataAvalonia;
 
@@ -33,6 +36,8 @@ public partial class App : Application
 
         // Creates a ServiceProvider containing services from the provided IServiceCollection
         var services = collection.BuildServiceProvider();
+
+        SetupLogging(services.GetRequiredService<ListSink>());
 
         var vm = services.GetRequiredService<MainViewModel>();
         var settings = services.GetRequiredService<SettingsManager>();
@@ -68,6 +73,17 @@ public partial class App : Application
         base.OnFrameworkInitializationCompleted();
 
     }
+
+    private void SetupLogging(ListSink listSink)
+    {
+        Log.Logger = new LoggerConfiguration()
+            .WriteTo.Sink(listSink, restrictedToMinimumLevel: LogEventLevel.Information)
+            .WriteTo.Console()
+            .WriteTo.Debug()
+            .MinimumLevel.Debug()
+            .CreateLogger();
+    }
+
 }
 public static class ServiceCollectionExtensions
 {
@@ -77,6 +93,7 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<PlayerState>();
         collection.AddSingleton<ConnectionService>();
         collection.AddSingleton<SettingsManager>();
+        collection.AddSingleton<ListSink>();
 
 
         collection.AddTransient<PowSolver>();
@@ -84,5 +101,6 @@ public static class ServiceCollectionExtensions
 
         collection.AddTransient<MainViewModel>();
         collection.AddTransient<SettingsViewModel>();
+        collection.AddTransient<LogsViewModel>();
     }
 }
