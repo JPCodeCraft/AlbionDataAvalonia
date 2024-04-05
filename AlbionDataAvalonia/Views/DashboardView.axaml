@@ -4,13 +4,54 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="AlbionDataAvalonia.Views.DashboardView">
+             x:Class="AlbionDataAvalonia.Views.DashboardView"
+			 x:DataType="vm:MainViewModel">
 
-	<StackPanel x:DataType="vm:MainViewModel">
+	<UserControl.Styles>
+		<Style Selector="Ellipse.Indicator">
+			<Setter Property="Fill" Value="Gray" />
+			<Setter Property="Width" Value="50" />
+			<Setter Property="Height" Value="50" />
+			<Setter Property="Transitions">
+				<Transitions>
+					<BrushTransition Property="Fill" Duration="0:0:0.2" />
+				</Transitions>
+			</Setter>
+		</Style>
+
+		<Style Selector="Ellipse.Green">
+			<Setter Property="Fill" Value="Green" />
+		</Style>
+		<Style Selector="Ellipse.Red">
+			<Setter Property="Fill" Value="Red" />
+		</Style>
+	</UserControl.Styles>
+
+	<Grid Margin="10, 10, 10, 10" RowDefinitions="Auto, Auto, Auto, Auto" ColumnDefinitions="*, *, *">
+		<Ellipse VerticalAlignment="Center" Classes="Indicator" Name="ReceiveIndicator" Grid.Row="0" Grid.Column="0" >
+			<Ellipse.Effect>
+				<DropShadowEffect BlurRadius="15" OffsetX="3" OffsetY="3"></DropShadowEffect>
+			</Ellipse.Effect>
+		</Ellipse>
+
+		<StackPanel Grid.Row="0" Grid.Column="1" >
+			<Label Content="{Binding UploadQueueSize}" FontSize="24" VerticalAlignment="Center" HorizontalAlignment="Center" />
+			<Label Content="Data Upload Queue" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+		</StackPanel>
+
+		<Ellipse VerticalAlignment="Center" Classes="Indicator" Name="SendIndicator" Grid.Row="0" Grid.Column="3" >
+			<Ellipse.Effect>
+				<DropShadowEffect BlurRadius="15" OffsetX="3" OffsetY="3"></DropShadowEffect>
+			</Ellipse.Effect>
+		</Ellipse>
+	</Grid>
+
+
+	<!--<StackPanel x:DataType="vm:MainViewModel">
 		<Label Content="Dashboard" FontWeight="Bold" Margin="0 0 0 20" />
 
 
-		<!-- Card for Server info -->
+		 Card for Server info 
 		<Border Classes="card" IsVisible="{Binding IsInGame}">
 			<StackPanel>
 				<StackPanel Orientation="Horizontal">
@@ -20,7 +61,7 @@
 			</StackPanel>
 		</Border>
 
-		<!-- Card for Player info -->
+		 Card for Player info 
 		<Border Classes="card" IsVisible="{Binding IsInGame}">
 			<StackPanel>
 				<StackPanel Orientation="Horizontal">
@@ -33,7 +74,7 @@
 				</StackPanel>
 			</StackPanel>
 		</Border>
-		<!-- Card for UploadQueueSize -->
+		 Card for UploadQueueSize 
 		<Border Classes="card" IsVisible="{Binding IsInGame}">
 			<StackPanel>
 				<Label Classes="title" Content="Upload queue size" />
@@ -44,7 +85,7 @@
 			</StackPanel>
 		</Border>
 
-		<!-- Card for UploadedMarketOffersCount and UploadedMarketRequestsCount -->
+		 Card for UploadedMarketOffersCount and UploadedMarketRequestsCount 
 		<Border Classes="card" IsVisible="{Binding IsInGame}">
 			<StackPanel>
 				<Label Classes="title" Content="Amount of uploaded prices" />
@@ -59,7 +100,7 @@
 			</StackPanel>
 		</Border>
 
-		<!--Card for UploadedHistoriesCountDic-->
+		Card for UploadedHistoriesCountDic
 		<Border Classes="card" IsVisible="{Binding IsInGame}">
 			<StackPanel>
 				<Label Classes="title" Content="Amount of uploaded histories" />
@@ -77,7 +118,7 @@
 			</StackPanel>
 		</Border>
 
-		<!-- Card for UploadedGoldHistoriesCount -->
+		 Card for UploadedGoldHistoriesCount 
 		<Border Classes="card" IsVisible="{Binding IsInGame}">
 			<StackPanel>
 				<Label Classes="title" Content="Amount of uploaded gold data" />
@@ -85,11 +126,11 @@
 			</StackPanel>
 		</Border>
 
-		<!-- Card for Player not in game -->
+		 Card for Player not in game 
 		<Border Classes="card" IsVisible="{Binding IsNotInGame}">
 			<StackPanel>
 				<Label Content="You're good to go, join the game" />
 			</StackPanel>
 		</Border>
-	</StackPanel>
+	</StackPanel>-->
 </UserControl>
