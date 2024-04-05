@@ -22,6 +22,7 @@
 		<Grid.RowDefinitions>
 			<RowDefinition Height="1" />
 			<RowDefinition Height="*" />
+			<RowDefinition Height="30" />
 		</Grid.RowDefinitions>
 
 		<Rectangle Grid.Row="0" Height="1" Fill="rgba(255,255,255,.1)" HorizontalAlignment="Stretch" />
