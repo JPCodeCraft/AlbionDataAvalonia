@@ -156,6 +156,12 @@ namespace AlbionDataAvalonia.State
         {
             if (hash == null || hash.Length == 0 || SentDataHashs.Contains(hash)) return;
 
+            if (_settingsManager.UserSettings.MaxHashQueueSize == 0)
+            {
+                SentDataHashs.Clear();
+                return;
+            }
+
             while (SentDataHashs.Count >= _settingsManager.UserSettings.MaxHashQueueSize)
             {
                 SentDataHashs.Dequeue();

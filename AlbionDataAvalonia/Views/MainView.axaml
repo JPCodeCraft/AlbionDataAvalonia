@@ -1,12 +1,12 @@
 <UserControl xmlns="https://github.com/avaloniaui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
-			 xmlns:ani="clr-namespace:Avalonia.Animation;assembly=Avalonia.Animation"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="AlbionDataAvalonia.Views.MainView"
-             x:DataType="vm:MainViewModel">
+	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+	xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+	xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+	xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
+	xmlns:ani="clr-namespace:Avalonia.Animation;assembly=Avalonia.Animation"
+	mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+	x:Class="AlbionDataAvalonia.Views.MainView"
+	x:DataType="vm:MainViewModel">
 	<Design.DataContext>
 		<vm:MainViewModel />
 	</Design.DataContext>
@@ -28,11 +28,11 @@
 		<Style Selector="Label">
 			<Setter Property="Foreground" Value="White" />
 		</Style>
-		
+
 		<Style Selector="Label.title">
 			<Setter Property="FontWeight" Value="DemiBold" />
 			<Setter Property="FontSize" Value="14" />
-			<Setter Property="Margin" Value="0, 3, 0, 3"/>
+			<Setter Property="Margin" Value="0, 3, 0, 3" />
 		</Style>
 
 		<Style Selector="Border.card">
@@ -50,14 +50,23 @@
 		</Grid.ColumnDefinitions>
 
 		<!-- Sidebar -->
-		<StackPanel Grid.Column="0">
+		<Grid Grid.Column="0">
+			<Grid.ColumnDefinitions>
+				<ColumnDefinition Width="*" />
+				<ColumnDefinition Width="Auto" />
+			</Grid.ColumnDefinitions>
 
-			<Label HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold"
-					   Content="Albion Data Client" Padding="0 15 10 15" />
-			<Button Content="Main" Margin="10" HorizontalAlignment="Stretch" Command="{Binding ShowDashboardCommand}" />
-			<Button Content="Settings" Margin="10" HorizontalAlignment="Stretch" Command="{Binding ShowSettingsCommand}" />
+			<StackPanel Grid.Column="0">
+				<Label HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold"
+					Content="Albion Data Client" Padding="0 15 10 15" />
+				<Button Content="Main" Margin="10" HorizontalAlignment="Stretch"
+					Command="{Binding ShowDashboardCommand}" />
+				<Button Content="Settings" Margin="10" HorizontalAlignment="Stretch"
+					Command="{Binding ShowSettingsCommand}" />
+			</StackPanel>
 
-		</StackPanel>
+			<Rectangle Grid.Column="1" Width="1" Fill="rgba(255,255,255,.1)" VerticalAlignment="Stretch" />
+		</Grid>
 
 		<!-- Main Content -->
 		<ScrollViewer Grid.Column="1" Margin="20">

@@ -9,16 +9,25 @@
         Icon="/Assets/logo.ico"
         Title="Albion Data Client"
 		ExtendClientAreaToDecorationsHint="True"
-		ExtendClientAreaTitleBarHeightHint="30">
-	
+		ExtendClientAreaTitleBarHeightHint="30"
+		MinWidth="800" MinHeight="250">
+
 	<Window.Styles>
 		<Style Selector="Window">
-			<Setter Property="Background" Value="rgba(50, 50, 50, 1)" />
+			<Setter Property="Background" Value="rgba(25, 25, 25, 1)" />
 		</Style>
 	</Window.Styles>
-	
-	<Grid Margin="0 30 0 0" Background="rgba(0,0,0,0.05)">
-		<views:MainView />
+
+	<Grid Margin="0 30 0 0">
+		<Grid.RowDefinitions>
+			<RowDefinition Height="1" />
+			<RowDefinition Height="*" />
+		</Grid.RowDefinitions>
+
+		<Rectangle Grid.Row="0" Height="1" Fill="rgba(255,255,255,.1)" HorizontalAlignment="Stretch" />
+
+		<views:MainView Grid.Row="1" />
 	</Grid>
+
 
 </Window>
