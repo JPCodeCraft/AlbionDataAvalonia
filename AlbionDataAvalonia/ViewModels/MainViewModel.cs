@@ -15,6 +15,7 @@ using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
+using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.ViewModels;
 
@@ -55,6 +56,13 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private int uploadedGoldHistoriesCount;
 
+    [ObservableProperty]
+    private bool redBlinking = false;
+    [ObservableProperty]
+    private bool greenBlinking = false;
+
+    private int oldUploadQueueSize = 0;
+
     public MainViewModel()
     {
     }
@@ -71,6 +79,7 @@ public partial class MainViewModel : ViewModelBase
         AlbionServer = _playerState.AlbionServer;
         IsNotInGame = !IsInGame;
         UploadQueueSize = _playerState.UploadQueueSize;
+        oldUploadQueueSize = UploadQueueSize;
 
         UploadedHistoriesCountCollection = new ObservableCollection<KeyValuePair<Timescale, int>>(_playerState.UploadedHistoriesCountDic);
 
@@ -98,6 +107,31 @@ public partial class MainViewModel : ViewModelBase
         IsInGame = e.IsInGame;
         IsNotInGame = !e.IsInGame;
         UploadQueueSize = e.UploadQueueSize;
+
+        if (UploadQueueSize > oldUploadQueueSize)
+        {
+            BlinkRed().ConfigureAwait(false);
+        }
+        else
+        {
+            BlinkGreen().ConfigureAwait(false);
+        }
+
+        oldUploadQueueSize = UploadQueueSize;
+    }
+
+    private async Task BlinkRed()
+    {
+        RedBlinking = true;
+        await Task.Delay(TimeSpan.FromSeconds(0.25));
+        RedBlinking = false;
+    }
+
+    private async Task BlinkGreen()
+    {
+        GreenBlinking = true;
+        await Task.Delay(TimeSpan.FromSeconds(0.25));
+        GreenBlinking = false;
     }
 
     [RelayCommand]

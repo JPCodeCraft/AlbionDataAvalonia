@@ -5,45 +5,60 @@
              xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="AlbionDataAvalonia.Views.DashboardView"
-			 x:DataType="vm:MainViewModel">
+			 x:DataType="vm:MainViewModel" >
 
 	<UserControl.Styles>
-		<Style Selector="Ellipse.Indicator">
-			<Setter Property="Fill" Value="Gray" />
-			<Setter Property="Width" Value="50" />
-			<Setter Property="Height" Value="50" />
-			<Setter Property="Transitions">
-				<Transitions>
-					<BrushTransition Property="Fill" Duration="0:0:0.2" />
-				</Transitions>
-			</Setter>
+		<Style Selector="Rectangle.Indicator">
+			<Setter Property="Width" Value="30" />
+			<Setter Property="Height" Value="15" />
 		</Style>
 
-		<Style Selector="Ellipse.Green">
-			<Setter Property="Fill" Value="Green" />
+		<Style Selector="Rectangle.Green">
+			<Setter Property="Fill" Value="rgba(5, 100, 2, .4)" />
 		</Style>
-		<Style Selector="Ellipse.Red">
-			<Setter Property="Fill" Value="Red" />
+		<Style Selector="Rectangle.Red">
+			<Setter Property="Fill" Value="rgba(102, 43, 0, .4)" />
+		</Style>
+
+		<Style Selector="Rectangle.GreenBlink">
+			<Setter Property="Fill" Value="rgb(13, 245, 5)" />
+		</Style>
+		<Style Selector="Rectangle.RedBlink">
+			<Setter Property="Fill" Value="rgb(250, 104, 0)" />
+		</Style>
+
+		<Style Selector="Border.GreenBlink">
+			<Setter Property="BoxShadow" Value="0 0 10 3 #0df505" />
+		</Style>
+		<Style Selector="Border.RedBlink">
+			<Setter Property="BoxShadow" Value="0 0 10 3 #fa6800" />
 		</Style>
 	</UserControl.Styles>
 
-	<Grid Margin="10, 10, 10, 10" RowDefinitions="Auto, Auto, Auto, Auto" ColumnDefinitions="*, *, *">
-		<Ellipse VerticalAlignment="Center" Classes="Indicator" Name="ReceiveIndicator" Grid.Row="0" Grid.Column="0" >
-			<Ellipse.Effect>
-				<DropShadowEffect BlurRadius="15" OffsetX="3" OffsetY="3"></DropShadowEffect>
-			</Ellipse.Effect>
-		</Ellipse>
+	<Grid Margin="10, 10, 10, 10" RowDefinitions="Auto, Auto, Auto, Auto" ColumnDefinitions="*">
+		<!--QUEUE LINE-->
+		<Grid RowDefinitions="50" ColumnDefinitions="*, 200, *">
+			<Border Classes.RedBlink="{Binding RedBlinking}" Grid.Row="0" Grid.Column="0" VerticalAlignment="Top" HorizontalAlignment="Right" CornerRadius="2" BorderBrush="Silver" BorderThickness="2">
+				<Rectangle Classes="Indicator Red"  Classes.RedBlink="{Binding RedBlinking}">
+					<!--<Rectangle.Effect>
+					<DropShadowEffect BlurRadius="15" OffsetX="3" OffsetY="3"></DropShadowEffect>
+				</Rectangle.Effect>-->
+				</Rectangle>
+			</Border>
 
-		<StackPanel Grid.Row="0" Grid.Column="1" >
-			<Label Content="{Binding UploadQueueSize}" FontSize="24" VerticalAlignment="Center" HorizontalAlignment="Center" />
-			<Label Content="Data Upload Queue" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-		</StackPanel>
+			<StackPanel Grid.Row="0" Grid.Column="1" VerticalAlignment="Center">
+				<Label Content="{Binding UploadQueueSize}" FontSize="24" HorizontalAlignment="Center" />
+				<Label Content="Data Upload Queue" HorizontalAlignment="Center"/>
+			</StackPanel>
 
-		<Ellipse VerticalAlignment="Center" Classes="Indicator" Name="SendIndicator" Grid.Row="0" Grid.Column="3" >
-			<Ellipse.Effect>
-				<DropShadowEffect BlurRadius="15" OffsetX="3" OffsetY="3"></DropShadowEffect>
-			</Ellipse.Effect>
-		</Ellipse>
+			<Border Classes.GreenBlink="{Binding GreenBlinking}"  Grid.Row="0" Grid.Column="2" VerticalAlignment="Top" HorizontalAlignment="Left" CornerRadius="2" BorderBrush="Silver" BorderThickness="2">
+				<Rectangle Classes="Indicator Green" Classes.GreenBlink="{Binding GreenBlinking}">
+					<!--<Rectangle.Effect>
+					<DropShadowEffect BlurRadius="15" OffsetX="3" OffsetY="3"></DropShadowEffect>
+				</Rectangle.Effect>-->
+				</Rectangle>
+			</Border>
+		</Grid>
 	</Grid>
 
 
