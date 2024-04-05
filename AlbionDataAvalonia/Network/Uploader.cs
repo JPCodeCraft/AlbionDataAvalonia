@@ -49,14 +49,22 @@ public class Uploader : IDisposable
             return;
         }
         _playerState.UploadQueueSize++;
-        var offers = marketUpload.Orders.Where(x => x.AuctionType == "offer").Count();
-        var requests = marketUpload.Orders.Where(x => x.AuctionType == "request").Count();
-        var data = SerializeData(marketUpload);
-        if (await UploadData(data, _playerState.AlbionServer, _settingsManager.AppSettings.MarketOrdersIngestSubject ?? ""))
+        try
         {
-            OnMarketUpload?.Invoke(this, new MarketUploadEventArgs(marketUpload, _playerState.AlbionServer));
+            var offers = marketUpload.Orders.Where(x => x.AuctionType == "offer").Count();
+            var requests = marketUpload.Orders.Where(x => x.AuctionType == "request").Count();
+            var data = SerializeData(marketUpload);
+            if (await UploadData(data, _playerState.AlbionServer, _settingsManager.AppSettings.MarketOrdersIngestSubject ?? ""))
+            {
+                OnMarketUpload?.Invoke(this, new MarketUploadEventArgs(marketUpload, _playerState.AlbionServer));
+            }
+            _playerState.UploadQueueSize--;
         }
-        _playerState.UploadQueueSize--;
+        catch (Exception ex)
+        {
+            _playerState.UploadQueueSize--;
+            Log.Error(ex, "Exception while uploading market data.");
+        }
     }
     public async Task Upload(GoldPriceUpload goldHistoryUpload)
     {
@@ -66,14 +74,22 @@ public class Uploader : IDisposable
             return;
         }
         _playerState.UploadQueueSize++;
-        var amount = goldHistoryUpload.Prices.Length;
-        var data = SerializeData(goldHistoryUpload);
-
-        if (await UploadData(data, _playerState.AlbionServer, _settingsManager.AppSettings.GoldDataIngestSubject ?? ""))
+        try
         {
-            OnGoldPriceUpload?.Invoke(this, new GoldPriceUploadEventArgs(goldHistoryUpload, _playerState.AlbionServer));
+            var amount = goldHistoryUpload.Prices.Length;
+            var data = SerializeData(goldHistoryUpload);
+
+            if (await UploadData(data, _playerState.AlbionServer, _settingsManager.AppSettings.GoldDataIngestSubject ?? ""))
+            {
+                OnGoldPriceUpload?.Invoke(this, new GoldPriceUploadEventArgs(goldHistoryUpload, _playerState.AlbionServer));
+            }
+            _playerState.UploadQueueSize--;
         }
-        _playerState.UploadQueueSize--;
+        catch (Exception ex)
+        {
+            _playerState.UploadQueueSize--;
+            Log.Error(ex, "Exception while uploading gold data.");
+        }
     }
     public async Task Upload(MarketHistoriesUpload marketHistoriesUpload)
     {
@@ -83,15 +99,23 @@ public class Uploader : IDisposable
             return;
         }
         _playerState.UploadQueueSize++;
-        var count = marketHistoriesUpload.MarketHistories.Count;
-        var timescale = marketHistoriesUpload.Timescale;
-        var data = SerializeData(marketHistoriesUpload);
-
-        if (await UploadData(data, _playerState.AlbionServer, _settingsManager.AppSettings.MarketHistoriesIngestSubject ?? ""))
+        try
         {
-            OnMarketHistoryUpload?.Invoke(this, new MarketHistoriesUploadEventArgs(marketHistoriesUpload, _playerState.AlbionServer));
+            var count = marketHistoriesUpload.MarketHistories.Count;
+            var timescale = marketHistoriesUpload.Timescale;
+            var data = SerializeData(marketHistoriesUpload);
+
+            if (await UploadData(data, _playerState.AlbionServer, _settingsManager.AppSettings.MarketHistoriesIngestSubject ?? ""))
+            {
+                OnMarketHistoryUpload?.Invoke(this, new MarketHistoriesUploadEventArgs(marketHistoriesUpload, _playerState.AlbionServer));
+            }
+            _playerState.UploadQueueSize--;
         }
-        _playerState.UploadQueueSize--;
+        catch (Exception ex)
+        {
+            _playerState.UploadQueueSize--;
+            Log.Error(ex, "Exception while uploading market history data.");
+        }
     }
     private byte[] SerializeData(object upload)
     {
