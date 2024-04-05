@@ -79,6 +79,12 @@ namespace AlbionDataAvalonia.State
                 if (isInGame != result)
                 {
                     isInGame = result;
+                    if (!isInGame)
+                    {
+                        AlbionServer = null;
+                        PlayerName = string.Empty;
+                        Location = 0;
+                    }
                     OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, UploadQueueSize, IsInGame));
                 }
                 return isInGame;

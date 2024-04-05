@@ -11,8 +11,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Serilog;
 using System;
-using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -36,10 +34,11 @@ public partial class MainViewModel : ViewModelBase
     private AlbionServer? albionServer;
 
     [ObservableProperty]
-    private bool isInGame;
-
+    private bool showGetInGame = false;
     [ObservableProperty]
-    private bool isNotInGame;
+    private bool showChangeCity = false;
+    [ObservableProperty]
+    private bool showDataUi = false;
 
     [ObservableProperty]
     private object currentView;
@@ -52,7 +51,11 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private int uploadedMarketRequestsCount;
     [ObservableProperty]
-    private ObservableCollection<KeyValuePair<Timescale, int>> uploadedHistoriesCountCollection = new();
+    private int uploadedMonthlyHistoriesCount;
+    [ObservableProperty]
+    private int uploadedWeeklyHistoriesCount;
+    [ObservableProperty]
+    private int uploadedDailyHistoriesCount;
     [ObservableProperty]
     private int uploadedGoldHistoriesCount;
 
@@ -77,16 +80,20 @@ public partial class MainViewModel : ViewModelBase
         Location = _playerState.Location;
         PlayerName = _playerState.PlayerName;
         AlbionServer = _playerState.AlbionServer;
-        IsNotInGame = !IsInGame;
         UploadQueueSize = _playerState.UploadQueueSize;
         oldUploadQueueSize = UploadQueueSize;
 
-        UploadedHistoriesCountCollection = new ObservableCollection<KeyValuePair<Timescale, int>>(_playerState.UploadedHistoriesCountDic);
+        UpdateVisibilities();
 
         _playerState.OnPlayerStateChanged += UpdateState;
         _playerState.OnUploadedMarketRequestsCountChanged += count => UploadedMarketRequestsCount = count;
         _playerState.OnUploadedMarketOffersCountChanged += count => UploadedMarketOffersCount = count;
-        _playerState.OnUploadedHistoriesCountDicChanged += dic => UploadedHistoriesCountCollection = new ObservableCollection<KeyValuePair<Timescale, int>>(dic);
+        _playerState.OnUploadedHistoriesCountDicChanged += dic =>
+        {
+            UploadedMonthlyHistoriesCount = dic[Timescale.Month];
+            UploadedWeeklyHistoriesCount = dic[Timescale.Week];
+            UploadedDailyHistoriesCount = dic[Timescale.Day];
+        };
         _playerState.OnUploadedGoldHistoriesCountChanged += count => UploadedGoldHistoriesCount = count;
 
         if (NpCapInstallationChecker.IsNpCapInstalled())
@@ -99,20 +106,27 @@ public partial class MainViewModel : ViewModelBase
         }
     }
 
+    private void UpdateVisibilities()
+    {
+        ShowChangeCity = !_playerState.CheckLocationIDIsSet() && _playerState.IsInGame;
+        ShowGetInGame = !_playerState.IsInGame;
+        ShowDataUi = !(ShowChangeCity || ShowGetInGame);
+    }
+
     private void UpdateState(object? sender, PlayerStateEventArgs e)
     {
         Location = e.Location;
         PlayerName = e.Name;
         AlbionServer = e.AlbionServer;
-        IsInGame = e.IsInGame;
-        IsNotInGame = !e.IsInGame;
         UploadQueueSize = e.UploadQueueSize;
+
+        UpdateVisibilities();
 
         if (UploadQueueSize > oldUploadQueueSize)
         {
             BlinkRed().ConfigureAwait(false);
         }
-        else
+        else if (UploadQueueSize < oldUploadQueueSize)
         {
             BlinkGreen().ConfigureAwait(false);
         }
