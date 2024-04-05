@@ -210,6 +210,18 @@ public partial class MainViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private void OpenAFMWebsite()
+    {
+        OpenUrl("https://www.albionfreemarket.com");
+    }
+
+    [RelayCommand]
+    private void OpenAODPWebsite()
+    {
+        OpenUrl("https://www.albion-online-data.com/");
+    }
+
+    [RelayCommand]
     private void InstallNpCap()
     {
         try
