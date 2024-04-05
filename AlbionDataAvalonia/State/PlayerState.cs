@@ -67,7 +67,7 @@ namespace AlbionDataAvalonia.State
             {
                 if (albionServer == value) return;
                 albionServer = value;
-                Log.Information("Server set to {Server}", AlbionServer);
+                Log.Information("Server set to {Server}", AlbionServer.Name);
                 OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, UploadQueueSize, IsInGame));
             }
         }

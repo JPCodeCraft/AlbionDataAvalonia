@@ -1,5 +1,4 @@
 ﻿using Avalonia;
-using Serilog;
 using System;
 
 namespace AlbionDataAvalonia.Desktop;
@@ -12,12 +11,6 @@ class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        Log.Logger = new LoggerConfiguration()
-        .WriteTo.Console()
-        .WriteTo.Debug()
-        .MinimumLevel.Debug()
-        .CreateLogger();
-
         BuildAvaloniaApp()
         .StartWithClassicDesktopLifetime(args);
     }

@@ -1,0 +1,24 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+			 xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
+             x:Class="AlbionDataAvalonia.Views.LogsView"
+			 x:DataType="vm:LogsViewModel">
+
+
+	<DataGrid Margin="0" ItemsSource="{Binding Events}" 
+			  AutoGenerateColumns="False" IsReadOnly="True"
+			  GridLinesVisibility="None"
+			  BorderThickness="0" BorderBrush="Gray">
+		<DataGrid.Columns>
+			<DataGridTextColumn Header="Timestamp" Binding="{Binding LogEvent.Timestamp.LocalDateTime}" FontSize="12" />
+			<DataGridTextColumn Header="Level" Binding="{Binding LogEvent.Level}" FontSize="12" />
+			<DataGridTextColumn Header="Message" Binding="{Binding RenderedMessage}" Width="*" FontSize="12"/>
+		</DataGrid.Columns>
+	</DataGrid>
+
+
+
+</UserControl>

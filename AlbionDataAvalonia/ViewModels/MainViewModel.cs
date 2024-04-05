@@ -23,6 +23,7 @@ public partial class MainViewModel : ViewModelBase
     private readonly NetworkListenerService _networkListener;
     private readonly SettingsManager _settingsManager;
     private readonly SettingsViewModel _settingsViewModel;
+    private readonly LogsViewModel _logsViewModel;
 
     [ObservableProperty]
     private AlbionData.Models.Location location;
@@ -70,12 +71,13 @@ public partial class MainViewModel : ViewModelBase
     {
     }
 
-    public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, SettingsManager settingsManager, SettingsViewModel settingsViewModel)
+    public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, SettingsManager settingsManager, SettingsViewModel settingsViewModel, LogsViewModel logsViewModel)
     {
         _playerState = playerState;
         _networkListener = networkListener;
         _settingsManager = settingsManager;
         _settingsViewModel = settingsViewModel;
+        _logsViewModel = logsViewModel;
 
         Location = _playerState.Location;
         PlayerName = _playerState.PlayerName;
@@ -104,6 +106,7 @@ public partial class MainViewModel : ViewModelBase
         {
             CurrentView = new PCapView();
         }
+        _logsViewModel = logsViewModel;
     }
 
     private void UpdateVisibilities()
@@ -198,6 +201,12 @@ public partial class MainViewModel : ViewModelBase
     private void ShowSettings()
     {
         CurrentView = new SettingsView(_settingsViewModel);
+    }
+
+    [RelayCommand]
+    private void ShowLogs()
+    {
+        CurrentView = new LogsView(_logsViewModel);
     }
 
     [RelayCommand]
