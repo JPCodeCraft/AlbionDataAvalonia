@@ -25,10 +25,17 @@
 		<CheckBox Content="Start Hidden" IsChecked="{Binding UserSettings.StartHidden}" />
 		<StackPanel>
 			<StackPanel Orientation="Horizontal">
-				<Label Content="Pow processor usage (%): " />
-				<Label Content="{Binding UserSettings.ThreadLimitPercentage, Mode=OneWay} " />
+				<Label Content="Pow processor usage: " />
+				<Label Content="{Binding UserSettings.ThreadLimitPercentage, Mode=OneWay, StringFormat={}{0:P0}} " />
 			</StackPanel>
 			<Slider Minimum="0.1" Maximum="1" Value="{Binding UserSettings.ThreadLimitPercentage}" TickFrequency="0.1" IsSnapToTickEnabled="True" />
+		</StackPanel>
+		<StackPanel>
+			<StackPanel Orientation="Horizontal">
+				<Label Content="Number of uploads to store to avoid duplicates: " />
+				<Label Content="{Binding UserSettings.MaxHashQueueSize, Mode=OneWay} " />
+			</StackPanel>
+			<Slider Minimum="0" Maximum="50" Value="{Binding UserSettings.MaxHashQueueSize}" TickFrequency="1" IsSnapToTickEnabled="True" />
 		</StackPanel>
 	</StackPanel>
 </UserControl>

@@ -1,6 +1,7 @@
 ﻿using AlbionData.Models;
 using AlbionDataAvalonia.Network.Events;
 using AlbionDataAvalonia.Network.Models;
+using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State.Events;
 using Serilog;
 using System;
@@ -10,6 +11,8 @@ namespace AlbionDataAvalonia.State
 {
     public class PlayerState
     {
+        private readonly SettingsManager _settingsManager;
+
         private Location location = 0;
         private string playerName = string.Empty;
         private AlbionServer? albionServer = null;
@@ -19,14 +22,13 @@ namespace AlbionDataAvalonia.State
         public MarketHistoryInfo[] MarketHistoryIDLookup { get; init; }
         public ulong CacheSize => 8192;
         private Queue<string> SentDataHashs = new Queue<string>();
-        private const int maxHashQueueSize = 30;
 
-        public event EventHandler<PlayerStateEventArgs> OnPlayerStateChanged;
+        public event EventHandler<PlayerStateEventArgs>? OnPlayerStateChanged;
 
-        public event Action<int> OnUploadedMarketOffersCountChanged;
-        public event Action<int> OnUploadedMarketRequestsCountChanged;
-        public event Action<Dictionary<Timescale, int>> OnUploadedHistoriesCountDicChanged;
-        public event Action<int> OnUploadedGoldHistoriesCountChanged;
+        public event Action<int>? OnUploadedMarketOffersCountChanged;
+        public event Action<int>? OnUploadedMarketRequestsCountChanged;
+        public event Action<Dictionary<Timescale, int>>? OnUploadedHistoriesCountDicChanged;
+        public event Action<int>? OnUploadedGoldHistoriesCountChanged;
 
         public int UploadedMarketOffersCount { get; set; }
         public int UploadedMarketRequestsCount { get; set; }
@@ -92,9 +94,10 @@ namespace AlbionDataAvalonia.State
             }
         }
 
-        public PlayerState()
+        public PlayerState(SettingsManager settingsManager)
         {
             MarketHistoryIDLookup = new MarketHistoryInfo[CacheSize];
+            _settingsManager = settingsManager;
 
             var timer = new System.Timers.Timer(2000);
             timer.Elapsed += OnTimerElapsed;
@@ -153,7 +156,7 @@ namespace AlbionDataAvalonia.State
         {
             if (hash == null || hash.Length == 0 || SentDataHashs.Contains(hash)) return;
 
-            if (SentDataHashs.Count == maxHashQueueSize)
+            while (SentDataHashs.Count >= _settingsManager.UserSettings.MaxHashQueueSize)
             {
                 SentDataHashs.Dequeue();
             }
