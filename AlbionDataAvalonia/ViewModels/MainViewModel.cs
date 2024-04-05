@@ -207,11 +207,7 @@ public partial class MainViewModel : ViewModelBase
         {
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = _settingsManager.AppSettings.NPCapDownloadUrl,
-                    UseShellExecute = true
-                });
+                OpenUrl(_settingsManager.AppSettings.NPCapDownloadUrl);
             }
             else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
@@ -227,5 +223,51 @@ public partial class MainViewModel : ViewModelBase
         {
             Log.Error($"An error occurred while trying to install NpCap: {ex.Message}");
         }
+    }
+
+    public void OpenUrl(object? urlObj)
+    {
+        var url = urlObj as string;
+
+        if (url == null)
+        {
+            Log.Error("Invalid URL: {Url}", url);
+            return;
+        }
+
+        try
+        {
+            var uri = new Uri(url);
+        }
+        catch (UriFormatException)
+        {
+            Log.Error("Invalid URL: {Url}", url);
+            return;
+        }
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            Process.Start(new ProcessStartInfo
+            {
+                FileName = url,
+                UseShellExecute = true
+            });
+
+            return;
+        }
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            Process.Start("x-www-browser", url);
+            return;
+        }
+
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            Process.Start("open", url);
+            return;
+        }
+
+        return;
     }
 }
