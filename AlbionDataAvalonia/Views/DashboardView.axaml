@@ -28,22 +28,20 @@
 		</Style>
 
 		<Style Selector="Border.GreenBlink">
-			<Setter Property="BoxShadow" Value="0 0 10 3 #0df505" />
+			<Setter Property="BoxShadow" Value="0 0 10 2 #0df505" />
 		</Style>
 		<Style Selector="Border.RedBlink">
-			<Setter Property="BoxShadow" Value="0 0 10 3 #fa6800" />
+			<Setter Property="BoxShadow" Value="0 0 10 2 #fa6800" />
 		</Style>
+
 	</UserControl.Styles>
 
 	<Grid Margin="10, 10, 10, 10" RowDefinitions="Auto, Auto, Auto, Auto" ColumnDefinitions="*">
+
 		<!--QUEUE LINE-->
-		<Grid RowDefinitions="50" ColumnDefinitions="*, 200, *">
+		<Grid Margin="0, 10, 0, 20" RowDefinitions="50" ColumnDefinitions="*, 200, *">
 			<Border Classes.RedBlink="{Binding RedBlinking}" Grid.Row="0" Grid.Column="0" VerticalAlignment="Top" HorizontalAlignment="Right" CornerRadius="2" BorderBrush="Silver" BorderThickness="2">
-				<Rectangle Classes="Indicator Red"  Classes.RedBlink="{Binding RedBlinking}">
-					<!--<Rectangle.Effect>
-					<DropShadowEffect BlurRadius="15" OffsetX="3" OffsetY="3"></DropShadowEffect>
-				</Rectangle.Effect>-->
-				</Rectangle>
+				<Rectangle RadiusX="1" RadiusY="1" Classes="Indicator Red"  Classes.RedBlink="{Binding RedBlinking}" />
 			</Border>
 
 			<StackPanel Grid.Row="0" Grid.Column="1" VerticalAlignment="Center">
@@ -52,100 +50,53 @@
 			</StackPanel>
 
 			<Border Classes.GreenBlink="{Binding GreenBlinking}"  Grid.Row="0" Grid.Column="2" VerticalAlignment="Top" HorizontalAlignment="Left" CornerRadius="2" BorderBrush="Silver" BorderThickness="2">
-				<Rectangle Classes="Indicator Green" Classes.GreenBlink="{Binding GreenBlinking}">
-					<!--<Rectangle.Effect>
-					<DropShadowEffect BlurRadius="15" OffsetX="3" OffsetY="3"></DropShadowEffect>
-				</Rectangle.Effect>-->
-				</Rectangle>
+				<Rectangle RadiusX="1" RadiusY="1" Classes="Indicator Green" Classes.GreenBlink="{Binding GreenBlinking}" />
 			</Border>
 		</Grid>
+
+		<!--LOCATION AND WARNINGS LINE-->
+		<Grid IsVisible="{Binding ShowDataUi}" Margin="0, 10, 0, 10" RowDefinitions="30, 30" ColumnDefinitions="*, *, *" Grid.Row="1">
+			<Label Grid.Row="0" Grid.Column="0" Content="Server" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
+			<Label Grid.Row="1" Grid.Column="0" Content="{Binding AlbionServer.Name}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+
+			<Label Grid.Row="0" Grid.Column="1" Content="Player Name" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
+			<Label Grid.Row="1" Grid.Column="1" Content="{Binding PlayerName}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+
+			<Label Grid.Row="0" Grid.Column="2" Content="Location" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
+			<Label Grid.Row="1" Grid.Column="2" Content="{Binding Location}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+		</Grid>
+
+		<Grid IsVisible="{Binding ShowChangeCity}" Margin="0, 10, 0, 10" RowDefinitions="60" ColumnDefinitions="*" Grid.Row="1">
+			<Label Content="Location has not been set. Please change maps." VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
+		</Grid>
+
+		<Grid IsVisible="{Binding ShowGetInGame}" Margin="0, 10, 0, 10" RowDefinitions="60" ColumnDefinitions="*" Grid.Row="1">
+			<Label Content="You're good to go. Get ingame." VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
+		</Grid>
+
+		<!--PRICES AND GOLD LINE-->
+		<Grid IsVisible="{Binding ShowDataUi}" Margin="0, 10, 0, 10" RowDefinitions="30, 30" ColumnDefinitions="*, *, *" Grid.Row="2">
+			<Label Grid.Row="0" Grid.Column="0" Content="Uploaded Market Offers" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
+			<Label Grid.Row="1" Grid.Column="0" Content="{Binding UploadedMarketOffersCount, StringFormat=N0}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+
+			<Label Grid.Row="0" Grid.Column="1" Content="Uploaded Market Requests" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
+			<Label Grid.Row="1" Grid.Column="1" Content="{Binding UploadedMarketRequestsCount, StringFormat=N0}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+
+			<Label Grid.Row="0" Grid.Column="2" Content="Uploaded Gold Histories" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
+			<Label Grid.Row="1" Grid.Column="2" Content="{Binding UploadedGoldHistoriesCount, StringFormat=N0}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+		</Grid>
+
+		<!--HISTORIES LINE-->
+		<Grid IsVisible="{Binding ShowDataUi}" Margin="0, 10, 0, 10" RowDefinitions="30, 30" ColumnDefinitions="*, *, *" Grid.Row="3">
+			<Label Grid.Row="0" Grid.Column="0" Content="Uploaded Monthly Histories" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
+			<Label Grid.Row="1" Grid.Column="0" Content="{Binding UploadedMonthlyHistoriesCount, StringFormat=N0}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+
+			<Label Grid.Row="0" Grid.Column="1" Content="Uploaded Weekly Histories" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
+			<Label Grid.Row="1" Grid.Column="1" Content="{Binding UploadedWeeklyHistoriesCount, StringFormat=N0}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+
+			<Label Grid.Row="0" Grid.Column="2" Content="Uploaded Daily Histories" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
+			<Label Grid.Row="1" Grid.Column="2" Content="{Binding UploadedDailyHistoriesCount, StringFormat=N0}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+		</Grid>
+
 	</Grid>
-
-
-	<!--<StackPanel x:DataType="vm:MainViewModel">
-		<Label Content="Dashboard" FontWeight="Bold" Margin="0 0 0 20" />
-
-
-		 Card for Server info 
-		<Border Classes="card" IsVisible="{Binding IsInGame}">
-			<StackPanel>
-				<StackPanel Orientation="Horizontal">
-					<Label Content="Current server: " />
-					<Label Content="{Binding AlbionServer.Name}" />
-				</StackPanel>
-			</StackPanel>
-		</Border>
-
-		 Card for Player info 
-		<Border Classes="card" IsVisible="{Binding IsInGame}">
-			<StackPanel>
-				<StackPanel Orientation="Horizontal">
-					<Label Content="Player name: " />
-					<Label Content="{Binding PlayerName}" />
-				</StackPanel>
-				<StackPanel Orientation="Horizontal">
-					<Label Content="Current Location: " />
-					<Label Content="{Binding Location}" />
-				</StackPanel>
-			</StackPanel>
-		</Border>
-		 Card for UploadQueueSize 
-		<Border Classes="card" IsVisible="{Binding IsInGame}">
-			<StackPanel>
-				<Label Classes="title" Content="Upload queue size" />
-				<StackPanel Orientation="Horizontal">
-					<Label Content="{Binding UploadQueueSize}" />
-					<Label Content=" data packets on queue." />
-				</StackPanel>
-			</StackPanel>
-		</Border>
-
-		 Card for UploadedMarketOffersCount and UploadedMarketRequestsCount 
-		<Border Classes="card" IsVisible="{Binding IsInGame}">
-			<StackPanel>
-				<Label Classes="title" Content="Amount of uploaded prices" />
-				<StackPanel Orientation="Horizontal">
-					<Label Content="Offers: " />
-					<Label Content="{Binding UploadedMarketOffersCount}" />
-				</StackPanel>
-				<StackPanel Orientation="Horizontal">
-					<Label Content="Requests: " />
-					<Label Content="{Binding UploadedMarketRequestsCount}" />
-				</StackPanel>
-			</StackPanel>
-		</Border>
-
-		Card for UploadedHistoriesCountDic
-		<Border Classes="card" IsVisible="{Binding IsInGame}">
-			<StackPanel>
-				<Label Classes="title" Content="Amount of uploaded histories" />
-				<ItemsControl ItemsSource="{Binding UploadedHistoriesCountCollection}">
-					<ItemsControl.ItemTemplate>
-						<DataTemplate>
-							<StackPanel Orientation="Horizontal">
-								<Label Content="{Binding Key}" />
-								<Label Content=": " />
-								<Label Content="{Binding Value}" />
-							</StackPanel>
-						</DataTemplate>
-					</ItemsControl.ItemTemplate>
-				</ItemsControl>
-			</StackPanel>
-		</Border>
-
-		 Card for UploadedGoldHistoriesCount 
-		<Border Classes="card" IsVisible="{Binding IsInGame}">
-			<StackPanel>
-				<Label Classes="title" Content="Amount of uploaded gold data" />
-				<Label Content="{Binding UploadedGoldHistoriesCount}" />
-			</StackPanel>
-		</Border>
-
-		 Card for Player not in game 
-		<Border Classes="card" IsVisible="{Binding IsNotInGame}">
-			<StackPanel>
-				<Label Content="You're good to go, join the game" />
-			</StackPanel>
-		</Border>
-	</StackPanel>-->
 </UserControl>
