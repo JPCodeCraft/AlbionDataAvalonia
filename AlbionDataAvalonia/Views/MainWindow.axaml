@@ -1,20 +1,42 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:vm="using:AlbionDataAvalonia.ViewModels"
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:views="clr-namespace:AlbionDataAvalonia.Views"
+		xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
         x:Class="AlbionDataAvalonia.Views.MainWindow"
         Icon="/Assets/logo.ico"
         Title="Albion Data Client"
 		ExtendClientAreaToDecorationsHint="True"
 		ExtendClientAreaTitleBarHeightHint="30"
-		MinWidth="800" MinHeight="250">
+		MinWidth="800" MinHeight="250"
+		x:DataType="vm:MainViewModel">
 
 	<Window.Styles>
 		<Style Selector="Window">
 			<Setter Property="Background" Value="rgba(25, 25, 25, 1)" />
+		</Style>
+
+		<Style Selector="Button.link">
+			<Setter Property="Foreground" Value="Blue" />
+			<Setter Property="Padding" Value="0" />
+			<Setter Property="Cursor" Value="Hand" />
+			<Setter Property="BorderThickness" Value="0" />
+			<Setter Property="Background" Value="Transparent" />
+			<Setter Property="Template">
+				<ControlTemplate>
+					<ContentPresenter Content="{TemplateBinding Content}">
+						<ContentPresenter.Styles>
+							<Style Selector="TextBlock">
+								<Setter Property="Foreground" Value="{TemplateBinding Foreground}"/>
+								<Setter Property="FontSize" Value="{TemplateBinding FontSize}"/>
+								<Setter Property="TextDecorations" Value="Underline"/>
+							</Style>
+						</ContentPresenter.Styles>
+					</ContentPresenter>
+				</ControlTemplate>
+			</Setter>
 		</Style>
 	</Window.Styles>
 
@@ -22,12 +44,20 @@
 		<Grid.RowDefinitions>
 			<RowDefinition Height="1" />
 			<RowDefinition Height="*" />
+			<RowDefinition Height="1" />
 			<RowDefinition Height="30" />
 		</Grid.RowDefinitions>
 
 		<Rectangle Grid.Row="0" Height="1" Fill="rgba(255,255,255,.1)" HorizontalAlignment="Stretch" />
 
 		<views:MainView Grid.Row="1" />
+
+		<Rectangle Grid.Row="2" Height="1" Fill="rgba(255,255,255,.1)" HorizontalAlignment="Stretch" />
+
+		<Grid ColumnDefinitions="*, *" Grid.Row="3"  Margin="10 0 10 0">
+			<Button Grid.Column="0" Classes="link" Content="Albion Free Market" HorizontalAlignment="Left" VerticalAlignment="Center" Command="{Binding OpenAFMWebsiteCommand}" />
+			<Button Grid.Column="1" Classes="link" Content="Albion Data Project" HorizontalAlignment="Right" VerticalAlignment="Center" Command="{Binding OpenAODPWebsiteCommand}"/>
+		</Grid>
 	</Grid>
 
 
