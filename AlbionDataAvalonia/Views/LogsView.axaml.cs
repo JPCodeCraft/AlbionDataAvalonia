@@ -5,10 +5,6 @@ namespace AlbionDataAvalonia.Views
 {
     public partial class LogsView : UserControl
     {
-        public LogsView()
-        {
-
-        }
         public LogsView(LogsViewModel logsViewModel)
         {
             InitializeComponent();

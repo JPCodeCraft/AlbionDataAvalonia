@@ -10,7 +10,7 @@
 	<Identity
 	  Name="AFMDataClient"
 	  Publisher="CN=475C3F25-EB6A-4E18-BE18-E6FC75362747"
-	  Version="0.2.3.0" />
+	  Version="0.2.4.0" />
 
 	<Properties>
 		<DisplayName>Albion Free Market Data Client</DisplayName>
