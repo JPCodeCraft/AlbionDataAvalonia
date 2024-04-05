@@ -34,6 +34,20 @@ public class UserSettings : INotifyPropertyChanged
         }
     }
 
+    private int maxHashQueueSize = 30;
+    public int MaxHashQueueSize
+    {
+        get => maxHashQueueSize;
+        set
+        {
+            if (maxHashQueueSize != value)
+            {
+                maxHashQueueSize = value;
+                OnPropertyChanged(nameof(MaxHashQueueSize));
+            }
+        }
+    }
+
     protected virtual void OnPropertyChanged(string propertyName)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
