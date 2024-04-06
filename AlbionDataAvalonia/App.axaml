@@ -5,9 +5,22 @@
              RequestedThemeVariant="Dark">
 	<!-- "Default" ThemeVariant follows system theme variant. "Dark" or "Light" are other available options. -->
 
+	<Application.Resources>
+		<SolidColorBrush Color="#5D4037" x:Key="AFMBrown" />
+		<SolidColorBrush Color="#EFEBE9" x:Key="AFMLightBrown" />
+		<SolidColorBrush Color="#FFA726" x:Key="AFMOrange" />
+		<SolidColorBrush Color="#FF7043" x:Key="AFMRed" />
+		<SolidColorBrush Color="rgb(48,48,48)" x:Key="AFMDarkBackground" />
+	</Application.Resources>
+	
 	<Application.Styles>
-		<FluentTheme />
 		<StyleInclude Source="avares://Avalonia.Controls.DataGrid/Themes/Fluent.xaml"/>
+		<FluentTheme>
+			<FluentTheme.Palettes>
+				<ColorPaletteResources x:Key="Light" Accent="#ffff5722" AltHigh="White" AltLow="White" AltMedium="White" AltMediumHigh="White" AltMediumLow="White" BaseHigh="Black" BaseLow="#ffd7ccc8" BaseMedium="#ffa1847c" BaseMediumHigh="#ff7d5449" BaseMediumLow="#ff8f6c62" ChromeAltLow="#ff7d5449" ChromeBlackHigh="Black" ChromeBlackLow="#ffd7ccc8" ChromeBlackMedium="#ff7d5449" ChromeBlackMediumLow="#ffa1847c" ChromeDisabledHigh="#ffd7ccc8" ChromeDisabledLow="#ffa1847c" ChromeGray="#ff8f6c62" ChromeHigh="#ffd7ccc8" ChromeLow="#fffde9e4" ChromeMedium="#fff5e3de" ChromeMediumLow="#fffde9e4" ChromeWhite="White" ListLow="#fff5e3de" ListMedium="#ffd7ccc8" RegionColor="#ffefebe9" />
+				<ColorPaletteResources x:Key="Dark" Accent="#fff57c00" AltHigh="Black" AltLow="Black" AltMedium="Black" AltMediumHigh="Black" AltMediumLow="Black" BaseHigh="White" BaseLow="#ff5d4037" BaseMedium="#ffb89e96" BaseMediumHigh="#ffcfb5ae" BaseMediumLow="#ff8b6f67" ChromeAltLow="#ffcfb5ae" ChromeBlackHigh="Black" ChromeBlackLow="#ffcfb5ae" ChromeBlackMedium="Black" ChromeBlackMediumLow="Black" ChromeDisabledHigh="#ff5d4037" ChromeDisabledLow="#ffb89e96" ChromeGray="#ffa1867e" ChromeHigh="#ffa1867e" ChromeLow="#ff3b0f0b" ChromeMedium="#ff431b16" ChromeMediumLow="#ff54342c" ChromeWhite="White" ListLow="#ff431b16" ListMedium="#ff5d4037" RegionColor="#ff303030" />
+			</FluentTheme.Palettes>
+		</FluentTheme>
 	</Application.Styles>	
 
 	<TrayIcon.Icons>

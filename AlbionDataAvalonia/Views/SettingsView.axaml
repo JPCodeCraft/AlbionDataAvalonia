@@ -6,21 +6,7 @@
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="AlbionDataAvalonia.Views.SettingsView"
 			 x:DataType="vm:SettingsViewModel">
-	<UserControl.Styles>
-		<Style Selector="CheckBox">
-			<Setter Property="Foreground" Value="White" />
-		</Style>
-		<Style Selector="CheckBox:checked /template/ ContentPresenter">
-			<Setter Property="Foreground" Value="White" />
-		</Style>
-		<Style Selector="CheckBox:pointerover /template/ ContentPresenter">
-			<Setter Property="Foreground" Value="White" />
-			<Setter Property="FontWeight" Value="DemiBold" />
-		</Style>
-		<Style Selector="CheckBox:pointerover">
-			<Setter Property="Cursor" Value="Hand" />
-		</Style>
-	</UserControl.Styles>
+
 	<StackPanel>
 		<CheckBox Content="Start Hidden" IsChecked="{Binding UserSettings.StartHidden}"
 				  Margin="0 0 0 10"/>
@@ -37,6 +23,13 @@
 				<Label Content="{Binding UserSettings.MaxHashQueueSize, Mode=OneWay} " />
 			</StackPanel>
 			<Slider Minimum="0" Maximum="50" Value="{Binding UserSettings.MaxHashQueueSize}" TickFrequency="1" IsSnapToTickEnabled="True" />
+		</StackPanel>
+		<StackPanel Margin="0 0 0 10">
+			<StackPanel Orientation="Horizontal">
+				<Label Content="Maximum log entries:" />
+				<Label Content="{Binding UserSettings.MaxLogCount, Mode=OneWay} " />
+			</StackPanel>
+			<Slider Minimum="5" Maximum="500" Value="{Binding UserSettings.MaxLogCount}" TickFrequency="1" IsSnapToTickEnabled="True" />
 		</StackPanel>
 	</StackPanel>
 </UserControl>

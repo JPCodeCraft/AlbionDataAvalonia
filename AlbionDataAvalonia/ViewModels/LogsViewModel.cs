@@ -1,7 +1,7 @@
 ﻿using AlbionDataAvalonia.Logging;
+using AlbionDataAvalonia.Settings;
 using Avalonia.Threading;
-using CommunityToolkit.Mvvm.ComponentModel;
-using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 
 namespace AlbionDataAvalonia.ViewModels
@@ -9,25 +9,34 @@ namespace AlbionDataAvalonia.ViewModels
     public partial class LogsViewModel : ViewModelBase
     {
         private readonly ListSink _listSink;
+        private readonly SettingsManager _settingsManager;
 
-        [ObservableProperty]
-        private List<LogEventWrapper> events;
+        public ObservableCollection<LogEventWrapper> Events { get; set; } = new();
+
         public LogsViewModel()
         {
 
         }
-        public LogsViewModel(ListSink listSink)
+        public LogsViewModel(ListSink listSink, SettingsManager settingsManager)
         {
             _listSink = listSink;
-            events = _listSink.Events.ToList();
-            events.Reverse();
+            _settingsManager = settingsManager;
 
-            _listSink.CollectionChanged += () =>
+            foreach (var logEvent in _listSink.Events)
+            {
+                Events.Add(logEvent);
+            }
+            Events.Reverse();
+
+            _listSink.CollectionChanged += (e) =>
             {
                 Dispatcher.UIThread.InvokeAsync(() =>
                 {
-                    Events = _listSink.Events.ToList();
-                    Events.Reverse();
+                    Events.Insert(0, e);
+                    while (Events.Count > _settingsManager.UserSettings.MaxLogCount)
+                    {
+                        Events.RemoveAt(Events.Count - 1);
+                    }
                 });
             };
         }

@@ -14,12 +14,8 @@
 		x:DataType="vm:MainViewModel">
 
 	<Window.Styles>
-		<Style Selector="Window">
-			<Setter Property="Background" Value="rgba(25, 25, 25, 1)" />
-		</Style>
-
 		<Style Selector="Button.link">
-			<Setter Property="Foreground" Value="Blue" />
+			<Setter Property="Foreground" Value="{DynamicResource AFMOrange}" />
 			<Setter Property="Padding" Value="0" />
 			<Setter Property="Cursor" Value="Hand" />
 			<Setter Property="BorderThickness" Value="0" />

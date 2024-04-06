@@ -126,7 +126,7 @@ namespace AlbionDataAvalonia.State
                 UploadedMarketRequestsCount += e.MarketUpload.Orders.Count;
                 OnUploadedMarketRequestsCountChanged?.Invoke(UploadedMarketRequestsCount);
             }
-            Log.Debug("Market upload complete. {Offers} offers, {Requests} requests", UploadedMarketOffersCount, UploadedMarketRequestsCount);
+            Log.Information("Market upload complete. {Offers} offers, {Requests} requests", UploadedMarketOffersCount, UploadedMarketRequestsCount);
         }
 
         public void MarketHistoryUploadHandler(object? sender, MarketHistoriesUploadEventArgs e)
@@ -138,14 +138,14 @@ namespace AlbionDataAvalonia.State
 
             UploadedHistoriesCountDic[e.MarketHistoriesUpload.Timescale] += e.MarketHistoriesUpload.MarketHistories.Count;
             OnUploadedHistoriesCountDicChanged?.Invoke(UploadedHistoriesCountDic);
-            Log.Debug("Market history upload complete. {Timescale} - {count} histories", e.MarketHistoriesUpload.Timescale, UploadedHistoriesCountDic[e.MarketHistoriesUpload.Timescale]);
+            Log.Information("Market history upload complete. {count} histories [{Timescale}] ", UploadedHistoriesCountDic[e.MarketHistoriesUpload.Timescale], e.MarketHistoriesUpload.Timescale);
         }
 
         public void GoldPriceUploadHandler(object? sender, GoldPriceUploadEventArgs e)
         {
             UploadedGoldHistoriesCount += e.GoldPriceUpload.Prices.Length;
             OnUploadedGoldHistoriesCountChanged?.Invoke(UploadedGoldHistoriesCount);
-            Log.Debug("Gold price upload complete. {count} histories", UploadedGoldHistoriesCount);
+            Log.Information("Gold price upload complete. {count} histories", UploadedGoldHistoriesCount);
         }
 
         public bool CheckLocationIDIsSet()

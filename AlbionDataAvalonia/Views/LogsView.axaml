@@ -12,6 +12,14 @@
 			  AutoGenerateColumns="False" IsReadOnly="True"
 			  GridLinesVisibility="None"
 			  BorderThickness="0" BorderBrush="Gray">
+		<DataGrid.Styles>
+			<Style Selector="DataGridColumnHeader /template/ Grid#PART_ColumnHeaderRoot">
+				<Setter Property="Background" Value="rgba(255, 255, 255, 0.2)" />
+			</Style>
+			<Style Selector="DataGridColumnHeader:pointerover /template/ Grid#PART_ColumnHeaderRoot">
+				<Setter Property="Background" Value="rgba(255, 255, 255, 0.4)" />
+			</Style>
+		</DataGrid.Styles>
 		<DataGrid.Columns>
 			<DataGridTextColumn Header="Timestamp" Binding="{Binding LogEvent.Timestamp.LocalDateTime}" FontSize="12" />
 			<DataGridTextColumn Header="Level" Binding="{Binding LogEvent.Level}" FontSize="12" />

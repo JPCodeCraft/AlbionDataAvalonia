@@ -92,10 +92,11 @@ public partial class MainViewModel : ViewModelBase
         _playerState.OnUploadedMarketOffersCountChanged += count => UploadedMarketOffersCount = count;
         _playerState.OnUploadedHistoriesCountDicChanged += dic =>
         {
-            UploadedMonthlyHistoriesCount = dic[Timescale.Month];
-            UploadedWeeklyHistoriesCount = dic[Timescale.Week];
-            UploadedDailyHistoriesCount = dic[Timescale.Day];
+            UploadedMonthlyHistoriesCount = dic.ContainsKey(Timescale.Month) ? dic[Timescale.Month] : 0;
+            UploadedWeeklyHistoriesCount = dic.ContainsKey(Timescale.Week) ? dic[Timescale.Week] : 0;
+            UploadedDailyHistoriesCount = dic.ContainsKey(Timescale.Day) ? dic[Timescale.Day] : 0;
         };
+
         _playerState.OnUploadedGoldHistoriesCountChanged += count => UploadedGoldHistoriesCount = count;
 
         if (NpCapInstallationChecker.IsNpCapInstalled())
