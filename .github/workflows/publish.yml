@@ -27,7 +27,10 @@ jobs:
 
     - name: Get the version
       id: get_version
-      run: echo ::set-output name=VERSION::$(dotnet run --project ./get-version.csproj)
+      run: |
+        $version = (Get-Command 'C:\Users\runneradmin\Documents\Inno Setup Output\AFMDataClientSetup.exe').FileVersionInfo.ProductVersion
+        echo "::set-output name=VERSION::$version"
+      shell: pwsh
 
     - name: Create Release
       id: create_release
@@ -46,6 +49,6 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: ./AlbionDataAvalonia.Desktop/pkg/AFMDataClientSetup.exe
+        asset_path: C:\Users\runneradmin\Documents\Inno Setup Output\AFMDataClientSetup.exe
         asset_name: AFMDataClientSetup.exe
         asset_content_type: application/octet-stream
