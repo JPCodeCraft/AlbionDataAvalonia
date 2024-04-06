@@ -1,5 +1,5 @@
 ﻿#define MyAppName "Albion Free Market Data Client"
-#define MyAppVersion "1.0"
+#define MyAppVersion "0.1.0"
 #define MyAppExeName "AlbionDataAvalonia.Desktop.exe"
 #define MyAppOutputDir "userdocs:Inno Setup Output"
 #define MyAppOutputBaseFilename "AFMDataClientSetup"
