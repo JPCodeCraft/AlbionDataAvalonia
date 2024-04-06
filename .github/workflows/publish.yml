@@ -17,7 +17,7 @@ jobs:
         dotnet-version: '7.0.x' # adjust this to your project's .NET version
 
     - name: Build project
-      run: dotnet build --configuration Release
+      run: dotnet build ./AlbionDataAvalonia.Desktop/AlbionDataAvalonia.Desktop.csproj --configuration Release
 
     - name: Compile .ISS to .EXE Installer
       uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
