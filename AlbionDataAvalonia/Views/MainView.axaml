@@ -12,21 +12,11 @@
 	</Design.DataContext>
 
 	<UserControl.Styles>
-		<Style Selector="Button">
+		<Style Selector="Button.menu">
 			<Setter Property="Background" Value="Transparent" />
-			<Setter Property="Foreground" Value="White" />
 			<Setter Property="Padding" Value="10" />
 			<Setter Property="Margin" Value="10" />
 			<Setter Property="HorizontalAlignment" Value="Stretch" />
-		</Style>
-
-		<Style Selector="Button:pointerover /template/ ContentPresenter">
-			<Setter Property="Background" Value="rgba(255, 255, 255, 0.1)" />
-			<Setter Property="Foreground" Value="White" />
-		</Style>
-
-		<Style Selector="Label">
-			<Setter Property="Foreground" Value="White" />
 		</Style>
 
 		<Style Selector="Label.title">
@@ -61,11 +51,11 @@
 					Content="Albion Free Market" Padding="0 15 0 0" />
 				<Label HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="DemiBold"
 					Content="Data Client" Padding="0 5 0 15" />
-				<Button Content="Main" Margin="10" HorizontalAlignment="Stretch"
+				<Button Classes="menu" Content="Main" Margin="10" HorizontalAlignment="Stretch"
 					Command="{Binding ShowDashboardCommand}" />
-				<Button Content="Settings" Margin="10" HorizontalAlignment="Stretch"
+				<Button Classes="menu" Content="Settings" Margin="10" HorizontalAlignment="Stretch"
 					Command="{Binding ShowSettingsCommand}" />
-				<Button Content="Logs" Margin="10" HorizontalAlignment="Stretch"
+				<Button Classes="menu" Content="Logs" Margin="10" HorizontalAlignment="Stretch"
 					Command="{Binding ShowLogsCommand}" />
 			</StackPanel>
 

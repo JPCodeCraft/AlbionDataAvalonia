@@ -6,7 +6,7 @@ public class UserSettings : INotifyPropertyChanged
 {
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    private bool _startHidden = false;
+    private bool _startHidden;
     public bool StartHidden
     {
         get => _startHidden;
@@ -20,7 +20,7 @@ public class UserSettings : INotifyPropertyChanged
         }
     }
 
-    private float _threadLimitPercentage = 0.3f;
+    private float _threadLimitPercentage;
     public float ThreadLimitPercentage
     {
         get => _threadLimitPercentage;
@@ -34,7 +34,7 @@ public class UserSettings : INotifyPropertyChanged
         }
     }
 
-    private int maxHashQueueSize = 30;
+    private int maxHashQueueSize;
     public int MaxHashQueueSize
     {
         get => maxHashQueueSize;
@@ -44,6 +44,20 @@ public class UserSettings : INotifyPropertyChanged
             {
                 maxHashQueueSize = value;
                 OnPropertyChanged(nameof(MaxHashQueueSize));
+            }
+        }
+    }
+
+    private int maxLogCount;
+    public int MaxLogCount
+    {
+        get => maxLogCount;
+        set
+        {
+            if (maxLogCount != value)
+            {
+                maxLogCount = value;
+                OnPropertyChanged(nameof(MaxLogCount));
             }
         }
     }

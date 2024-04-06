@@ -67,11 +67,11 @@
 		</Grid>
 
 		<Grid IsVisible="{Binding ShowChangeCity}" Margin="0, 10, 0, 10" RowDefinitions="60" ColumnDefinitions="*" Grid.Row="1">
-			<Label Content="Location has not been set. Please change maps." VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
+			<Label Content="Location has not been set. Please change maps." VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold" FontSize="20"/>
 		</Grid>
 
 		<Grid IsVisible="{Binding ShowGetInGame}" Margin="0, 10, 0, 10" RowDefinitions="60" ColumnDefinitions="*" Grid.Row="1">
-			<Label Content="You're good to go. Get ingame." VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
+			<Label Content="You're good to go. Get ingame." VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold" FontSize="20"/>
 		</Grid>
 
 		<!--PRICES AND GOLD LINE-->

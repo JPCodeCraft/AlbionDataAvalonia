@@ -1,0 +1,16 @@
+{
+  "Id": "themes.json",
+  "Name": "themes.json",
+  "LightRegionColor": "#ffefebe9",
+  "DarkRegionColor": "#ff303030",
+  "LightBaseColor": "#ffd7ccc8",
+  "DarkBaseColor": "#ff5d4037",
+  "LightPrimaryColor": "#ffff5722",
+  "DarkPrimaryColor": "#fff57c00",
+  "LightBaseOverrides": [],
+  "DarkBaseOverrides": [],
+  "LightPrimaryOverrides": [],
+  "DarkPrimaryOverrides": []
+}
+
+//https://theme.xaml.live/
