@@ -50,17 +50,23 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <Folder Include="Themes\" />
+		<Folder Include="Themes\" />
 	</ItemGroup>
 
 	<ItemGroup>
-	  <AvaloniaResource Update="Assets\afm-logo.ico">
-	    <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-	  </AvaloniaResource>
+		<AvaloniaResource Update="Assets\afm-logo.ico">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</AvaloniaResource>
+		<AvaloniaResource Update="ThirdParty\WinPcap_4_1_3.exe">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</AvaloniaResource>
 	</ItemGroup>
 
 	<ItemGroup>
 		<None Update="Assets\afm-logo.ico">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+		<None Update="ThirdParty\WinPcap_4_1_3.exe">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
 	</ItemGroup>
