@@ -19,12 +19,11 @@ jobs:
     - name: Build project
       run: dotnet build --configuration Release
 
-    - name: Setup Inno Setup
-      uses: giltesa/setup-innosetup@v1
-
-    - name: Build Installer
-      run: |
-        iscc /Qp ./AlbionDataAvalonia.Desktop/pkg/inno.iss
+    - name: Compile .ISS to .EXE Installer
+      uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
+      with:
+        path: ./AlbionDataAvalonia.Desktop/pkg/inno.iss
+        options: /O+
 
     - name: Get the version
       id: get_version
