@@ -3,10 +3,10 @@
 #define MyAppExeName "AlbionDataAvalonia.Desktop.exe"
 #define MyAppOutputDir "userdocs:Inno Setup Output"
 #define MyAppOutputBaseFilename "AFMDataClientSetup"
-#define MyAppSourceDir "C:\\Users\\augus\\source\\repos\\augusto501\\AlbionDataAvalonia\\AlbionDataAvalonia.Desktop\\bin\\Release\\net7.0\\*"
-#define MyAppIconFile "C:\\Users\\augus\\source\\repos\\augusto501\\AlbionDataAvalonia\\AlbionDataAvalonia.Desktop\\bin\\Release\\net7.0\\Assets\\afm-logo.ico"
+#define MyAppSourceDir "..\\bin\\Release\\net7.0\\*"
+#define MyAppIconFile "..\\bin\\Release\\net7.0\\Assets\\afm-logo.ico"
 #define MyAppIconFilePath "Assets\afm-logo.ico"
-#define WinPCapInstallerFile "C:\\Users\\augus\\source\\repos\\augusto501\\AlbionDataAvalonia\\AlbionDataAvalonia.Desktop\\bin\\Release\\net7.0\\ThirdParty\\WinPcap_4_1_3.exe"
+#define WinPCapInstallerFile "..\\bin\\Release\\net7.0\\ThirdParty\\WinPcap_4_1_3.exe"
 #define WinPCapInstallerFilePath "ThirdParty\WinPcap_4_1_3.exe"
 
 [Setup]
