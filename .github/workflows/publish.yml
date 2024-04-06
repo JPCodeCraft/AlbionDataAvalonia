@@ -1,0 +1,52 @@
+name: Build and Release
+
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: windows-latest
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v2
+
+    - name: Setup .NET
+      uses: actions/setup-dotnet@v1
+      with:
+        dotnet-version: '5.0.x' # adjust this to your project's .NET version
+
+    - name: Build project
+      run: dotnet build --configuration Release
+
+    - name: Setup Inno Setup
+      uses: crazy-max/ghaction-inno-setup@v2
+
+    - name: Build Installer
+      run: |
+        iscc /Qp ./AlbionDataAvalonia.Desktop/pkg/inno.iss
+
+    - name: Get the version
+      id: get_version
+      run: echo ::set-output name=VERSION::$(dotnet run --project ./get-version.csproj)
+
+    - name: Create Release
+      id: create_release
+      uses: actions/create-release@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        tag_name: ${{ steps.get_version.outputs.VERSION }}
+        release_name: Release ${{ steps.get_version.outputs.VERSION }}
+        draft: false
+        prerelease: false
+
+    - name: Upload Release Asset
+      uses: actions/upload-release-asset@v1
+      env:
+        GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      with:
+        upload_url: ${{ steps.create_release.outputs.upload_url }}
+        asset_path: ./AlbionDataAvalonia.Desktop/pkg/AFMDataClientSetup.exe
+        asset_name: AFMDataClientSetup.exe
+        asset_content_type: application/octet-stream
