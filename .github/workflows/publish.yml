@@ -20,7 +20,7 @@ jobs:
       run: dotnet build --configuration Release
 
     - name: Setup Inno Setup
-      uses: crazy-max/ghaction-inno-setup@v2
+      uses: giltesa/setup-innosetup@v1
 
     - name: Build Installer
       run: |
