@@ -81,6 +81,7 @@ public class SettingsManager
             if (settings != null)
             {
                 AppSettings = settings;
+                Log.Information("App settings loaded successfully from remote repository.");
             }
         }
         catch (Exception ex)
@@ -97,6 +98,7 @@ public class SettingsManager
                 {
                     AppSettings = settings;
                 }
+                Log.Information("App settings loaded successfully from local default file.");
             }
         }
     }
