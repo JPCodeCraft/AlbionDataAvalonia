@@ -29,7 +29,7 @@ jobs:
       id: get_version
       run: |
         $version = (Select-String -Path ./AlbionDataAvalonia.Desktop/pkg/inno.iss -Pattern '#define MyAppVersion "(.*)"').Matches.Groups[1].Value
-        echo "::set-output name=VERSION::$version"
+        echo "VERSION=$version" >> $GITHUB_ENV
       shell: pwsh
 
     - name: Get diff
@@ -38,7 +38,7 @@ jobs:
         git fetch --tags
         LATEST_TAG=$(git describe --tags --abbrev=0 --always)
         DIFF=$(git diff --shortstat $LATEST_TAG)
-        echo "::set-output name=DIFF::$DIFF"
+        echo "DIFF=$DIFF" >> $GITHUB_ENV
       shell: bash
 
     - name: Create Release
