@@ -61,8 +61,8 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: C:\Users\runneradmin\Documents\Inno Setup Output\AFMDataClientSetup.exe
-        asset_name: AFMDataClientSetup.exe
+        asset_path: C:\Users\runneradmin\Documents\Inno Setup Output\AFMDataClientSetup_v_${{ steps.get_version.outputs.VERSION }}.exe
+        asset_name: AFMDataClientSetup_v_${{ steps.get_version.outputs.VERSION }}.exe
         asset_content_type: application/octet-stream
 
     - name: Create LatestVersion.json
