@@ -26,7 +26,7 @@ jobs:
 
     - name: Build project
       run: |
-        echo "Found version: ${{ env.VERSION }}
+        echo "Found version: ${{ env.VERSION }}"
         dotnet build ./AlbionDataAvalonia.Desktop/AlbionDataAvalonia.Desktop.csproj --configuration Release
 
     - name: Compile .ISS to .EXE Installer
