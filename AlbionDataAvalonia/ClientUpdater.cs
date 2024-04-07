@@ -1,35 +1,47 @@
-﻿using System;
+﻿using Serilog;
+using System;
 using System.Net.Http;
+using System.Reflection;
 using System.Text.Json;
 using System.Threading.Tasks;
 
-namespace AlbionDataAvalonia
+namespace AlbionDataAvalonia;
+
+public static class ClientUpdater
 {
-    public static class ClientUpdater
+    private static readonly HttpClient httpClient = new HttpClient();
+
+    private readonly static string versionUrl = "https://api.github.com/repos/AlbionData/AlbionData-Client/releases/latest";
+
+    public static async Task CheckForUpdatesAsync(string versionUrl)
     {
-        private static readonly HttpClient httpClient = new HttpClient();
-
-        public static async Task CheckForUpdatesAsync(string currentVersion, string versionUrl)
+        try
         {
-            try
-            {
-                var response = await httpClient.GetStringAsync(versionUrl);
-                var jsonDocument = JsonDocument.Parse(response);
-                var latestVersion = jsonDocument.RootElement.GetProperty("version").GetString();
+            // Get the current version of the running application
+            var currentVersion = Assembly.GetExecutingAssembly()?.GetName()?.Version?.ToString();
 
-                if (string.Compare(currentVersion, latestVersion) < 0)
-                {
-                    Console.WriteLine("A new version is available.");
-                }
-                else
-                {
-                    Console.WriteLine("You are using the latest version.");
-                }
-            }
-            catch (Exception ex)
+            if (currentVersion == null)
             {
-                Console.WriteLine($"An error occurred while checking for updates: {ex.Message}");
+                Log.Error("Failed to get the current version of the application.");
+                return;
             }
+
+            var response = await httpClient.GetStringAsync(versionUrl);
+            var jsonDocument = JsonDocument.Parse(response);
+            var latestVersion = jsonDocument.RootElement.GetProperty("version").GetString();
+
+            if (string.Compare(currentVersion, latestVersion) < 0)
+            {
+                Log.Information("A new version is available.");
+            }
+            else
+            {
+                Log.Information("You are using the latest version.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"An error occurred while checking for updates: {ex.Message}");
         }
     }
 }
