@@ -1,5 +1,7 @@
 ﻿using Serilog;
 using System;
+using System.Diagnostics;
+using System.IO;
 using System.Net.Http;
 using System.Reflection;
 using System.Text.Json;
@@ -32,6 +34,24 @@ public static class ClientUpdater
             {
                 Log.Information("A new version is available.");
 
+                // Download the new version
+                var data = await httpClient.GetByteArrayAsync(downloadUrl);
+                var filePath = Path.Combine(Path.GetTempPath(), $"AFMDataClientSetup_v_{latestVersion}.exe");
+                await File.WriteAllBytesAsync(filePath, data);
+
+                // Start the new version
+                var process = new Process
+                {
+                    StartInfo = new ProcessStartInfo
+                    {
+                        FileName = filePath,
+                        UseShellExecute = true
+                    }
+                };
+                process.Start();
+
+                // Stop the current application
+                Environment.Exit(0);
             }
             else
             {
