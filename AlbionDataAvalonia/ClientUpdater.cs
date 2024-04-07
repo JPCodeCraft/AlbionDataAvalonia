@@ -13,8 +13,16 @@ public static class ClientUpdater
 {
     private static readonly HttpClient httpClient = new HttpClient();
 
-    public static async Task CheckForUpdatesAsync(string versionUrl, string downloadUrl)
+    public static async Task CheckForUpdatesAsync(string? versionUrl, string? downloadUrl)
     {
+        Log.Information("Checking for updates...");
+
+        if (string.IsNullOrWhiteSpace(versionUrl) || string.IsNullOrWhiteSpace(downloadUrl))
+        {
+            Log.Error("Version URL or Download URL is not set.");
+            return;
+        }
+
         try
         {
 
@@ -33,9 +41,11 @@ public static class ClientUpdater
             var jsonDocument = JsonDocument.Parse(response);
             var latestVersion = jsonDocument.RootElement.GetProperty("version").GetString();
 
+            Log.Information($"Current version: {currentVersion}");
+
             if (string.Compare(currentVersion, latestVersion) < 0)
             {
-                Log.Information("A new version is available.");
+                Log.Information($"A new version is available: v.{latestVersion}. Updating from v.{currentVersion}");
 
                 // Download the new version
                 var data = await httpClient.GetByteArrayAsync(downloadUrl);
@@ -58,7 +68,7 @@ public static class ClientUpdater
             }
             else
             {
-                Log.Information("You are using the latest version.");
+                Log.Information($"You are using the latest version: v.{latestVersion}.");
             }
         }
         catch (Exception ex)
