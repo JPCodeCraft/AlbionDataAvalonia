@@ -41,7 +41,7 @@ jobs:
         git fetch --tags
         $LATEST_TAG = git describe --tags --abbrev=0 --always
         $DIFF = git diff --shortstat $LATEST_TAG
-        echo "Latest Tag: $LATEST_TAG""
+        echo "Latest Tag: $LATEST_TAG"
         echo "Diff: $DIFF"
         echo "DIFF=$DIFF" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
       shell: pwsh
