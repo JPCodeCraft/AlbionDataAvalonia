@@ -11,9 +11,7 @@ public static class ClientUpdater
 {
     private static readonly HttpClient httpClient = new HttpClient();
 
-    private readonly static string versionUrl = "https://api.github.com/repos/AlbionData/AlbionData-Client/releases/latest";
-
-    public static async Task CheckForUpdatesAsync(string versionUrl)
+    public static async Task CheckForUpdatesAsync(string versionUrl, string downloadUrl)
     {
         try
         {
@@ -33,6 +31,7 @@ public static class ClientUpdater
             if (string.Compare(currentVersion, latestVersion) < 0)
             {
                 Log.Information("A new version is available.");
+
             }
             else
             {
