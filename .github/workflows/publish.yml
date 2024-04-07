@@ -37,6 +37,13 @@ jobs:
             path: ./AlbionDataAvalonia.Desktop/pkg/inno.iss
             options: /O+
 
+        - name: Create Tag
+          id: create_tag
+          run: |
+            git tag v.${{ env.VERSION }}
+            git push origin v.${{ env.VERSION }}
+          shell: pwsh
+
         - name: Get diff
           id: get_diff
           run: |
