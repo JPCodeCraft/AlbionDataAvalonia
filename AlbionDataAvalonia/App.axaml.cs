@@ -44,6 +44,9 @@ public partial class App : Application
         var listener = services.GetRequiredService<NetworkListenerService>();
 
         await settings.Initialize();
+
+        await ClientUpdater.CheckForUpdatesAsync(settings.AppSettings.LatestVersionUrl, settings.AppSettings.LatesVersionDownloadUrl);
+
         listener.Run();
 
         this.DataContext = vm;
