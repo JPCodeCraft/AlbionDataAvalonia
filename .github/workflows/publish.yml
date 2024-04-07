@@ -8,7 +8,10 @@ jobs:
     runs-on: windows-latest
 
     steps:
-    
+
+    - name: Checkout code
+      uses: actions/checkout@v2
+          
     - name: Get the version
       id: get_version
       run: |
@@ -19,9 +22,6 @@ jobs:
         echo "GITHUB_ENV contents:"
         Get-Content $env:GITHUB_ENV
       shell: pwsh
-
-    - name: Checkout code
-      uses: actions/checkout@v2
 
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
