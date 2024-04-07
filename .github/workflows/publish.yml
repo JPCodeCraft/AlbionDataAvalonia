@@ -14,7 +14,15 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '7.0.x'
+        dotnet-version: '7.0.x'        
+
+    - name: Get the version
+      id: get_version
+      run: |
+        $version = (Select-String -Path ./AlbionDataAvalonia.Desktop/pkg/inno.iss -Pattern '#define MyAppVersion "(.*)"').Matches.Groups[1].Value
+        echo "VERSION=$version" >> $GITHUB_ENV
+        echo "Found version: $version"
+      shell: pwsh
 
     - name: Build project
       run: dotnet build ./AlbionDataAvalonia.Desktop/AlbionDataAvalonia.Desktop.csproj --configuration Release
@@ -24,13 +32,6 @@ jobs:
       with:
         path: ./AlbionDataAvalonia.Desktop/pkg/inno.iss
         options: /O+
-
-    - name: Get the version
-      id: get_version
-      run: |
-        $version = (Select-String -Path ./AlbionDataAvalonia.Desktop/pkg/inno.iss -Pattern '#define MyAppVersion "(.*)"').Matches.Groups[1].Value
-        echo "VERSION=$version" >> $GITHUB_ENV
-      shell: pwsh
 
     - name: Get diff
       id: get_diff
@@ -47,8 +48,8 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
       with:
-        tag_name: v${{ env.VERSION }}
-        release_name: Albion Free Market Data Client v${{ env.VERSION }}
+        tag_name: v.${{ env.VERSION }}
+        release_name: Albion Free Market Data Client v.${{ env.VERSION }}
         body: |
           Changes since last release:
           ${{ env.DIFF }}
