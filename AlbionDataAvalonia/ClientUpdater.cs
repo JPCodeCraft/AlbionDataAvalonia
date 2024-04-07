@@ -13,6 +13,11 @@ public static class ClientUpdater
 {
     private static readonly HttpClient httpClient = new HttpClient();
 
+    public static string? GetVersion()
+    {
+        return Assembly.GetExecutingAssembly()?.GetName()?.Version?.ToString();
+    }
+
     public static async Task CheckForUpdatesAsync(string? versionUrl, string? downloadUrl)
     {
         Log.Information("Checking for updates...");
@@ -27,7 +32,7 @@ public static class ClientUpdater
         {
 
             // Get the current version of the running application
-            var currentVersion = Assembly.GetExecutingAssembly()?.GetName()?.Version?.ToString();
+            var currentVersion = GetVersion();
 
             if (currentVersion == null)
             {

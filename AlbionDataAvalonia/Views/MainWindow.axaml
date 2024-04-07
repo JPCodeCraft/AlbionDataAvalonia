@@ -50,9 +50,13 @@
 
 		<Rectangle Grid.Row="2" Height="1" Fill="rgba(255,255,255,.1)" HorizontalAlignment="Stretch" />
 
-		<Grid ColumnDefinitions="*, *" Grid.Row="3"  Margin="10 0 10 0">
+		<Grid ColumnDefinitions="*, *, *" Grid.Row="3"  Margin="10 0 10 0">
 			<Button Grid.Column="0" Classes="link" Content="Albion Free Market" HorizontalAlignment="Left" VerticalAlignment="Center" Command="{Binding OpenAFMWebsiteCommand}" />
-			<Button Grid.Column="1" Classes="link" Content="Albion Data Project" HorizontalAlignment="Right" VerticalAlignment="Center" Command="{Binding OpenAODPWebsiteCommand}"/>
+			<StackPanel Orientation="Horizontal" Grid.Column="1" HorizontalAlignment="Center">
+				<Label Content="App version" VerticalAlignment="Center" FontSize="12"/>
+				<Label Content="{Binding AppVersion}" VerticalAlignment="Center" FontSize="12"/>
+			</StackPanel>
+			<Button Grid.Column="2" Classes="link" Content="Albion Data Project" HorizontalAlignment="Right" VerticalAlignment="Center" Command="{Binding OpenAODPWebsiteCommand}"/>
 		</Grid>
 	</Grid>
 
