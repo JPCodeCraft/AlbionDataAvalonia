@@ -14,7 +14,7 @@ jobs:
     - name: Setup .NET
       uses: actions/setup-dotnet@v4
       with:
-        dotnet-version: '7.0.x' # adjust this to your project's .NET version
+        dotnet-version: '7.0.x'
 
     - name: Build project
       run: dotnet build ./AlbionDataAvalonia.Desktop/AlbionDataAvalonia.Desktop.csproj --configuration Release
