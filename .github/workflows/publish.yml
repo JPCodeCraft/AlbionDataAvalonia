@@ -81,8 +81,8 @@ jobs:
 
         - name: Commit and push changes
           run: |
-              git add ./AlbionDataAvalonia.Desktop/LatestVersion.json
-              git commit -m "Update LatestVersion.json"
               git config --local user.email "action@github.com"
               git config --local user.name "GitHub Action"
+              git add ./AlbionDataAvalonia.Desktop/LatestVersion.json
+              git commit -m "Update LatestVersion.json"
               git push
