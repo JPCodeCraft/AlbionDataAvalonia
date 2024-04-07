@@ -21,11 +21,13 @@ jobs:
       run: |
         $version = (Select-String -Path ./AlbionDataAvalonia.Desktop/pkg/inno.iss -Pattern '#define MyAppVersion "(.*)"').Matches.Groups[1].Value
         echo "VERSION=$version" >> $GITHUB_ENV
-        echo "Found version: ${{ env.VERSION }}"
+        echo "Found version: $version"
       shell: pwsh
 
     - name: Build project
-      run: dotnet build ./AlbionDataAvalonia.Desktop/AlbionDataAvalonia.Desktop.csproj --configuration Release
+      run: |
+        echo "Found version: ${{ env.VERSION }}
+        dotnet build ./AlbionDataAvalonia.Desktop/AlbionDataAvalonia.Desktop.csproj --configuration Release
 
     - name: Compile .ISS to .EXE Installer
       uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
