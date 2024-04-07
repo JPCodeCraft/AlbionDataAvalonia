@@ -17,6 +17,7 @@ public static class ClientUpdater
     {
         try
         {
+
             // Get the current version of the running application
             var currentVersion = Assembly.GetExecutingAssembly()?.GetName()?.Version?.ToString();
 
@@ -25,6 +26,8 @@ public static class ClientUpdater
                 Log.Error("Failed to get the current version of the application.");
                 return;
             }
+
+            downloadUrl = downloadUrl.Replace("{fileName}", $"AFMDataClientSetup_v_{currentVersion}.exe");
 
             var response = await httpClient.GetStringAsync(versionUrl);
             var jsonDocument = JsonDocument.Parse(response);
