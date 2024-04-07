@@ -1,5 +1,8 @@
-﻿#define MyAppName "Albion Free Market Data Client"
-#define MyAppVersion "0.1.0"
+﻿#define MyAppId "AFMDataClient"
+#define MyAppName "Albion Free Market Data Client"
+#define MyAppPublisher "JP Code Craft"
+#define MyAppPublisherURL "https://www.albionfreemarket.com"
+#define MyAppVersion "0.1.3"
 #define MyAppExeName "AlbionDataAvalonia.Desktop.exe"
 #define MyAppOutputDir "userdocs:Inno Setup Output"
 #define MyAppOutputBaseFilename "AFMDataClientSetup"
@@ -10,16 +13,20 @@
 #define WinPCapInstallerFilePath "ThirdParty\WinPcap_4_1_3.exe"
 
 [Setup]
+AppId={#MyAppId}
 AppName={#MyAppName}
+AppPublisher={#MyAppPublisher}
+AppPublisherURL={#MyAppPublisherURL}
 AppVersion={#MyAppVersion}
 DefaultDirName={autopf}\{#MyAppName}
 DefaultGroupName={#MyAppName}
 UninstallDisplayIcon={app}\{#MyAppIconFilePath}
 OutputDir={#MyAppOutputDir}
-OutputBaseFilename={#MyAppOutputBaseFilename}
+OutputBaseFilename={#MyAppOutputBaseFilename}_v_{#MyAppVersion}
 Compression=lzma
 SolidCompression=yes
 SetupIconFile={#MyAppIconFile}
+WizardStyle=modern
 PrivilegesRequired=admin
 
 [Files]
@@ -38,11 +45,12 @@ Filename: "{app}\{#WinPCapInstallerFilePath}"; Parameters: "/S"; StatusMsg: "Ins
 function IsWinPcapInstalled: Boolean;
 begin
   Result := RegKeyExists(HKLM, 'SOFTWARE\WOW6432Node\WinPcap') or RegKeyExists(HKLM, 'SOFTWARE\WOW6432Node\Npcap');
-  if Result then
-    MsgBox('WinPcap or Npcap is already installed on your system. No further action is needed.', mbInformation, MB_OK)
-  else
+  if not Result then
     MsgBox('WinPcap is not currently installed on your system. We will proceed with the installation now. This is a necessary component for the application to function properly. Please follow the on-screen installation instructions.', mbInformation, MB_OK);
+  //if Result then
+  // MsgBox('WinPcap or Npcap is already installed on your system. No further action is needed.', mbInformation, MB_OK)
 end;
+
 
 [Run]
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait postinstall skipifsilent

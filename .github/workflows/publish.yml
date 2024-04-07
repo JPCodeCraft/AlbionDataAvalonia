@@ -32,14 +32,26 @@ jobs:
         echo "::set-output name=VERSION::$version"
       shell: pwsh
 
+    - name: Get diff
+      id: get_diff
+      run: |
+        git fetch --tags
+        LATEST_TAG=$(git describe --tags --abbrev=0)
+        DIFF=$(git diff --shortstat $LATEST_TAG)
+        echo "::set-output name=DIFF::$DIFF"
+      shell: bash
+
     - name: Create Release
       id: create_release
       uses: actions/create-release@v1
       env:
         GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
       with:
-        tag_name: ${{ steps.get_version.outputs.VERSION }}
-        release_name: Release ${{ steps.get_version.outputs.VERSION }}
+        tag_name: v.${{ steps.get_version.outputs.VERSION }}
+        release_name: Albion Free Market Data Client v.${{ steps.get_version.outputs.VERSION }}
+        body: |
+          Changes since last release:
+          ${{ steps.get_diff.outputs.DIFF }}
         draft: false
         prerelease: false
 
@@ -52,3 +64,26 @@ jobs:
         asset_path: C:\Users\runneradmin\Documents\Inno Setup Output\AFMDataClientSetup.exe
         asset_name: AFMDataClientSetup.exe
         asset_content_type: application/octet-stream
+
+    - name: Create LatestVersion.json
+      run: |
+        $version = "${{ steps.get_version.outputs.VERSION }}"
+        $json = "{`"version`": `"$version`"}"
+        $json | Out-File -FilePath ./AlbionDataAvalonia.Desktop/LatestVersion.json -Encoding utf8
+        shell: pwsh
+
+    - name: Configure Git
+      run: |
+        git config --global user.name "GitHub Actions"
+        git config --global user.email "actions@github.com"
+      shell: bash
+
+    - name: Commit LatestVersion.json
+      run: |
+        git add ./AlbionDataAvalonia.Desktop/LatestVersion.json
+        git commit -m "Update LatestVersion.json"
+      shell: bash
+
+    - name: Push changes
+      run: git push
+      shell: bash
