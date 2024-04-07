@@ -24,6 +24,6 @@
   "MarketOrdersIngestSubject": "marketorders.ingest",
   "MarketHistoriesIngestSubject": "markethistories.ingest",
   "GoldDataIngestSubject": "goldprices.ingest",
-  "LatestVersionUrl": "",
+  "LatestVersionUrl": "https://raw.githubusercontent.com/JPCodeCraft/AlbionDataAvalonia/master/AlbionDataAvalonia.Desktop/LatestVersion.json",
   "LatesVersionDownloadUrl": ""
 }
