@@ -28,7 +28,7 @@ jobs:
     - name: Get the version
       id: get_version
       run: |
-        $version = (Get-Command 'C:\Users\runneradmin\Documents\Inno Setup Output\AFMDataClientSetup.exe').FileVersionInfo.ProductVersion
+        $version = (Select-String -Path ./AlbionDataAvalonia.Desktop/pkg/inno.iss -Pattern '#define MyAppVersion "(.*)"').Matches.Groups[1].Value
         echo "::set-output name=VERSION::$version"
       shell: pwsh
 
