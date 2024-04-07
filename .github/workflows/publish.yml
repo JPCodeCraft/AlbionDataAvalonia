@@ -47,11 +47,11 @@ jobs:
       env:
         GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
       with:
-        tag_name: v.${{ steps.get_version.outputs.VERSION }}
-        release_name: Albion Free Market Data Client v.${{ steps.get_version.outputs.VERSION }}
+        tag_name: v${{ env.VERSION }}
+        release_name: Albion Free Market Data Client v${{ env.VERSION }}
         body: |
           Changes since last release:
-          ${{ steps.get_diff.outputs.DIFF }}
+          ${{ env.DIFF }}
         draft: false
         prerelease: false
 
@@ -61,16 +61,16 @@ jobs:
         GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
       with:
         upload_url: ${{ steps.create_release.outputs.upload_url }}
-        asset_path: C:\Users\runneradmin\Documents\Inno Setup Output\AFMDataClientSetup_v_${{ steps.get_version.outputs.VERSION }}.exe
-        asset_name: AFMDataClientSetup_v_${{ steps.get_version.outputs.VERSION }}.exe
+        asset_path: C:\Users\runneradmin\Documents\Inno Setup Output\AFMDataClientSetup_v_${{ env.VERSION }}.exe
+        asset_name: AFMDataClientSetup_v_${{ env.VERSION }}.exe
         asset_content_type: application/octet-stream
 
     - name: Create LatestVersion.json
       run: |
-        $version = "${{ steps.get_version.outputs.VERSION }}"
+        $version = "${{ env.VERSION }}"
         $json = "{`"version`": `"$version`"}"
         $json | Out-File -FilePath ./AlbionDataAvalonia.Desktop/LatestVersion.json -Encoding utf8
-        shell: pwsh
+      shell: pwsh
 
     - name: Configure Git
       run: |
