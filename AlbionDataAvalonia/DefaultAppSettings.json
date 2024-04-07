@@ -23,5 +23,7 @@
   ],
   "MarketOrdersIngestSubject": "marketorders.ingest",
   "MarketHistoriesIngestSubject": "markethistories.ingest",
-  "GoldDataIngestSubject": "goldprices.ingest"
+  "GoldDataIngestSubject": "goldprices.ingest",
+  "LatestVersionUrl": "",
+  "LatesVersionDownloadUrl": ""
 }
