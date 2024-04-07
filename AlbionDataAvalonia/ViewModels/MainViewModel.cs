@@ -26,6 +26,9 @@ public partial class MainViewModel : ViewModelBase
     private readonly LogsViewModel _logsViewModel;
 
     [ObservableProperty]
+    private string appVersion;
+
+    [ObservableProperty]
     private AlbionData.Models.Location location;
 
     [ObservableProperty]
@@ -84,6 +87,8 @@ public partial class MainViewModel : ViewModelBase
         AlbionServer = _playerState.AlbionServer;
         UploadQueueSize = _playerState.UploadQueueSize;
         oldUploadQueueSize = UploadQueueSize;
+
+        AppVersion = ClientUpdater.GetVersion() ?? "Unknown";
 
         UpdateVisibilities();
 
