@@ -46,7 +46,7 @@ public static class ClientUpdater
             var latestVersion = jsonDocument.RootElement.GetProperty("version").GetString();
 
             downloadUrl = downloadUrl.Replace("{fileName}", fileNameFormat.Replace("{version}", latestVersion));
-            //currentVersion = "0.0.0.0";
+
             if (string.Compare(currentVersion, latestVersion) < 0)
             {
                 Log.Information($"A new version is available: v.{latestVersion}. Updating from v.{currentVersion}");
@@ -73,7 +73,7 @@ public static class ClientUpdater
             }
             else
             {
-                Log.Information($"You are using the latest version: v.{latestVersion}.");
+                Log.Information($"You are using the latest version: v.{currentVersion}.");
             }
         }
         catch (Exception ex)
