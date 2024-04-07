@@ -18,13 +18,13 @@ public static class ClientUpdater
         return Assembly.GetExecutingAssembly()?.GetName()?.Version?.ToString();
     }
 
-    public static async Task CheckForUpdatesAsync(string? versionUrl, string? downloadUrl)
+    public static async Task CheckForUpdatesAsync(string? versionUrl, string? downloadUrl, string? fileNameFormat)
     {
         Log.Information("Checking for updates...");
 
-        if (string.IsNullOrWhiteSpace(versionUrl) || string.IsNullOrWhiteSpace(downloadUrl))
+        if (string.IsNullOrWhiteSpace(versionUrl) || string.IsNullOrWhiteSpace(downloadUrl) || string.IsNullOrEmpty(fileNameFormat))
         {
-            Log.Error("Version URL or Download URL is not set.");
+            Log.Error("Version URL or Download URL or File Name Format is not set.");
             return;
         }
 
@@ -40,19 +40,19 @@ public static class ClientUpdater
                 return;
             }
 
-            downloadUrl = downloadUrl.Replace("{fileName}", $"AFMDataClientSetup_v_{currentVersion}.exe");
 
             var response = await httpClient.GetStringAsync(versionUrl);
             var jsonDocument = JsonDocument.Parse(response);
             var latestVersion = jsonDocument.RootElement.GetProperty("version").GetString();
 
-            Log.Information($"Current version: {currentVersion}");
-
+            downloadUrl = downloadUrl.Replace("{fileName}", fileNameFormat.Replace("{version}", latestVersion));
+            //currentVersion = "0.0.0.0";
             if (string.Compare(currentVersion, latestVersion) < 0)
             {
                 Log.Information($"A new version is available: v.{latestVersion}. Updating from v.{currentVersion}");
 
                 // Download the new version
+                Log.Information($"Downloading the new version from {downloadUrl}");
                 var data = await httpClient.GetByteArrayAsync(downloadUrl);
                 var filePath = Path.Combine(Path.GetTempPath(), $"AFMDataClientSetup_v_{latestVersion}.exe");
                 await File.WriteAllBytesAsync(filePath, data);

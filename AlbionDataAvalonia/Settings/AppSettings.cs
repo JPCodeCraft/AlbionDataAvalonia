@@ -13,4 +13,5 @@ public class AppSettings
     public string? GoldDataIngestSubject { get; set; }
     public string? LatestVersionUrl { get; set; }
     public string? LatesVersionDownloadUrl { get; set; }
+    public string? FileNameFormat { get; set; }
 }
