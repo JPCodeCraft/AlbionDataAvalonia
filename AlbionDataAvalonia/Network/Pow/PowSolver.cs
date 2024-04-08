@@ -1,21 +1,23 @@
 ﻿using AlbionDataAvalonia.Network.Models;
 using Serilog;
 using System;
-using System.Collections.Generic;
-using System.IO;
+using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.Network.Pow;
 
 public class PowSolver
 {
-    private static readonly RandomNumberGenerator rng = RandomNumberGenerator.Create();
+    private SHA256 sha256 = SHA256.Create();
+    private static readonly string[] byteToBinaryLookup = Enumerable.Range(0, 256).Select(i => Convert.ToString(i, 2).PadLeft(8, '0')).ToArray();
+    private static readonly string[] byteToHexLookup = Enumerable.Range(0, 256).Select(i => i.ToString("x2")).ToArray();
+
+    private int counter = 0;
 
     public PowSolver()
     {
@@ -52,27 +54,17 @@ public class PowSolver
         }
     }
 
-    // Generates a random hex string e.g.: faa2743d9181dca5
-    private string RandomHex(int n)
+    private string SequentialHex(int n)
     {
-        byte[] bytes = new byte[n];
-
-        rng.GetBytes(bytes);
-        StringBuilder result = new StringBuilder(n * 2);
-        foreach (byte b in bytes)
-        {
-            result.Append(b.ToString("x2"));
-        }
-        return result.ToString();
+        return (++counter).ToString("x").PadLeft(n * 2, '0');
     }
 
-    // Converts a hexadecimal string to a binary string e.g.: 0110011...
     private string ToBinaryBytes(string s)
     {
         StringBuilder buffer = new StringBuilder(s.Length * 8);
         foreach (char c in s)
         {
-            buffer.Append(Convert.ToString(c, 2).PadLeft(8, '0'));
+            buffer.Append(byteToBinaryLookup[(byte)c]);
         }
         return buffer.ToString();
     }
@@ -80,55 +72,34 @@ public class PowSolver
     // Solves a pow looping through possible solutions
     // until a correct one is found
     // returns the solution
-    public async Task<string> SolvePow(PowRequest pow, float threadLimitPercentage)
+    public string SolvePow(PowRequest pow)
     {
-        string solution = "";
-        int threadLimit = Math.Max(1, (int)(Environment.ProcessorCount * threadLimitPercentage));
-        var tasks = new List<Task<string>>();
-        var tokenSource = new CancellationTokenSource();
-        CancellationToken ct = tokenSource.Token;
-        for (int i = 0; i < threadLimit; i++)
-        {
-            tasks.Add(Task.Run(() => ProcessPow(pow, ct), ct));
-        }
-
-        solution = await Task.WhenAny(tasks).Result;
-        tokenSource.Cancel();
-
-        return solution;
+        return ProcessPow(pow);
     }
 
-    private string ProcessPow(PowRequest pow, CancellationToken token)
+    private string ProcessPow(PowRequest pow)
     {
         while (true)
         {
-            string randhex = RandomHex(8);
-            string hash = ToBinaryBytes(GetHash("aod^" + randhex + "^" + pow.Key));
-            if (hash.StartsWith(pow.Wanted))
+            var hex = SequentialHex(8);
+            string hash = ToBinaryBytes(GetHash($"aod^{hex}^{pow.Key}"));
+            if (hash.StartsWith(pow.Wanted, StringComparison.Ordinal))
             {
-                return randhex;
-            }
-            if (token.IsCancellationRequested)
-            {
-                Log.Verbose("Canceled PoW async task because of {token}.", nameof(token.IsCancellationRequested));
-                return "";
+                return hex;
             }
         }
     }
 
     private string GetHash(string input)
     {
-        using (SHA256 sha256 = SHA256.Create())
+        byte[] bytes = Encoding.UTF8.GetBytes(input);
+        byte[] hashBytes = sha256.ComputeHash(bytes);
+        StringBuilder builder = new StringBuilder(hashBytes.Length * 2);
+        foreach (byte b in hashBytes)
         {
-            byte[] bytes = Encoding.UTF8.GetBytes(input);
-            byte[] hashBytes = sha256.ComputeHash(new MemoryStream(bytes));
-            StringBuilder builder = new StringBuilder();
-            foreach (byte b in hashBytes)
-            {
-                builder.Append(b.ToString("x2"));
-            }
-            return builder.ToString();
+            builder.Append(byteToHexLookup[b]);
         }
+        return builder.ToString();
     }
 
 }
