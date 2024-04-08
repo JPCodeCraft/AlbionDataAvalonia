@@ -28,4 +28,5 @@ public partial class SettingsViewModel : ViewModelBase
 
         _playerState.OnPlayerStateChanged += (sender, args) => PowSolveTimeAverage = _playerState.PowSolveTimeAverage;
     }
+
 }

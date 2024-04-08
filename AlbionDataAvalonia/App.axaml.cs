@@ -1,5 +1,4 @@
 ﻿using AlbionDataAvalonia.Logging;
-using AlbionDataAvalonia.Network.Pow;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
@@ -98,8 +97,6 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<SettingsManager>();
         collection.AddSingleton<ListSink>();
 
-
-        collection.AddTransient<PowSolver>();
         collection.AddTransient<Uploader>();
 
         collection.AddSingleton<MainViewModel>();

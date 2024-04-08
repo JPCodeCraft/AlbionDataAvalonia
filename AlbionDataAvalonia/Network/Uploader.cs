@@ -20,22 +20,23 @@ namespace AlbionDataAvalonia.Network.Services;
 
 public class Uploader : IDisposable
 {
-    private readonly SemaphoreSlim semaphore = new SemaphoreSlim(1, 1);
+    private readonly SemaphoreSlim semaphore;
 
     private PlayerState _playerState;
-    private PowSolver _powSolver;
     private ConnectionService _connectionService;
     private SettingsManager _settingsManager;
 
     public event EventHandler<MarketUploadEventArgs> OnMarketUpload;
     public event EventHandler<GoldPriceUploadEventArgs> OnGoldPriceUpload;
     public event EventHandler<MarketHistoriesUploadEventArgs> OnMarketHistoryUpload;
-    public Uploader(PlayerState playerState, PowSolver powSolver, ConnectionService connectionService, SettingsManager settingsManager)
+    public Uploader(PlayerState playerState, ConnectionService connectionService, SettingsManager settingsManager)
     {
         _playerState = playerState;
-        _powSolver = powSolver;
         _connectionService = connectionService;
         _settingsManager = settingsManager;
+
+        int maxThreads = Math.Max(1, (int)(Environment.ProcessorCount * _settingsManager.UserSettings.ThreadLimitPercentage));
+        semaphore = new SemaphoreSlim(maxThreads, maxThreads);
 
         OnGoldPriceUpload += _playerState.GoldPriceUploadHandler;
         OnMarketUpload += _playerState.MarketUploadHandler;
@@ -152,11 +153,12 @@ public class Uploader : IDisposable
 
             try
             {
+                var _powSolver = new PowSolver();
                 var powRequest = await _powSolver.GetPowRequest(server, _connectionService.httpClient);
                 if (powRequest is not null)
                 {
                     var stopwatch = System.Diagnostics.Stopwatch.StartNew();
-                    var solution = await _powSolver.SolvePow(powRequest, _settingsManager.UserSettings.ThreadLimitPercentage);
+                    var solution = _powSolver.SolvePow(powRequest);
                     stopwatch.Stop();
                     _playerState.AddPowSolveTime(stopwatch.ElapsedMilliseconds);
 
@@ -225,6 +227,7 @@ public class Uploader : IDisposable
 
     public void Dispose()
     {
+        semaphore.Dispose();
         OnGoldPriceUpload -= _playerState.GoldPriceUploadHandler;
         OnMarketUpload -= _playerState.MarketUploadHandler;
         OnMarketHistoryUpload -= _playerState.MarketHistoryUploadHandler;
