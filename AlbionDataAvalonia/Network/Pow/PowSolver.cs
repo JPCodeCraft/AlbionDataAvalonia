@@ -2,7 +2,6 @@
 using Serilog;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.IO;
 using System.Net;
 using System.Net.Http;
@@ -83,8 +82,6 @@ public class PowSolver
     // returns the solution
     public async Task<string> SolvePow(PowRequest pow, float threadLimitPercentage)
     {
-        var sw = Stopwatch.StartNew();
-
         string solution = "";
         int threadLimit = Math.Max(1, (int)(Environment.ProcessorCount * threadLimitPercentage));
         var tasks = new List<Task<string>>();
@@ -97,8 +94,7 @@ public class PowSolver
 
         solution = await Task.WhenAny(tasks).Result;
         tokenSource.Cancel();
-        sw.Stop();
-        Log.Debug("Solved PoW {key} with solution {solution} in {time} ms. Used {cores} cores.", pow.Key, solution, sw.ElapsedMilliseconds.ToString(), threadLimit);
+
         return solution;
     }
 

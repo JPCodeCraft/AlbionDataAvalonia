@@ -102,8 +102,8 @@ public static class ServiceCollectionExtensions
         collection.AddTransient<PowSolver>();
         collection.AddTransient<Uploader>();
 
-        collection.AddTransient<MainViewModel>();
-        collection.AddTransient<SettingsViewModel>();
-        collection.AddTransient<LogsViewModel>();
+        collection.AddSingleton<MainViewModel>();
+        collection.AddSingleton<SettingsViewModel>();
+        collection.AddSingleton<LogsViewModel>();
     }
 }

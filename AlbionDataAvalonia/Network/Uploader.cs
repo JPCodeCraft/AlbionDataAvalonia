@@ -155,7 +155,13 @@ public class Uploader : IDisposable
                 var powRequest = await _powSolver.GetPowRequest(server, _connectionService.httpClient);
                 if (powRequest is not null)
                 {
+                    var stopwatch = System.Diagnostics.Stopwatch.StartNew();
                     var solution = await _powSolver.SolvePow(powRequest, _settingsManager.UserSettings.ThreadLimitPercentage);
+                    stopwatch.Stop();
+                    _playerState.AddPowSolveTime(stopwatch.ElapsedMilliseconds);
+
+                    Log.Debug("Solved PoW {key} with solution {solution} in {time} ms. ThreadLimitPercentage = {cores} of threads.", powRequest.Key, solution, stopwatch.ElapsedMilliseconds.ToString(), _settingsManager.UserSettings.ThreadLimitPercentage.ToString("P0"));
+
                     if (!string.IsNullOrEmpty(solution))
                     {
                         await UploadWithPow(powRequest, solution, data, topic, server, _connectionService.httpClient);

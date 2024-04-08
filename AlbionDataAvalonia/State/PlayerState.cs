@@ -6,6 +6,7 @@ using AlbionDataAvalonia.State.Events;
 using Serilog;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace AlbionDataAvalonia.State
 {
@@ -36,6 +37,9 @@ namespace AlbionDataAvalonia.State
         public int UploadedGoldHistoriesCount { get; set; }
 
         public int UserObjectId { get; set; }
+
+        private Queue<long> PowSolveTimes { get; } = new();
+        public double PowSolveTimeAverage => PowSolveTimes.Count > 0 ? PowSolveTimes.Average() : 0;
 
         public DateTime LastPacketTime { get; set; }
 
@@ -179,6 +183,15 @@ namespace AlbionDataAvalonia.State
         {
             bool result = SentDataHashs.Contains(hash);
             return result;
+        }
+
+        public void AddPowSolveTime(long time)
+        {
+            PowSolveTimes.Enqueue(time);
+            while (PowSolveTimes.Count > 50)
+            {
+                PowSolveTimes.Dequeue();
+            }
         }
     }
 }

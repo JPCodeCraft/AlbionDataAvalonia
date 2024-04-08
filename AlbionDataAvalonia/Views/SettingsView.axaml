@@ -14,6 +14,9 @@
 			<StackPanel Orientation="Horizontal">
 				<Label Content="Pow processor usage:" />
 				<Label Content="{Binding UserSettings.ThreadLimitPercentage, Mode=OneWay, StringFormat={}{0:P0}} " />
+				<Label Content="Average solve time (ms, last 50):" />
+				<Label Content="{Binding PowSolveTimeAverage, Mode=OneWay, StringFormat={}{0:N0}}}"/>
+
 			</StackPanel>
 			<Slider Minimum="0.1" Maximum="1" Value="{Binding UserSettings.ThreadLimitPercentage}" TickFrequency="0.1" IsSnapToTickEnabled="True" />
 		</StackPanel>
