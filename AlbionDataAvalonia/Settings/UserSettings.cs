@@ -1,12 +1,13 @@
 ﻿namespace AlbionDataAvalonia.Settings;
 
+using System;
 using System.ComponentModel;
 
 public class UserSettings : INotifyPropertyChanged
 {
     public event PropertyChangedEventHandler? PropertyChanged;
 
-    private bool _startHidden;
+    private bool _startHidden = true;
     public bool StartHidden
     {
         get => _startHidden;
@@ -20,21 +21,31 @@ public class UserSettings : INotifyPropertyChanged
         }
     }
 
-    private float _threadLimitPercentage;
-    public float ThreadLimitPercentage
+    private int _desiredThreadCount = 1;
+    public int DesiredThreadCount
     {
-        get => _threadLimitPercentage;
+        get => _desiredThreadCount;
         set
         {
-            if (_threadLimitPercentage != value)
+            if (_desiredThreadCount != value)
             {
-                _threadLimitPercentage = value;
-                OnPropertyChanged(nameof(ThreadLimitPercentage));
+                _desiredThreadCount = value;
+                if (_desiredThreadCount > MaxThreadCount)
+                {
+                    _desiredThreadCount = MaxThreadCount;
+                }
+                else if (_desiredThreadCount < 1)
+                {
+                    _desiredThreadCount = 1;
+                }
+                OnPropertyChanged(nameof(DesiredThreadCount));
             }
         }
     }
 
-    private int maxHashQueueSize;
+    public int MaxThreadCount => Environment.ProcessorCount;
+
+    private int maxHashQueueSize = 30;
     public int MaxHashQueueSize
     {
         get => maxHashQueueSize;
@@ -48,7 +59,7 @@ public class UserSettings : INotifyPropertyChanged
         }
     }
 
-    private int maxLogCount;
+    private int maxLogCount = 50;
     public int MaxLogCount
     {
         get => maxLogCount;

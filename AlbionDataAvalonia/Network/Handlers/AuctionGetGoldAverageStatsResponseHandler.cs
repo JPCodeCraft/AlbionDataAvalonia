@@ -1,5 +1,6 @@
 ﻿using Albion.Network;
 using AlbionData.Models;
+using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Responses;
 using AlbionDataAvalonia.Network.Services;
 using System.Linq;
@@ -24,7 +25,7 @@ public class AuctionGetGoldAverageStatsResponseHandler : ResponsePacketHandler<A
 
         if (goldHistoriesUpload.Prices.Count() > 0 && goldHistoriesUpload.Prices.Count() == goldHistoriesUpload.Timestamps.Count())
         {
-            await uploader.Upload(goldHistoriesUpload);
+            uploader.EnqueueUpload(new Upload(null, goldHistoriesUpload, null));
         }
         await Task.CompletedTask;
     }

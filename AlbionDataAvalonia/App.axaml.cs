@@ -12,6 +12,7 @@ using Avalonia.Markup.Xaml;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using Serilog.Events;
+using System.Threading;
 
 namespace AlbionDataAvalonia;
 
@@ -41,10 +42,15 @@ public partial class App : Application
         var vm = services.GetRequiredService<MainViewModel>();
         var settings = services.GetRequiredService<SettingsManager>();
         var listener = services.GetRequiredService<NetworkListenerService>();
+        var uploader = services.GetRequiredService<Uploader>();
 
         await settings.Initialize();
 
         _ = ClientUpdater.CheckForUpdatesAsync(settings.AppSettings.LatestVersionUrl, settings.AppSettings.LatesVersionDownloadUrl, settings.AppSettings.FileNameFormat);
+
+        var uploaderCancellationToken = new CancellationTokenSource();
+
+        _ = uploader.ProcessItemsAsync(uploaderCancellationToken.Token);
 
         listener.Run();
 
@@ -96,8 +102,7 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<ConnectionService>();
         collection.AddSingleton<SettingsManager>();
         collection.AddSingleton<ListSink>();
-
-        collection.AddTransient<Uploader>();
+        collection.AddSingleton<Uploader>();
 
         collection.AddSingleton<MainViewModel>();
         collection.AddSingleton<SettingsViewModel>();

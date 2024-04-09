@@ -12,6 +12,8 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty]
     private UserSettings userSettings;
 
+
+
     [ObservableProperty]
     private double powSolveTimeAverage;
 

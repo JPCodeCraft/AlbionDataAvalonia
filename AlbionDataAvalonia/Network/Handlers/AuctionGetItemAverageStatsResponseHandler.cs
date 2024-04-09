@@ -66,7 +66,7 @@ public class AuctionGetItemAverageStatsResponseHandler : ResponsePacketHandler<A
 
         if (marketHistoriesUpload.MarketHistories.Count > 0)
         {
-            await uploader.Upload(marketHistoriesUpload);
+            uploader.EnqueueUpload(new Upload(null, null, marketHistoriesUpload));
         }
         await Task.CompletedTask;
     }

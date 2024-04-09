@@ -1,6 +1,6 @@
 {
   "StartHidden": true,
-  "ThreadLimitPercentage": 0.3,
+  "DesiredThreadCount": 1,
   "MaxHashQueueSize": 30,
   "MaxLogCount": 50
 }

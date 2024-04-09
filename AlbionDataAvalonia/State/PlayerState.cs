@@ -5,6 +5,7 @@ using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State.Events;
 using Serilog;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -18,7 +19,6 @@ namespace AlbionDataAvalonia.State
         private string playerName = string.Empty;
         private AlbionServer? albionServer = null;
         private bool isInGame = false;
-        private int uploadQueueSize = 0;
 
         public MarketHistoryInfo[] MarketHistoryIDLookup { get; init; }
         public ulong CacheSize => 8192;
@@ -38,7 +38,7 @@ namespace AlbionDataAvalonia.State
 
         public int UserObjectId { get; set; }
 
-        private Queue<long> PowSolveTimes { get; } = new();
+        private ConcurrentQueue<long> PowSolveTimes { get; } = new();
         public double PowSolveTimeAverage => PowSolveTimes.Count > 0 ? PowSolveTimes.Average() : 0;
 
         public DateTime LastPacketTime { get; set; }
@@ -50,7 +50,7 @@ namespace AlbionDataAvalonia.State
             {
                 location = value;
                 Log.Information("Player location set to {Location}", Location.ToString());
-                OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, UploadQueueSize, IsInGame));
+                OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, IsInGame));
             }
         }
         public string PlayerName
@@ -61,7 +61,7 @@ namespace AlbionDataAvalonia.State
                 if (playerName == value) return;
                 playerName = value;
                 Log.Information("Player name set to {PlayerName}", PlayerName);
-                OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, UploadQueueSize, IsInGame));
+                OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, IsInGame));
             }
         }
         public AlbionServer? AlbionServer
@@ -72,7 +72,7 @@ namespace AlbionDataAvalonia.State
                 if (albionServer == value) return;
                 albionServer = value;
                 Log.Information("Server set to {Server}", AlbionServer.Name);
-                OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, UploadQueueSize, IsInGame));
+                OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, IsInGame));
             }
         }
         public bool IsInGame
@@ -89,18 +89,9 @@ namespace AlbionDataAvalonia.State
                         PlayerName = string.Empty;
                         Location = 0;
                     }
-                    OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, UploadQueueSize, IsInGame));
+                    OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, IsInGame));
                 }
                 return isInGame;
-            }
-        }
-        public int UploadQueueSize
-        {
-            get => uploadQueueSize;
-            set
-            {
-                uploadQueueSize = value;
-                OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, UploadQueueSize, IsInGame));
             }
         }
 
@@ -115,7 +106,7 @@ namespace AlbionDataAvalonia.State
         }
         private void OnTimerElapsed(object? sender, System.Timers.ElapsedEventArgs e)
         {
-            var isInGame = IsInGame;
+            //var isInGame = IsInGame;
         }
 
         public void MarketUploadHandler(object? sender, MarketUploadEventArgs e)
@@ -190,8 +181,9 @@ namespace AlbionDataAvalonia.State
             PowSolveTimes.Enqueue(time);
             while (PowSolveTimes.Count > 50)
             {
-                PowSolveTimes.Dequeue();
+                PowSolveTimes.TryDequeue(out _);
             }
+            OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, IsInGame));
         }
     }
 }
