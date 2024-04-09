@@ -72,9 +72,9 @@ public class PowSolver
     // Solves a pow looping through possible solutions
     // until a correct one is found
     // returns the solution
-    public string SolvePow(PowRequest pow)
+    public Task<string> SolvePow(PowRequest pow)
     {
-        return ProcessPow(pow);
+        return Task.Run(() => ProcessPow(pow));
     }
 
     private string ProcessPow(PowRequest pow)

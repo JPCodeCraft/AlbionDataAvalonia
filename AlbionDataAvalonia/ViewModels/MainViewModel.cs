@@ -24,6 +24,7 @@ public partial class MainViewModel : ViewModelBase
     private readonly SettingsManager _settingsManager;
     private readonly SettingsViewModel _settingsViewModel;
     private readonly LogsViewModel _logsViewModel;
+    private readonly Uploader _uploader;
 
     [ObservableProperty]
     private string appVersion;
@@ -49,6 +50,8 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private int uploadQueueSize;
+    [ObservableProperty]
+    private int runningTasksCount;
 
     [ObservableProperty]
     private int uploadedMarketOffersCount;
@@ -69,28 +72,35 @@ public partial class MainViewModel : ViewModelBase
     private bool greenBlinking = false;
 
     private int oldUploadQueueSize = 0;
+    private int oldRunningTasksCount = 0;
 
     public MainViewModel()
     {
     }
 
-    public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, SettingsManager settingsManager, SettingsViewModel settingsViewModel, LogsViewModel logsViewModel)
+    public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, SettingsManager settingsManager, SettingsViewModel settingsViewModel, LogsViewModel logsViewModel, Uploader uploader)
     {
         _playerState = playerState;
         _networkListener = networkListener;
         _settingsManager = settingsManager;
         _settingsViewModel = settingsViewModel;
         _logsViewModel = logsViewModel;
+        _uploader = uploader;
 
         Location = _playerState.Location;
         PlayerName = _playerState.PlayerName;
         AlbionServer = _playerState.AlbionServer;
-        UploadQueueSize = _playerState.UploadQueueSize;
+
+        UploadQueueSize = _uploader.uploadQueueCount;
         oldUploadQueueSize = UploadQueueSize;
+        RunningTasksCount = _uploader.runningTasksCount;
+        oldRunningTasksCount = RunningTasksCount;
 
         AppVersion = ClientUpdater.GetVersion() ?? "Unknown";
 
         UpdateVisibilities();
+
+        _uploader.OnChange += UpdateUploadStats;
 
         _playerState.OnPlayerStateChanged += UpdateState;
         _playerState.OnUploadedMarketRequestsCountChanged += count => UploadedMarketRequestsCount = count;
@@ -127,20 +137,26 @@ public partial class MainViewModel : ViewModelBase
         Location = e.Location;
         PlayerName = e.Name;
         AlbionServer = e.AlbionServer;
-        UploadQueueSize = e.UploadQueueSize;
 
         UpdateVisibilities();
+    }
+
+    private void UpdateUploadStats()
+    {
+        UploadQueueSize = _uploader.uploadQueueCount;
+        RunningTasksCount = _uploader.runningTasksCount;
 
         if (UploadQueueSize > oldUploadQueueSize)
         {
             BlinkRed().ConfigureAwait(false);
         }
-        else if (UploadQueueSize < oldUploadQueueSize)
+        else if (RunningTasksCount < oldRunningTasksCount)
         {
             BlinkGreen().ConfigureAwait(false);
         }
 
         oldUploadQueueSize = UploadQueueSize;
+        oldRunningTasksCount = RunningTasksCount;
     }
 
     private async Task BlinkRed()

@@ -1,5 +1,6 @@
 ﻿using Albion.Network;
 using AlbionData.Models;
+using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Responses;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.State;
@@ -28,7 +29,7 @@ public class AuctionGetOffersResponseHandler : ResponsePacketHandler<AuctionGetO
 
         if (marketUpload.Orders.Count > 0)
         {
-            await uploader.Upload(marketUpload);
+            uploader.EnqueueUpload(new Upload(marketUpload, null, null));
         }
         await Task.CompletedTask;
     }
