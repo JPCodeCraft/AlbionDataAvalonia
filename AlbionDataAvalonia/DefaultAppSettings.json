@@ -27,6 +27,6 @@
   "LatestVersionUrl": "https://raw.githubusercontent.com/JPCodeCraft/AlbionDataAvalonia/master/AlbionDataAvalonia.Desktop/LatestVersion.json",
   "LatesVersionDownloadUrl": "https://github.com/JPCodeCraft/AlbionDataAvalonia/releases/latest/download/{fileName}",
   "FileNameFormat": "AFMDataClientSetup_v_{version}.exe",
-  "FirstUpdateCheckDelayMins": 0.1,
-  "UpdateCheckIntervalHours": 0.005
+  "FirstUpdateCheckDelayMins": 0.5,
+  "UpdateCheckIntervalHours": 1
 }

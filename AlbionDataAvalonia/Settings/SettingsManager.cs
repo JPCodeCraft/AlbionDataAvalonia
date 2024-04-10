@@ -26,8 +26,13 @@ public class SettingsManager
 
     public async Task Initialize()
     {
-        await LoadAppSettingsAsync();
+        if (!await TryLoadAppSettingsFromRemoteAsync())
+        {
+            LoadAppSettingsFromLocal();
+            _ = KeepTryingToLoadAppSettingsFromRemoteAsync();
+        }
     }
+
 
     private void LoadUserSettings()
     {
@@ -66,7 +71,7 @@ public class SettingsManager
         SaveUserSettings();
     }
 
-    private async Task LoadAppSettingsAsync()
+    private async Task<bool> TryLoadAppSettingsFromRemoteAsync()
     {
         try
         {
@@ -85,13 +90,21 @@ public class SettingsManager
                 AppSettings = settings;
                 Log.Information("App settings loaded successfully from remote repository.");
                 loadedAppSettingsFromRemote = true;
+                return true;
             }
         }
         catch (Exception ex)
         {
             Log.Error($"Error in LoadAppSettingsAsync: {ex}");
+        }
 
-            // If the download fails or the downloaded JSON is null or empty, load the default settings
+        return false;
+    }
+
+    private void LoadAppSettingsFromLocal()
+    {
+        try
+        {
             if (File.Exists(deafultAppSettingsFilePath))
             {
                 string json = File.ReadAllText(deafultAppSettingsFilePath);
@@ -101,8 +114,29 @@ public class SettingsManager
                 {
                     AppSettings = settings;
                 }
+                else
+                {
+                    throw new Exception("Failed to load app settings from local default file.");
+                }
                 Log.Information("App settings loaded successfully from local default file.");
             }
+            else
+            {
+                throw new Exception("Local default app settings file not found.");
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error($"Error in LoadAppSettingsFromLocal: {ex}");
+        }
+    }
+
+    private async Task KeepTryingToLoadAppSettingsFromRemoteAsync()
+    {
+        while (!loadedAppSettingsFromRemote)
+        {
+            await Task.Delay(TimeSpan.FromSeconds(30));
+            await TryLoadAppSettingsFromRemoteAsync();
         }
     }
 
