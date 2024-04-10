@@ -58,12 +58,13 @@ jobs:
             $LATEST_TAG = $(git describe --tags --abbrev=0)
             $CURRENT_COMMIT = $(git rev-parse HEAD)
             $REPO_URL = "https://github.com/JPCodeCraft/AlbionDataAvalonia"
-            $COMMIT_LOG = $(git log --pretty=format:"[%h]($REPO_URL/commit/%H) - %s" $LATEST_TAG..$CURRENT_COMMIT)
+            $COMMIT_LOG = git log --pretty=format:"[%h]($REPO_URL/commit/%H) - %s" $LATEST_TAG..$CURRENT_COMMIT | ForEach-Object { $_ }
             echo "Latest Tag: $LATEST_TAG"
             echo "Current Commit: $CURRENT_COMMIT"
             echo "Commit Log: $COMMIT_LOG"
             echo "COMMIT_LOG=$COMMIT_LOG" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           shell: pwsh
+
 
         - name: Create Tag
           id: create_tag
