@@ -12,12 +12,14 @@ using Avalonia.Markup.Xaml;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using Serilog.Events;
+using System;
 using System.Threading;
 
 namespace AlbionDataAvalonia;
 
 public partial class App : Application
 {
+    private System.Timers.Timer? _updateTimer;
 
     public override void Initialize()
     {
@@ -30,30 +32,47 @@ public partial class App : Application
         // Without this line you will get duplicate validations from both Avalonia and CT
         BindingPlugins.DataValidators.RemoveAt(0);
 
-        // Register all the services needed for the application to run
+        //DI SETUP
         var collection = new ServiceCollection();
         collection.AddCommonServices();
-
-        // Creates a ServiceProvider containing services from the provided IServiceCollection
         var services = collection.BuildServiceProvider();
 
+        //LOGGING
         SetupLogging(services.GetRequiredService<ListSink>());
 
+        //GETTING SERVICES
         var vm = services.GetRequiredService<MainViewModel>();
         var settings = services.GetRequiredService<SettingsManager>();
         var listener = services.GetRequiredService<NetworkListenerService>();
         var uploader = services.GetRequiredService<Uploader>();
 
+        //INITIALIZE SETTINGS
         await settings.Initialize();
 
-        _ = ClientUpdater.CheckForUpdatesAsync(settings.AppSettings.LatestVersionUrl, settings.AppSettings.LatesVersionDownloadUrl, settings.AppSettings.FileNameFormat);
+        //UPDATER
+        _updateTimer = new System.Timers.Timer
+        {
+            AutoReset = true,
+            Interval = TimeSpan.FromMinutes(settings.AppSettings.FirstUpdateCheckDelayMins).TotalMilliseconds, // Delay for the first run
+            Enabled = true
+        };
+        _updateTimer.Elapsed += async (sender, e) =>
+        {
+            // Change the interval to one hour after the first run
+            _updateTimer.Interval = TimeSpan.FromHours(settings.AppSettings.UpdateCheckIntervalHours).TotalMilliseconds;
 
+            await ClientUpdater.CheckForUpdatesAsync(settings.AppSettings.LatestVersionUrl, settings.AppSettings.LatesVersionDownloadUrl, settings.AppSettings.FileNameFormat);
+        };
+        _updateTimer.Start();
+
+        //UPLOADER
         var uploaderCancellationToken = new CancellationTokenSource();
-
         _ = uploader.ProcessItemsAsync(uploaderCancellationToken.Token);
 
+        //LISTENER
         listener.Run();
 
+        //VIEWMODEL
         this.DataContext = vm;
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
