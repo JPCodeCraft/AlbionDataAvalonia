@@ -34,12 +34,12 @@ jobs:
             if [ -z "$COMMIT_LOG" ]; then
               COMMIT_LOG="No new commits since the last release."
             fi
+            COMMIT_LOG=${COMMIT_LOG//$'\n'/<br>}
             echo "Latest Tag: $LATEST_TAG"
             echo "Current Commit: $CURRENT_COMMIT"
             echo "Commit Log: $COMMIT_LOG"
             echo "COMMIT_LOG=$COMMIT_LOG" >> $GITHUB_ENV
           shell: bash
-
 
         - name: Setup .NET
           uses: actions/setup-dotnet@v4
