@@ -14,4 +14,6 @@ public class AppSettings
     public string? LatestVersionUrl { get; set; }
     public string? LatesVersionDownloadUrl { get; set; }
     public string? FileNameFormat { get; set; }
+    public double FirstUpdateCheckDelayMins { get; set; }
+    public double UpdateCheckIntervalHours { get; set; }
 }

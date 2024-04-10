@@ -14,6 +14,8 @@ public class SettingsManager
     private string deafultUserSettingsFilePath = Path.Combine(AppContext.BaseDirectory, "DefaultUserSettings.json");
     private string deafultAppSettingsFilePath = Path.Combine(AppContext.BaseDirectory, "DefaultAppSettings.json");
 
+    private bool loadedAppSettingsFromRemote = false;
+
     private string appSettingsDownloadUrl = "https://raw.githubusercontent.com/JPCodeCraft/AlbionDataAvalonia/master/AlbionDataAvalonia/DefaultAppSettings.json";
     public UserSettings UserSettings { get; private set; }
     public AppSettings AppSettings { get; private set; }
@@ -42,7 +44,7 @@ public class SettingsManager
             if (settings != null)
             {
                 UserSettings = settings;
-                SaveSettings(); // Save the default settings to a new user settings file
+                SaveUserSettings(); // Save the default settings to a new user settings file
             }
         }
         else
@@ -61,7 +63,7 @@ public class SettingsManager
 
     private void UserSettings_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
-        SaveSettings();
+        SaveUserSettings();
     }
 
     private async Task LoadAppSettingsAsync()
@@ -82,6 +84,7 @@ public class SettingsManager
             {
                 AppSettings = settings;
                 Log.Information("App settings loaded successfully from remote repository.");
+                loadedAppSettingsFromRemote = true;
             }
         }
         catch (Exception ex)
@@ -103,7 +106,7 @@ public class SettingsManager
         }
     }
 
-    private void SaveSettings()
+    private void SaveUserSettings()
     {
         try
         {
