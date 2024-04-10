@@ -106,7 +106,7 @@ namespace AlbionDataAvalonia.State
         }
         private void OnTimerElapsed(object? sender, System.Timers.ElapsedEventArgs e)
         {
-            //var isInGame = IsInGame;
+            _ = IsInGame;
         }
 
         public void MarketUploadHandler(object? sender, MarketUploadEventArgs e)

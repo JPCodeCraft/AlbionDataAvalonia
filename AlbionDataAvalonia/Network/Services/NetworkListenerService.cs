@@ -96,10 +96,11 @@ namespace AlbionDataAvalonia.Network.Services
             }
             try
             {
+                _playerState.LastPacketTime = DateTime.UtcNow;
+
                 UdpPacket packet = Packet.ParsePacket(e.GetPacket().LinkLayerType, e.GetPacket().Data).Extract<UdpPacket>();
                 if (packet != null)
                 {
-                    _playerState.LastPacketTime = DateTime.UtcNow;
 
                     if (!hasCleanedUpDevices && devices != null)
                     {
@@ -109,6 +110,7 @@ namespace AlbionDataAvalonia.Network.Services
                             {
                                 device.StopCapture();
                                 device.Close();
+                                hasCleanedUpDevices = true;
                                 Log.Debug("Close... {Device}", device.Description);
                             }
                         }
