@@ -28,5 +28,6 @@
   "LatesVersionDownloadUrl": "https://github.com/JPCodeCraft/AlbionDataAvalonia/releases/latest/download/{fileName}",
   "FileNameFormat": "AFMDataClientSetup_v_{version}.exe",
   "FirstUpdateCheckDelayMins": 0.5,
-  "UpdateCheckIntervalHours": 1
+  "UpdateCheckIntervalHours": 1,
+  "AppSettingsRetryLoadIntervalMins":  1
 }

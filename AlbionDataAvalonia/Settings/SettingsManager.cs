@@ -135,7 +135,7 @@ public class SettingsManager
     {
         while (!loadedAppSettingsFromRemote)
         {
-            await Task.Delay(TimeSpan.FromSeconds(30));
+            await Task.Delay(TimeSpan.FromMinutes(AppSettings.AppSettingsRetryLoadIntervalMins));
             await TryLoadAppSettingsFromRemoteAsync();
         }
     }

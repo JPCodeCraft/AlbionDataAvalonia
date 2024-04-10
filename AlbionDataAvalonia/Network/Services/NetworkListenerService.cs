@@ -17,6 +17,8 @@ namespace AlbionDataAvalonia.Network.Services
         private readonly PlayerState _playerState;
         private readonly SettingsManager _settingsManager;
 
+        private bool hasCleanedUpDevices = false;
+
         private IPhotonReceiver? receiver;
         private CaptureDeviceList? devices;
 
@@ -94,11 +96,24 @@ namespace AlbionDataAvalonia.Network.Services
             }
             try
             {
-                _playerState.LastPacketTime = DateTime.UtcNow;
-
                 UdpPacket packet = Packet.ParsePacket(e.GetPacket().LinkLayerType, e.GetPacket().Data).Extract<UdpPacket>();
                 if (packet != null)
                 {
+                    _playerState.LastPacketTime = DateTime.UtcNow;
+
+                    if (!hasCleanedUpDevices && devices != null)
+                    {
+                        foreach (var device in devices)
+                        {
+                            if (device != e.Device)
+                            {
+                                device.StopCapture();
+                                device.Close();
+                                Log.Debug("Close... {Device}", device.Description);
+                            }
+                        }
+                    }
+
                     var srcIp = (packet.ParentPacket as IPv4Packet)?.SourceAddress?.ToString();
                     if (string.IsNullOrEmpty(srcIp))
                     {
