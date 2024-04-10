@@ -16,4 +16,5 @@ public class AppSettings
     public string? FileNameFormat { get; set; }
     public double FirstUpdateCheckDelayMins { get; set; }
     public double UpdateCheckIntervalHours { get; set; }
+    public double AppSettingsRetryLoadIntervalMins { get; set; }
 }
