@@ -1,5 +1,8 @@
 {
+  //NPCAP
   "NPCapDownloadUrl": "https://npcap.com/#download",
+
+  //LISTENER SETTINGS
   "PacketFilterPortText": "udp port 5056",
   "AlbionServers": [
     {
@@ -21,15 +24,25 @@
       "UploadUrl": "https://pow.europe.albion-online-data.com"
     }
   ],
+
+  //AO DATA SETTINGS
   "MarketOrdersIngestSubject": "marketorders.ingest",
   "MarketHistoriesIngestSubject": "markethistories.ingest",
   "GoldDataIngestSubject": "goldprices.ingest",
+
+  //UPDATE SETTINGS
   "LatestVersionUrl": "https://raw.githubusercontent.com/JPCodeCraft/AlbionDataAvalonia/master/AlbionDataAvalonia.Desktop/LatestVersion.json",
   "LatesVersionDownloadUrl": "https://github.com/JPCodeCraft/AlbionDataAvalonia/releases/latest/download/{fileName}",
   "FileNameFormat": "AFMDataClientSetup_v_{version}.exe",
   "FirstUpdateCheckDelayMins": 0.1,
   "UpdateCheckIntervalHours": 1,
+
+  //SETTINGS SETTINGS
   "AppSettingsRetryLoadIntervalMins": 1,
+
+  //APP FOLDER
   "AppDataFolderName": "AFMDataClient",
+
+  //LOGGING
   "NumDailyLogFiles": 7
 }
