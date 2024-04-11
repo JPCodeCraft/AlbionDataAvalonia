@@ -12,7 +12,7 @@ public class SettingsManager
     string? userSettingsDirectory;
 
     private string deafultUserSettingsFilePath = Path.Combine(AppContext.BaseDirectory, "DefaultUserSettings.json");
-    private string deafultAppSettingsFilePath = Path.Combine(AppContext.BaseDirectory, "DefaultAppSettings.json");
+    private string defaultAppSettingsFilePath = Path.Combine(AppContext.BaseDirectory, "DefaultAppSettings.json");
 
     private bool loadedAppSettingsFromRemote = false;
 
@@ -30,7 +30,12 @@ public class SettingsManager
             LoadAppSettingsFromLocal();
             _ = KeepTryingToLoadAppSettingsFromRemoteAsync();
         }
-        userSettingsDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppSettings.AppDataFolderName ?? "AFMDataClient");
+        if (AppSettings?.AppDataFolderName == null)
+        {
+            Log.Error("AppDataFolderName is null in AppSettings.");
+            throw new Exception("AppDataFolderName is null in AppSettings.");
+        }
+        userSettingsDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppSettings.AppDataFolderName);
         LoadUserSettings();
     }
 
@@ -106,9 +111,9 @@ public class SettingsManager
     {
         try
         {
-            if (File.Exists(deafultAppSettingsFilePath))
+            if (File.Exists(defaultAppSettingsFilePath))
             {
-                string json = File.ReadAllText(deafultAppSettingsFilePath);
+                string json = File.ReadAllText(defaultAppSettingsFilePath);
                 var settings = JsonSerializer.Deserialize<AppSettings>(json);
 
                 if (settings != null)

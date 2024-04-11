@@ -18,5 +18,5 @@ public class AppSettings
     public double UpdateCheckIntervalHours { get; set; }
     public double AppSettingsRetryLoadIntervalMins { get; set; }
     public string? AppDataFolderName { get; set; }
-    public int AmountOfDailyFileLogsToKeep { get; set; }
+    public int NumDailyLogFiles { get; set; }
 }

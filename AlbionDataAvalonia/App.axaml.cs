@@ -104,14 +104,17 @@ public partial class App : Application
 
     private void SetupLogging(ListSink listSink, SettingsManager settingsManager)
     {
-        string logDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), settingsManager.AppSettings.AppDataFolderName ?? "AFMDataClient\\logs");
-        string logFilePath = Path.Combine(logDirectory, "log-.txt");
+        if (settingsManager.AppSettings.AppDataFolderName == null)
+        {
+            Log.Error("AppDataFolderName is null in AppSettings.");
+        }
+        string logFilePath = Path.Combine([settingsManager.AppSettings.AppDataFolderName ?? "AFMDataClient", "logs", "log-.txt"]);
 
         Log.Logger = new LoggerConfiguration()
             .WriteTo.Sink(listSink, restrictedToMinimumLevel: LogEventLevel.Information)
             .WriteTo.Console()
             .WriteTo.Debug()
-            .WriteTo.File(logFilePath, LogEventLevel.Debug, rollingInterval: RollingInterval.Day, retainedFileCountLimit: settingsManager.AppSettings.AmountOfDailyFileLogsToKeep)
+            .WriteTo.File(logFilePath, LogEventLevel.Debug, rollingInterval: RollingInterval.Day, retainedFileCountLimit: settingsManager.AppSettings.NumDailyLogFiles)
             .MinimumLevel.Debug()
             .CreateLogger();
     }
