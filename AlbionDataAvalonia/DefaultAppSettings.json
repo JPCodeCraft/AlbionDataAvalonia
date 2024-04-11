@@ -18,7 +18,7 @@
       "Id": 3,
       "Name": "Europe",
       "HostIp": "193.169.238",
-      "UploadUrl": "https://pow.east.albion-online-data.com"
+      "UploadUrl": "https://pow.europe.albion-online-data.com"
     }
   ],
   "MarketOrdersIngestSubject": "marketorders.ingest",
