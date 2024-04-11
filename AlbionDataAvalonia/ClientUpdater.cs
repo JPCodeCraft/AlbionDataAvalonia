@@ -53,10 +53,8 @@ public static class ClientUpdater
 
                 // Download the new version
                 Log.Information($"Downloading the new version from {downloadUrl}");
-                //var data = await httpClient.GetByteArrayAsync(downloadUrl);
-                var data = File.ReadAllBytes("C:\\Users\\augus\\Documents\\Inno Setup Output\\AFMDataClientSetup_v_0.3.1.0.exe");
-                //var filePath = Path.Combine(Path.GetTempPath(), $"AFMDataClientSetup_v_{latestVersion}.exe");
-                var filePath = Path.Combine(Path.GetTempPath(), $"AFMDataClientSetup_v_0.3.1.0.exe");
+                var data = await httpClient.GetByteArrayAsync(downloadUrl);
+                var filePath = Path.Combine(Path.GetTempPath(), $"AFMDataClientSetup_v_{latestVersion}.exe");
                 await File.WriteAllBytesAsync(filePath, data);
 
                 // Start the new version
