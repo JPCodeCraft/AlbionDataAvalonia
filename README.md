@@ -10,9 +10,11 @@ An alternative client for [The Albion Online Data Project](https://www.albion-on
 
 📌 Sits on tray
 
-🔄 Automatic updates (not silent)
+🔄 Automatic, silent updates
 
 ⚙️ Settable parallelism for PoW solving and uploads
+
+🤌 Doesn't require admin permission to run (installing NpCap still requires, thought)
 
 ⚠️ Please note that this project is currently in testing phase and not ready for production use.
 
