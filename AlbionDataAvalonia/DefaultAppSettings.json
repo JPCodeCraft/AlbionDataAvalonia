@@ -31,5 +31,5 @@
   "UpdateCheckIntervalHours": 1,
   "AppSettingsRetryLoadIntervalMins": 1,
   "AppDataFolderName": "AFMDataClient",
-  "AmountOfDailyFileLogsToKeep": 7
+  "NumDailyLogFiles": 7
 }
