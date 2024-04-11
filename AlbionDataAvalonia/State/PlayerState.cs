@@ -102,7 +102,7 @@ namespace AlbionDataAvalonia.State
 
             var timer = new System.Timers.Timer(2000);
             timer.Elapsed += OnTimerElapsed;
-            timer.Start();
+            //timer.Start();
         }
         private void OnTimerElapsed(object? sender, System.Timers.ElapsedEventArgs e)
         {
