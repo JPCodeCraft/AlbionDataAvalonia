@@ -151,7 +151,7 @@ namespace AlbionDataAvalonia.State
         {
             if (location == 0 || !Enum.IsDefined(typeof(AlbionData.Models.Location), Location))
             {
-                Log.Warning($"Player location is not set. Please change maps.");
+                Log.Debug($"Player location is not set. Please change maps.");
                 return false;
             }
             else return true;
