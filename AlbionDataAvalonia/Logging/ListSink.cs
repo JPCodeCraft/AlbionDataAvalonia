@@ -22,7 +22,7 @@ public class ListSink : ILogEventSink
     {
         var logEventWrapper = new LogEventWrapper(logEvent);
         Events.Enqueue(logEventWrapper);
-        while (Events.Count > _settingsManager.UserSettings.MaxLogCount)
+        while (Events.Count > (_settingsManager.UserSettings.MaxLogCount))
         {
             Events.TryDequeue(out _);
         }
