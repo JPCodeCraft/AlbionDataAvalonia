@@ -71,7 +71,10 @@ namespace AlbionDataAvalonia.State
             {
                 if (albionServer == value) return;
                 albionServer = value;
-                Log.Information("Server set to {Server}", AlbionServer.Name);
+                if (albionServer != null)
+                {
+                    Log.Information("Server set to {Server}", albionServer.Name);
+                }
                 OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, IsInGame));
             }
         }
@@ -79,10 +82,11 @@ namespace AlbionDataAvalonia.State
         {
             get
             {
-                var result = DateTime.UtcNow - LastPacketTime < TimeSpan.FromSeconds(5);
+                var result = (DateTime.UtcNow - LastPacketTime) < TimeSpan.FromSeconds(5);
                 if (isInGame != result)
                 {
                     isInGame = result;
+                    Log.Debug("Player is {InGame}", isInGame ? "in game" : "not in game");
                     if (!isInGame)
                     {
                         AlbionServer = null;
@@ -100,9 +104,9 @@ namespace AlbionDataAvalonia.State
             MarketHistoryIDLookup = new MarketHistoryInfo[CacheSize];
             _settingsManager = settingsManager;
 
-            var timer = new System.Timers.Timer(2000);
+            var timer = new System.Timers.Timer(1000);
             timer.Elapsed += OnTimerElapsed;
-            //timer.Start();
+            timer.Start();
         }
         private void OnTimerElapsed(object? sender, System.Timers.ElapsedEventArgs e)
         {

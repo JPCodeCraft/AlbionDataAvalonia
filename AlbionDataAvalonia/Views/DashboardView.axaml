@@ -62,7 +62,7 @@
 		<!--LOCATION AND WARNINGS LINE-->
 		<Grid IsVisible="{Binding ShowDataUi}" Margin="0, 10, 0, 10" RowDefinitions="30, 30" ColumnDefinitions="*, *, *" Grid.Row="1">
 			<Label Grid.Row="0" Grid.Column="0" Content="Server" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
-			<Label Grid.Row="1" Grid.Column="0" Content="{Binding AlbionServer.Name}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+			<Label Grid.Row="1" Grid.Column="0" Content="{Binding AlbionServerName}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
 
 			<Label Grid.Row="0" Grid.Column="1" Content="Player Name" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
 			<Label Grid.Row="1" Grid.Column="1" Content="{Binding PlayerName}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
