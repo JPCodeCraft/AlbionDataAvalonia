@@ -33,9 +33,5 @@
   "FirstUpdateCheckDelayMins": 0.1,
   "UpdateCheckIntervalHours": 1,
 
-  "AppSettingsRetryLoadIntervalMins": 1,
-
-  "AppDataFolderName": "AFMDataClient",
-
-  "NumDailyLogFiles": 7
+  "AppSettingsRetryLoadIntervalMins": 1
 }

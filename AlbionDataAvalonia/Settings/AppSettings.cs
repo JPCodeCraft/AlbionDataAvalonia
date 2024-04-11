@@ -17,6 +17,4 @@ public class AppSettings
     public double FirstUpdateCheckDelayMins { get; set; }
     public double UpdateCheckIntervalHours { get; set; }
     public double AppSettingsRetryLoadIntervalMins { get; set; }
-    public string? AppDataFolderName { get; set; }
-    public int NumDailyLogFiles { get; set; }
 }
