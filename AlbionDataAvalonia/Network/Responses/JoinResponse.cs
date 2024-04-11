@@ -17,7 +17,23 @@ public class JoinResponse : BaseOperation
         {
             if (parameters.TryGetValue(0, out object objectId))
             {
-                userObjectId = (int)objectId;
+                switch (objectId)
+                {
+                    case int intValue:
+                        userObjectId = intValue;
+                        break;
+                    case short shortValue:
+                        userObjectId = shortValue;
+                        break;
+                    case null:
+                        // Handle null value. For example, you might want to log an error or throw an exception.
+                        Log.Error("objectId is null.");
+                        break;
+                    default:
+                        // Handle unexpected type. For example, you might want to log an error or throw an exception.
+                        Log.Error("Unexpected type for objectId: {Type}", objectId.GetType());
+                        break;
+                }
             }
 
             if (parameters.TryGetValue(2, out object nameData))
