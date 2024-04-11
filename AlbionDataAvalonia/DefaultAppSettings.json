@@ -29,5 +29,7 @@
   "FileNameFormat": "AFMDataClientSetup_v_{version}.exe",
   "FirstUpdateCheckDelayMins": 0.1,
   "UpdateCheckIntervalHours": 1,
-  "AppSettingsRetryLoadIntervalMins":  1
+  "AppSettingsRetryLoadIntervalMins": 1,
+  "AppDataFolderName": "AFMDataClient",
+  "AmountOfDailyFileLogsToKeep": 7
 }

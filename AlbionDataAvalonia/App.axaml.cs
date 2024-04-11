@@ -13,6 +13,7 @@ using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using Serilog.Events;
 using System;
+using System.IO;
 using System.Threading;
 
 namespace AlbionDataAvalonia;
@@ -37,9 +38,6 @@ public partial class App : Application
         collection.AddCommonServices();
         var services = collection.BuildServiceProvider();
 
-        //LOGGING
-        SetupLogging(services.GetRequiredService<ListSink>());
-
         //GETTING SERVICES
         var vm = services.GetRequiredService<MainViewModel>();
         var settings = services.GetRequiredService<SettingsManager>();
@@ -48,6 +46,9 @@ public partial class App : Application
 
         //INITIALIZE SETTINGS
         await settings.Initialize();
+
+        //LOGGING
+        SetupLogging(services.GetRequiredService<ListSink>(), settings);
 
         //UPDATER
         _updateTimer = new System.Timers.Timer
@@ -101,17 +102,21 @@ public partial class App : Application
 
     }
 
-    private void SetupLogging(ListSink listSink)
+    private void SetupLogging(ListSink listSink, SettingsManager settingsManager)
     {
+        string logDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), settingsManager.AppSettings.AppDataFolderName ?? "AFMDataClient\\logs");
+        string logFilePath = Path.Combine(logDirectory, "log-.txt");
+
         Log.Logger = new LoggerConfiguration()
             .WriteTo.Sink(listSink, restrictedToMinimumLevel: LogEventLevel.Information)
             .WriteTo.Console()
             .WriteTo.Debug()
+            .WriteTo.File(logFilePath, LogEventLevel.Debug, rollingInterval: RollingInterval.Day, retainedFileCountLimit: settingsManager.AppSettings.AmountOfDailyFileLogsToKeep)
             .MinimumLevel.Debug()
             .CreateLogger();
     }
-
 }
+
 public static class ServiceCollectionExtensions
 {
     public static void AddCommonServices(this IServiceCollection collection)
