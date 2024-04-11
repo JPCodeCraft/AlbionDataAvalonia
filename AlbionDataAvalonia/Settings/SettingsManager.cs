@@ -9,7 +9,7 @@ namespace AlbionDataAvalonia.Settings;
 
 public class SettingsManager
 {
-    string? userSettingsDirectory;
+    string userSettingsDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AFMDataClient");
 
     private string deafultUserSettingsFilePath = Path.Combine(AppContext.BaseDirectory, "DefaultUserSettings.json");
     private string defaultAppSettingsFilePath = Path.Combine(AppContext.BaseDirectory, "DefaultAppSettings.json");
@@ -21,6 +21,7 @@ public class SettingsManager
     public AppSettings AppSettings { get; private set; }
     public SettingsManager()
     {
+        LoadUserSettings();
     }
 
     public async Task Initialize()
@@ -30,13 +31,6 @@ public class SettingsManager
             LoadAppSettingsFromLocal();
             _ = KeepTryingToLoadAppSettingsFromRemoteAsync();
         }
-        if (AppSettings?.AppDataFolderName == null)
-        {
-            Log.Error("AppDataFolderName is null in AppSettings.");
-            throw new Exception("AppDataFolderName is null in AppSettings.");
-        }
-        userSettingsDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), AppSettings.AppDataFolderName);
-        LoadUserSettings();
     }
 
 

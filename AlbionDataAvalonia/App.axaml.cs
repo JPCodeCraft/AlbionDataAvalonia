@@ -38,6 +38,9 @@ public partial class App : Application
         collection.AddCommonServices();
         var services = collection.BuildServiceProvider();
 
+        //LOGGING
+        SetupLogging(services.GetRequiredService<ListSink>());
+
         //GETTING SERVICES
         var vm = services.GetRequiredService<MainViewModel>();
         var settings = services.GetRequiredService<SettingsManager>();
@@ -46,9 +49,6 @@ public partial class App : Application
 
         //INITIALIZE SETTINGS
         await settings.Initialize();
-
-        //LOGGING
-        SetupLogging(services.GetRequiredService<ListSink>(), settings);
 
         //UPDATER
         _updateTimer = new System.Timers.Timer
@@ -102,19 +102,15 @@ public partial class App : Application
 
     }
 
-    private void SetupLogging(ListSink listSink, SettingsManager settingsManager)
+    private void SetupLogging(ListSink listSink)
     {
-        if (settingsManager.AppSettings.AppDataFolderName == null)
-        {
-            Log.Error("AppDataFolderName is null in AppSettings.");
-        }
-        string logFilePath = Path.Combine([settingsManager.AppSettings.AppDataFolderName ?? "AFMDataClient", "logs", "log-.txt"]);
+        string logFilePath = Path.Combine([Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AFMDataClient", "logs", "log-.txt"]);
 
         Log.Logger = new LoggerConfiguration()
             .WriteTo.Sink(listSink, restrictedToMinimumLevel: LogEventLevel.Information)
             .WriteTo.Console()
             .WriteTo.Debug()
-            .WriteTo.File(logFilePath, LogEventLevel.Debug, rollingInterval: RollingInterval.Day, retainedFileCountLimit: settingsManager.AppSettings.NumDailyLogFiles)
+            .WriteTo.File(logFilePath, LogEventLevel.Debug, rollingInterval: RollingInterval.Day, retainedFileCountLimit: 7)
             .MinimumLevel.Debug()
             .CreateLogger();
     }
