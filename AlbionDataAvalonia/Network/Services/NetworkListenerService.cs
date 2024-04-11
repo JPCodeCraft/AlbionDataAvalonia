@@ -8,6 +8,7 @@ using SharpPcap;
 using System;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.Network.Services
 {
@@ -87,7 +88,7 @@ namespace AlbionDataAvalonia.Network.Services
 
             return;
         }
-        private void PacketHandler(object sender, PacketCapture e)
+        private void PacketHandler(object? sender, PacketCapture e)
         {
             if (receiver == null)
             {
@@ -108,13 +109,17 @@ namespace AlbionDataAvalonia.Network.Services
                         {
                             if (device != e.Device)
                             {
-                                device.StopCapture();
-                                device.Close();
-                                hasCleanedUpDevices = true;
-                                Log.Debug("Close... {Device}", device.Description);
+                                Task.Run(() =>
+                                {
+                                    device.StopCapture();
+                                    device.Close();
+                                    Log.Debug("Close... {Device}", device.Description);
+                                });
                             }
                         }
+                        hasCleanedUpDevices = true;
                     }
+
 
                     var srcIp = (packet.ParentPacket as IPv4Packet)?.SourceAddress?.ToString();
                     if (string.IsNullOrEmpty(srcIp))
