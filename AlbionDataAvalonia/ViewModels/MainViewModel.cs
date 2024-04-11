@@ -1,5 +1,4 @@
 ﻿using AlbionData.Models;
-using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
@@ -36,7 +35,7 @@ public partial class MainViewModel : ViewModelBase
     private string playerName = "Not set";
 
     [ObservableProperty]
-    private AlbionServer? albionServer;
+    private string albionServerName;
 
     [ObservableProperty]
     private bool showGetInGame = false;
@@ -89,7 +88,7 @@ public partial class MainViewModel : ViewModelBase
 
         Location = _playerState.Location;
         PlayerName = _playerState.PlayerName;
-        AlbionServer = _playerState.AlbionServer;
+        AlbionServerName = _playerState.AlbionServer?.Name ?? "Unknown";
 
         UploadQueueSize = _uploader.uploadQueueCount;
         oldUploadQueueSize = UploadQueueSize;
@@ -136,7 +135,7 @@ public partial class MainViewModel : ViewModelBase
     {
         Location = e.Location;
         PlayerName = e.Name;
-        AlbionServer = e.AlbionServer;
+        AlbionServerName = e.AlbionServer?.Name ?? "Unknown";
 
         UpdateVisibilities();
     }
