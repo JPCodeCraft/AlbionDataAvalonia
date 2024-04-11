@@ -3,6 +3,7 @@
 ![image](https://github.com/JPCodeCraft/AlbionDataAvalonia/assets/11092613/6ab7caab-8dc4-4dfc-95a9-95b17b8841ca)
 
 An alternative client for [The Albion Online Data Project](https://www.albion-online-data.com/) that provides the same functionality as the official client, but with a user-friendly graphical interface and easy-to-use settings.
+All the data is uploaded to The Albion Online Data Project! Albion Free Market does not host prices databases.
 
 # Features
 
