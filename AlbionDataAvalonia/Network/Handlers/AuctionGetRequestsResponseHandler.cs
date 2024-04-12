@@ -20,7 +20,7 @@ public class AuctionGetRequestsResponseHandler : ResponsePacketHandler<AuctionGe
 
     protected override async Task OnActionAsync(AuctionGetRequestsResponse value)
     {
-        if (!playerState.CheckLocationIDIsSet()) return;
+        if (!playerState.CheckOkToUpload()) return;
 
         MarketUpload marketUpload = new MarketUpload();
 
