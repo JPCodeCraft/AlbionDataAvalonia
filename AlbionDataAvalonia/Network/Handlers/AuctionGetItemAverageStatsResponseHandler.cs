@@ -21,7 +21,7 @@ public class AuctionGetItemAverageStatsResponseHandler : ResponsePacketHandler<A
 
     protected override async Task OnActionAsync(AuctionGetItemAverageStatsResponse value)
     {
-        if (!playerState.CheckLocationIDIsSet()) return;
+        if (!playerState.CheckOkToUpload()) return;
 
         MarketHistoriesUpload marketHistoriesUpload = new MarketHistoriesUpload();
 
