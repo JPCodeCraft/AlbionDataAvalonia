@@ -9,6 +9,8 @@ Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AlbionDataAvalonia.Desktop"
 EndProject
 Project("{C7167F0D-BC9F-4E6E-AFE1-012C56B48DB5}") = "AlbionDataAvalonia.Packaging", "AlbionDataAvalonia.Packaging\AlbionDataAvalonia.Packaging.wapproj", "{1546F54F-F126-48BC-8DAC-C696352C1CCA}"
 EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AlbionDataAvalonia.Desktop.Linux", "AlbionDataAvalonia.Desktop.Linux\AlbionDataAvalonia.Desktop.Linux.csproj", "{6704AF97-D99D-4BBC-9BA6-AAB805DE1144}"
+EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
 		Debug|Any CPU = Debug|Any CPU
@@ -93,6 +95,26 @@ Global
 		{1546F54F-F126-48BC-8DAC-C696352C1CCA}.Release|x86.ActiveCfg = Release|x86
 		{1546F54F-F126-48BC-8DAC-C696352C1CCA}.Release|x86.Build.0 = Release|x86
 		{1546F54F-F126-48BC-8DAC-C696352C1CCA}.Release|x86.Deploy.0 = Release|x86
+		{6704AF97-D99D-4BBC-9BA6-AAB805DE1144}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{6704AF97-D99D-4BBC-9BA6-AAB805DE1144}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{6704AF97-D99D-4BBC-9BA6-AAB805DE1144}.Debug|ARM.ActiveCfg = Debug|Any CPU
+		{6704AF97-D99D-4BBC-9BA6-AAB805DE1144}.Debug|ARM.Build.0 = Debug|Any CPU
+		{6704AF97-D99D-4BBC-9BA6-AAB805DE1144}.Debug|ARM64.ActiveCfg = Debug|Any CPU
+		{6704AF97-D99D-4BBC-9BA6-AAB805DE1144}.Debug|ARM64.Build.0 = Debug|Any CPU
+		{6704AF97-D99D-4BBC-9BA6-AAB805DE1144}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{6704AF97-D99D-4BBC-9BA6-AAB805DE1144}.Debug|x64.Build.0 = Debug|Any CPU
+		{6704AF97-D99D-4BBC-9BA6-AAB805DE1144}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{6704AF97-D99D-4BBC-9BA6-AAB805DE1144}.Debug|x86.Build.0 = Debug|Any CPU
+		{6704AF97-D99D-4BBC-9BA6-AAB805DE1144}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{6704AF97-D99D-4BBC-9BA6-AAB805DE1144}.Release|Any CPU.Build.0 = Release|Any CPU
+		{6704AF97-D99D-4BBC-9BA6-AAB805DE1144}.Release|ARM.ActiveCfg = Release|Any CPU
+		{6704AF97-D99D-4BBC-9BA6-AAB805DE1144}.Release|ARM.Build.0 = Release|Any CPU
+		{6704AF97-D99D-4BBC-9BA6-AAB805DE1144}.Release|ARM64.ActiveCfg = Release|Any CPU
+		{6704AF97-D99D-4BBC-9BA6-AAB805DE1144}.Release|ARM64.Build.0 = Release|Any CPU
+		{6704AF97-D99D-4BBC-9BA6-AAB805DE1144}.Release|x64.ActiveCfg = Release|Any CPU
+		{6704AF97-D99D-4BBC-9BA6-AAB805DE1144}.Release|x64.Build.0 = Release|Any CPU
+		{6704AF97-D99D-4BBC-9BA6-AAB805DE1144}.Release|x86.ActiveCfg = Release|Any CPU
+		{6704AF97-D99D-4BBC-9BA6-AAB805DE1144}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE
