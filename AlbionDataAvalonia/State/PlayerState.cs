@@ -93,7 +93,7 @@ namespace AlbionDataAvalonia.State
                         PlayerName = string.Empty;
                         Location = 0;
                     }
-                    OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, IsInGame));
+                    OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, isInGame));
                 }
                 return isInGame;
             }
