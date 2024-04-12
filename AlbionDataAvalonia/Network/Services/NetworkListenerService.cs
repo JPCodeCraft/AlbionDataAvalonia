@@ -60,7 +60,7 @@ namespace AlbionDataAvalonia.Network.Services
                 return;
             }
 
-            Log.Debug("Starting...");
+            Log.Debug("Starting network device listening");
 
             devices = CaptureDeviceList.New();
 
@@ -70,7 +70,7 @@ namespace AlbionDataAvalonia.Network.Services
                 {
                     try
                     {
-                        Log.Debug("Open... {Device}", device.Description);
+                        Log.Debug("Opening network device: {Device}", device.Description);
 
                         device.OnPacketArrival += new PacketArrivalEventHandler(PacketHandler);
                         device.Open(new DeviceConfiguration
@@ -122,7 +122,7 @@ namespace AlbionDataAvalonia.Network.Services
                                     {
                                         device.StopCapture();
                                         device.Close();
-                                        Log.Debug("Close... {Device}", device.Description);
+                                        Log.Debug("Closing network device: {Device}", device.Description);
                                     }
                                     catch (Exception ex)
                                     {
