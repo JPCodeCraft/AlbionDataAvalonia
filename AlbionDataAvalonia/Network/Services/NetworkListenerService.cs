@@ -135,7 +135,8 @@ namespace AlbionDataAvalonia.Network.Services
                     }
 
 
-                    var srcIp = (packet.ParentPacket as IPv4Packet)?.SourceAddress?.ToString();
+                    var srcIp = (packet.ParentPacket as IPPacket)?.SourceAddress?.ToString();
+
                     if (string.IsNullOrEmpty(srcIp))
                     {
                         Log.Verbose("Packet Source IP null or empty, ignoring");
