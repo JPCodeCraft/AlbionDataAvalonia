@@ -68,18 +68,25 @@ namespace AlbionDataAvalonia.Network.Services
             {
                 new Thread(() =>
                 {
-                    Log.Debug("Open... {Device}", device.Description);
-
-                    device.OnPacketArrival += new PacketArrivalEventHandler(PacketHandler);
-                    device.Open(new DeviceConfiguration
+                    try
                     {
-                        Mode = DeviceModes.MaxResponsiveness,
-                        ReadTimeout = 5000
-                    });
-                    var ips = _settingsManager.AppSettings.AlbionServers.Select(s => $"host {s.HostIp}");
-                    var filter = $"({string.Join(" or ", ips)}) and {_settingsManager.AppSettings.PacketFilterPortText}";
-                    device.Filter = filter;
-                    device.StartCapture();
+                        Log.Debug("Open... {Device}", device.Description);
+
+                        device.OnPacketArrival += new PacketArrivalEventHandler(PacketHandler);
+                        device.Open(new DeviceConfiguration
+                        {
+                            Mode = DeviceModes.MaxResponsiveness,
+                            ReadTimeout = 5000
+                        });
+                        var ips = _settingsManager.AppSettings.AlbionServers.Select(s => $"host {s.HostIp}");
+                        var filter = $"({string.Join(" or ", ips)}) and {_settingsManager.AppSettings.PacketFilterPortText}";
+                        device.Filter = filter;
+                        device.StartCapture();
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error("Error initializing device {Device}: {Message}", device.Name, ex.Message);
+                    }
                 })
                 .Start();
             }
@@ -88,6 +95,7 @@ namespace AlbionDataAvalonia.Network.Services
 
             return;
         }
+
         private void PacketHandler(object? sender, PacketCapture e)
         {
             if (receiver == null)
