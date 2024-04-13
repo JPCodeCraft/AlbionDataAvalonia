@@ -17,9 +17,12 @@
 
 	<ItemGroup>
 		<PackageReference Include="Avalonia.Desktop" Version="11.0.10" />
-	</ItemGroup>
-
-	<ItemGroup>
 		<ProjectReference Include="..\AlbionDataAvalonia\AlbionDataAvalonia.csproj" />
 	</ItemGroup>
+
+	<Target Name="PostBuild" AfterTargets="Publish">
+		<Exec Command="cp $(ProjectDir)install/install.sh $(ProjectDir)bin/release/net7.0/linux-x64/publish/" />
+		<Exec Command="chmod +x $(ProjectDir)bin/release/net7.0/linux-x64/publish/install.sh" />
+	</Target>
+
 </Project>
