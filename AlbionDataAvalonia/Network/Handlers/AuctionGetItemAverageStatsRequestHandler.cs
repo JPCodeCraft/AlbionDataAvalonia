@@ -16,7 +16,7 @@ public class AuctionGetItemAverageStatsRequestHandler : RequestPacketHandler<Auc
 
     protected override async Task OnActionAsync(AuctionGetItemAverageStatsRequest value)
     {
-        if (!playerState.CheckLocationIDIsSet()) return;
+        if (!playerState.CheckOkToUpload()) return;
 
         MarketHistoryInfo info = new MarketHistoryInfo();
         playerState.MarketHistoryIDLookup[value.messageID % playerState.CacheSize] = info;

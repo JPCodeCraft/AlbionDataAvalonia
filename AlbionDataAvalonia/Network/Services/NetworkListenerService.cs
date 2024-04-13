@@ -60,7 +60,7 @@ namespace AlbionDataAvalonia.Network.Services
                 return;
             }
 
-            Log.Debug("Starting...");
+            Log.Debug("Starting network device listening");
 
             devices = CaptureDeviceList.New();
 
@@ -70,7 +70,7 @@ namespace AlbionDataAvalonia.Network.Services
                 {
                     try
                     {
-                        Log.Debug("Open... {Device}", device.Description);
+                        Log.Debug("Opening network device: {Device}", device.Description);
 
                         device.OnPacketArrival += new PacketArrivalEventHandler(PacketHandler);
                         device.Open(new DeviceConfiguration
@@ -85,7 +85,7 @@ namespace AlbionDataAvalonia.Network.Services
                     }
                     catch (Exception ex)
                     {
-                        Log.Error("Error initializing device {Device}: {Message}", device.Name, ex.Message);
+                        Log.Debug("Error initializing device {Device}: {Message}", device.Name, ex.Message);
                     }
                 })
                 .Start();
@@ -119,9 +119,16 @@ namespace AlbionDataAvalonia.Network.Services
                             {
                                 Task.Run(() =>
                                 {
-                                    device.StopCapture();
-                                    device.Close();
-                                    Log.Debug("Close... {Device}", device.Description);
+                                    try
+                                    {
+                                        device.StopCapture();
+                                        device.Close();
+                                        Log.Debug("Closing network device: {Device}", device.Description);
+                                    }
+                                    catch (Exception ex)
+                                    {
+                                        Log.Debug("Error closing device {Device}: {Message}", device.Name, ex.Message);
+                                    }
                                 });
                             }
                         }
@@ -129,7 +136,8 @@ namespace AlbionDataAvalonia.Network.Services
                     }
 
 
-                    var srcIp = (packet.ParentPacket as IPv4Packet)?.SourceAddress?.ToString();
+                    var srcIp = (packet.ParentPacket as IPPacket)?.SourceAddress?.ToString();
+
                     if (string.IsNullOrEmpty(srcIp))
                     {
                         Log.Verbose("Packet Source IP null or empty, ignoring");
