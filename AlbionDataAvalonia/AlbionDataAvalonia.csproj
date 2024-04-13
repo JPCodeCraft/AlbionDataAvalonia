@@ -22,8 +22,11 @@
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.2.2" />
 		<PackageReference Include="Avalonia.Controls.DataGrid" Version="11.0.10" />
 
-		<!--Condition below is needed to remove Avalonia.Diagnostics package from build output in Release configuration.-->
-		<PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="11.0.10" />
+		<!--Condition
+		below is needed to remove Avalonia.Diagnostics package from build output in Release
+		configuration.-->
+		<PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics"
+			Version="11.0.10" />
 		<PackageReference Include="Microsoft.Extensions.DependencyInjection" Version="8.0.0" />
 		<PackageReference Include="Serilog" Version="3.1.1" />
 		<PackageReference Include="Serilog.Sinks.Console" Version="5.0.1" />
@@ -59,6 +62,9 @@
 		<AvaloniaResource Update="Assets\afm-logo.ico">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</AvaloniaResource>
+	</ItemGroup>
+
+	<ItemGroup Condition="'$(OS)' == 'Windows_NT'">
 		<AvaloniaResource Update="ThirdParty\WinPcap_4_1_3.exe">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</AvaloniaResource>
@@ -68,6 +74,9 @@
 		<None Update="Assets\afm-logo.ico">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
+	</ItemGroup>
+
+	<ItemGroup Condition="'$(OS)' == 'Windows_NT'">
 		<None Update="ThirdParty\WinPcap_4_1_3.exe">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
