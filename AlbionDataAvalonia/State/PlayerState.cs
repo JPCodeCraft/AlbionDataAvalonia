@@ -82,18 +82,12 @@ namespace AlbionDataAvalonia.State
         {
             get
             {
-                var result = (DateTime.UtcNow - LastPacketTime) < TimeSpan.FromSeconds(5);
+                var result = (DateTime.UtcNow - LastPacketTime) < TimeSpan.FromSeconds(10);
                 if (isInGame != result)
                 {
                     isInGame = result;
                     Log.Debug("Player is {InGame}", isInGame ? "in game" : "not in game");
-                    if (!isInGame)
-                    {
-                        AlbionServer = null;
-                        PlayerName = string.Empty;
-                        Location = 0;
-                    }
-                    OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, IsInGame));
+                    OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, isInGame));
                 }
                 return isInGame;
             }
@@ -178,6 +172,11 @@ namespace AlbionDataAvalonia.State
         {
             bool result = SentDataHashs.Contains(hash);
             return result;
+        }
+
+        public bool CheckOkToUpload()
+        {
+            return CheckLocationIDIsSet() && IsInGame && AlbionServer != null;
         }
 
         public void AddPowSolveTime(long time)
