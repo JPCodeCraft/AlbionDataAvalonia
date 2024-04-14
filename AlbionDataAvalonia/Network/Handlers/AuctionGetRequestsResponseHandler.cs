@@ -1,5 +1,4 @@
 ﻿using Albion.Network;
-using AlbionData.Models;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Responses;
 using AlbionDataAvalonia.Network.Services;
@@ -24,7 +23,7 @@ public class AuctionGetRequestsResponseHandler : ResponsePacketHandler<AuctionGe
 
         MarketUpload marketUpload = new MarketUpload();
 
-        value.marketOrders.ForEach(x => x.LocationId = (ushort)playerState.Location);
+        value.marketOrders.ForEach(x => x.LocationId = playerState.Location.Id.ToString());
         marketUpload.Orders.AddRange(value.marketOrders);
 
         if (marketUpload.Orders.Count > 0)

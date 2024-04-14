@@ -1,6 +1,4 @@
-﻿using AlbionData.Models;
-
-namespace AlbionDataAvalonia.Network.Models;
+﻿namespace AlbionDataAvalonia.Network.Models;
 
 public class Upload
 {

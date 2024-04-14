@@ -1,5 +1,4 @@
-﻿using AlbionData.Models;
-using AlbionDataAvalonia.Network.Events;
+﻿using AlbionDataAvalonia.Network.Events;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Pow;
 using AlbionDataAvalonia.Settings;
