@@ -5,11 +5,11 @@ namespace AlbionDataAvalonia.State.Events
 {
     public class PlayerStateEventArgs : EventArgs
     {
-        public AlbionData.Models.Location Location { get; set; }
+        public AlbionLocation Location { get; set; }
         public string Name { get; set; }
         public AlbionServer? AlbionServer { get; set; }
         public bool IsInGame { get; set; }
-        public PlayerStateEventArgs(AlbionData.Models.Location location, string name, AlbionServer? albionServer, bool isInGame)
+        public PlayerStateEventArgs(AlbionLocation location, string name, AlbionServer? albionServer, bool isInGame)
         {
             Location = location;
             Name = name;

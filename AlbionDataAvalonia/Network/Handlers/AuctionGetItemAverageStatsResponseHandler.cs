@@ -1,5 +1,4 @@
 ﻿using Albion.Network;
-using AlbionData.Models;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Responses;
 using AlbionDataAvalonia.Network.Services;

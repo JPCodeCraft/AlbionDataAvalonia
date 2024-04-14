@@ -1,5 +1,4 @@
-﻿using AlbionData.Models;
-using AlbionDataAvalonia.Network.Events;
+﻿using AlbionDataAvalonia.Network.Events;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State.Events;
@@ -15,7 +14,7 @@ namespace AlbionDataAvalonia.State
     {
         private readonly SettingsManager _settingsManager;
 
-        private Location location = 0;
+        private AlbionLocation location = AlbionLocations.Unknown;
         private string playerName = string.Empty;
         private AlbionServer? albionServer = null;
         private bool isInGame = false;
@@ -43,13 +42,13 @@ namespace AlbionDataAvalonia.State
 
         public DateTime LastPacketTime { get; set; }
 
-        public Location Location
+        public AlbionLocation Location
         {
             get => location;
             set
             {
                 location = value;
-                Log.Information("Player location set to {Location}", Location.ToString());
+                Log.Information("Player location set to {Location}", Location.FriendlyName);
                 OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, IsInGame));
             }
         }
@@ -141,9 +140,9 @@ namespace AlbionDataAvalonia.State
             Log.Information("Gold price upload complete. {count} histories", UploadedGoldHistoriesCount);
         }
 
-        public bool CheckLocationIDIsSet()
+        public bool CheckLocationIsSet()
         {
-            if (location == 0 || !Enum.IsDefined(typeof(AlbionData.Models.Location), Location))
+            if (location == AlbionLocations.Unknown)
             {
                 Log.Debug($"Player location is not set. Please change maps.");
                 return false;
@@ -176,7 +175,7 @@ namespace AlbionDataAvalonia.State
 
         public bool CheckOkToUpload()
         {
-            return CheckLocationIDIsSet() && IsInGame && AlbionServer != null;
+            return CheckLocationIsSet() && IsInGame && AlbionServer != null;
         }
 
         public void AddPowSolveTime(long time)
