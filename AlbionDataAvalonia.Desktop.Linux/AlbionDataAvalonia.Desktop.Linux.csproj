@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<OutputType>Exe</OutputType>
+		<TargetFramework>net7.0</TargetFramework>
+		<Nullable>enable</Nullable>
+		<PublishSingleFile>true</PublishSingleFile>
+		<IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
+		<IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
+		<SelfContained>true</SelfContained>
+		<RuntimeIdentifier>linux-x64</RuntimeIdentifier>
+	</PropertyGroup>
+
+	<PropertyGroup>
+		<AssemblyTitle>Albion Free Market Data Client</AssemblyTitle>
+		<AssemblyName>AFMDataClient</AssemblyName>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="Avalonia.Desktop" Version="11.0.10" />
+	</ItemGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\AlbionDataAvalonia\AlbionDataAvalonia.csproj" />
+	</ItemGroup>
+</Project>

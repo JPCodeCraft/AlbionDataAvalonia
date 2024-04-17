@@ -95,6 +95,7 @@ namespace AlbionDataAvalonia.Network.Services
 
             return;
         }
+
         private void PacketHandler(object? sender, PacketCapture e)
         {
             if (receiver == null)
