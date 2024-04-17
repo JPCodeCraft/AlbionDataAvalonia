@@ -110,7 +110,7 @@ public partial class App : Application
 
     private void SetupLogging(ListSink listSink)
     {
-        string logFilePath = Path.Combine([Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AFMDataClient", "logs", "log-.txt"]);
+        string logFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AFMDataClient", "logs", "log-.txt");
 
         Log.Logger = new LoggerConfiguration()
             .WriteTo.Sink(listSink, restrictedToMinimumLevel: LogEventLevel.Information)
