@@ -150,7 +150,7 @@ namespace AlbionDataAvalonia.State
 
             UploadedHistoriesCountDic[e.MarketHistoriesUpload.Timescale] += historyCount;
             OnUploadedHistoriesCountDicChanged?.Invoke(UploadedHistoriesCountDic);
-            Log.Information("Market history upload complete. [{Timescale}] => {count} histories", historyCount, e.MarketHistoriesUpload.Timescale);
+            Log.Information("Market history upload complete. [{Timescale}] => {count} histories", e.MarketHistoriesUpload.Timescale, historyCount);
         }
 
         public void GoldPriceUploadHandler(object? sender, GoldPriceUploadEventArgs e)
