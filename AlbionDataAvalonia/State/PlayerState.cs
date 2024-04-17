@@ -174,7 +174,7 @@ namespace AlbionDataAvalonia.State
         {
             if (location == AlbionLocations.Unknown)
             {
-                Log.Debug($"Player location is not set. Please change maps.");
+                Log.Debug("Player location is not set. Please change maps.");
                 return false;
             }
             else return true;
