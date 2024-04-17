@@ -14,7 +14,7 @@ namespace AlbionDataAvalonia.State
     {
         private readonly SettingsManager _settingsManager;
 
-        private AlbionLocation location = AlbionLocations.Unknown;
+        private AlbionLocation location = AlbionLocations.Unset;
         private string playerName = string.Empty;
         private AlbionServer? albionServer = null;
         private bool isInGame = false;
@@ -174,7 +174,7 @@ namespace AlbionDataAvalonia.State
 
         public bool CheckLocationIsSet()
         {
-            if (location == AlbionLocations.Unknown)
+            if (location == AlbionLocations.Unknown || location == AlbionLocations.Unset)
             {
                 Log.Debug("Player location is not set. Please change maps.");
                 return false;
