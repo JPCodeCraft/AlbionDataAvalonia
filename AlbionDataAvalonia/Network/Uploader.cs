@@ -183,7 +183,7 @@ public class Uploader : IDisposable
             string dataHash = GetHash(data, server);
             if (_playerState.CheckHashInQueue(dataHash))
             {
-                Log.Verbose("Data hash is already in queue, skipping uload");
+                Log.Verbose("Data hash is already in queue, skipping upload");
                 return UploadStatus.Skipped;
             }
             _playerState.AddSentDataHash(dataHash);
@@ -233,7 +233,7 @@ public class Uploader : IDisposable
     {
         if (client.BaseAddress == null)
         {
-            Log.Error("Base address is null.");
+            Log.Error("Failed to upload with Pow. Base address is null.");
             return false;
         }
 
