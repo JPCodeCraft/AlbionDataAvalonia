@@ -29,13 +29,14 @@ namespace AlbionDataAvalonia.State
         public event Action<int>? OnUploadedMarketRequestsCountChanged;
         public event Action<ConcurrentDictionary<Timescale, int>>? OnUploadedHistoriesCountDicChanged;
         public event Action<int>? OnUploadedGoldHistoriesCountChanged;
+        public event Action<ConcurrentDictionary<UploadStatus, int>>? OnUploadStatusCountDicChanged;
 
         public int UploadedMarketOffersCount { get; set; }
         public int UploadedMarketRequestsCount { get; set; }
         public ConcurrentDictionary<Timescale, int> UploadedHistoriesCountDic { get; set; } = new();
         public int UploadedGoldHistoriesCount { get; set; }
 
-        public ConcurrentDictionary<UploadStatus, int> UploadStatusCountDic { get; set; } = new()
+        private ConcurrentDictionary<UploadStatus, int> UploadStatusCountDic { get; set; } = new()
         {
             [UploadStatus.Success] = 0,
             [UploadStatus.Failed] = 0,
@@ -167,6 +168,7 @@ namespace AlbionDataAvalonia.State
         private void ProcessUploadStatus(UploadStatus status)
         {
             UploadStatusCountDic[status]++;
+            OnUploadStatusCountDicChanged?.Invoke(UploadStatusCountDic);
             Log.Debug("Upload status: {status} => accounted for", status);
         }
 
