@@ -10,6 +10,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Serilog;
 using System;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -64,6 +65,12 @@ public partial class MainViewModel : ViewModelBase
     private int uploadedDailyHistoriesCount;
     [ObservableProperty]
     private int uploadedGoldHistoriesCount;
+    [ObservableProperty]
+    private int uploadSuccessCount;
+    [ObservableProperty]
+    private int uploadFailedCount;
+    [ObservableProperty]
+    private int uploadSkippedCount;
 
     [ObservableProperty]
     private bool redBlinking = false;
@@ -102,6 +109,7 @@ public partial class MainViewModel : ViewModelBase
         _uploader.OnChange += UpdateUploadStats;
 
         _playerState.OnPlayerStateChanged += UpdateState;
+
         _playerState.OnUploadedMarketRequestsCountChanged += count => UploadedMarketRequestsCount = count;
         _playerState.OnUploadedMarketOffersCountChanged += count => UploadedMarketOffersCount = count;
         _playerState.OnUploadedHistoriesCountDicChanged += dic =>
@@ -110,8 +118,9 @@ public partial class MainViewModel : ViewModelBase
             UploadedWeeklyHistoriesCount = dic.ContainsKey(Timescale.Week) ? dic[Timescale.Week] : 0;
             UploadedDailyHistoriesCount = dic.ContainsKey(Timescale.Day) ? dic[Timescale.Day] : 0;
         };
-
         _playerState.OnUploadedGoldHistoriesCountChanged += count => UploadedGoldHistoriesCount = count;
+
+        _playerState.OnUploadStatusCountDicChanged += UpdateUploadStatusCount;
 
         if (NpCapInstallationChecker.IsNpCapInstalled())
         {
@@ -129,6 +138,13 @@ public partial class MainViewModel : ViewModelBase
         ShowChangeCity = !_playerState.CheckLocationIsSet() && _playerState.IsInGame;
         ShowGetInGame = !_playerState.IsInGame;
         ShowDataUi = !(ShowChangeCity || ShowGetInGame);
+    }
+
+    private void UpdateUploadStatusCount(ConcurrentDictionary<UploadStatus, int> dic)
+    {
+        UploadSuccessCount = dic.TryGetValue(UploadStatus.Success, out int value) ? value : 0;
+        UploadFailedCount = dic.TryGetValue(UploadStatus.Failed, out value) ? value : 0;
+        UploadSkippedCount = dic.TryGetValue(UploadStatus.Skipped, out value) ? value : 0;
     }
 
     private void UpdateState(object? sender, PlayerStateEventArgs e)
