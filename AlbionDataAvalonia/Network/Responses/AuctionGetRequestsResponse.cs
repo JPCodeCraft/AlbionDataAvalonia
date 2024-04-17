@@ -1,5 +1,5 @@
 ﻿using Albion.Network;
-using AlbionData.Models;
+using AlbionDataAvalonia.Network.Models;
 using Serilog;
 using System;
 using System.Collections.Generic;

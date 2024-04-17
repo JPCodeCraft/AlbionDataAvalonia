@@ -26,7 +26,8 @@
 	<TrayIcon.Icons>
 		<TrayIcons>
 			<TrayIcon Icon="/Assets/logo.ico"
-                      ToolTipText="Albion Data Client">
+                      ToolTipText="Albion Data Client"
+					  Clicked="OnTrayClicked">
 				<TrayIcon.Menu>
 					<NativeMenu x:DataType="vm:MainViewModel">
 						<NativeMenuItem Header="Show Window" Command="{Binding ShowMainWindowCommand}"/>

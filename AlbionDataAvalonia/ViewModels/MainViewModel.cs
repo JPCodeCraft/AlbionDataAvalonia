@@ -1,4 +1,4 @@
-﻿using AlbionData.Models;
+﻿using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
@@ -10,6 +10,7 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Serilog;
 using System;
+using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -29,7 +30,7 @@ public partial class MainViewModel : ViewModelBase
     private string appVersion;
 
     [ObservableProperty]
-    private AlbionData.Models.Location location;
+    private string locationName;
 
     [ObservableProperty]
     private string playerName = "Not set";
@@ -39,8 +40,12 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool showGetInGame = false;
+
     [ObservableProperty]
     private bool showChangeCity = false;
+    [ObservableProperty]
+    private string changeCityText;
+
     [ObservableProperty]
     private bool showDataUi = false;
 
@@ -64,6 +69,12 @@ public partial class MainViewModel : ViewModelBase
     private int uploadedDailyHistoriesCount;
     [ObservableProperty]
     private int uploadedGoldHistoriesCount;
+    [ObservableProperty]
+    private int uploadSuccessCount;
+    [ObservableProperty]
+    private int uploadFailedCount;
+    [ObservableProperty]
+    private int uploadSkippedCount;
 
     [ObservableProperty]
     private bool redBlinking = false;
@@ -86,7 +97,7 @@ public partial class MainViewModel : ViewModelBase
         _logsViewModel = logsViewModel;
         _uploader = uploader;
 
-        Location = _playerState.Location;
+        LocationName = _playerState.Location.FriendlyName;
         PlayerName = _playerState.PlayerName;
         AlbionServerName = _playerState.AlbionServer?.Name ?? "Unknown";
 
@@ -102,6 +113,7 @@ public partial class MainViewModel : ViewModelBase
         _uploader.OnChange += UpdateUploadStats;
 
         _playerState.OnPlayerStateChanged += UpdateState;
+
         _playerState.OnUploadedMarketRequestsCountChanged += count => UploadedMarketRequestsCount = count;
         _playerState.OnUploadedMarketOffersCountChanged += count => UploadedMarketOffersCount = count;
         _playerState.OnUploadedHistoriesCountDicChanged += dic =>
@@ -110,8 +122,9 @@ public partial class MainViewModel : ViewModelBase
             UploadedWeeklyHistoriesCount = dic.ContainsKey(Timescale.Week) ? dic[Timescale.Week] : 0;
             UploadedDailyHistoriesCount = dic.ContainsKey(Timescale.Day) ? dic[Timescale.Day] : 0;
         };
-
         _playerState.OnUploadedGoldHistoriesCountChanged += count => UploadedGoldHistoriesCount = count;
+
+        _playerState.OnUploadStatusCountDicChanged += UpdateUploadStatusCount;
 
         if (NpCapInstallationChecker.IsNpCapInstalled())
         {
@@ -126,14 +139,30 @@ public partial class MainViewModel : ViewModelBase
 
     private void UpdateVisibilities()
     {
-        ShowChangeCity = !_playerState.CheckLocationIDIsSet() && _playerState.IsInGame;
+        ShowChangeCity = !_playerState.CheckLocationIsSet() && _playerState.IsInGame;
         ShowGetInGame = !_playerState.IsInGame;
         ShowDataUi = !(ShowChangeCity || ShowGetInGame);
+
+        if (_playerState.Location == AlbionLocations.Unknown)
+        {
+            ChangeCityText = "Current location is not supported. Go to a relevant market.";
+        }
+        else if (_playerState.Location == AlbionLocations.Unset)
+        {
+            ChangeCityText = "Location has not been set. Please change maps.";
+        }
+    }
+
+    private void UpdateUploadStatusCount(ConcurrentDictionary<UploadStatus, int> dic)
+    {
+        UploadSuccessCount = dic.TryGetValue(UploadStatus.Success, out int value) ? value : 0;
+        UploadFailedCount = dic.TryGetValue(UploadStatus.Failed, out value) ? value : 0;
+        UploadSkippedCount = dic.TryGetValue(UploadStatus.Skipped, out value) ? value : 0;
     }
 
     private void UpdateState(object? sender, PlayerStateEventArgs e)
     {
-        Location = e.Location;
+        LocationName = e.Location.FriendlyName;
         PlayerName = e.Name;
         AlbionServerName = e.AlbionServer?.Name ?? "Unknown";
 
@@ -182,7 +211,7 @@ public partial class MainViewModel : ViewModelBase
         };
     }
     [RelayCommand]
-    private void ShowMainWindow()
+    public void ShowMainWindow()
     {
         Log.Verbose("Showing MainWindow");
         if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)

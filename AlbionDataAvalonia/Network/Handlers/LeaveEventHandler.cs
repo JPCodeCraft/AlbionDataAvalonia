@@ -1,5 +1,6 @@
 ﻿using Albion.Network;
 using AlbionDataAvalonia.Network.Events;
+using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.State;
 using System.Threading.Tasks;
 
@@ -19,7 +20,7 @@ public class LeaveEventHandler : EventPacketHandler<LeaveEvent>
         if (value.userObjectId == playerState.UserObjectId)
         {
             playerState.PlayerName = "Not set";
-            playerState.Location = 0;
+            playerState.Location = AlbionLocations.Unset;
         }
         await Task.CompletedTask;
     }

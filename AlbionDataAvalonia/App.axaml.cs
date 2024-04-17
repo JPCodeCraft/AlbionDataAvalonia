@@ -13,7 +13,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using Serilog.Events;
 using System;
+using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Threading;
 
 namespace AlbionDataAvalonia;
@@ -22,8 +24,12 @@ public partial class App : Application
 {
     private System.Timers.Timer? _updateTimer;
 
+    MainViewModel? vm;
+
     public override void Initialize()
     {
+        CheckAppAlreadyRunning();
+
         AvaloniaXamlLoader.Load(this);
     }
 
@@ -42,7 +48,7 @@ public partial class App : Application
         SetupLogging(services.GetRequiredService<ListSink>());
 
         //GETTING SERVICES
-        var vm = services.GetRequiredService<MainViewModel>();
+        vm = services.GetRequiredService<MainViewModel>();
         var settings = services.GetRequiredService<SettingsManager>();
         var listener = services.GetRequiredService<NetworkListenerService>();
         var uploader = services.GetRequiredService<Uploader>();
@@ -113,6 +119,21 @@ public partial class App : Application
             .WriteTo.File(logFilePath, LogEventLevel.Debug, rollingInterval: RollingInterval.Day, retainedFileCountLimit: 7)
             .MinimumLevel.Debug()
             .CreateLogger();
+    }
+    public void OnTrayClicked(object sender, EventArgs e)
+    {
+        vm?.ShowMainWindow();
+    }
+
+    private void CheckAppAlreadyRunning()
+    {
+        var currentProcess = Process.GetCurrentProcess();
+        var runningProcess = Process.GetProcesses().FirstOrDefault(p => p.Id != currentProcess.Id && p.ProcessName.Equals(currentProcess.ProcessName, StringComparison.Ordinal));
+
+        if (runningProcess != null)
+        {
+            currentProcess.Kill();
+        }
     }
 }
 

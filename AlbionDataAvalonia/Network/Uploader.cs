@@ -1,5 +1,4 @@
-﻿using AlbionData.Models;
-using AlbionDataAvalonia.Network.Events;
+﻿using AlbionDataAvalonia.Network.Events;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Pow;
 using AlbionDataAvalonia.Settings;
@@ -59,10 +58,10 @@ public class Uploader : IDisposable
             var offers = marketUpload.Orders.Where(x => x.AuctionType == "offer").Count();
             var requests = marketUpload.Orders.Where(x => x.AuctionType == "request").Count();
             var data = SerializeData(marketUpload);
-            if (await UploadData(data, _playerState.AlbionServer, _settingsManager.AppSettings.MarketOrdersIngestSubject ?? ""))
-            {
-                OnMarketUpload?.Invoke(this, new MarketUploadEventArgs(marketUpload, _playerState.AlbionServer));
-            }
+
+            var uploadStatus = await UploadData(data, _playerState.AlbionServer, _settingsManager.AppSettings.MarketOrdersIngestSubject ?? "");
+
+            OnMarketUpload?.Invoke(this, new MarketUploadEventArgs(marketUpload, _playerState.AlbionServer, uploadStatus));
         }
         catch (Exception ex)
         {
@@ -81,10 +80,9 @@ public class Uploader : IDisposable
             var amount = goldHistoryUpload.Prices.Length;
             var data = SerializeData(goldHistoryUpload);
 
-            if (await UploadData(data, _playerState.AlbionServer, _settingsManager.AppSettings.GoldDataIngestSubject ?? ""))
-            {
-                OnGoldPriceUpload?.Invoke(this, new GoldPriceUploadEventArgs(goldHistoryUpload, _playerState.AlbionServer));
-            }
+            var uploadStatus = await UploadData(data, _playerState.AlbionServer, _settingsManager.AppSettings.GoldDataIngestSubject ?? "");
+
+            OnGoldPriceUpload?.Invoke(this, new GoldPriceUploadEventArgs(goldHistoryUpload, _playerState.AlbionServer, uploadStatus));
         }
         catch (Exception ex)
         {
@@ -104,10 +102,9 @@ public class Uploader : IDisposable
             var timescale = marketHistoriesUpload.Timescale;
             var data = SerializeData(marketHistoriesUpload);
 
-            if (await UploadData(data, _playerState.AlbionServer, _settingsManager.AppSettings.MarketHistoriesIngestSubject ?? ""))
-            {
-                OnMarketHistoryUpload?.Invoke(this, new MarketHistoriesUploadEventArgs(marketHistoriesUpload, _playerState.AlbionServer));
-            }
+            var uploadStatus = await UploadData(data, _playerState.AlbionServer, _settingsManager.AppSettings.MarketHistoriesIngestSubject ?? "");
+
+            OnMarketHistoryUpload?.Invoke(this, new MarketHistoriesUploadEventArgs(marketHistoriesUpload, _playerState.AlbionServer, uploadStatus));
         }
         catch (Exception ex)
         {
@@ -179,15 +176,15 @@ public class Uploader : IDisposable
             return hash;
         }
     }
-    private async Task<bool> UploadData(byte[] data, AlbionServer server, string topic)
+    private async Task<UploadStatus> UploadData(byte[] data, AlbionServer server, string topic)
     {
         try
         {
             string dataHash = GetHash(data, server);
             if (_playerState.CheckHashInQueue(dataHash))
             {
-                Log.Verbose("Data hash is already in queue, skipping uload");
-                return false;
+                Log.Verbose("Data hash is already in queue, skipping upload");
+                return UploadStatus.Skipped;
             }
             _playerState.AddSentDataHash(dataHash);
 
@@ -204,34 +201,40 @@ public class Uploader : IDisposable
 
                 if (!string.IsNullOrEmpty(solution))
                 {
-                    await UploadWithPow(powRequest, solution, data, topic, server, _connectionService.httpClient);
-                    return true;
+                    if (await UploadWithPow(powRequest, solution, data, topic, server, _connectionService.httpClient))
+                    {
+                        return UploadStatus.Success;
+                    }
+                    else
+                    {
+                        return UploadStatus.Failed;
+                    }
                 }
                 else
                 {
                     Log.Error("PoW solution is null or empty.");
-                    return false;
+                    return UploadStatus.Failed;
                 }
             }
             else
             {
                 Log.Error("PoW request is null.");
-                return false;
+                return UploadStatus.Failed;
             }
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Exception while uploading data to {0}.", server.Name);
-            return false;
+            return UploadStatus.Failed;
         }
 
     }
-    private async Task UploadWithPow(PowRequest pow, string solution, byte[] data, string topic, AlbionServer server, HttpClient client)
+    private async Task<bool> UploadWithPow(PowRequest pow, string solution, byte[] data, string topic, AlbionServer server, HttpClient client)
     {
         if (client.BaseAddress == null)
         {
-            Log.Error("Base address is null.");
-            return;
+            Log.Error("Failed to upload with Pow. Base address is null.");
+            return false;
         }
 
         var dataToSend = new FormUrlEncodedContent(new[]
@@ -251,11 +254,11 @@ public class Uploader : IDisposable
         if (response.StatusCode != HttpStatusCode.OK)
         {
             Log.Error("HTTP Error while proving pow. Returned: {0} ({1})", response.StatusCode, await response.Content.ReadAsStringAsync());
-            return;
+            return false;
         }
 
         Log.Debug("Successfully sent ingest request to {0}", requestUri);
-        return;
+        return true;
     }
 
     public void Dispose()
