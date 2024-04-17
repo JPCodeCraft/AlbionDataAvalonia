@@ -40,8 +40,12 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool showGetInGame = false;
+
     [ObservableProperty]
     private bool showChangeCity = false;
+    [ObservableProperty]
+    private string changeCityText;
+
     [ObservableProperty]
     private bool showDataUi = false;
 
@@ -138,6 +142,15 @@ public partial class MainViewModel : ViewModelBase
         ShowChangeCity = !_playerState.CheckLocationIsSet() && _playerState.IsInGame;
         ShowGetInGame = !_playerState.IsInGame;
         ShowDataUi = !(ShowChangeCity || ShowGetInGame);
+
+        if (_playerState.Location == AlbionLocations.Unknown)
+        {
+            ChangeCityText = "Current location is not supported. Go to a relevant market.";
+        }
+        else if (_playerState.Location == AlbionLocations.Unset)
+        {
+            ChangeCityText = "Location has not been set. Please change maps.";
+        }
     }
 
     private void UpdateUploadStatusCount(ConcurrentDictionary<UploadStatus, int> dic)

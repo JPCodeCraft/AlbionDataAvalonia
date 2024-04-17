@@ -20,7 +20,7 @@ public class LeaveEventHandler : EventPacketHandler<LeaveEvent>
         if (value.userObjectId == playerState.UserObjectId)
         {
             playerState.PlayerName = "Not set";
-            playerState.Location = AlbionLocations.Unknown;
+            playerState.Location = AlbionLocations.Unset;
         }
         await Task.CompletedTask;
     }
