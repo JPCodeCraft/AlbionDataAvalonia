@@ -27,19 +27,19 @@ namespace AlbionDataAvalonia.State
 
         public event Action<int>? OnUploadedMarketOffersCountChanged;
         public event Action<int>? OnUploadedMarketRequestsCountChanged;
-        public event Action<Dictionary<Timescale, int>>? OnUploadedHistoriesCountDicChanged;
+        public event Action<ConcurrentDictionary<Timescale, int>>? OnUploadedHistoriesCountDicChanged;
         public event Action<int>? OnUploadedGoldHistoriesCountChanged;
 
         public int UploadedMarketOffersCount { get; set; }
         public int UploadedMarketRequestsCount { get; set; }
-        public Dictionary<Timescale, int> UploadedHistoriesCountDic { get; set; } = new();
+        public ConcurrentDictionary<Timescale, int> UploadedHistoriesCountDic { get; set; } = new();
         public int UploadedGoldHistoriesCount { get; set; }
 
-        public Dictionary<UploadStatus, int> UploadStatusCountDic { get; set; } = new()
+        public ConcurrentDictionary<UploadStatus, int> UploadStatusCountDic { get; set; } = new()
         {
-            { UploadStatus.Success, 0 },
-            { UploadStatus.Failed, 0 },
-            { UploadStatus.Skipped, 0 }
+            [UploadStatus.Success] = 0,
+            [UploadStatus.Failed] = 0,
+            [UploadStatus.Skipped] = 0
         };
 
         public int UserObjectId { get; set; }
