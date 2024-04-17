@@ -12,7 +12,7 @@
 
 	<PropertyGroup>
 		<AssemblyTitle>Albion Free Market Data Client</AssemblyTitle>
-		<AssemblyName>AFMDataClient</AssemblyName>
+		<AssemblyName>AFMDataClient_Linux64</AssemblyName>
 	</PropertyGroup>
 
 	<ItemGroup>
@@ -21,8 +21,8 @@
 	</ItemGroup>
 
 	<Target Name="PostBuild" AfterTargets="Publish">
-		<Exec Command="cp $(ProjectDir)install/install.sh $(ProjectDir)bin/Release/net8.0/linux-x64/publish/" />
-		<Exec Command="chmod +x $(ProjectDir)bin/Release/net8.0/linux-x64/publish/install.sh" />
+		<Exec Command="cp $(ProjectDir)install/AFMDataClient_Linux64_Installer.sh $(ProjectDir)bin/Release/net8.0/linux-x64/publish/" />
+		<Exec Command="chmod +x $(ProjectDir)bin/Release/net8.0/linux-x64/publish/AFMDataClient_Linux64_Installer.sh" />
 	</Target>
 
 </Project>
