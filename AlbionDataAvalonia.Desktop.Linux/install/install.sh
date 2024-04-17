@@ -1,15 +1,18 @@
 #!/bin/bash
 
 APP_PATH="./AFMDataClient"
-TARGET_PATH="/usr/local/bin/AFMDataClient"
+TARGET_PATH="$HOME/AFMDataClient/AFMDataClient"
 
-# Copy the app to /usr/local/bin
-sudo cp "$APP_PATH" "$TARGET_PATH"
+echo "Creating directory..."
+mkdir -p "$HOME/AFMDataClient"
 
-# Set capabilities for the app to be able to use raw sockets
+echo "Copying the app to home directory..."
+cp "$APP_PATH" "$TARGET_PATH"
+
+echo "Setting capabilities for the app..."
 sudo setcap cap_net_admin,cap_net_raw+eip "$TARGET_PATH"
 
-# Set the app to run on system startup
+echo "Setting the app to run on system startup..."
 echo "[Desktop Entry]
 Type=Application
 Exec=$TARGET_PATH
@@ -18,9 +21,11 @@ NoDisplay=false
 X-GNOME-Autostart-enabled=true
 Name[en_US]=AFMDataClient
 Name=AFMDataClient
-Comment[en_US]=
-Comment=" > afmdataclient.desktop
+Comment[en_US]=Albion Data Client
+Comment=Albion Data Client" > afmdataclient.desktop
 
+echo "Moving the desktop entry to /etc/xdg/autostart/..."
 sudo mv afmdataclient.desktop /etc/xdg/autostart/
 
+echo "Starting the app..."
 $TARGET_PATH

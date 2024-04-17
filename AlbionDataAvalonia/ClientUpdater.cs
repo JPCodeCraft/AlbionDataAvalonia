@@ -1,9 +1,11 @@
-﻿using Serilog;
+﻿using PacketDotNet;
+using Serilog;
 using System;
 using System.Diagnostics;
 using System.IO;
 using System.Net.Http;
 using System.Reflection;
+using System.Runtime.InteropServices;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -28,9 +30,9 @@ public static class ClientUpdater
             return;
         }
 
+
         try
         {
-
             // Get the current version of the running application
             var currentVersion = GetVersion();
 
@@ -45,12 +47,19 @@ public static class ClientUpdater
             var jsonDocument = JsonDocument.Parse(response);
             var latestVersion = jsonDocument.RootElement.GetProperty("version").GetString();
 
+            if (string.Compare(currentVersion, latestVersion) >= 0)
+            {
+                Log.Information($"You are using the latest version! Yours: v.{currentVersion} | Latest: v.{latestVersion}");
+                return;
+            }
+
             downloadUrl = downloadUrl.Replace("{fileName}", fileNameFormat.Replace("{version}", latestVersion));
 
-            if (string.Compare(currentVersion, latestVersion) < 0)
-            {
-                Log.Information($"A new version is available: v.{latestVersion}. Updating from v.{currentVersion}");
+            Log.Information($"A new version is available: v.{latestVersion}. Updating from v.{currentVersion}");
 
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
                 // Download the new version
                 Log.Information($"Downloading the new version from {downloadUrl}");
                 var data = await httpClient.GetByteArrayAsync(downloadUrl);
@@ -72,9 +81,9 @@ public static class ClientUpdater
                 // Stop the current application
                 Environment.Exit(0);
             }
-            else
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             {
-                Log.Information($"You are using the latest version: v.{currentVersion}.");
+                Log.Warning("There's a new version available, but updating on Linux is not supported yet. Please update manually.");
             }
         }
         catch (Exception ex)
