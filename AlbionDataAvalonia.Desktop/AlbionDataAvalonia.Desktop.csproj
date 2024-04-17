@@ -21,4 +21,17 @@
 	<ItemGroup>
 		<ProjectReference Include="..\AlbionDataAvalonia\AlbionDataAvalonia.csproj" />
 	</ItemGroup>
+
+	<ItemGroup>
+		<AvaloniaResource Update="ThirdParty\WinPcap_4_1_3.exe">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</AvaloniaResource>
+	</ItemGroup>
+
+	<ItemGroup>
+		<None Update="ThirdParty\WinPcap_4_1_3.exe">
+			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+		</None>
+	</ItemGroup>
+
 </Project>
