@@ -182,7 +182,7 @@ public partial class MainViewModel : ViewModelBase
         };
     }
     [RelayCommand]
-    private void ShowMainWindow()
+    public void ShowMainWindow()
     {
         Log.Verbose("Showing MainWindow");
         if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)

@@ -22,6 +22,8 @@ public partial class App : Application
 {
     private System.Timers.Timer? _updateTimer;
 
+    MainViewModel? vm;
+
     public override void Initialize()
     {
         AvaloniaXamlLoader.Load(this);
@@ -42,7 +44,7 @@ public partial class App : Application
         SetupLogging(services.GetRequiredService<ListSink>());
 
         //GETTING SERVICES
-        var vm = services.GetRequiredService<MainViewModel>();
+        vm = services.GetRequiredService<MainViewModel>();
         var settings = services.GetRequiredService<SettingsManager>();
         var listener = services.GetRequiredService<NetworkListenerService>();
         var uploader = services.GetRequiredService<Uploader>();
@@ -113,6 +115,10 @@ public partial class App : Application
             .WriteTo.File(logFilePath, LogEventLevel.Debug, rollingInterval: RollingInterval.Day, retainedFileCountLimit: 7)
             .MinimumLevel.Debug()
             .CreateLogger();
+    }
+    public void OnTrayClicked(object sender, EventArgs e)
+    {
+        vm?.ShowMainWindow();
     }
 }
 
