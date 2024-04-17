@@ -63,20 +63,8 @@
 		</AvaloniaResource>
 	</ItemGroup>
 
-	<ItemGroup Condition="'$(OS)' == 'Windows_NT'">
-		<AvaloniaResource Update="ThirdParty\WinPcap_4_1_3.exe">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</AvaloniaResource>
-	</ItemGroup>
-
 	<ItemGroup>
 		<None Update="Assets\afm-logo.ico">
-			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-		</None>
-	</ItemGroup>
-
-	<ItemGroup Condition="'$(OS)' == 'Windows_NT'">
-		<None Update="ThirdParty\WinPcap_4_1_3.exe">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
 		</None>
 	</ItemGroup>
