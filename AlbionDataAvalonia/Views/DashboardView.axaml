@@ -39,12 +39,12 @@
 	<Grid Margin="10, 10, 10, 10" RowDefinitions="Auto, Auto, Auto, Auto" ColumnDefinitions="*">
 
 		<!--QUEUE LINE-->
-		<Grid Margin="0, 10, 0, 20" RowDefinitions="50" ColumnDefinitions="*, 200, 200, *">
+		<Grid Margin="0, 10, 0, 20" RowDefinitions="Auto, Auto" ColumnDefinitions="*, 200, 200, *">
 			<Border Classes.RedBlink="{Binding RedBlinking}" Grid.Row="0" Grid.Column="0" VerticalAlignment="Top" HorizontalAlignment="Right" CornerRadius="2" BorderBrush="Silver" BorderThickness="2">
 				<Rectangle RadiusX="1" RadiusY="1" Classes="Indicator Red"  Classes.RedBlink="{Binding RedBlinking}" />
 			</Border>
 
-			<StackPanel Grid.Row="0" Grid.Column="1" VerticalAlignment="Center">				
+			<StackPanel Grid.Row="0" Grid.Column="1" VerticalAlignment="Center">
 				<Label Content="{Binding UploadQueueSize}" FontSize="24" HorizontalAlignment="Center" />
 				<Label Content="Data Upload Queue" HorizontalAlignment="Center"/>
 			</StackPanel>
@@ -57,6 +57,16 @@
 			<Border Classes.GreenBlink="{Binding GreenBlinking}"  Grid.Row="0" Grid.Column="3" VerticalAlignment="Top" HorizontalAlignment="Left" CornerRadius="2" BorderBrush="Silver" BorderThickness="2">
 				<Rectangle RadiusX="1" RadiusY="1" Classes="Indicator Green" Classes.GreenBlink="{Binding GreenBlinking}" />
 			</Border>
+
+			<!--UPLOAD STATS SUB-LINE-->
+			<Grid Margin="0, 15, 0, 5" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan ="2" RowDefinitions="Auto, Auto" ColumnDefinitions="75, 75, 75" VerticalAlignment="Center" HorizontalAlignment="Center">
+				<Label Grid.Row="0" Grid.Column="0" Content="Success" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+				<Label Grid.Row="0" Grid.Column="1" Content="Skipped" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+				<Label Grid.Row="0" Grid.Column="2" Content="Failed" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+				<Label Grid.Row="1" Grid.Column="0" Content="{Binding UploadSuccessCount, StringFormat=N0}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+				<Label Grid.Row="1" Grid.Column="1" Content="{Binding UploadSkippedCount, StringFormat=N0}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+				<Label Grid.Row="1" Grid.Column="2" Content="{Binding UploadFailedCount, StringFormat=N0}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+			</Grid>
 		</Grid>
 
 		<!--LOCATION AND WARNINGS LINE-->
@@ -68,11 +78,11 @@
 			<Label Grid.Row="1" Grid.Column="1" Content="{Binding PlayerName}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
 
 			<Label Grid.Row="0" Grid.Column="2" Content="Location" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
-			<Label Grid.Row="1" Grid.Column="2" Content="{Binding Location}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+			<Label Grid.Row="1" Grid.Column="2" Content="{Binding LocationName}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
 		</Grid>
 
 		<Grid IsVisible="{Binding ShowChangeCity}" Margin="0, 10, 0, 10" RowDefinitions="60" ColumnDefinitions="*" Grid.Row="1">
-			<Label Content="Location has not been set. Please change maps." VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold" FontSize="20"/>
+			<Label Content="{Binding ChangeCityText}" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold" FontSize="20"/>
 		</Grid>
 
 		<Grid IsVisible="{Binding ShowGetInGame}" Margin="0, 10, 0, 10" RowDefinitions="60" ColumnDefinitions="*" Grid.Row="1">

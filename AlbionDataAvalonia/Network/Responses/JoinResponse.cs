@@ -1,4 +1,5 @@
 ﻿using Albion.Network;
+using AlbionDataAvalonia.Network.Models;
 using Serilog;
 using System;
 using System.Collections.Generic;
@@ -7,7 +8,7 @@ namespace AlbionDataAvalonia.Network.Responses;
 
 public class JoinResponse : BaseOperation
 {
-    public readonly AlbionData.Models.Location playerLocation;
+    public readonly AlbionLocation playerLocation;
     public readonly string playerName;
     public readonly int userObjectId;
     public JoinResponse(Dictionary<byte, object> parameters) : base(parameters)
@@ -45,7 +46,14 @@ public class JoinResponse : BaseOperation
             {
                 string location = (string)locationData;
                 if (location.Contains("-Auction2")) location = location.Replace("-Auction2", "");
-                playerLocation = (AlbionData.Models.Location)int.Parse(location);
+                if (AlbionLocations.TryParse(location, out AlbionLocation loc))
+                {
+                    playerLocation = loc;
+                }
+                else
+                {
+                    playerLocation = AlbionLocations.Unknown;
+                }
             }
         }
         catch (Exception e)

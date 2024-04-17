@@ -2,14 +2,14 @@
 #define MyAppName "Albion Free Market Data Client"
 #define MyAppPublisher "JP Code Craft"
 #define MyAppPublisherURL "https://www.albionfreemarket.com"
-#define MyAppVersion "0.4.0.2"
+#define MyAppVersion "0.5.0.0"
 #define MyAppExeName "AFMDataClient.exe"
 #define MyAppOutputDir "userdocs:Inno Setup Output"
 #define MyAppOutputBaseFilename "AFMDataClientSetup"
-#define MyAppSourceDir "..\\bin\\Release\\net7.0\\*"
-#define MyAppIconFile "..\\bin\\Release\\net7.0\\Assets\\afm-logo.ico"
+#define MyAppSourceDir "..\\bin\\Release\\net8.0\\*"
+#define MyAppIconFile "..\\bin\\Release\\net8.0\\Assets\\afm-logo.ico"
 #define MyAppIconFilePath "Assets\afm-logo.ico"
-#define WinPCapInstallerFile "..\\bin\\Release\\net7.0\\ThirdParty\\WinPcap_4_1_3.exe"
+#define WinPCapInstallerFile "..\\bin\\Release\\net8.0\\ThirdParty\\WinPcap_4_1_3.exe"
 #define WinPCapInstallerFilePath "ThirdParty\WinPcap_4_1_3.exe"
 
 [Setup]

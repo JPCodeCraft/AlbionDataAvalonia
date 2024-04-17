@@ -24,7 +24,7 @@ public class AuctionGetItemAverageStatsRequestHandler : RequestPacketHandler<Auc
         info.Quality = value.quality;
         info.Timescale = value.timescale;
         info.AlbionId = value.albionId;
-        info.LocationID = ((int)playerState.Location).ToString();
+        info.LocationID = playerState.Location.Id.ToString();
 
         await Task.CompletedTask;
     }
