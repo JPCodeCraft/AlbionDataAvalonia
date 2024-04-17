@@ -46,28 +46,16 @@ jobs:
           with:
             dotnet-version: '8.0.x' 
 
-        - name: Build project
+        - name: Publish projects (Windows and Linux)
           run: |
-            dotnet build ./AlbionDataAvalonia.Desktop/AlbionDataAvalonia.Desktop.csproj --configuration Release
+            dotnet publish ./AlbionDataAvalonia.Desktop/AlbionDataAvalonia.Desktop.csproj --configuration Release
+            dotnet publish ./AlbionDataAvalonia.Desktop.Linux/AlbionDataAvalonia.Desktop.Linux.csproj --configuration Release
 
         - name: Compile .ISS to .EXE Installer
           uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
           with:
             path: ./AlbionDataAvalonia.Desktop/pkg/inno.iss
             options: /O+
-
-        # - name: Get diff
-        #   id: get_diff
-        #   run: |
-        #     git fetch --tags
-        #     $LATEST_TAG = $(git describe --tags --abbrev=0)
-        #     $CURRENT_COMMIT = $(git rev-parse HEAD)
-        #     $DIFF = $(git diff --shortstat $LATEST_TAG $CURRENT_COMMIT)
-        #     echo "Latest Tag: $LATEST_TAG"
-        #     echo "Current Commit: $CURRENT_COMMIT"
-        #     echo "Diff: $DIFF"
-        #     echo "DIFF=$DIFF" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-        #   shell: pwsh
 
         - name: Create Tag
           id: create_tag
@@ -90,22 +78,52 @@ jobs:
             draft: false
             prerelease: false
 
-        - name: Upload Release Asset
+        - name: Upload Release Asset (Windows Installer)
           uses: actions/upload-release-asset@v1
           env:
             GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
           with:
             upload_url: ${{ steps.create_release.outputs.upload_url }}
-            asset_path: C:\Users\runneradmin\Documents\Inno Setup Output\AFMDataClientSetup_v_${{ env.VERSION }}.exe
+            asset_path: C:/Users/runneradmin/Documents/Inno Setup Output/AFMDataClientSetup_v_${{ env.VERSION }}.exe
             asset_name: AFMDataClientSetup_v_${{ env.VERSION }}.exe
             asset_content_type: application/octet-stream
 
-        - name: Create LatestVersion.json
-          run: |
-            $version = "${{ env.VERSION }}"
-            $json = @{ version = $version } | ConvertTo-Json
-            $json | Out-File -FilePath ./AlbionDataAvalonia.Desktop/LatestVersion.json -Encoding utf8
-          shell: pwsh
+        - name: Upload Release Asset (Linux Binary)
+          uses: actions/upload-release-asset@v1
+          env:
+            GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
+          with:
+            upload_url: ${{ steps.create_release.outputs.upload_url }}
+            asset_path: ./AlbionDataAvalonia.Desktop.Linux/bin/Release/net8.0/linux-x64/publish/AFMDataClient_Linux64
+            asset_name: AFMDataClient_Linux64
+            asset_content_type: application/octet-stream
+
+        - name: Upload Release Asset (Linux Installer)
+          uses: actions/upload-release-asset@v1
+          env:
+            GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
+          with:
+            upload_url: ${{ steps.create_release.outputs.upload_url }}
+            asset_path: ./AlbionDataAvalonia.Desktop.Linux/bin/Release/net8.0/linux-x64/publish/AFMDataClient_Linux64_Installer.sh
+            asset_name: AFMDataClient_Linux64_Installer.sh
+            asset_content_type: application/x-sh
+
+        - name: Upload Release Asset (Linux Uninstaller)
+          uses: actions/upload-release-asset@v1
+          env:
+            GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
+          with:
+            upload_url: ${{ steps.create_release.outputs.upload_url }}
+            asset_path: ./AlbionDataAvalonia.Desktop.Linux/bin/Release/net8.0/linux-x64/publish/AFMDataClient_Linux64_Uninstaller.sh
+            asset_name: AFMDataClient_Linux64_Uninstaller.sh
+            asset_content_type: application/x-sh
+
+        # - name: Create LatestVersion.json
+        #   run: |
+        #     $version = "${{ env.VERSION }}"
+        #     $json = @{ version = $version } | ConvertTo-Json
+        #     $json | Out-File -FilePath ./AlbionDataAvalonia.Desktop/LatestVersion.json -Encoding utf8
+        #   shell: pwsh
 
         - name: Commit and push changes
           run: |

@@ -1,7 +1,7 @@
 <Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<OutputType>Exe</OutputType>
-		<TargetFramework>net7.0</TargetFramework>
+		<TargetFramework>net8.0</TargetFramework>
 		<Nullable>enable</Nullable>
 		<PublishSingleFile>true</PublishSingleFile>
 		<IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
@@ -12,14 +12,19 @@
 
 	<PropertyGroup>
 		<AssemblyTitle>Albion Free Market Data Client</AssemblyTitle>
-		<AssemblyName>AFMDataClient</AssemblyName>
+		<AssemblyName>AFMDataClient_Linux64</AssemblyName>
 	</PropertyGroup>
 
 	<ItemGroup>
 		<PackageReference Include="Avalonia.Desktop" Version="11.0.10" />
-	</ItemGroup>
-
-	<ItemGroup>
 		<ProjectReference Include="..\AlbionDataAvalonia\AlbionDataAvalonia.csproj" />
 	</ItemGroup>
+
+	<Target Name="PostBuild" AfterTargets="Publish">
+		<Exec Command="cp $(ProjectDir)install/AFMDataClient_Linux64_Installer.sh $(ProjectDir)bin/Release/net8.0/linux-x64/publish/" />
+		<Exec Command="chmod +x $(ProjectDir)bin/Release/net8.0/linux-x64/publish/AFMDataClient_Linux64_Installer.sh" />
+		<Exec Command="cp $(ProjectDir)install/AFMDataClient_Linux64_Uninstaller.sh $(ProjectDir)bin/Release/net8.0/linux-x64/publish/" />
+		<Exec Command="chmod +x $(ProjectDir)bin/Release/net8.0/linux-x64/publish/AFMDataClient_Linux64_Uninstaller.sh" />
+	</Target>
+
 </Project>
