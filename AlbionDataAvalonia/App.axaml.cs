@@ -13,7 +13,9 @@ using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using Serilog.Events;
 using System;
+using System.Diagnostics;
 using System.IO;
+using System.Linq;
 using System.Threading;
 
 namespace AlbionDataAvalonia;
@@ -26,6 +28,8 @@ public partial class App : Application
 
     public override void Initialize()
     {
+        CheckAppAlreadyRunning();
+
         AvaloniaXamlLoader.Load(this);
     }
 
@@ -119,6 +123,17 @@ public partial class App : Application
     public void OnTrayClicked(object sender, EventArgs e)
     {
         vm?.ShowMainWindow();
+    }
+
+    private void CheckAppAlreadyRunning()
+    {
+        var currentProcess = Process.GetCurrentProcess();
+        var runningProcess = Process.GetProcesses().FirstOrDefault(p => p.Id != currentProcess.Id && p.ProcessName.Equals(currentProcess.ProcessName, StringComparison.Ordinal));
+
+        if (runningProcess != null)
+        {
+            currentProcess.Kill();
+        }
     }
 }
 
