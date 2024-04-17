@@ -7,9 +7,11 @@ public class MarketHistoriesUploadEventArgs : EventArgs
 {
     public MarketHistoriesUpload MarketHistoriesUpload { get; set; }
     public AlbionServer Server { get; set; }
-    public MarketHistoriesUploadEventArgs(MarketHistoriesUpload marketHistoriesUpload, AlbionServer server)
+    public UploadStatus UploadStatus { get; set; }
+    public MarketHistoriesUploadEventArgs(MarketHistoriesUpload marketHistoriesUpload, AlbionServer server, UploadStatus uploadStatus)
     {
         MarketHistoriesUpload = marketHistoriesUpload;
         Server = server;
+        UploadStatus = uploadStatus;
     }
 }

@@ -35,6 +35,13 @@ namespace AlbionDataAvalonia.State
         public Dictionary<Timescale, int> UploadedHistoriesCountDic { get; set; } = new();
         public int UploadedGoldHistoriesCount { get; set; }
 
+        public Dictionary<UploadStatus, int> UploadStatusCountDic { get; set; } = new()
+        {
+            { UploadStatus.Success, 0 },
+            { UploadStatus.Failed, 0 },
+            { UploadStatus.Skipped, 0 }
+        };
+
         public int UserObjectId { get; set; }
 
         private ConcurrentQueue<long> PowSolveTimes { get; } = new();
@@ -108,6 +115,9 @@ namespace AlbionDataAvalonia.State
 
         public void MarketUploadHandler(object? sender, MarketUploadEventArgs e)
         {
+            ProccesUploadStatus(e.UploadStatus);
+            if (e.UploadStatus != UploadStatus.Success) return;
+
             if (e.MarketUpload.Orders[0].AuctionType == "offer")
             {
                 UploadedMarketOffersCount += e.MarketUpload.Orders.Count;
@@ -123,6 +133,9 @@ namespace AlbionDataAvalonia.State
 
         public void MarketHistoryUploadHandler(object? sender, MarketHistoriesUploadEventArgs e)
         {
+            ProccesUploadStatus(e.UploadStatus);
+            if (e.UploadStatus != UploadStatus.Success) return;
+
             if (!UploadedHistoriesCountDic.ContainsKey(e.MarketHistoriesUpload.Timescale))
             {
                 UploadedHistoriesCountDic[e.MarketHistoriesUpload.Timescale] = 0;
@@ -135,9 +148,18 @@ namespace AlbionDataAvalonia.State
 
         public void GoldPriceUploadHandler(object? sender, GoldPriceUploadEventArgs e)
         {
+            ProccesUploadStatus(e.UploadStatus);
+            if (e.UploadStatus != UploadStatus.Success) return;
+
             UploadedGoldHistoriesCount += e.GoldPriceUpload.Prices.Length;
             OnUploadedGoldHistoriesCountChanged?.Invoke(UploadedGoldHistoriesCount);
             Log.Information("Gold price upload complete. {count} histories", UploadedGoldHistoriesCount);
+        }
+
+        private void ProccesUploadStatus(UploadStatus status)
+        {
+            UploadStatusCountDic[status]++;
+            Log.Debug("Upload status: {status} => accounted for", status);
         }
 
         public bool CheckLocationIsSet()
