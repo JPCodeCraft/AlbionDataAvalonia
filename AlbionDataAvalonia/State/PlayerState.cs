@@ -115,25 +115,29 @@ namespace AlbionDataAvalonia.State
 
         public void MarketUploadHandler(object? sender, MarketUploadEventArgs e)
         {
-            ProccesUploadStatus(e.UploadStatus);
+            ProcessUploadStatus(e.UploadStatus);
             if (e.UploadStatus != UploadStatus.Success) return;
 
-            if (e.MarketUpload.Orders[0].AuctionType == "offer")
+            int offersCount = e.MarketUpload.Orders.Count(o => o.AuctionType == "offer");
+            int requestsCount = e.MarketUpload.Orders.Count(o => o.AuctionType == "request");
+
+            if (offersCount > 0)
             {
-                UploadedMarketOffersCount += e.MarketUpload.Orders.Count;
+                UploadedMarketOffersCount += offersCount;
                 OnUploadedMarketOffersCountChanged?.Invoke(UploadedMarketOffersCount);
             }
-            else
+            if (requestsCount > 0)
             {
-                UploadedMarketRequestsCount += e.MarketUpload.Orders.Count;
+                UploadedMarketRequestsCount += requestsCount;
                 OnUploadedMarketRequestsCountChanged?.Invoke(UploadedMarketRequestsCount);
             }
-            Log.Information("Market upload complete. {Offers} offers, {Requests} requests", UploadedMarketOffersCount, UploadedMarketRequestsCount);
+
+            Log.Information("Market upload complete. {Offers} offers, {Requests} requests", offersCount, requestsCount);
         }
 
         public void MarketHistoryUploadHandler(object? sender, MarketHistoriesUploadEventArgs e)
         {
-            ProccesUploadStatus(e.UploadStatus);
+            ProcessUploadStatus(e.UploadStatus);
             if (e.UploadStatus != UploadStatus.Success) return;
 
             if (!UploadedHistoriesCountDic.ContainsKey(e.MarketHistoriesUpload.Timescale))
@@ -141,22 +145,26 @@ namespace AlbionDataAvalonia.State
                 UploadedHistoriesCountDic[e.MarketHistoriesUpload.Timescale] = 0;
             }
 
-            UploadedHistoriesCountDic[e.MarketHistoriesUpload.Timescale] += e.MarketHistoriesUpload.MarketHistories.Count;
+            int historyCount = e.MarketHistoriesUpload.MarketHistories.Count;
+
+            UploadedHistoriesCountDic[e.MarketHistoriesUpload.Timescale] += historyCount;
             OnUploadedHistoriesCountDicChanged?.Invoke(UploadedHistoriesCountDic);
-            Log.Information("Market history upload complete. {count} histories [{Timescale}] ", UploadedHistoriesCountDic[e.MarketHistoriesUpload.Timescale], e.MarketHistoriesUpload.Timescale);
+            Log.Information("Market history upload complete. [{Timescale}] => {count} histories", historyCount, e.MarketHistoriesUpload.Timescale);
         }
 
         public void GoldPriceUploadHandler(object? sender, GoldPriceUploadEventArgs e)
         {
-            ProccesUploadStatus(e.UploadStatus);
+            ProcessUploadStatus(e.UploadStatus);
             if (e.UploadStatus != UploadStatus.Success) return;
 
-            UploadedGoldHistoriesCount += e.GoldPriceUpload.Prices.Length;
+            int goldHistoriesCount = e.GoldPriceUpload.Prices.Length;
+
+            UploadedGoldHistoriesCount += goldHistoriesCount;
             OnUploadedGoldHistoriesCountChanged?.Invoke(UploadedGoldHistoriesCount);
-            Log.Information("Gold price upload complete. {count} histories", UploadedGoldHistoriesCount);
+            Log.Information("Gold price upload complete. {count} histories", goldHistoriesCount);
         }
 
-        private void ProccesUploadStatus(UploadStatus status)
+        private void ProcessUploadStatus(UploadStatus status)
         {
             UploadStatusCountDic[status]++;
             Log.Debug("Upload status: {status} => accounted for", status);
