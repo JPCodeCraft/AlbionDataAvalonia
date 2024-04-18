@@ -1,6 +1,6 @@
 #!/bin/bash
 
-APP_PATH="./AFMDataClient_Linux64"
+REPO_API_URL="https://api.github.com/repos/JPCodeCraft/AlbionDataAvalonia/releases/latest"
 TARGET_FOLDER="$HOME/AFMDataClient/"
 FILE_NAME="AFMDataClient_Linux64"
 FULL_PATH="$TARGET_FOLDER$FILE_NAME"
@@ -18,9 +18,15 @@ done
 echo "Creating directory $TARGET_FOLDER..."
 mkdir -p "$TARGET_FOLDER"
 
-echo "Copying the app to $FULL_PATH..."
-fuser -k "$FULL_PATH" || true
-cp "$APP_PATH" "$FULL_PATH"
+echo "Installing curl if it's not already installed..."
+sudo apt-get install curl
+
+echo "Downloading the latest version of the app..."
+DOWNLOAD_URL=$(curl -s $REPO_API_URL | grep "browser_download_url.*$FILE_NAME" | cut -d : -f 2,3 | tr -d \" )
+wget --show-progress $DOWNLOAD_URL -O "$FULL_PATH"
+
+echo "Making the downloaded file executable..."
+chmod +x "$FULL_PATH"
 
 echo "Setting capabilities for the app..."
 sudo setcap cap_net_admin,cap_net_raw+eip "$FULL_PATH"
@@ -42,3 +48,5 @@ sudo mv $AUTO_START_FILE $AUTO_START_FOLDER
 
 echo "Starting the app..."
 $FULL_PATH
+
+read -p "Press any key to continue . . ."
