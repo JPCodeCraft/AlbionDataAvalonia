@@ -118,12 +118,12 @@ jobs:
             asset_name: AFMDataClient_Linux64_Uninstaller.sh
             asset_content_type: application/x-sh
 
-        # - name: Create LatestVersion.json
-        #   run: |
-        #     $version = "${{ env.VERSION }}"
-        #     $json = @{ version = $version } | ConvertTo-Json
-        #     $json | Out-File -FilePath ./AlbionDataAvalonia.Desktop/LatestVersion.json -Encoding utf8
-        #   shell: pwsh
+        - name: Create LatestVersion.json
+          run: |
+            $version = "${{ env.VERSION }}"
+            $json = @{ version = $version } | ConvertTo-Json
+            $json | Out-File -FilePath ./AlbionDataAvalonia.Desktop/LatestVersion.json -Encoding utf8
+          shell: pwsh
 
         - name: Commit and push changes
           run: |
