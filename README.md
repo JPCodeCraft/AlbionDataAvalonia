@@ -23,7 +23,7 @@ All the data is uploaded to The Albion Online Data Project! Albion Free Market d
 
 ## Windows:
 
-1. Navigate to the [releases](https://github.com/JPCodeCraft/AlbionDataAvalonia/releases) section to download your copy of the application.
+1. Navigate to the [releases](https://github.com/JPCodeCraft/AlbionDataAvalonia/releases) section to download the installer `AFMDataClientSetup_v_x.x.x.x.exe`.
 2. The application will automatically update to the latest version when available.
 
 ## Linux:
