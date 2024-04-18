@@ -21,10 +21,10 @@
 	</ItemGroup>
 
 	<Target Name="PostBuild" AfterTargets="Publish">
-		<Exec Command="cp $(ProjectDir)install/AFMDataClient_Linux64_Installer.sh $(ProjectDir)bin/Release/net8.0/linux-x64/publish/" />
-		<Exec Command="chmod +x $(ProjectDir)bin/Release/net8.0/linux-x64/publish/AFMDataClient_Linux64_Installer.sh" />
-		<Exec Command="cp $(ProjectDir)install/AFMDataClient_Linux64_Uninstaller.sh $(ProjectDir)bin/Release/net8.0/linux-x64/publish/" />
-		<Exec Command="chmod +x $(ProjectDir)bin/Release/net8.0/linux-x64/publish/AFMDataClient_Linux64_Uninstaller.sh" />
+		<Exec Command="cp $(ProjectDir)install/AFMDataClient_Linux64_Installer.sh $(ProjectDir)bin/release/net8.0/linux-x64/publish/" />
+		<Exec Command="chmod +x $(ProjectDir)bin/release/net8.0/linux-x64/publish/AFMDataClient_Linux64_Installer.sh" />
+		<Exec Command="cp $(ProjectDir)install/AFMDataClient_Linux64_Uninstaller.sh $(ProjectDir)bin/release/net8.0/linux-x64/publish/" />
+		<Exec Command="chmod +x $(ProjectDir)bin/release/net8.0/linux-x64/publish/AFMDataClient_Linux64_Uninstaller.sh" />
 	</Target>
 
 </Project>
