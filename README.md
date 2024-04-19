@@ -51,19 +51,19 @@ chmod +x AFMDataClient_Linux64_Installer.sh
 
 ```bash
 # Fetch the latest release download URL
-DOWNLOAD_URL=$(curl -s https://api.github.com/repos/JPCodeCraft/AlbionDataAvalonia/releases/latest | jq -r '.assets[] | select(.name == " AFMDataClient_Linux64_Uninstaller.sh ") | .browser_download_url')
+DOWNLOAD_URL=$(curl -s https://api.github.com/repos/JPCodeCraft/AlbionDataAvalonia/releases/latest | jq -r '.assets[] | select(.name == "AFMDataClient_Linux64_Uninstaller.sh") | .browser_download_url')
 
 # Download the file
-curl -L -o  AFMDataClient_Linux64_Uninstaller.sh $DOWNLOAD_URL
+curl -L -o AFMDataClient_Linux64_Uninstaller.sh $DOWNLOAD_URL
 
 # Convert Windows line endings to Unix line endings
-sed -i 's/\r$//'  AFMDataClient_Linux64_Uninstaller.sh
+sed -i 's/\r$//' AFMDataClient_Linux64_Uninstaller.sh
 
 # Make the file executable
-chmod +x  AFMDataClient_Linux64_Uninstaller.sh
+chmod +x AFMDataClient_Linux64_Uninstaller.sh
 
 # Run the installer
-./ AFMDataClient_Linux64_Uninstaller.sh
+./AFMDataClient_Linux64_Uninstaller.sh
 ```
 
 1. Download the `AFMDataClient_Linux64_Installer.sh` installer script. This script will download the application, set the necessary capabilities, and configure it to launch at startup. The application file will be saved in the `~/AFMDataClient` directory.
