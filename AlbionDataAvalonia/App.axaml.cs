@@ -17,6 +17,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia;
 
@@ -77,6 +78,8 @@ public partial class App : Application
         _ = uploader.ProcessItemsAsync(uploaderCancellationToken.Token);
 
         //LISTENER
+        //AWAIT 15 SECONDS FOR NETWORK STUFF TO BE READY
+        await Task.Delay(15000);
         await listener.Run();
 
         //VIEWMODEL
