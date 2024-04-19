@@ -14,7 +14,7 @@ namespace AlbionDataAvalonia.Network.Services
 {
     public class NetworkListenerService : IDisposable
     {
-        private static readonly object deviceCLeanLock = new object();
+        private readonly SemaphoreSlim deviceCleanSemaphore = new SemaphoreSlim(1, 1);
 
         private readonly Uploader _uploader;
         private readonly PlayerState _playerState;
@@ -32,7 +32,7 @@ namespace AlbionDataAvalonia.Network.Services
             _settingsManager = settingsManager;
         }
 
-        public void Run()
+        public async Task Run()
         {
             if (NpCapInstallationChecker.IsNpCapInstalled() == false)
             {
@@ -68,29 +68,17 @@ namespace AlbionDataAvalonia.Network.Services
 
             foreach (var device in devices)
             {
-                new Thread(() =>
+                await Task.Run(() =>
                 {
                     try
                     {
-                        Log.Debug("Opening network device: {Device}", device.Description);
-
-                        device.OnPacketArrival += new PacketArrivalEventHandler(PacketHandler);
-                        device.Open(new DeviceConfiguration
-                        {
-                            Mode = DeviceModes.MaxResponsiveness,
-                            ReadTimeout = 5000
-                        });
-                        var ips = _settingsManager.AppSettings.AlbionServers.Select(s => $"host {s.HostIp}");
-                        var filter = $"({string.Join(" or ", ips)}) and {_settingsManager.AppSettings.PacketFilterPortText}";
-                        device.Filter = filter;
-                        device.StartCapture();
+                        InitializeDevice(device);
                     }
                     catch (Exception ex)
                     {
                         Log.Debug("Error initializing device {Device}: {Message}", device.Name, ex.Message);
                     }
-                })
-                .Start();
+                });
             }
 
             Log.Information("Listening to Albion network packages!");
@@ -112,30 +100,23 @@ namespace AlbionDataAvalonia.Network.Services
                 UdpPacket packet = Packet.ParsePacket(e.GetPacket().LinkLayerType, e.GetPacket().Data).Extract<UdpPacket>();
                 if (packet != null)
                 {
-                    lock (deviceCLeanLock)
+                    if (!hasCleanedUpDevices && devices != null)
                     {
-                        if (!hasCleanedUpDevices && devices != null)
+                        deviceCleanSemaphore.Wait();
+                        try
                         {
-                            foreach (var device in devices)
+                            if (!hasCleanedUpDevices)
                             {
-                                if (device != e.Device)
-                                {
-                                    Task.Run(() =>
-                                    {
-                                        try
-                                        {
-                                            device.StopCapture();
-                                            device.Close();
-                                            Log.Debug("Closing network device: {Device}", device.Description);
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            Log.Debug("Error closing device {Device}: {Message}", device.Name, ex.Message);
-                                        }
-                                    });
-                                }
+                                var currentDevice = e.Device;
+                                var tasks = devices.Where(device => device != currentDevice)
+                                                   .Select(CloseDevice);
+                                Task.WhenAll(tasks).Wait();
+                                hasCleanedUpDevices = true;
                             }
-                            hasCleanedUpDevices = true;
+                        }
+                        finally
+                        {
+                            deviceCleanSemaphore.Release();
                         }
                     }
 
@@ -152,13 +133,47 @@ namespace AlbionDataAvalonia.Network.Services
                         Log.Verbose("Packet from {server} server from IP {ip}", server.Name, srcIp);
                         _playerState.AlbionServer = server;
                     }
-                    receiver.ReceivePacket(packet.PayloadData);
+                    Task.Run(() => receiver.ReceivePacket(packet.PayloadData));
                 }
             }
             catch (Exception ex)
             {
                 Log.Debug(ex.Message);
             }
+        }
+        private void InitializeDevice(ILiveDevice device)
+        {
+            Log.Debug("Opening network device: {Device}", device.Description);
+
+            device.OnPacketArrival += new PacketArrivalEventHandler(PacketHandler);
+            device.Open(new DeviceConfiguration
+            {
+                Mode = DeviceModes.MaxResponsiveness,
+                ReadTimeout = 5000
+            });
+            var ips = _settingsManager.AppSettings.AlbionServers.Select(s => $"host {s.HostIp}");
+            var filter = $"({string.Join(" or ", ips)}) and {_settingsManager.AppSettings.PacketFilterPortText}";
+            device.Filter = filter;
+            device.StartCapture();
+
+            Log.Debug("Listening on network device: {Device} with filter: {Filter}", device.Description, filter);
+        }
+
+        private Task CloseDevice(ICaptureDevice device)
+        {
+            return Task.Run(() =>
+            {
+                try
+                {
+                    device.StopCapture();
+                    device.Close();
+                    Log.Debug("Closing network device: {Device}", device.Description);
+                }
+                catch (Exception ex)
+                {
+                    Log.Debug("Error closing device {Device}: {Message}", device.Name, ex.Message);
+                }
+            });
         }
 
         private void Cleanup()

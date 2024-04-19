@@ -77,7 +77,7 @@ public partial class App : Application
         _ = uploader.ProcessItemsAsync(uploaderCancellationToken.Token);
 
         //LISTENER
-        listener.Run();
+        _ = listener.Run();
 
         //VIEWMODEL
         this.DataContext = vm;
@@ -113,7 +113,7 @@ public partial class App : Application
         string logFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AFMDataClient", "logs", "log-.txt");
 
         Log.Logger = new LoggerConfiguration()
-            .WriteTo.Sink(listSink, restrictedToMinimumLevel: LogEventLevel.Information)
+            .WriteTo.Sink(listSink, restrictedToMinimumLevel: LogEventLevel.Debug)
             .WriteTo.Console()
             .WriteTo.Debug()
             .WriteTo.File(logFilePath, LogEventLevel.Debug, rollingInterval: RollingInterval.Day, retainedFileCountLimit: 7)
