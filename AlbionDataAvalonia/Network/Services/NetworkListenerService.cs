@@ -143,13 +143,13 @@ namespace AlbionDataAvalonia.Network.Services
 
                     if (string.IsNullOrEmpty(srcIp))
                     {
-                        Log.Verbose("Packet Source IP null or empty, ignoring");
+                        Log.Debug("Packet Source IP null or empty, ignoring");
                         return;
                     }
                     var server = _settingsManager.AppSettings.AlbionServers.SingleOrDefault(x => srcIp.Contains(x.HostIp));
                     if (server is not null)
                     {
-                        Log.Verbose("Packet from {server} server from IP {ip}", server.Name, srcIp);
+                        Log.Debug("Packet from {server} server from IP {ip}", server.Name, srcIp);
                         _playerState.AlbionServer = server;
                     }
                     receiver.ReceivePacket(packet.PayloadData);

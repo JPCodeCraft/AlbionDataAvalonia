@@ -204,7 +204,7 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private void Exit()
     {
-        Log.Verbose("Exiting application");
+        Log.Debug("Exiting application");
         if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.Shutdown();
@@ -213,7 +213,7 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     public void ShowMainWindow()
     {
-        Log.Verbose("Showing MainWindow");
+        Log.Debug("Showing MainWindow");
         if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             if (desktop.MainWindow != null)
