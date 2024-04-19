@@ -20,6 +20,7 @@ namespace AlbionDataAvalonia.Network.Services
         private readonly PlayerState _playerState;
         private readonly SettingsManager _settingsManager;
 
+        private bool hasInitializedDevices = false;
         private bool hasCleanedUpDevices = false;
 
         private IPhotonReceiver? receiver;
@@ -76,9 +77,10 @@ namespace AlbionDataAvalonia.Network.Services
                     }
                     catch (Exception ex)
                     {
-                        Log.Debug("Error initializing device {Device}: {Message}", device.Name, ex.Message);
+                        Log.Information("Error initializing device {Device}: {Message}", device.Name, ex.Message);
                     }
                 });
+                hasInitializedDevices = true;
             }
 
             Log.Information("Listening to Albion network packages!");
@@ -91,6 +93,11 @@ namespace AlbionDataAvalonia.Network.Services
             if (receiver == null)
             {
                 Log.Error("Receiver is null");
+                return;
+            }
+            if (!hasInitializedDevices)
+            {
+                Log.Debug("All devices not initialized, ignoring packet");
                 return;
             }
             try
@@ -143,7 +150,7 @@ namespace AlbionDataAvalonia.Network.Services
         }
         private void InitializeDevice(ILiveDevice device)
         {
-            Log.Debug("Opening network device: {Device}", device.Description);
+            Log.Information("Opening network device: {Device}", device.Description);
 
             device.OnPacketArrival += new PacketArrivalEventHandler(PacketHandler);
             device.Open(new DeviceConfiguration
@@ -156,7 +163,7 @@ namespace AlbionDataAvalonia.Network.Services
             device.Filter = filter;
             device.StartCapture();
 
-            Log.Debug("Listening on network device: {Device} with filter: {Filter}", device.Description, filter);
+            Log.Information("Listening on network device: {Device} with filter: {Filter}", device.Description, filter);
         }
 
         private Task CloseDevice(ICaptureDevice device)
@@ -167,11 +174,11 @@ namespace AlbionDataAvalonia.Network.Services
                 {
                     device.StopCapture();
                     device.Close();
-                    Log.Debug("Closing network device: {Device}", device.Description);
+                    Log.Information("Closing network device: {Device}", device.Description);
                 }
                 catch (Exception ex)
                 {
-                    Log.Debug("Error closing device {Device}: {Message}", device.Name, ex.Message);
+                    Log.Information("Error closing device {Device}: {Message}", device.Name, ex.Message);
                 }
             });
         }
