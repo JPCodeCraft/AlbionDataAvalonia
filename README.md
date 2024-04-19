@@ -28,7 +28,7 @@ All the data is uploaded to The Albion Online Data Project! Albion Free Market d
 
 ## Linux:
 
-### Command to download and run the installer
+### Command to download and run the installer/updater
 
 ```bash
 # Create a temporary directory
@@ -72,7 +72,9 @@ chmod +x $TEMP_DIR/AFMDataClient_Linux64_Uninstaller.sh
 $TEMP_DIR/AFMDataClient_Linux64_Uninstaller.sh
 ```
 
-1. Download the `AFMDataClient_Linux64_Installer.sh` installer script. This script will download the application, set the necessary capabilities, and configure it to launch at startup. The application file will be saved in the `~/AFMDataClient` directory.
+### Manual alternative
+
+1. Download the `AFMDataClient_Linux64_Installer.sh` installer script from the [releases](https://github.com/JPCodeCraft/AlbionDataAvalonia/releases) section. This script will download the application, set the necessary capabilities, and configure it to launch at startup. The application file will be saved in the `~/AFMDataClient` directory.
 2. To uninstall the application, download and run the `AFMDataClient_Linux64_Uninstaller.sh` script. This will reverse all changes made by the installer script.
 3. Automatic updates are not currently available for Linux. To update the application, simply run the installer script again. This will download and install the latest version.
 4. Before running the scripts you might need to do: `sed -i 's/\r$//'  AFMDataClient_Linux64_Uninstaller.sh` and `chmod +x AFMDataClient_Linux64_Installer.sh`.
