@@ -7,7 +7,6 @@ using Serilog;
 using SharpPcap;
 using System;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.Network.Services
@@ -63,7 +62,7 @@ namespace AlbionDataAvalonia.Network.Services
                 return;
             }
 
-            Log.Debug("Starting network device listening");
+            Log.Information("Starting network device listening");
 
             devices = CaptureDeviceList.New();
 
@@ -73,17 +72,30 @@ namespace AlbionDataAvalonia.Network.Services
                 {
                     try
                     {
-                        InitializeDevice(device);
+                        Log.Debug("Opening network device: {Device}", device.Description);
+
+                        device.OnPacketArrival += new PacketArrivalEventHandler(PacketHandler);
+                        device.Open(new DeviceConfiguration
+                        {
+                            Mode = DeviceModes.MaxResponsiveness,
+                            ReadTimeout = 5000
+                        });
+                        var ips = _settingsManager.AppSettings.AlbionServers.Select(s => $"host {s.HostIp}");
+                        var filter = $"({string.Join(" or ", ips)}) and {_settingsManager.AppSettings.PacketFilterPortText}";
+                        device.Filter = filter;
+                        device.StartCapture();
+
+                        Log.Debug("Listening on network device: {Device} with fileter: {Filter}", device.Description, filter);
                     }
                     catch (Exception ex)
                     {
                         Log.Information("Error initializing device {Device}: {Message}", device.Name, ex.Message);
                     }
-                });
-                hasInitializedDevices = true;
+                })
+                .Start();
             }
 
-            Log.Information("Listening to Albion network packages!");
+            Log.Information("Done starting network device listening");
 
             return;
         }
@@ -107,23 +119,30 @@ namespace AlbionDataAvalonia.Network.Services
                 UdpPacket packet = Packet.ParsePacket(e.GetPacket().LinkLayerType, e.GetPacket().Data).Extract<UdpPacket>();
                 if (packet != null)
                 {
-                    if (!hasCleanedUpDevices && devices != null)
+                    lock (deviceCLeanLock)
                     {
-                        deviceCleanSemaphore.Wait();
-                        try
+                        if (!hasCleanedUpDevices && devices != null)
                         {
-                            if (!hasCleanedUpDevices)
+                            foreach (var device in devices)
                             {
-                                var currentDevice = e.Device;
-                                var tasks = devices.Where(device => device != currentDevice)
-                                                   .Select(CloseDevice);
-                                Task.WhenAll(tasks).Wait();
-                                hasCleanedUpDevices = true;
+                                if (device != e.Device)
+                                {
+                                    Task.Run(() =>
+                                    {
+                                        try
+                                        {
+                                            device.StopCapture();
+                                            device.Close();
+                                            Log.Debug("Closing network device: {Device}", device.Description);
+                                        }
+                                        catch (Exception ex)
+                                        {
+                                            Log.Debug("Error closing device {Device}: {Message}", device.Name, ex.Message);
+                                        }
+                                    });
+                                }
                             }
-                        }
-                        finally
-                        {
-                            deviceCleanSemaphore.Release();
+                            hasCleanedUpDevices = true;
                         }
                     }
 
@@ -131,7 +150,7 @@ namespace AlbionDataAvalonia.Network.Services
 
                     if (string.IsNullOrEmpty(srcIp))
                     {
-                        Log.Verbose("Packet Source IP null or empty, ignoring");
+                        Log.Debug("Packet Source IP null or empty, ignoring");
                         return;
                     }
                     var server = _settingsManager.AppSettings.AlbionServers.SingleOrDefault(x => srcIp.Contains(x.HostIp));
