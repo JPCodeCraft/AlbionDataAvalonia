@@ -13,7 +13,7 @@ namespace AlbionDataAvalonia.Network.Services
 {
     public class NetworkListenerService : IDisposable
     {
-        private readonly SemaphoreSlim deviceCleanSemaphore = new SemaphoreSlim(1, 1);
+        private readonly object deviceCLeanLock = new object();
 
         private readonly Uploader _uploader;
         private readonly PlayerState _playerState;
@@ -85,14 +85,13 @@ namespace AlbionDataAvalonia.Network.Services
                         device.Filter = filter;
                         device.StartCapture();
 
-                        Log.Debug("Listening on network device: {Device} with fileter: {Filter}", device.Description, filter);
+                        Log.Debug("Listening on network device: {Device} with filter: {Filter}", device.Description, filter);
                     }
                     catch (Exception ex)
                     {
                         Log.Information("Error initializing device {Device}: {Message}", device.Name, ex.Message);
                     }
-                })
-                .Start();
+                });
             }
 
             Log.Information("Done starting network device listening");
@@ -119,30 +118,33 @@ namespace AlbionDataAvalonia.Network.Services
                 UdpPacket packet = Packet.ParsePacket(e.GetPacket().LinkLayerType, e.GetPacket().Data).Extract<UdpPacket>();
                 if (packet != null)
                 {
-                    lock (deviceCLeanLock)
+                    if (!hasCleanedUpDevices && devices != null)
                     {
-                        if (!hasCleanedUpDevices && devices != null)
+                        lock (deviceCLeanLock)
                         {
-                            foreach (var device in devices)
+                            if (!hasCleanedUpDevices)
                             {
-                                if (device != e.Device)
+                                foreach (var device in devices)
                                 {
-                                    Task.Run(() =>
+                                    if (device != e.Device)
                                     {
-                                        try
+                                        Task.Run(() =>
                                         {
-                                            device.StopCapture();
-                                            device.Close();
-                                            Log.Debug("Closing network device: {Device}", device.Description);
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            Log.Debug("Error closing device {Device}: {Message}", device.Name, ex.Message);
-                                        }
-                                    });
+                                            try
+                                            {
+                                                device.StopCapture();
+                                                device.Close();
+                                                Log.Debug("Closing network device: {Device}", device.Description);
+                                            }
+                                            catch (Exception ex)
+                                            {
+                                                Log.Debug("Error closing device {Device}: {Message}", device.Name, ex.Message);
+                                            }
+                                        });
+                                    }
                                 }
+                                hasCleanedUpDevices = true;
                             }
-                            hasCleanedUpDevices = true;
                         }
                     }
 
