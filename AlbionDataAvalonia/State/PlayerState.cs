@@ -133,7 +133,7 @@ namespace AlbionDataAvalonia.State
                 OnUploadedMarketRequestsCountChanged?.Invoke(UploadedMarketRequestsCount);
             }
 
-            Log.Information("Market upload complete. {Offers} offers, {Requests} requests", offersCount, requestsCount);
+            Log.Debug("Market upload complete. {Offers} offers, {Requests} requests", offersCount, requestsCount);
         }
 
         public void MarketHistoryUploadHandler(object? sender, MarketHistoriesUploadEventArgs e)
@@ -150,7 +150,7 @@ namespace AlbionDataAvalonia.State
 
             UploadedHistoriesCountDic[e.MarketHistoriesUpload.Timescale] += historyCount;
             OnUploadedHistoriesCountDicChanged?.Invoke(UploadedHistoriesCountDic);
-            Log.Information("Market history upload complete. [{Timescale}] => {count} histories", e.MarketHistoriesUpload.Timescale, historyCount);
+            Log.Debug("Market history upload complete. [{Timescale}] => {count} histories", e.MarketHistoriesUpload.Timescale, historyCount);
         }
 
         public void GoldPriceUploadHandler(object? sender, GoldPriceUploadEventArgs e)
@@ -162,7 +162,7 @@ namespace AlbionDataAvalonia.State
 
             UploadedGoldHistoriesCount += goldHistoriesCount;
             OnUploadedGoldHistoriesCountChanged?.Invoke(UploadedGoldHistoriesCount);
-            Log.Information("Gold price upload complete. {count} histories", goldHistoriesCount);
+            Log.Debug("Gold price upload complete. {count} histories", goldHistoriesCount);
         }
 
         private void ProcessUploadStatus(UploadStatus status)
