@@ -7,7 +7,6 @@ using Serilog;
 using SharpPcap;
 using System;
 using System.Linq;
-using System.Threading;
 using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.Network.Services
@@ -32,7 +31,7 @@ namespace AlbionDataAvalonia.Network.Services
             _settingsManager = settingsManager;
         }
 
-        public void Run()
+        public async Task Run()
         {
             if (NpCapInstallationChecker.IsNpCapInstalled() == false)
             {
@@ -68,7 +67,7 @@ namespace AlbionDataAvalonia.Network.Services
 
             foreach (var device in devices)
             {
-                new Thread(() =>
+                await Task.Run(() =>
                 {
                     try
                     {
@@ -84,13 +83,14 @@ namespace AlbionDataAvalonia.Network.Services
                         var filter = $"({string.Join(" or ", ips)}) and {_settingsManager.AppSettings.PacketFilterPortText}";
                         device.Filter = filter;
                         device.StartCapture();
+
+                        Log.Debug("Opened network device: {Device}", device.Description);
                     }
                     catch (Exception ex)
                     {
                         Log.Debug("Error initializing device {Device}: {Message}", device.Name, ex.Message);
                     }
-                })
-                .Start();
+                });
             }
 
             Log.Information("Listening to Albion network packages!");
@@ -112,30 +112,33 @@ namespace AlbionDataAvalonia.Network.Services
                 UdpPacket packet = Packet.ParsePacket(e.GetPacket().LinkLayerType, e.GetPacket().Data).Extract<UdpPacket>();
                 if (packet != null)
                 {
-                    lock (deviceCLeanLock)
+                    if (!hasCleanedUpDevices && devices != null)
                     {
-                        if (!hasCleanedUpDevices && devices != null)
+                        lock (deviceCLeanLock)
                         {
-                            foreach (var device in devices)
+                            if (!hasCleanedUpDevices && devices != null)
                             {
-                                if (device != e.Device)
+                                foreach (var device in devices)
                                 {
-                                    Task.Run(() =>
+                                    if (device != e.Device)
                                     {
-                                        try
+                                        Task.Run(() =>
                                         {
-                                            device.StopCapture();
-                                            device.Close();
-                                            Log.Debug("Closing network device: {Device}", device.Description);
-                                        }
-                                        catch (Exception ex)
-                                        {
-                                            Log.Debug("Error closing device {Device}: {Message}", device.Name, ex.Message);
-                                        }
-                                    });
+                                            try
+                                            {
+                                                device.StopCapture();
+                                                device.Close();
+                                                Log.Debug("Closing network device: {Device}", device.Description);
+                                            }
+                                            catch (Exception ex)
+                                            {
+                                                Log.Debug("Error closing device {Device}: {Message}", device.Name, ex.Message);
+                                            }
+                                        });
+                                    }
                                 }
+                                hasCleanedUpDevices = true;
                             }
-                            hasCleanedUpDevices = true;
                         }
                     }
 
@@ -143,7 +146,7 @@ namespace AlbionDataAvalonia.Network.Services
 
                     if (string.IsNullOrEmpty(srcIp))
                     {
-                        Log.Verbose("Packet Source IP null or empty, ignoring");
+                        Log.Debug("Packet Source IP null or empty, ignoring");
                         return;
                     }
                     var server = _settingsManager.AppSettings.AlbionServers.SingleOrDefault(x => srcIp.Contains(x.HostIp));

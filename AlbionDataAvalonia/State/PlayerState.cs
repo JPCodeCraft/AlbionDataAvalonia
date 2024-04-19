@@ -184,19 +184,26 @@ namespace AlbionDataAvalonia.State
 
         public void AddSentDataHash(string hash)
         {
-            if (hash == null || hash.Length == 0 || SentDataHashs.Contains(hash)) return;
-
-            if (_settingsManager.UserSettings.MaxHashQueueSize == 0)
+            try
             {
-                SentDataHashs.Clear();
-                return;
-            }
+                if (hash == null || hash.Length == 0 || SentDataHashs.Contains(hash)) return;
 
-            while (SentDataHashs.Count >= _settingsManager.UserSettings.MaxHashQueueSize)
-            {
-                SentDataHashs.Dequeue();
+                if (_settingsManager.UserSettings.MaxHashQueueSize == 0)
+                {
+                    SentDataHashs.Clear();
+                    return;
+                }
+
+                while (SentDataHashs.Count >= _settingsManager.UserSettings.MaxHashQueueSize)
+                {
+                    SentDataHashs.Dequeue();
+                }
+                SentDataHashs.Enqueue(hash);
             }
-            SentDataHashs.Enqueue(hash);
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error adding hash to queue: {ex}", ex.Message);
+            }
         }
 
         public bool CheckHashInQueue(string hash)

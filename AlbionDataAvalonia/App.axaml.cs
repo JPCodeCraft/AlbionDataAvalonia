@@ -77,7 +77,7 @@ public partial class App : Application
         _ = uploader.ProcessItemsAsync(uploaderCancellationToken.Token);
 
         //LISTENER
-        listener.Run();
+        await listener.Run();
 
         //VIEWMODEL
         this.DataContext = vm;

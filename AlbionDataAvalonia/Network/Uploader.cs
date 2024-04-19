@@ -183,7 +183,7 @@ public class Uploader : IDisposable
             string dataHash = GetHash(data, server);
             if (_playerState.CheckHashInQueue(dataHash))
             {
-                Log.Verbose("Data hash is already in queue, skipping upload");
+                Log.Debug("Data hash is already in queue, skipping upload");
                 return UploadStatus.Skipped;
             }
             _playerState.AddSentDataHash(dataHash);
