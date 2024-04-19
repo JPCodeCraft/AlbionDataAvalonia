@@ -93,8 +93,6 @@ namespace AlbionDataAvalonia.Network.Services
                 .Start();
             }
 
-            Log.Information("Listening to Albion network packages!");
-
             return;
         }
 
