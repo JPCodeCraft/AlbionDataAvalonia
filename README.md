@@ -19,8 +19,19 @@ All the data is uploaded to The Albion Online Data Project! Albion Free Market d
 
 ⚠️ Please note that this project is currently in testing phase and not ready for production use.
 
-# Get Started
-Head over to the [releases](https://github.com/JPCodeCraft/AlbionDataAvalonia/releases) section and get your copy.
+# Getting Started
+
+## Windows:
+
+1. Navigate to the [releases](https://github.com/JPCodeCraft/AlbionDataAvalonia/releases) section to download the installer `AFMDataClientSetup_v_x.x.x.x.exe`.
+2. The application will automatically update to the latest version when available.
+
+## Linux:
+
+1. Download the `AFMDataClient_Linux64_Installer.sh` installer script. This script will download the application, set the necessary capabilities, and configure it to launch at startup. The application file will be saved in the `~/AFMDataClient` directory.
+2. To uninstall the application, download and run the `AFMDataClient_Linux64_Uninstaller.sh` script. This will reverse all changes made by the installer script.
+3. Automatic updates are not currently available for Linux. To update the application, simply run the installer script again. This will download and install the latest version.
+4. Before running the scripts you might need to do: `dos2unix AFMDataClient_Linux64_Installer.sh` and `chmod +x AFMDataClient_Linux64_Installer.sh`.
 
 # Download Stats
 Check out the download statistics for this project [here](https://tooomm.github.io/github-release-stats/?username=jpcodecraft&repository=AlbionDataAvalonia)
