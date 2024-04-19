@@ -20,6 +20,7 @@ namespace AlbionDataAvalonia.Network.Services
         private readonly SettingsManager _settingsManager;
 
         private bool hasCleanedUpDevices = false;
+        private bool hasFinishedStartingDevices = false;
 
         private IPhotonReceiver? receiver;
         private CaptureDeviceList? devices;
@@ -94,6 +95,7 @@ namespace AlbionDataAvalonia.Network.Services
             }
 
             Log.Information("Listening to Albion network packages!");
+            hasFinishedStartingDevices = true;
 
             return;
         }
@@ -103,6 +105,11 @@ namespace AlbionDataAvalonia.Network.Services
             if (receiver == null)
             {
                 Log.Error("Receiver is null");
+                return;
+            }
+            if (!hasFinishedStartingDevices)
+            {
+                Log.Debug("Not all devices have finished starting yet");
                 return;
             }
             try
