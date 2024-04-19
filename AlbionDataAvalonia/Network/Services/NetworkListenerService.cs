@@ -77,7 +77,7 @@ namespace AlbionDataAvalonia.Network.Services
                         device.OnPacketArrival += new PacketArrivalEventHandler(PacketHandler);
                         device.Open(new DeviceConfiguration
                         {
-                            Mode = DeviceModes.MaxResponsiveness,
+                            Mode = DeviceModes.None,
                             ReadTimeout = 5000
                         });
                         var ips = _settingsManager.AppSettings.AlbionServers.Select(s => $"host {s.HostIp}");
