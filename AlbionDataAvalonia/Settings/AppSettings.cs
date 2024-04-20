@@ -17,4 +17,5 @@ public class AppSettings
     public double FirstUpdateCheckDelayMins { get; set; }
     public double UpdateCheckIntervalHours { get; set; }
     public double AppSettingsRetryLoadIntervalMins { get; set; }
+    public int NetworkDevicesStartDelaySecs { get; set; }
 }
