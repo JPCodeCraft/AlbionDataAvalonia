@@ -33,5 +33,7 @@
   "FirstUpdateCheckDelayMins": 0.1,
   "UpdateCheckIntervalHours": 1,
 
-  "AppSettingsRetryLoadIntervalMins": 1
+  "AppSettingsRetryLoadIntervalMins": 1,
+
+  "NetworkDevicesStartDelaySecs": 15
 }

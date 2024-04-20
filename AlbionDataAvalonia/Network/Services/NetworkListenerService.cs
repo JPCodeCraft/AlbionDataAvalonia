@@ -35,8 +35,8 @@ namespace AlbionDataAvalonia.Network.Services
         public async Task Run()
         {
             //AWAIT 15 SECONDS FOR NETWORK STUFF TO BE READY
-            Log.Information("Waiting 15 seconds for network drivers to be ready");
-            await Task.Delay(15000);
+            Log.Information($"Waiting {_settingsManager.AppSettings.NetworkDevicesStartDelaySecs} seconds for network drivers to be ready");
+            await Task.Delay(_settingsManager.AppSettings.NetworkDevicesStartDelaySecs * 1000);
 
             if (NpCapInstallationChecker.IsNpCapInstalled() == false)
             {
