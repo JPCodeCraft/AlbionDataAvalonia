@@ -34,6 +34,10 @@ namespace AlbionDataAvalonia.Network.Services
 
         public async Task Run()
         {
+            //AWAIT 15 SECONDS FOR NETWORK STUFF TO BE READY
+            Log.Information("Waiting 15 seconds for network drivers to be ready");
+            await Task.Delay(15000);
+
             if (NpCapInstallationChecker.IsNpCapInstalled() == false)
             {
                 Log.Error("NpCap is not installed, please install it to use this application");
@@ -46,6 +50,7 @@ namespace AlbionDataAvalonia.Network.Services
             //EVENTS
             //builder.AddEventHandler(new LeaveEventHandler(_playerState));
             //RESPONSE
+            builder.AddResponseHandler(new AuctionGetLoadoutOffersResponseHandler(_uploader, _playerState));
             builder.AddResponseHandler(new AuctionGetOffersResponseHandler(_uploader, _playerState));
             builder.AddResponseHandler(new AuctionGetRequestsResponseHandler(_uploader, _playerState));
             builder.AddResponseHandler(new AuctionGetItemAverageStatsResponseHandler(_uploader, _playerState));

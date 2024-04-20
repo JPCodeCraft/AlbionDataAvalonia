@@ -17,7 +17,6 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
-using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia;
 
@@ -75,12 +74,22 @@ public partial class App : Application
 
         //UPLOADER
         var uploaderCancellationToken = new CancellationTokenSource();
-        _ = uploader.ProcessItemsAsync(uploaderCancellationToken.Token);
+        _ = uploader.ProcessItemsAsync(uploaderCancellationToken.Token).ContinueWith(t =>
+        {
+            if (t.IsFaulted)
+            {
+                Log.Error(t.Exception, "Error in uploader, exception: {exception}", t.Exception);
+            }
+        });
 
         //LISTENER
-        //AWAIT 15 SECONDS FOR NETWORK STUFF TO BE READY
-        await Task.Delay(15000);
-        await listener.Run();
+        _ = listener.Run().ContinueWith(t =>
+        {
+            if (t.IsFaulted)
+            {
+                Log.Error(t.Exception, "Error in listener, exception: {exception}", t.Exception);
+            }
+        });
 
         //VIEWMODEL
         this.DataContext = vm;
