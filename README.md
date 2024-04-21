@@ -84,7 +84,7 @@ $TEMP_DIR/AFMDataClient_Linux64_Uninstaller.sh
 # FAQ
 
 ### How do I make it work with ExitLag?
-Just change the `Packets redirection method` to `Legacy - NDIS` and it should work. This setting is under `TOOLS`.
+Just change the `Packets redirection method` to `Legacy - NDIS` and it should work. This setting is under `TOOLS` in yout ExitLag app.
 
 ![image](https://github.com/JPCodeCraft/AlbionDataAvalonia/assets/11092613/94a76ea6-6023-40df-8d6e-e816e612befe)
 
