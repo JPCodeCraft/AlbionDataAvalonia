@@ -17,7 +17,7 @@ All the data is uploaded to The Albion Online Data Project! Albion Free Market d
 
 🤌 Doesn't require admin permission to run (installing NpCap still requires, thought)
 
-📡 Able to capture market data from loadouts quick buy screen
+📡 Able to capture market data from loadout's quick buy screen
 
 ⚠️ Please note that this project is currently in testing phase and not ready for production use.
 
