@@ -17,6 +17,8 @@ All the data is uploaded to The Albion Online Data Project! Albion Free Market d
 
 🤌 Doesn't require admin permission to run (installing NpCap still requires, thought)
 
+📡 Able to capture market data from loadouts quick buy screen
+
 ⚠️ Please note that this project is currently in testing phase and not ready for production use.
 
 # Getting Started
@@ -78,6 +80,12 @@ $TEMP_DIR/AFMDataClient_Linux64_Uninstaller.sh
 2. To uninstall the application, download and run the `AFMDataClient_Linux64_Uninstaller.sh` script. This will reverse all changes made by the installer script.
 3. Automatic updates are not currently available for Linux. To update the application, simply run the installer script again. This will download and install the latest version.
 4. Before running the scripts you might need to do: `sed -i 's/\r$//'  AFMDataClient_Linux64_Uninstaller.sh` and `chmod +x AFMDataClient_Linux64_Installer.sh`.
+
+# FAQ
+
+### How do I make it work with ExitLag?
+Just change the `Packets redirection method` to `Legacy - NDIS` and it should work. This setting is under `TOOLS`.
+![image](https://github.com/JPCodeCraft/AlbionDataAvalonia/assets/11092613/94a76ea6-6023-40df-8d6e-e816e612befe)
 
 # Download Stats
 Check out the download statistics for this project [here](https://tooomm.github.io/github-release-stats/?username=jpcodecraft&repository=AlbionDataAvalonia)
