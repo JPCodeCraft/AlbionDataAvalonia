@@ -90,7 +90,7 @@ namespace AlbionDataAvalonia.Network.Services
                         device.Filter = filter;
                         device.StartCapture();
 
-                        Log.Debug("Opened network device: {Device}", device.Description);
+                        Log.Debug("Opened network device: {Device} with filter: {Filter}", device.Description, filter);
                     }
                     catch (Exception ex)
                     {
