@@ -25,6 +25,15 @@ public static class NpCapInstallationChecker
                     return true;
                 }
             }
+
+            using (RegistryKey? win10PcapKey = Registry.LocalMachine.OpenSubKey(@"SYSTEM\CurrentControlSet\Services\Win10Pcap"))
+            {
+                if (win10PcapKey != null)
+                {
+                    return true;
+                }
+            }
+
         }
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
