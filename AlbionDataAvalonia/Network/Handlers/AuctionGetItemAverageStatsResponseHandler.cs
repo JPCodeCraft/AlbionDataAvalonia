@@ -59,7 +59,7 @@ public class AuctionGetItemAverageStatsResponseHandler : ResponsePacketHandler<A
         }
         //fill the upload
         marketHistoriesUpload.AlbionId = info.AlbionId;
-        marketHistoriesUpload.LocationId = ushort.Parse(info.LocationID);
+        marketHistoriesUpload.LocationId = info.LocationID;
         marketHistoriesUpload.QualityLevel = (byte)info.Quality;
         marketHistoriesUpload.Timescale = info.Timescale;
 
