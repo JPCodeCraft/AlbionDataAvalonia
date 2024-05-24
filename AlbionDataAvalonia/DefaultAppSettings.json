@@ -7,19 +7,19 @@
       "Id": 1,
       "Name": "Americas",
       "HostIp": "5.188.125",
-      "UploadUrl": "https://pow.west.albion-online-data.com"
+      "UploadUrl": "http://west.aodp.local:3000/"
     },
     {
       "Id": 2,
       "Name": "Asia",
       "HostIp": "5.45.187",
-      "UploadUrl": "https://pow.east.albion-online-data.com"
+      "UploadUrl": "http://east.aodp.local:3000/"
     },
     {
       "Id": 3,
       "Name": "Europe",
       "HostIp": "193.169.238",
-      "UploadUrl": "https://pow.europe.albion-online-data.com"
+      "UploadUrl": "http://europe.aodp.local:3000/"
     }
   ],
 

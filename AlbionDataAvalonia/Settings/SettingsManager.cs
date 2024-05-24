@@ -26,11 +26,11 @@ public class SettingsManager
 
     public async Task Initialize()
     {
-        if (!await TryLoadAppSettingsFromRemoteAsync())
-        {
-            LoadAppSettingsFromLocal();
-            _ = KeepTryingToLoadAppSettingsFromRemoteAsync();
-        }
+        //if (!await TryLoadAppSettingsFromRemoteAsync())
+        //{
+        LoadAppSettingsFromLocal();
+        //    _ = KeepTryingToLoadAppSettingsFromRemoteAsync();
+        //}
     }
 
 
