@@ -31,7 +31,7 @@ public static class AlbionLocations
     public static AlbionLocation Unset { get; } = new() { Id = -1, Name = "Unset", FriendlyName = "Unset" };
 
     public static List<AlbionLocation> GetAll() => typeof(AlbionLocations).GetProperties().Select(field => field.GetValue(null)).OfType<AlbionLocation>().ToList();
-    public static AlbionLocation? Get(string name) => GetAll().SingleOrDefault(location => location.Name.ToLower() == name.ToLower() || location.FriendlyName.Replace(" ", "").ToLower() == name.Replace(" ", "").ToLower());
+    public static AlbionLocation? Get(string name) => GetAll().SingleOrDefault(location => location.Name.ToLower() == name.ToLower() || location.FriendlyName.Replace(" ", "").ToLower() == name.Replace(" ", "").Replace("@", "").ToLower());
     public static AlbionLocation? Get(int id) => GetAll().SingleOrDefault(location => location.Id == id);
     public static bool TryParse(string info, out AlbionLocation? location)
     {
