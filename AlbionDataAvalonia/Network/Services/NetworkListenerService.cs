@@ -18,6 +18,7 @@ namespace AlbionDataAvalonia.Network.Services
         private readonly Uploader _uploader;
         private readonly PlayerState _playerState;
         private readonly SettingsManager _settingsManager;
+        private readonly MailService _mailService;
 
         private bool hasCleanedUpDevices = false;
         private bool hasFinishedStartingDevices = false;
@@ -25,11 +26,12 @@ namespace AlbionDataAvalonia.Network.Services
         private IPhotonReceiver? receiver;
         private CaptureDeviceList? devices;
 
-        public NetworkListenerService(Uploader uploader, PlayerState playerState, SettingsManager settingsManager)
+        public NetworkListenerService(Uploader uploader, PlayerState playerState, SettingsManager settingsManager, MailService mailService)
         {
             _uploader = uploader;
             _playerState = playerState;
             _settingsManager = settingsManager;
+            _mailService = mailService;
         }
 
         public async Task Run()
@@ -56,8 +58,8 @@ namespace AlbionDataAvalonia.Network.Services
             builder.AddResponseHandler(new AuctionGetItemAverageStatsResponseHandler(_uploader, _playerState));
             builder.AddResponseHandler(new JoinResponseHandler(_playerState));
             builder.AddResponseHandler(new AuctionGetGoldAverageStatsResponseHandler(_uploader));
-            builder.AddResponseHandler(new GetMailInfosResponseHandler(_playerState));
-            builder.AddResponseHandler(new ReadMailResponseHandler(_playerState));
+            builder.AddResponseHandler(new GetMailInfosResponseHandler(_playerState, _mailService));
+            builder.AddResponseHandler(new ReadMailResponseHandler(_playerState, _mailService));
             //REQUEST
             builder.AddRequestHandler(new AuctionGetItemAverageStatsRequestHandler(_playerState));
 

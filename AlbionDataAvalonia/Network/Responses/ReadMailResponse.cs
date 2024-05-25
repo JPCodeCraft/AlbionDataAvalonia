@@ -7,20 +7,22 @@ namespace AlbionDataAvalonia.Network.Responses;
 
 public class ReadMailResponse : BaseOperation
 {
+    public long MailId { get; set; }
+    public string MailString { get; set; } = string.Empty;
     public ReadMailResponse(Dictionary<byte, object> parameters) : base(parameters)
     {
         Log.Debug("Got {PacketType} packet.", GetType());
         try
         {
-            //if (parameters.TryGetValue(0, out object? orders))
-            //{
-            //    foreach (var auctionOfferString in (IEnumerable<string>)orders ?? new List<string>())
-            //    {
-            //        var marketOrder = JsonSerializer.Deserialize<MarketOrder>(auctionOfferString);
-            //        if (marketOrder == null) continue;
-            //        marketOrders.Add(marketOrder);
-            //    }
-            //}
+
+            if (parameters.TryGetValue(0, out object? id))
+            {
+                MailId = (long)id;
+            }
+            if (parameters.TryGetValue(1, out object? text))
+            {
+                MailString = (string)text;
+            }
         }
         catch (Exception e)
         {
