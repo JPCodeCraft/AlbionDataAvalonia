@@ -8,7 +8,7 @@ namespace AlbionDataAvalonia.Network.Responses;
 
 public class GetMailInfosResponse : BaseOperation
 {
-    List<MailInfo> MailInfos { get; set; } = new();
+    public List<AlbionMail> AlbionMails { get; set; } = new();
     public GetMailInfosResponse(Dictionary<byte, object> parameters) : base(parameters)
     {
         Log.Debug("Got {PacketType} packet.", GetType());
@@ -39,14 +39,17 @@ public class GetMailInfosResponse : BaseOperation
             for (int i = 0; i < mailIds.Length; i++)
             {
                 var location = AlbionLocations.TryParse(locationIds[i], out var loc) ? loc ?? AlbionLocations.Unknown : AlbionLocations.Unknown;
-                MailInfo info = new()
+                AlbionMail mail = new()
                 {
-                    MailId = mailIds[i],
-                    Location = location,
-                    Type = (MailInfoType)Enum.Parse(typeof(MailInfoType), types[i], true),
+                    Id = mailIds[i],
+                    LocationId = location.Id,
+                    Type = Enum.TryParse(typeof(MailInfoType), types[i], true, out object? parsedType) ? (MailInfoType)parsedType : MailInfoType.UNKNOWN,
                     Expires = new DateTime(expires[i])
                 };
-                MailInfos.Add(info);
+                if (mail.Type != MailInfoType.UNKNOWN)
+                {
+                    AlbionMails.Add(mail);
+                }
             }
         }
         catch (Exception e)

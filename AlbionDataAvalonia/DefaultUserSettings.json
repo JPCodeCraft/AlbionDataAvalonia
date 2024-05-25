@@ -2,5 +2,6 @@
   "StartHidden": true,
   "DesiredThreadCount": 1,
   "MaxHashQueueSize": 30,
-  "MaxLogCount": 50
+  "MaxLogCount": 50,
+  "SalesTax": 0.04
 }

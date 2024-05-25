@@ -73,6 +73,20 @@ public class UserSettings : INotifyPropertyChanged
         }
     }
 
+    private double salesTax = 0.04;
+    public double SalesTax
+    {
+        get => salesTax;
+        set
+        {
+            if (salesTax != value)
+            {
+                salesTax = value;
+                OnPropertyChanged(nameof(SalesTax));
+            }
+        }
+    }
+
     protected virtual void OnPropertyChanged(string propertyName)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));

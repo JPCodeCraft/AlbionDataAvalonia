@@ -9,8 +9,6 @@ namespace AlbionDataAvalonia.Settings;
 
 public class SettingsManager
 {
-    string userSettingsDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AFMDataClient");
-
     private string deafultUserSettingsFilePath = Path.Combine(AppContext.BaseDirectory, "DefaultUserSettings.json");
     private string defaultAppSettingsFilePath = Path.Combine(AppContext.BaseDirectory, "DefaultAppSettings.json");
 
@@ -37,7 +35,7 @@ public class SettingsManager
     private void LoadUserSettings()
     {
         // Get the path to the user settings file in the local app data directory
-        string localUserSettingsFilePath = Path.Combine(userSettingsDirectory, "UserSettings.json");
+        string localUserSettingsFilePath = Path.Combine(AppData.LocalPath, "UserSettings.json");
 
         // If the user settings file doesn't exist in the local app data directory, use the default settings file
         if (!File.Exists(localUserSettingsFilePath))
@@ -147,10 +145,10 @@ public class SettingsManager
             string json = JsonSerializer.Serialize(UserSettings);
 
             // Ensure the directory exists
-            Directory.CreateDirectory(userSettingsDirectory);
+            Directory.CreateDirectory(AppData.LocalPath);
 
             // Get the path to the user settings file in the local app data directory
-            string userSettingsFilePath = Path.Combine(userSettingsDirectory, "UserSettings.json");
+            string userSettingsFilePath = Path.Combine(AppData.LocalPath, "UserSettings.json");
 
             File.WriteAllText(userSettingsFilePath, json);
         }

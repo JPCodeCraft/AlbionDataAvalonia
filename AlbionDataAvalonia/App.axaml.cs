@@ -1,4 +1,5 @@
-﻿using AlbionDataAvalonia.Logging;
+﻿using AlbionDataAvalonia.DB;
+using AlbionDataAvalonia.Logging;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
@@ -9,6 +10,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using Serilog.Events;
@@ -38,6 +40,12 @@ public partial class App : Application
         // Line below is needed to remove Avalonia data validation.
         // Without this line you will get duplicate validations from both Avalonia and CT
         BindingPlugins.DataValidators.RemoveAt(0);
+
+        //MIGRATIONS
+        using (var db = new LocalContext())
+        {
+            await db.Database.MigrateAsync();
+        }
 
         //DI SETUP
         var collection = new ServiceCollection();
@@ -162,6 +170,7 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<SettingsManager>();
         collection.AddSingleton<ListSink>();
         collection.AddSingleton<Uploader>();
+        collection.AddSingleton<MailService>();
 
         collection.AddSingleton<MainViewModel>();
         collection.AddSingleton<SettingsViewModel>();
