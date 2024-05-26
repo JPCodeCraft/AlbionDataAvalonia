@@ -2,15 +2,16 @@
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
-using AlbionDataAvalonia.State.Events;
+using Microsoft.EntityFrameworkCore;
 using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.Network.Services;
 
-public class MailService : IDisposable
+public class MailService
 {
     private readonly PlayerState _playerState;
     private readonly SettingsManager _settingsManager;
@@ -20,42 +21,55 @@ public class MailService : IDisposable
     {
         _playerState = playerState;
         _settingsManager = settingsManager;
-        _playerState.OnPlayerStateChanged += OnPlayerStateChanged;
     }
 
-    public void AddMail(AlbionMail mail)
-    {
-        using (var db = new LocalContext())
-        {
-            try
-            {
-                if (db.AlbionMails.Select(x => x.Id).Contains(mail.Id))
-                {
-                    return;
-                }
-                db.AlbionMails.Add(mail);
-                db.SaveChanges();
-            }
-            catch (Exception e)
-            {
-                Log.Error(e, e.Message);
-            }
-        }
-    }
-
-    public void AddMailData(long mailId, string mailString)
+    public async Task<List<AlbionMail>> GetMails(int albionServerId, int countPerPage, int pageNumber, bool showDeleted = false, int? locationId = null, MailInfoType? type = null)
     {
         try
         {
             using (var db = new LocalContext())
             {
-                var mail = db.AlbionMails.Where(x => x.Id == mailId).SingleOrDefault();
+                var query = db.AlbionMails.Where(x => x.AlbionServerId == albionServerId);
 
-                if (mail == null) return;
+                if (locationId.HasValue)
+                {
+                    query = query.Where(x => x.LocationId == locationId);
+                }
 
-                mail.MailString = mailString;
+                if (type.HasValue)
+                {
+                    query = query.Where(x => x.Type == type);
+                }
 
-                db.SaveChanges();
+                if (!showDeleted)
+                {
+                    query = query.Where(x => !x.Deleted);
+                }
+
+                return (await query.AsNoTracking().Skip(countPerPage * pageNumber).Take(countPerPage).ToListAsync()).OrderByDescending(x => x.Received).ToList();
+            }
+        }
+        catch (Exception e)
+        {
+            Log.Error(e, e.Message);
+            return new List<AlbionMail>();
+        }
+    }
+
+    public async Task AddMails(List<AlbionMail> mails)
+    {
+        try
+        {
+            using (var db = new LocalContext())
+            {
+                var existingMailIds = await db.AlbionMails.Select(x => x.Id).ToListAsync();
+                var newMails = mails.Where(mail => !existingMailIds.Contains(mail.Id)).ToList();
+
+                if (newMails.Any())
+                {
+                    await db.AlbionMails.AddRangeAsync(newMails);
+                    await db.SaveChangesAsync();
+                }
             }
         }
         catch (Exception e)
@@ -64,13 +78,45 @@ public class MailService : IDisposable
         }
     }
 
-    private void OnPlayerStateChanged(object? sender, PlayerStateEventArgs e)
+    public async Task AddMailData(long mailId, string mailString)
     {
+        try
+        {
+            using (var db = new LocalContext())
+            {
+                var mail = await db.AlbionMails.Where(x => x.Id == mailId).SingleOrDefaultAsync();
+
+                if (mail == null) return;
+
+                mail.SetData(mailString);
+
+                await db.SaveChangesAsync();
+            }
+        }
+        catch (Exception e)
+        {
+            Log.Error(e, e.Message);
+        }
     }
 
-
-    public void Dispose()
+    public async Task DeleteMail(long mailId)
     {
-        _playerState.OnPlayerStateChanged -= OnPlayerStateChanged;
+        try
+        {
+            using (var db = new LocalContext())
+            {
+                var mail = await db.AlbionMails.Where(x => x.Id == mailId).SingleOrDefaultAsync();
+
+                if (mail == null) return;
+
+                mail.Deleted = true;
+
+                await db.SaveChangesAsync();
+            }
+        }
+        catch (Exception e)
+        {
+            Log.Error(e, e.Message);
+        }
     }
 }

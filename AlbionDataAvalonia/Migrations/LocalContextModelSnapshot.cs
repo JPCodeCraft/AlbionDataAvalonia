@@ -26,20 +26,51 @@ namespace AlbionDataAvalonia.Migrations
                     b.Property<int>("AlbionServerId")
                         .HasColumnType("INTEGER");
 
-                    b.Property<DateTime>("Expires")
+                    b.Property<bool>("Deleted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsSet")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ItemId")
+                        .IsRequired()
                         .HasColumnType("TEXT");
 
                     b.Property<int>("LocationId")
                         .HasColumnType("INTEGER");
 
-                    b.Property<string>("MailString")
-                        .IsRequired()
+                    b.Property<int>("ParcialAmount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("Received")
                         .HasColumnType("TEXT");
+
+                    b.Property<double>("TaxesPercent")
+                        .HasColumnType("REAL");
+
+                    b.Property<int>("TotalAmount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("TotalSilver")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("TotalTaxes")
+                        .HasColumnType("INTEGER");
 
                     b.Property<int>("Type")
                         .HasColumnType("INTEGER");
 
+                    b.Property<long>("UnitSilver")
+                        .HasColumnType("INTEGER");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("Id")
+                        .IsUnique();
+
+                    b.HasIndex("TotalSilver");
+
+                    b.HasIndex("AlbionServerId", "LocationId", "Type", "Deleted");
 
                     b.ToTable("AlbionMails");
                 });
