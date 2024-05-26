@@ -18,7 +18,7 @@ public class ReadMailResponseHandler : ResponsePacketHandler<ReadMailResponse>
 
     protected override async Task OnActionAsync(ReadMailResponse value)
     {
-        mailService.AddMailData(value.MailId, value.MailString);
+        await mailService.AddMailData(value.MailId, value.MailString);
 
         await Task.CompletedTask;
     }

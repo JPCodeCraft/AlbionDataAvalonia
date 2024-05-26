@@ -1,8 +1,12 @@
-﻿using Serilog;
+﻿using Microsoft.EntityFrameworkCore;
+using Serilog;
 using System;
 
 namespace AlbionDataAvalonia.Network.Models;
 
+[Index(nameof(Id), IsUnique = true)]
+[Index(nameof(AlbionServerId), nameof(LocationId), nameof(Type), nameof(Deleted))]
+[Index(nameof(TotalSilver))]
 public class AlbionMail
 {
     public long Id { get; set; }
@@ -11,22 +15,57 @@ public class AlbionMail
 
     public MailInfoType Type { get; set; }
 
-    public DateTime Expires { get; set; }
+    public DateTime Received { get; set; }
 
     public int AlbionServerId { get; set; }
+    public int ParcialAmount { get; set; }
+    public int TotalAmount { get; set; }
+    public string ItemId { get; set; } = string.Empty;
+    public long TotalSilver { get; set; }
+    public long UnitSilver { get; set; }
+    public double TaxesPercent { get; set; }
+    public long TotalTaxes { get; set; }
+    public bool IsSet { get; set; } = false;
+    public bool Deleted { get; set; } = false;
+
+    public AlbionMail()
+    {
+
+    }
+
+    public AlbionMail(long id, int locationId, MailInfoType type, DateTime received, int albionServerId, double taxes)
+    {
+        Id = id;
+        LocationId = locationId;
+        Type = type;
+        Received = received;
+        AlbionServerId = albionServerId;
+        TaxesPercent = taxes;
+    }
+
+    public void SetData(string mailString)
+    {
+        var data = GetData(TaxesPercent, mailString);
+        ParcialAmount = data.parcialAmount;
+        TotalAmount = data.totalAmount;
+        ItemId = data.itemId;
+        TotalSilver = data.totalSilver;
+        UnitSilver = data.unitSilver;
+        TotalTaxes = data.totalTaxes;
+        IsSet = true;
+    }
+
 
     //MARKETPLACE_SELLORDER_FINISHED_SUMMARY "1|T5_2H_SHAPESHIFTER_SET3@1|1549840000|1549840000" AMOUNT|ITEM_ID|TOTAL_SILVER|UNIT_SILVER
     //MARKETPLACE_BUYORDER_FINISHED_SUMMARY "10|T7_ALCHEMY_RARE_ENT|11000100000|1100010000" AMOUNT|ITEM_ID|TOTAL_SILVER|UNIT_SILVER
     //MARKETPLACE_BUYORDER_EXPIRED_SUMMARY "23|100|65450000000|T5_ALCHEMY_RARE_PANTHER|" BOUGHT_AMOUNT|TOTAL_AMOUNT|TOTAL_REFUND|ITEM_ID
     //MARKETPLACE_SELLORDER_EXPIRED_SUMMARY "0|39|0|T7_JOURNAL_HUNTER_FULL|" SOLD_AMOUNT|TOTAL_AMOUNT|TOTAL_SILVER|ITEM_ID
     //BLACKMARKET_SELLORDER_EXPIRED_SUMMARY "6|53|4420680000|T6_OFF_HORN_KEEPER@1|" SOLD_AMOUNT|TOTAL_AMOUNT|TOTAL_SILVER|ITEM_ID
-    public string MailString { get; set; } = string.Empty;
-
-    public (int parcialAmount, int totalAmount, string itemId, long totalSilver, long unitSilver, long totalTaxes) GetData(double taxes)
+    private (int parcialAmount, int totalAmount, string itemId, long totalSilver, long unitSilver, long totalTaxes) GetData(double taxes, string mailString)
     {
         try
         {
-            var parts = MailString.Split('|');
+            var parts = mailString.Split('|');
             switch (Type)
             {
                 case MailInfoType.MARKETPLACE_SELLORDER_FINISHED_SUMMARY:
@@ -61,23 +100,22 @@ public class AlbionMail
         }
     }
 
-    public string GetMailFriendlyString(double taxes)
+    public string GetMailFriendlyString()
     {
         try
         {
-            var data = GetData(taxes);
             switch (Type)
             {
                 case MailInfoType.MARKETPLACE_SELLORDER_FINISHED_SUMMARY:
-                    return $"Sold {data.totalAmount:N0} {data.itemId} earning {data.unitSilver:N0} for each. A total of {data.totalSilver:N0} was earned. Taxes cost: {data.totalTaxes:N0}";
+                    return $"Sold {TotalAmount:N0} {ItemId} earning {UnitSilver:N0} for each. A total of {TotalSilver:N0} was earned. Taxes cost: {TotalTaxes:N0}";
                 case MailInfoType.MARKETPLACE_BUYORDER_FINISHED_SUMMARY:
-                    return $"Bought {data.totalAmount:N0} {data.itemId} for {data.unitSilver:N0} each. A total of {data.totalSilver:N0} was spent.";
+                    return $"Bought {TotalAmount:N0} {ItemId} for {UnitSilver:N0} each. A total of {TotalSilver:N0} was spent.";
                 case MailInfoType.MARKETPLACE_BUYORDER_EXPIRED_SUMMARY:
-                    return $"Bought {data.parcialAmount:N0} of {data.totalAmount:N0} {data.itemId} for {data.totalSilver:N0} total silver. A total of {data.totalSilver:N0} was spent.";
+                    return $"Bought {ParcialAmount:N0} of {TotalAmount:N0} {ItemId} for {TotalSilver:N0} total silver. A total of {TotalSilver:N0} was spent.";
                 case MailInfoType.MARKETPLACE_SELLORDER_EXPIRED_SUMMARY:
-                    return $"Sold {data.parcialAmount:N0} of {data.totalAmount:N0} {data.itemId} for {data.unitSilver:N0} each. A total of {data.totalSilver:N0} was earned. Taxes cost: {data.totalTaxes:N0}";
+                    return $"Sold {ParcialAmount:N0} of {TotalAmount:N0} {ItemId} for {UnitSilver:N0} each. A total of {TotalSilver:N0} was earned. Taxes cost: {TotalTaxes:N0}";
                 case MailInfoType.BLACKMARKET_SELLORDER_EXPIRED_SUMMARY:
-                    return $"Sold {data.parcialAmount:N0} of {data.totalAmount:N0} {data.itemId} for {data.unitSilver:N0} each. A total of {data.totalSilver:N0} was earned. Taxes cost: {data.totalTaxes:N0}";
+                    return $"Sold {ParcialAmount:N0} of {TotalAmount:N0} {ItemId} for {UnitSilver:N0} each. A total of {TotalSilver:N0} was earned. Taxes cost: {TotalTaxes:N0}";
                 default:
                     return "Unknown mail info type";
             };
@@ -88,4 +126,5 @@ public class AlbionMail
             return "Error parsing mail info";
         }
     }
+
 }
