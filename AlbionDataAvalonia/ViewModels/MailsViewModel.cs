@@ -5,6 +5,7 @@ using AlbionDataAvalonia.State;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Serilog;
+using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
@@ -21,7 +22,19 @@ public partial class MailsViewModel : ViewModelBase
     [ObservableProperty]
     private AlbionServer? playerServer;
 
-    public ObservableCollection<AlbionMail> Mails { get; } = new();
+    [ObservableProperty]
+    private string filterText = string.Empty;
+
+    private ObservableCollection<AlbionMail> mails = new();
+    public ObservableCollection<AlbionMail> Mails
+    {
+        get { return mails; }
+        set { SetProperty(ref mails, value); }
+    }
+
+    private List<AlbionMail> UnfilteredMails { get; set; } = new();
+
+    partial void OnFilterTextChanged(string? oldValue, string newValue) => FilterMails(newValue);
 
     public MailsViewModel()
     {
@@ -36,7 +49,7 @@ public partial class MailsViewModel : ViewModelBase
         _mailService.OnMailAdded += HandleMailAdded;
         _mailService.OnMailDataAdded += HandleMailDataAdded;
 
-        _playerState.OnPlayerStateChanged += async (sender, args) =>
+        _playerState.OnPlayerStateChanged += (sender, args) =>
         {
             PlayerServer = _playerState.AlbionServer;
         };
@@ -51,12 +64,8 @@ public partial class MailsViewModel : ViewModelBase
             {
                 return;
             }
-
-            Mails.Clear();
-            foreach (var mail in await _mailService.GetMails(PlayerServer.Id, 50, 0))
-            {
-                Mails.Add(mail);
-            }
+            UnfilteredMails = await _mailService.GetMails(PlayerServer.Id, 50, 0);
+            FilterMails(FilterText);
         }
         catch
         {
@@ -66,52 +75,33 @@ public partial class MailsViewModel : ViewModelBase
 
     private async void HandleMailAdded(List<AlbionMail> mails)
     {
-        await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            foreach (var mail in mails)
-            {
-                //check if it fits the filters first!!
-                Mails.Add(mail);
-            }
-
-            var sortedMails = Mails.OrderByDescending(x => x.Received).ToList();
-
-            Mails.Clear();
-            foreach (var sortedMail in sortedMails)
-            {
-                Mails.Add(sortedMail);
-                if (Mails.Count >= 50)
-                {
-                    break;
-                }
-            }
-        });
+        UnfilteredMails.AddRange(mails);
+        FilterMails(FilterText);
     }
 
-    private async void HandleMailDataAdded(AlbionMail mail)
+    private void HandleMailDataAdded(AlbionMail mail)
     {
         //check if it fits the filters first!!
         var oldMail = Mails.SingleOrDefault(x => x.Id == mail.Id);
         if (oldMail != null)
         {
-            await Avalonia.Threading.Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                Mails.Remove(oldMail);
-                Mails.Add(mail);
-
-                var sortedMails = Mails.OrderByDescending(x => x.Received).ToList();
-
-                Mails.Clear();
-                foreach (var sortedMail in sortedMails)
-                {
-                    Mails.Add(sortedMail);
-                    if (Mails.Count >= 50)
-                    {
-                        break;
-                    }
-                }
-            });
+            UnfilteredMails.Remove(oldMail);
+            UnfilteredMails.Add(mail);
+            FilterMails(FilterText);
         }
     }
 
+    private void FilterMails(string text)
+    {
+        List<AlbionMail> filteredList;
+        if (!string.IsNullOrEmpty(text))
+        {
+            filteredList = UnfilteredMails.Where(x => x.ItemName.Replace(" ", "").Contains(text.Replace(" ", ""), StringComparison.OrdinalIgnoreCase)).ToList();
+        }
+        else
+        {
+            filteredList = UnfilteredMails;
+        }
+        Mails = new ObservableCollection<AlbionMail>(filteredList.OrderByDescending(x => x.Received).Take(50));
+    }
 }

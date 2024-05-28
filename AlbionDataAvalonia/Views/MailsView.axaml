@@ -8,8 +8,15 @@
 			 x:DataType="vm:MailsViewModel"
 			 xmlns:model="using:AlbionDataAvalonia.Network.Models">
 
-	<Grid ColumnDefinitions="*" RowDefinitions="Auto, Auto">
-		<Button Grid.Row="0" Content="Refresh" Command="{Binding LoadMailsCommand}" />
+	<Grid ColumnDefinitions="*" RowDefinitions="Auto, *">
+
+		<StackPanel Orientation="Horizontal">
+
+			<Button Grid.Row="0" Content="Refresh" Command="{Binding LoadMailsCommand}" />
+			
+			<TextBox Text="{Binding FilterText}" Name="FilterBox"/>
+
+		</StackPanel>
 		
 		<DataGrid Grid.Row="1" Margin="0" ItemsSource="{Binding Mails}"				  
 				  AutoGenerateColumns="False" IsReadOnly="True"
@@ -27,7 +34,7 @@
 			
 			<DataGrid.Columns>
 				<DataGridTextColumn Header="Server" Binding="{Binding Server.Name}" />
-				<DataGridTextColumn Header="Server" Binding="{Binding PlayerName}" />
+				<DataGridTextColumn Header="Player" Binding="{Binding PlayerName}" />
 				<DataGridTextColumn Header="Received" Binding="{Binding Received}" />
 				<DataGridTextColumn Header="Type" Binding="{Binding AuctionTypeFormatted}" />
 				<DataGridTextColumn Header="Item" Binding="{Binding ItemName}" />
