@@ -24,6 +24,7 @@ public partial class MainViewModel : ViewModelBase
     private readonly SettingsManager _settingsManager;
     private readonly SettingsViewModel _settingsViewModel;
     private readonly LogsViewModel _logsViewModel;
+    private readonly MailsViewModel _mailsViewModel;
     private readonly Uploader _uploader;
 
     [ObservableProperty]
@@ -88,13 +89,14 @@ public partial class MainViewModel : ViewModelBase
     {
     }
 
-    public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, SettingsManager settingsManager, SettingsViewModel settingsViewModel, LogsViewModel logsViewModel, Uploader uploader)
+    public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, SettingsManager settingsManager, SettingsViewModel settingsViewModel, LogsViewModel logsViewModel, MailsViewModel mailsViewModel, Uploader uploader)
     {
         _playerState = playerState;
         _networkListener = networkListener;
         _settingsManager = settingsManager;
         _settingsViewModel = settingsViewModel;
         _logsViewModel = logsViewModel;
+        _mailsViewModel = mailsViewModel;
         _uploader = uploader;
 
         LocationName = _playerState.Location.FriendlyName;
@@ -134,7 +136,6 @@ public partial class MainViewModel : ViewModelBase
         {
             CurrentView = new PCapView();
         }
-        _logsViewModel = logsViewModel;
     }
 
     private void UpdateVisibilities()
@@ -257,6 +258,12 @@ public partial class MainViewModel : ViewModelBase
     private void ShowLogs()
     {
         CurrentView = new LogsView(_logsViewModel);
+    }
+
+    [RelayCommand]
+    private void ShowMails()
+    {
+        CurrentView = new MailsView(_mailsViewModel);
     }
 
     [RelayCommand]

@@ -55,8 +55,8 @@ public class Uploader : IDisposable
         }
         try
         {
-            var offers = marketUpload.Orders.Where(x => x.AuctionType == "offer").Count();
-            var requests = marketUpload.Orders.Where(x => x.AuctionType == "request").Count();
+            var offers = marketUpload.Orders.Where(x => x.AuctionType == AuctionType.Offer).Count();
+            var requests = marketUpload.Orders.Where(x => x.AuctionType == AuctionType.Request).Count();
             var data = SerializeData(marketUpload);
 
             var uploadStatus = await UploadData(data, _playerState.AlbionServer, _settingsManager.AppSettings.MarketOrdersIngestSubject ?? "");

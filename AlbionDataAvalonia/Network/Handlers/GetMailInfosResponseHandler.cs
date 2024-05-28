@@ -26,7 +26,7 @@ public class GetMailInfosResponseHandler : ResponsePacketHandler<GetMailInfosRes
     {
         List<AlbionMail> AlbionMails = new();
 
-        if (playerState.AlbionServer == null)
+        if (playerState.AlbionServer == null || string.IsNullOrEmpty(playerState.PlayerName))
         {
             return;
         }
@@ -34,10 +34,10 @@ public class GetMailInfosResponseHandler : ResponsePacketHandler<GetMailInfosRes
         for (int i = 0; i < value.MailIds.Length; i++)
         {
             var location = AlbionLocations.TryParse(value.LocationIds[i], out var loc) ? loc ?? AlbionLocations.Unknown : AlbionLocations.Unknown;
-            var type = Enum.TryParse(typeof(MailInfoType), value.Types[i], true, out object? parsedType) ? (MailInfoType)parsedType : MailInfoType.UNKNOWN;
-            AlbionMail mail = new(value.MailIds[i], location.Id, type, new DateTime(value.Received[i]), playerState.AlbionServer.Id, settingsManager.UserSettings.SalesTax);
+            var type = Enum.TryParse(typeof(AlbionMailInfoType), value.Types[i], true, out object? parsedType) ? (AlbionMailInfoType)parsedType : AlbionMailInfoType.UNKNOWN;
+            AlbionMail mail = new(value.MailIds[i], location.Id, playerState.PlayerName, type, new DateTime(value.Received[i]), playerState.AlbionServer.Id, settingsManager.UserSettings.SalesTax);
 
-            if (mail.Type != MailInfoType.UNKNOWN)
+            if (mail.Type != AlbionMailInfoType.UNKNOWN)
             {
                 AlbionMails.Add(mail);
             }

@@ -1,4 +1,5 @@
 ﻿using AlbionDataAvalonia.DB;
+using AlbionDataAvalonia.Localization.Services;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
@@ -15,15 +16,20 @@ public class MailService
 {
     private readonly PlayerState _playerState;
     private readonly SettingsManager _settingsManager;
+    private readonly LocalizationService _localizationService;
     private List<AlbionMail> Mails { get; set; } = new();
 
-    public MailService(PlayerState playerState, SettingsManager settingsManager)
+    public Action<List<AlbionMail>> OnMailAdded;
+    public Action<AlbionMail> OnMailDataAdded;
+
+    public MailService(PlayerState playerState, SettingsManager settingsManager, LocalizationService localizationService)
     {
         _playerState = playerState;
         _settingsManager = settingsManager;
+        _localizationService = localizationService;
     }
 
-    public async Task<List<AlbionMail>> GetMails(int albionServerId, int countPerPage, int pageNumber, bool showDeleted = false, int? locationId = null, MailInfoType? type = null)
+    public async Task<List<AlbionMail>> GetMails(int albionServerId, int countPerPage, int pageNumber, bool showDeleted = false, int? locationId = null, AuctionType? auctionType = null)
     {
         try
         {
@@ -36,9 +42,9 @@ public class MailService
                     query = query.Where(x => x.LocationId == locationId);
                 }
 
-                if (type.HasValue)
+                if (auctionType != null)
                 {
-                    query = query.Where(x => x.Type == type);
+                    query = query.Where(x => x.AuctionType == auctionType);
                 }
 
                 if (!showDeleted)
@@ -46,7 +52,16 @@ public class MailService
                     query = query.Where(x => !x.Deleted);
                 }
 
-                return (await query.AsNoTracking().Skip(countPerPage * pageNumber).Take(countPerPage).ToListAsync()).OrderByDescending(x => x.Received).ToList();
+                var result = await query.OrderByDescending(x => x.Received).AsNoTracking().Skip(countPerPage * pageNumber).Take(countPerPage).ToListAsync();
+
+                foreach (var mail in result)
+                {
+                    SetMailProperties(mail);
+                }
+
+                Log.Debug("Loaded {Count} mails", result.Count);
+
+                return result;
             }
         }
         catch (Exception e)
@@ -54,6 +69,15 @@ public class MailService
             Log.Error(e, e.Message);
             return new List<AlbionMail>();
         }
+    }
+
+    private void SetMailProperties(AlbionMail mail)
+    {
+        mail.Location = AlbionLocations.Get(mail.LocationId);
+        mail.Server = _settingsManager.AppSettings.AlbionServers.SingleOrDefault(x => x.Id == mail.AlbionServerId);
+        mail.ItemName = _localizationService.GetUsName(mail.ItemId);
+
+        Log.Verbose("Set mail properties for {MailId}", mail.Id);
     }
 
     public async Task AddMails(List<AlbionMail> mails)
@@ -69,6 +93,15 @@ public class MailService
                 {
                     await db.AlbionMails.AddRangeAsync(newMails);
                     await db.SaveChangesAsync();
+
+                    foreach (var mail in newMails)
+                    {
+                        SetMailProperties(mail);
+                    }
+
+                    OnMailAdded.Invoke(newMails);
+
+                    Log.Debug("Added {Count} new mails", newMails.Count);
                 }
             }
         }
@@ -91,6 +124,12 @@ public class MailService
                 mail.SetData(mailString);
 
                 await db.SaveChangesAsync();
+
+                SetMailProperties(mail);
+
+                OnMailDataAdded.Invoke(mail);
+
+                Log.Debug("Added data for mail {MailId}", mailId);
             }
         }
         catch (Exception e)
@@ -112,6 +151,8 @@ public class MailService
                 mail.Deleted = true;
 
                 await db.SaveChangesAsync();
+
+                Log.Debug("Deleted mail {MailId}", mailId);
             }
         }
         catch (Exception e)

@@ -1,4 +1,5 @@
 ﻿using AlbionDataAvalonia.DB;
+using AlbionDataAvalonia.Localization.Services;
 using AlbionDataAvalonia.Logging;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Settings;
@@ -60,6 +61,7 @@ public partial class App : Application
         var settings = services.GetRequiredService<SettingsManager>();
         var listener = services.GetRequiredService<NetworkListenerService>();
         var uploader = services.GetRequiredService<Uploader>();
+        var localization = services.GetRequiredService<LocalizationService>();
 
         //INITIALIZE SETTINGS
         await settings.Initialize();
@@ -98,6 +100,9 @@ public partial class App : Application
                 Log.Error(t.Exception, "Error in listener, exception: {exception}", t.Exception);
             }
         });
+
+        //INITIALIZE LOCALIZATION
+        await localization.InitializeAsync();
 
         //VIEWMODEL
         this.DataContext = vm;
@@ -171,6 +176,7 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<ListSink>();
         collection.AddSingleton<Uploader>();
         collection.AddSingleton<MailService>();
+        collection.AddSingleton<LocalizationService>();
 
         collection.AddSingleton<MainViewModel>();
         collection.AddSingleton<SettingsViewModel>();

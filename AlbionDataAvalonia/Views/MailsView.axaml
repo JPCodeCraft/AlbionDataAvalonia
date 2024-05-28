@@ -1,0 +1,66 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+			 xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
+             x:Class="AlbionDataAvalonia.Views.MailsView"
+			 x:DataType="vm:MailsViewModel"
+			 xmlns:model="using:AlbionDataAvalonia.Network.Models">
+
+	<Grid ColumnDefinitions="*" RowDefinitions="Auto, Auto">
+		<Button Grid.Row="0" Content="Refresh" Command="{Binding LoadMailsCommand}" />
+		
+		<DataGrid Grid.Row="1" Margin="0" ItemsSource="{Binding Mails}"				  
+				  AutoGenerateColumns="False" IsReadOnly="True"
+				  GridLinesVisibility="None"
+				  BorderThickness="0" BorderBrush="Gray">
+			
+			<DataGrid.Styles>
+				<Style Selector="DataGridColumnHeader /template/ Grid#PART_ColumnHeaderRoot">
+					<Setter Property="Background" Value="rgba(255, 255, 255, 0.2)" />
+				</Style>
+				<Style Selector="DataGridColumnHeader:pointerover /template/ Grid#PART_ColumnHeaderRoot">
+					<Setter Property="Background" Value="rgba(255, 255, 255, 0.4)" />
+				</Style>
+			</DataGrid.Styles>
+			
+			<DataGrid.Columns>
+				<DataGridTextColumn Header="Server" Binding="{Binding Server.Name}" />
+				<DataGridTextColumn Header="Server" Binding="{Binding PlayerName}" />
+				<DataGridTextColumn Header="Received" Binding="{Binding Received}" />
+				<DataGridTextColumn Header="Type" Binding="{Binding AuctionTypeFormatted}" />
+				<DataGridTextColumn Header="Item" Binding="{Binding ItemName}" />
+				<DataGridTextColumn Header="Location" Binding="{Binding Location.FriendlyName}" />
+				
+				<DataGridTemplateColumn Header="Amount" CanUserSort="True" SortMemberPath="PartialAmount">
+					<DataGridTemplateColumn.CellTemplate>
+						<DataTemplate>
+							<TextBlock Text="{Binding PartialAmount, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" HorizontalAlignment="Center" />
+						</DataTemplate>
+					</DataGridTemplateColumn.CellTemplate>
+				</DataGridTemplateColumn>
+
+				<DataGridTemplateColumn Header="Unit Silver" CanUserSort="True"  SortMemberPath="UnitSilver">
+					<DataGridTemplateColumn.CellTemplate>
+						<DataTemplate>
+							<TextBlock Text="{Binding UnitSilver, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" HorizontalAlignment="Center" />
+						</DataTemplate>
+					</DataGridTemplateColumn.CellTemplate>
+				</DataGridTemplateColumn>
+				
+				<DataGridTemplateColumn Header="Total Silver" CanUserSort="True"  SortMemberPath="TotalSilver">
+					<DataGridTemplateColumn.CellTemplate>
+						<DataTemplate>
+							<TextBlock Text="{Binding TotalSilver, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" HorizontalAlignment="Center" />
+						</DataTemplate>
+					</DataGridTemplateColumn.CellTemplate>
+				</DataGridTemplateColumn>
+				
+			</DataGrid.Columns>
+		</DataGrid>
+	</Grid>
+
+
+
+</UserControl>

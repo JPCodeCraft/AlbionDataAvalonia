@@ -26,6 +26,9 @@ namespace AlbionDataAvalonia.Migrations
                     b.Property<int>("AlbionServerId")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int>("AuctionType")
+                        .HasColumnType("INTEGER");
+
                     b.Property<bool>("Deleted")
                         .HasColumnType("INTEGER");
 
@@ -39,8 +42,12 @@ namespace AlbionDataAvalonia.Migrations
                     b.Property<int>("LocationId")
                         .HasColumnType("INTEGER");
 
-                    b.Property<int>("ParcialAmount")
+                    b.Property<int>("PartialAmount")
                         .HasColumnType("INTEGER");
+
+                    b.Property<string>("PlayerName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
 
                     b.Property<DateTime>("Received")
                         .HasColumnType("TEXT");
@@ -70,7 +77,7 @@ namespace AlbionDataAvalonia.Migrations
 
                     b.HasIndex("TotalSilver");
 
-                    b.HasIndex("AlbionServerId", "LocationId", "Type", "Deleted");
+                    b.HasIndex("AlbionServerId", "LocationId", "AuctionType", "Deleted", "Received");
 
                     b.ToTable("AlbionMails");
                 });
