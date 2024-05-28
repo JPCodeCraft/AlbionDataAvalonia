@@ -46,7 +46,7 @@ namespace AlbionDataAvalonia.Localization.Services
                     enchantment = int.Parse(uniqueName.Split('@')[1]); // Get the number after '@'
                 }
 
-                return $"{usName}[{tier}.{enchantment}]";
+                return $"{usName} [{tier}.{enchantment}]";
             }
 
             return uniqueName;
