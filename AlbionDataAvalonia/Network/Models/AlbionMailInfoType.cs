@@ -1,6 +1,6 @@
 ﻿namespace AlbionDataAvalonia.Network.Models;
 
-public enum MailInfoType
+public enum AlbionMailInfoType
 {
     UNKNOWN,
     MARKETPLACE_SELLORDER_FINISHED_SUMMARY,

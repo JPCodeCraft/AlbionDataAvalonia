@@ -119,8 +119,8 @@ namespace AlbionDataAvalonia.State
             ProcessUploadStatus(e.UploadStatus);
             if (e.UploadStatus != UploadStatus.Success) return;
 
-            int offersCount = e.MarketUpload.Orders.Count(o => o.AuctionType == "offer");
-            int requestsCount = e.MarketUpload.Orders.Count(o => o.AuctionType == "request");
+            int offersCount = e.MarketUpload.Orders.Count(o => o.AuctionType == AuctionType.Offer);
+            int requestsCount = e.MarketUpload.Orders.Count(o => o.AuctionType == AuctionType.Request);
 
             if (offersCount > 0)
             {

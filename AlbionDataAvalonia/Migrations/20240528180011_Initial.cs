@@ -6,7 +6,7 @@ using Microsoft.EntityFrameworkCore.Migrations;
 namespace AlbionDataAvalonia.Migrations
 {
     /// <inheritdoc />
-    public partial class initial : Migration
+    public partial class Initial : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -18,10 +18,12 @@ namespace AlbionDataAvalonia.Migrations
                     Id = table.Column<long>(type: "INTEGER", nullable: false)
                         .Annotation("Sqlite:Autoincrement", true),
                     LocationId = table.Column<int>(type: "INTEGER", nullable: false),
+                    PlayerName = table.Column<string>(type: "TEXT", nullable: false),
                     Type = table.Column<int>(type: "INTEGER", nullable: false),
+                    AuctionType = table.Column<int>(type: "INTEGER", nullable: false),
                     Received = table.Column<DateTime>(type: "TEXT", nullable: false),
                     AlbionServerId = table.Column<int>(type: "INTEGER", nullable: false),
-                    ParcialAmount = table.Column<int>(type: "INTEGER", nullable: false),
+                    PartialAmount = table.Column<int>(type: "INTEGER", nullable: false),
                     TotalAmount = table.Column<int>(type: "INTEGER", nullable: false),
                     ItemId = table.Column<string>(type: "TEXT", nullable: false),
                     TotalSilver = table.Column<long>(type: "INTEGER", nullable: false),
@@ -37,9 +39,9 @@ namespace AlbionDataAvalonia.Migrations
                 });
 
             migrationBuilder.CreateIndex(
-                name: "IX_AlbionMails_AlbionServerId_LocationId_Type_Deleted",
+                name: "IX_AlbionMails_AlbionServerId_LocationId_AuctionType_Deleted_Received",
                 table: "AlbionMails",
-                columns: new[] { "AlbionServerId", "LocationId", "Type", "Deleted" });
+                columns: new[] { "AlbionServerId", "LocationId", "AuctionType", "Deleted", "Received" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_AlbionMails_Id",
