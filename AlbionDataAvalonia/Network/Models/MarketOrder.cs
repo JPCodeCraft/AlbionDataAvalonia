@@ -6,6 +6,7 @@ public class MarketOrder
 {
     public ulong Id { get; set; }
     public string ItemTypeId { get; set; }
+    public string ItemGroupTypeId { get; set; }
     public int LocationId { get; set; }
     public byte QualityLevel { get; set; }
     public byte EnchantmentLevel { get; set; }
@@ -13,5 +14,4 @@ public class MarketOrder
     public uint Amount { get; set; }
     public AuctionType AuctionType { get; set; }
     public DateTime Expires { get; set; }
-    public string ItemGroupTypeId { get; set; }
 }
