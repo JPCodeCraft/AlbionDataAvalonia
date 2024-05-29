@@ -23,9 +23,9 @@ public class AlbionMail
         {
             switch (AuctionType)
             {
-                case AuctionType.Offer:
+                case AuctionType.offer:
                     return "Sold";
-                case AuctionType.Request:
+                case AuctionType.request:
                     return "Bought";
                 default:
                     return "Unknown";
@@ -71,22 +71,22 @@ public class AlbionMail
         switch (Type)
         {
             case AlbionMailInfoType.MARKETPLACE_SELLORDER_FINISHED_SUMMARY:
-                AuctionType = AuctionType.Offer;
+                AuctionType = AuctionType.offer;
                 break;
             case AlbionMailInfoType.MARKETPLACE_BUYORDER_FINISHED_SUMMARY:
-                AuctionType = AuctionType.Request;
+                AuctionType = AuctionType.request;
                 break;
             case AlbionMailInfoType.MARKETPLACE_BUYORDER_EXPIRED_SUMMARY:
-                AuctionType = AuctionType.Request;
+                AuctionType = AuctionType.request;
                 break;
             case AlbionMailInfoType.MARKETPLACE_SELLORDER_EXPIRED_SUMMARY:
-                AuctionType = AuctionType.Offer;
+                AuctionType = AuctionType.offer;
                 break;
             case AlbionMailInfoType.BLACKMARKET_SELLORDER_EXPIRED_SUMMARY:
-                AuctionType = AuctionType.Offer;
+                AuctionType = AuctionType.offer;
                 break;
             default:
-                AuctionType = AuctionType.Unknown;
+                AuctionType = AuctionType.unknown;
                 break;
         }
     }

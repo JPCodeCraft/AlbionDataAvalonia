@@ -1,5 +1,6 @@
 ﻿using Albion.Network;
 using AlbionDataAvalonia.Network.Handlers;
+using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
 using PacketDotNet;
@@ -71,7 +72,7 @@ namespace AlbionDataAvalonia.Network.Services
                 return;
             }
 
-            Log.Debug("Starting network device listening");
+            Log.Verbose("Starting network device listening");
 
             devices = CaptureDeviceList.New();
 
@@ -81,7 +82,7 @@ namespace AlbionDataAvalonia.Network.Services
                 {
                     try
                     {
-                        Log.Debug("Opening network device: {Device}", device.Description);
+                        Log.Verbose("Opening network device: {Device}", device.Description);
 
                         device.OnPacketArrival += new PacketArrivalEventHandler(PacketHandler);
                         device.Open(new DeviceConfiguration
@@ -89,12 +90,12 @@ namespace AlbionDataAvalonia.Network.Services
                             Mode = DeviceModes.None,
                             ReadTimeout = 5000
                         });
-                        var ips = _settingsManager.AppSettings.AlbionServers.Select(s => $"host {s.HostIp}");
+                        var ips = AlbionServers.GetAll().Select(s => $"host {s.HostIp}");
                         var filter = $"({string.Join(" or ", ips)}) and {_settingsManager.AppSettings.PacketFilterPortText}";
                         device.Filter = filter;
                         device.StartCapture();
 
-                        Log.Debug("Opened network device: {Device} with filter: {Filter}", device.Description, filter);
+                        Log.Verbose("Opened network device: {Device} with filter: {Filter}", device.Description, filter);
                     }
                     catch (Exception ex)
                     {
@@ -118,7 +119,7 @@ namespace AlbionDataAvalonia.Network.Services
             }
             if (!hasFinishedStartingDevices)
             {
-                Log.Debug("Not all devices have finished starting yet");
+                Log.Verbose("Not all devices have finished starting yet");
                 return;
             }
             try
@@ -144,7 +145,7 @@ namespace AlbionDataAvalonia.Network.Services
                                             {
                                                 device.StopCapture();
                                                 device.Close();
-                                                Log.Debug("Closing network device: {Device}", device.Description);
+                                                Log.Verbose("Closing network device: {Device}", device.Description);
                                             }
                                             catch (Exception ex)
                                             {
@@ -162,13 +163,13 @@ namespace AlbionDataAvalonia.Network.Services
 
                     if (string.IsNullOrEmpty(srcIp))
                     {
-                        Log.Debug("Packet Source IP null or empty, ignoring");
+                        Log.Verbose("Packet Source IP null or empty, ignoring");
                         return;
                     }
-                    var server = _settingsManager.AppSettings.AlbionServers.SingleOrDefault(x => srcIp.Contains(x.HostIp));
+                    var server = AlbionServers.GetAll().SingleOrDefault(x => srcIp.Contains(x.HostIp));
                     if (server is not null)
                     {
-                        Log.Verbose("Packet from {server} server from IP {ip}", server.Name, srcIp);
+                        //Log.Verbose("Packet from {server} server from IP {ip}", server.Name, srcIp);
                         _playerState.AlbionServer = server;
                     }
                     receiver.ReceivePacket(packet.PayloadData);
@@ -189,7 +190,7 @@ namespace AlbionDataAvalonia.Network.Services
                 {
                     device.StopCapture();
                     device.Close();
-                    Log.Debug("Close... {Device}", device.Description);
+                    Log.Verbose("Close... {Device}", device.Description);
                 }
             }
         }

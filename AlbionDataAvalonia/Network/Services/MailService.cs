@@ -29,13 +29,18 @@ public class MailService
         _localizationService = localizationService;
     }
 
-    public async Task<List<AlbionMail>> GetMails(int albionServerId, int countPerPage, int pageNumber, bool showDeleted = false, int? locationId = null, AuctionType? auctionType = null)
+    public async Task<List<AlbionMail>> GetMails(int countPerPage, int pageNumber = 0, int? albionServerId = null, bool showDeleted = false, int? locationId = null, AuctionType? auctionType = null)
     {
         try
         {
             using (var db = new LocalContext())
             {
-                var query = db.AlbionMails.Where(x => x.AlbionServerId == albionServerId);
+                var query = db.AlbionMails.AsQueryable();
+
+                if (albionServerId.HasValue)
+                {
+                    query = query.Where(x => x.AlbionServerId == albionServerId);
+                }
 
                 if (locationId.HasValue)
                 {
@@ -54,10 +59,7 @@ public class MailService
 
                 var result = await query.OrderByDescending(x => x.Received).AsNoTracking().Skip(countPerPage * pageNumber).Take(countPerPage).ToListAsync();
 
-                foreach (var mail in result)
-                {
-                    SetMailProperties(mail);
-                }
+                SetMailProperties(result);
 
                 Log.Debug("Loaded {Count} mails", result.Count);
 
@@ -71,13 +73,16 @@ public class MailService
         }
     }
 
-    private void SetMailProperties(AlbionMail mail)
+    private void SetMailProperties(List<AlbionMail> mails)
     {
-        mail.Location = AlbionLocations.Get(mail.LocationId);
-        mail.Server = _settingsManager.AppSettings.AlbionServers.SingleOrDefault(x => x.Id == mail.AlbionServerId);
-        mail.ItemName = _localizationService.GetUsName(mail.ItemId);
+        foreach (var mail in mails)
+        {
+            mail.Location = AlbionLocations.Get(mail.LocationId);
+            mail.Server = AlbionServers.GetAll().SingleOrDefault(x => x.Id == mail.AlbionServerId);
+            mail.ItemName = _localizationService.GetUsName(mail.ItemId);
+        }
 
-        Log.Verbose("Set mail properties for {MailId}", mail.Id);
+        Log.Verbose("Set mail properties for {count} mails", mails.Count);
     }
 
     public async Task AddMails(List<AlbionMail> mails)
@@ -94,10 +99,7 @@ public class MailService
                     await db.AlbionMails.AddRangeAsync(newMails);
                     await db.SaveChangesAsync();
 
-                    foreach (var mail in newMails)
-                    {
-                        SetMailProperties(mail);
-                    }
+                    SetMailProperties(newMails);
 
                     OnMailAdded.Invoke(newMails);
 
@@ -125,7 +127,7 @@ public class MailService
 
                 await db.SaveChangesAsync();
 
-                SetMailProperties(mail);
+                SetMailProperties(new List<AlbionMail>([mail]));
 
                 OnMailDataAdded.Invoke(mail);
 

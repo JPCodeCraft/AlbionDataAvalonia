@@ -2,10 +2,9 @@
 
 namespace AlbionDataAvalonia.Network.Models;
 
-public class MarketHistoriesUpload
+public class MarketHistoriesUpload : BaseUpload
 {
     public uint AlbionId;
-    public string AlbionIdString;
     public int LocationId;
     public byte QualityLevel;
     public Timescale Timescale;

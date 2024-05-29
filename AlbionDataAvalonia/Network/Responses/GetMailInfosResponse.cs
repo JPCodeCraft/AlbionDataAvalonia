@@ -14,7 +14,7 @@ public class GetMailInfosResponse : BaseOperation
 
     public GetMailInfosResponse(Dictionary<byte, object> parameters) : base(parameters)
     {
-        Log.Debug("Got {PacketType} packet.", GetType());
+        Log.Verbose("Got {PacketType} packet.", GetType());
         try
         {
 

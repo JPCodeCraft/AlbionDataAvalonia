@@ -93,7 +93,7 @@ namespace AlbionDataAvalonia.State
                 if (isInGame != result)
                 {
                     isInGame = result;
-                    Log.Debug("Player is {InGame}", isInGame ? "in game" : "not in game");
+                    Log.Verbose("Player is {InGame}", isInGame ? "in game" : "not in game");
                     OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, isInGame));
                 }
                 return isInGame;
@@ -116,11 +116,11 @@ namespace AlbionDataAvalonia.State
 
         public void MarketUploadHandler(object? sender, MarketUploadEventArgs e)
         {
-            ProcessUploadStatus(e.UploadStatus);
+            ProcessUploadStatus(e.UploadStatus, e.MarketUpload.Identifier);
             if (e.UploadStatus != UploadStatus.Success) return;
 
-            int offersCount = e.MarketUpload.Orders.Count(o => o.AuctionType == AuctionType.Offer);
-            int requestsCount = e.MarketUpload.Orders.Count(o => o.AuctionType == AuctionType.Request);
+            int offersCount = e.MarketUpload.Orders.Count(o => o.AuctionType == AuctionType.offer);
+            int requestsCount = e.MarketUpload.Orders.Count(o => o.AuctionType == AuctionType.request);
 
             if (offersCount > 0)
             {
@@ -132,13 +132,11 @@ namespace AlbionDataAvalonia.State
                 UploadedMarketRequestsCount += requestsCount;
                 OnUploadedMarketRequestsCountChanged?.Invoke(UploadedMarketRequestsCount);
             }
-
-            Log.Debug("Market upload complete. {Offers} offers, {Requests} requests", offersCount, requestsCount);
         }
 
         public void MarketHistoryUploadHandler(object? sender, MarketHistoriesUploadEventArgs e)
         {
-            ProcessUploadStatus(e.UploadStatus);
+            ProcessUploadStatus(e.UploadStatus, e.MarketHistoriesUpload.Identifier);
             if (e.UploadStatus != UploadStatus.Success) return;
 
             if (!UploadedHistoriesCountDic.ContainsKey(e.MarketHistoriesUpload.Timescale))
@@ -150,33 +148,31 @@ namespace AlbionDataAvalonia.State
 
             UploadedHistoriesCountDic[e.MarketHistoriesUpload.Timescale] += historyCount;
             OnUploadedHistoriesCountDicChanged?.Invoke(UploadedHistoriesCountDic);
-            Log.Debug("Market history upload complete. [{Timescale}] => {count} histories", e.MarketHistoriesUpload.Timescale, historyCount);
         }
 
         public void GoldPriceUploadHandler(object? sender, GoldPriceUploadEventArgs e)
         {
-            ProcessUploadStatus(e.UploadStatus);
+            ProcessUploadStatus(e.UploadStatus, e.GoldPriceUpload.Identifier);
             if (e.UploadStatus != UploadStatus.Success) return;
 
             int goldHistoriesCount = e.GoldPriceUpload.Prices.Length;
 
             UploadedGoldHistoriesCount += goldHistoriesCount;
             OnUploadedGoldHistoriesCountChanged?.Invoke(UploadedGoldHistoriesCount);
-            Log.Debug("Gold price upload complete. {count} histories", goldHistoriesCount);
         }
 
-        private void ProcessUploadStatus(UploadStatus status)
+        private void ProcessUploadStatus(UploadStatus status, Guid identifier)
         {
             UploadStatusCountDic[status]++;
             OnUploadStatusCountDicChanged?.Invoke(UploadStatusCountDic);
-            Log.Debug("Upload status: {status} => accounted for", status);
+            Log.Verbose("Upload status: {status} => accounted for. Identifier: {identifier}", status, identifier);
         }
 
         public bool CheckLocationIsSet()
         {
             if (location == AlbionLocations.Unknown || location == AlbionLocations.Unset)
             {
-                Log.Debug("Player location is not set. Please change maps.");
+                Log.Warning("Player location is not set. Please change maps.");
                 return false;
             }
             else return true;

@@ -20,9 +20,6 @@ public partial class MailsViewModel : ViewModelBase
     private readonly MailService _mailService;
 
     [ObservableProperty]
-    private AlbionServer? playerServer;
-
-    [ObservableProperty]
     private string filterText = string.Empty;
 
     private ObservableCollection<AlbionMail> mails = new();
@@ -34,7 +31,22 @@ public partial class MailsViewModel : ViewModelBase
 
     private List<AlbionMail> UnfilteredMails { get; set; } = new();
 
-    partial void OnFilterTextChanged(string? oldValue, string newValue) => FilterMails(newValue);
+    public List<string> Locations { get; set; } = new();
+    [ObservableProperty]
+    private string selectedLocation = "Any";
+
+    public List<string> AuctionTypes { get; set; } = new() { "Any", "Bought", "Sold" };
+    [ObservableProperty]
+    private string selectedType = "Any";
+
+    public List<string> Servers { get; set; } = new();
+    [ObservableProperty]
+    private string selectedServer = "Any";
+
+    partial void OnFilterTextChanged(string? oldValue, string newValue) => FilterMails();
+    partial void OnSelectedLocationChanged(string? oldValue, string newValue) => Task.Run(() => LoadMails());
+    partial void OnSelectedTypeChanged(string? oldValue, string newValue) => Task.Run(() => LoadMails());
+    partial void OnSelectedServerChanged(string? oldValue, string newValue) => Task.Run(() => LoadMails());
 
     public MailsViewModel()
     {
@@ -49,9 +61,20 @@ public partial class MailsViewModel : ViewModelBase
         _mailService.OnMailAdded += HandleMailAdded;
         _mailService.OnMailDataAdded += HandleMailDataAdded;
 
+        Locations = AlbionLocations.GetAll().Select(x => x.FriendlyName).OrderBy(x => x).ToList();
+        Locations.Insert(0, "Any");
+
+        Servers = AlbionServers.GetAll().Select(x => x.Name).ToList();
+        Servers.Insert(0, "Any");
+
         _playerState.OnPlayerStateChanged += (sender, args) =>
         {
-            PlayerServer = _playerState.AlbionServer;
+            var currentServer = playerState.AlbionServer?.Name ?? "Any";
+            if (SelectedServer != currentServer)
+            {
+                SelectedServer = currentServer;
+                Task.Run(() => LoadMails());
+            }
         };
     }
 
@@ -60,12 +83,12 @@ public partial class MailsViewModel : ViewModelBase
     {
         try
         {
-            if (PlayerServer == null)
-            {
-                return;
-            }
-            UnfilteredMails = await _mailService.GetMails(PlayerServer.Id, 50, 0);
-            FilterMails(FilterText);
+            var location = AlbionLocations.Get(SelectedLocation);
+            AlbionServers.TryParse(SelectedServer, out AlbionServer? server);
+            AuctionType? type = SelectedType == "Sold" ? AuctionType.offer : SelectedType == "Bought" ? AuctionType.request : null;
+
+            UnfilteredMails = await _mailService.GetMails(_settingsManager.UserSettings.MailsPerPage, 0, server?.Id ?? null, false, location?.Id ?? null, type);
+            FilterMails();
         }
         catch
         {
@@ -75,33 +98,25 @@ public partial class MailsViewModel : ViewModelBase
 
     private async void HandleMailAdded(List<AlbionMail> mails)
     {
-        UnfilteredMails.AddRange(mails);
-        FilterMails(FilterText);
+        await LoadMails();
     }
 
-    private void HandleMailDataAdded(AlbionMail mail)
+    private async void HandleMailDataAdded(AlbionMail mail)
     {
-        //check if it fits the filters first!!
-        var oldMail = Mails.SingleOrDefault(x => x.Id == mail.Id);
-        if (oldMail != null)
-        {
-            UnfilteredMails.Remove(oldMail);
-            UnfilteredMails.Add(mail);
-            FilterMails(FilterText);
-        }
+        await LoadMails();
     }
 
-    private void FilterMails(string text)
+    private void FilterMails()
     {
         List<AlbionMail> filteredList;
-        if (!string.IsNullOrEmpty(text))
+        if (!string.IsNullOrEmpty(FilterText))
         {
-            filteredList = UnfilteredMails.Where(x => x.ItemName.Replace(" ", "").Contains(text.Replace(" ", ""), StringComparison.OrdinalIgnoreCase)).ToList();
+            filteredList = UnfilteredMails.Where(x => x.ItemName.Replace(" ", "").Contains(FilterText.Replace(" ", ""), StringComparison.OrdinalIgnoreCase)).ToList();
         }
         else
         {
             filteredList = UnfilteredMails;
         }
-        Mails = new ObservableCollection<AlbionMail>(filteredList.OrderByDescending(x => x.Received).Take(50));
+        Mails = new ObservableCollection<AlbionMail>(filteredList.OrderByDescending(x => x.Received).Take(_settingsManager.UserSettings.MailsPerPage));
     }
 }
