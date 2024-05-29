@@ -64,7 +64,7 @@ public partial class App : Application
         var localization = services.GetRequiredService<LocalizationService>();
 
         //INITIALIZE SETTINGS
-        await settings.Initialize();
+        await settings.InitializeSettings();
 
         //UPDATER
         _updateTimer = new System.Timers.Timer
@@ -140,12 +140,17 @@ public partial class App : Application
     {
         string logFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AFMDataClient", "logs", "log-.txt");
 
+        var listSinkLevelSwitch = new Serilog.Core.LoggingLevelSwitch();
+        listSinkLevelSwitch.MinimumLevel = LogEventLevel.Information;
+
+        AppData.ListSinkLevelSwitch = listSinkLevelSwitch;
+
         Log.Logger = new LoggerConfiguration()
-            .WriteTo.Sink(listSink, restrictedToMinimumLevel: LogEventLevel.Information)
+            .WriteTo.Sink(listSink, levelSwitch: listSinkLevelSwitch, restrictedToMinimumLevel: LogEventLevel.Verbose)
             .WriteTo.Console()
             .WriteTo.Debug()
             .WriteTo.File(logFilePath, LogEventLevel.Debug, rollingInterval: RollingInterval.Day, retainedFileCountLimit: 7)
-            .MinimumLevel.Debug()
+            .MinimumLevel.Verbose()
             .CreateLogger();
     }
     public void OnTrayClicked(object sender, EventArgs e)

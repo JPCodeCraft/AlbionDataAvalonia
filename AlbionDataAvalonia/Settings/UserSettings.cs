@@ -1,5 +1,7 @@
 ﻿namespace AlbionDataAvalonia.Settings;
 
+using Serilog;
+using Serilog.Events;
 using System;
 using System.ComponentModel;
 
@@ -17,6 +19,7 @@ public class UserSettings : INotifyPropertyChanged
             {
                 _startHidden = value;
                 OnPropertyChanged(nameof(StartHidden));
+                Log.Information("Start hidden set to {StartHidden}", _startHidden);
             }
         }
     }
@@ -39,6 +42,7 @@ public class UserSettings : INotifyPropertyChanged
                     _desiredThreadCount = 1;
                 }
                 OnPropertyChanged(nameof(DesiredThreadCount));
+                Log.Information("Desired thread count set to {DesiredThreadCount}", _desiredThreadCount);
             }
         }
     }
@@ -55,6 +59,7 @@ public class UserSettings : INotifyPropertyChanged
             {
                 maxHashQueueSize = value;
                 OnPropertyChanged(nameof(MaxHashQueueSize));
+                Log.Information("Max hash queue size set to {MaxHashQueueSize}", maxHashQueueSize);
             }
         }
     }
@@ -69,6 +74,22 @@ public class UserSettings : INotifyPropertyChanged
             {
                 maxLogCount = value;
                 OnPropertyChanged(nameof(MaxLogCount));
+                Log.Information("Max log count set to {MaxLogCount}", maxLogCount);
+            }
+        }
+    }
+
+    private int mailsPerPage = 200;
+    public int MailsPerPage
+    {
+        get => mailsPerPage;
+        set
+        {
+            if (mailsPerPage != value)
+            {
+                mailsPerPage = value;
+                OnPropertyChanged(nameof(MailsPerPage));
+                Log.Information("Mails per page set to {MailsPerPage}", mailsPerPage);
             }
         }
     }
@@ -83,6 +104,26 @@ public class UserSettings : INotifyPropertyChanged
             {
                 salesTax = value;
                 OnPropertyChanged(nameof(SalesTax));
+                Log.Information("Sales tax set to {SalesTax}", salesTax);
+            }
+        }
+    }
+
+    private LogEventLevel logLevel = LogEventLevel.Information;
+    public LogEventLevel LogLevel
+    {
+        get => logLevel;
+        set
+        {
+            if (logLevel != value)
+            {
+                logLevel = value;
+                if (AppData.ListSinkLevelSwitch != null)
+                {
+                    AppData.ListSinkLevelSwitch.MinimumLevel = logLevel;
+                    Log.Information("Log level set to {LogLevel}", logLevel);
+                }
+                OnPropertyChanged(nameof(LogLevel));
             }
         }
     }
@@ -90,6 +131,19 @@ public class UserSettings : INotifyPropertyChanged
     protected virtual void OnPropertyChanged(string propertyName)
     {
         PropertyChanged?.Invoke(this, new PropertyChangedEventArgs(propertyName));
+    }
+
+    public void UpdateFrom(UserSettings newSettings)
+    {
+        var properties = typeof(UserSettings).GetProperties();
+        foreach (var property in properties)
+        {
+            if (property.CanWrite)
+            {
+                var value = property.GetValue(newSettings);
+                property.SetValue(this, value);
+            }
+        }
     }
 }
 

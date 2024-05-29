@@ -16,7 +16,7 @@ public class AuctionGetItemAverageStatsResponse : BaseOperation
 
     public AuctionGetItemAverageStatsResponse(Dictionary<byte, object> parameters) : base(parameters)
     {
-        Log.Debug("Got {PacketType} packet.", GetType());
+        Log.Verbose("Got {PacketType} packet.", GetType());
 
         try
         {

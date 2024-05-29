@@ -11,7 +11,7 @@ namespace AlbionDataAvalonia.Network.Events
         public readonly int userObjectId;
         public LeaveEvent(Dictionary<byte, object> parameters) : base(parameters)
         {
-            Log.Debug("Got {PacketType} packet.", GetType());
+            Log.Verbose("Got {PacketType} packet.", GetType());
             try
             {
                 if (parameters.TryGetValue(0, out object objectId))

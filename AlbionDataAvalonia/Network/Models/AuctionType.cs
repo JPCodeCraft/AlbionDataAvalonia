@@ -1,8 +1,11 @@
-﻿namespace AlbionDataAvalonia.Network.Models;
+﻿using System.Text.Json.Serialization;
 
+namespace AlbionDataAvalonia.Network.Models;
+
+[JsonConverter(typeof(JsonStringEnumConverter))]
 public enum AuctionType
 {
-    Unknown,
-    Offer,
-    Request
+    unknown,
+    offer,
+    request
 }

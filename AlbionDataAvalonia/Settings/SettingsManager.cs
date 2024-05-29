@@ -15,15 +15,16 @@ public class SettingsManager
     private bool loadedAppSettingsFromRemote = false;
 
     private string appSettingsDownloadUrl = "https://raw.githubusercontent.com/JPCodeCraft/AlbionDataAvalonia/master/AlbionDataAvalonia/DefaultAppSettings.json";
-    public UserSettings UserSettings { get; private set; }
+    public UserSettings UserSettings { get; } = new();
     public AppSettings AppSettings { get; private set; }
     public SettingsManager()
     {
-        LoadUserSettings();
     }
 
-    public async Task Initialize()
+    public async Task InitializeSettings()
     {
+        LoadUserSettings();
+
         if (!await TryLoadAppSettingsFromRemoteAsync())
         {
             LoadAppSettingsFromLocal();
@@ -46,7 +47,7 @@ public class SettingsManager
 
             if (settings != null)
             {
-                UserSettings = settings;
+                UserSettings.UpdateFrom(settings);
                 SaveUserSettings(); // Save the default settings to a new user settings file
             }
         }
@@ -57,7 +58,7 @@ public class SettingsManager
 
             if (settings != null)
             {
-                UserSettings = settings;
+                UserSettings.UpdateFrom(settings);
             }
         }
 

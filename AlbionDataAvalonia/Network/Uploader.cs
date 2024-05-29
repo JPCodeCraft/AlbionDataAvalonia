@@ -55,17 +55,22 @@ public class Uploader : IDisposable
         }
         try
         {
-            var offers = marketUpload.Orders.Where(x => x.AuctionType == AuctionType.Offer).Count();
-            var requests = marketUpload.Orders.Where(x => x.AuctionType == AuctionType.Request).Count();
+
+            var offers = marketUpload.Orders.Where(x => x.AuctionType == AuctionType.offer).Count();
+            var requests = marketUpload.Orders.Where(x => x.AuctionType == AuctionType.request).Count();
             var data = SerializeData(marketUpload);
 
-            var uploadStatus = await UploadData(data, _playerState.AlbionServer, _settingsManager.AppSettings.MarketOrdersIngestSubject ?? "");
+            Log.Debug("Starting upload of {Offers} offers, {Requests} requests. Identifier: {identifier}", offers, requests, marketUpload.Identifier);
+
+            var uploadStatus = await UploadData(data, _playerState.AlbionServer, _settingsManager.AppSettings.MarketOrdersIngestSubject ?? "", marketUpload.Identifier);
 
             OnMarketUpload?.Invoke(this, new MarketUploadEventArgs(marketUpload, _playerState.AlbionServer, uploadStatus));
+
+            Log.Debug("Market upload complete. {Offers} offers, {Requests} requests. Identifier: {identifier}", offers, requests, marketUpload.Identifier);
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Exception while uploading market data.");
+            Log.Error(ex, "Exception while uploading market data. Identifier: {identifier}", marketUpload.Identifier);
         }
     }
     private async Task Upload(GoldPriceUpload goldHistoryUpload)
@@ -80,13 +85,17 @@ public class Uploader : IDisposable
             var amount = goldHistoryUpload.Prices.Length;
             var data = SerializeData(goldHistoryUpload);
 
-            var uploadStatus = await UploadData(data, _playerState.AlbionServer, _settingsManager.AppSettings.GoldDataIngestSubject ?? "");
+            Log.Debug("Starting upload of gold data. {count} histories. Identifier: {identifier}", amount, goldHistoryUpload.Identifier);
+
+            var uploadStatus = await UploadData(data, _playerState.AlbionServer, _settingsManager.AppSettings.GoldDataIngestSubject ?? "", goldHistoryUpload.Identifier);
 
             OnGoldPriceUpload?.Invoke(this, new GoldPriceUploadEventArgs(goldHistoryUpload, _playerState.AlbionServer, uploadStatus));
+
+            Log.Debug("Gold price upload complete. {count} histories. Identifier: {identifier}", amount, goldHistoryUpload.Identifier);
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Exception while uploading gold data.");
+            Log.Error(ex, "Exception while uploading gold data. Identifier: {identifier}", goldHistoryUpload.Identifier);
         }
     }
     private async Task Upload(MarketHistoriesUpload marketHistoriesUpload)
@@ -102,13 +111,17 @@ public class Uploader : IDisposable
             var timescale = marketHistoriesUpload.Timescale;
             var data = SerializeData(marketHistoriesUpload);
 
-            var uploadStatus = await UploadData(data, _playerState.AlbionServer, _settingsManager.AppSettings.MarketHistoriesIngestSubject ?? "");
+            Log.Debug("Starting upload of market history. [{Timescale}] => {count} histories of {item}. Identifier: {identifier}", marketHistoriesUpload.Timescale, count, marketHistoriesUpload.AlbionId, marketHistoriesUpload.Identifier);
+
+            var uploadStatus = await UploadData(data, _playerState.AlbionServer, _settingsManager.AppSettings.MarketHistoriesIngestSubject ?? "", marketHistoriesUpload.Identifier);
 
             OnMarketHistoryUpload?.Invoke(this, new MarketHistoriesUploadEventArgs(marketHistoriesUpload, _playerState.AlbionServer, uploadStatus));
+
+            Log.Debug("Market history upload complete. [{Timescale}] => {count} histories of {item}. Identifier: {identifier}", marketHistoriesUpload.Timescale, count, marketHistoriesUpload.AlbionId, marketHistoriesUpload.Identifier);
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Exception while uploading market history data.");
+            Log.Error(ex, "Exception while uploading market history data. Identifier: {identifier}", marketHistoriesUpload.Identifier);
         }
     }
     private byte[] SerializeData(object upload)
@@ -176,14 +189,14 @@ public class Uploader : IDisposable
             return hash;
         }
     }
-    private async Task<UploadStatus> UploadData(byte[] data, AlbionServer server, string topic)
+    private async Task<UploadStatus> UploadData(byte[] data, AlbionServer server, string topic, Guid identifier)
     {
         try
         {
             string dataHash = GetHash(data, server);
             if (_playerState.CheckHashInQueue(dataHash))
             {
-                Log.Debug("Data hash is already in queue, skipping upload");
+                Log.Debug("Data hash is already in queue, skipping upload. Identifier: {identifier}", identifier);
                 return UploadStatus.Skipped;
             }
             _playerState.AddSentDataHash(dataHash);
@@ -197,11 +210,11 @@ public class Uploader : IDisposable
                 stopwatch.Stop();
                 _playerState.AddPowSolveTime(stopwatch.ElapsedMilliseconds);
 
-                Log.Debug("Solved PoW {key} with solution {solution} in {time} ms.", powRequest.Key, solution, stopwatch.ElapsedMilliseconds.ToString());
+                Log.Verbose("Solved PoW {key} with solution {solution} in {time} ms. Identifier: {identifier}", powRequest.Key, solution, stopwatch.ElapsedMilliseconds.ToString(), identifier);
 
                 if (!string.IsNullOrEmpty(solution))
                 {
-                    if (await UploadWithPow(powRequest, solution, data, topic, server, _connectionService.httpClient))
+                    if (await UploadWithPow(powRequest, solution, data, topic, server, _connectionService.httpClient, identifier))
                     {
                         return UploadStatus.Success;
                     }
@@ -212,28 +225,28 @@ public class Uploader : IDisposable
                 }
                 else
                 {
-                    Log.Error("PoW solution is null or empty.");
+                    Log.Error("PoW solution is null or empty. Identifier: {identifier}", identifier);
                     return UploadStatus.Failed;
                 }
             }
             else
             {
-                Log.Error("PoW request is null.");
+                Log.Error("PoW request is null. Identifier: {identifier}", identifier);
                 return UploadStatus.Failed;
             }
         }
         catch (Exception ex)
         {
-            Log.Error(ex, "Exception while uploading data to {0}.", server.Name);
+            Log.Error(ex, "Exception while uploading data to {0}. Identifier: {identifier}", server.Name, identifier);
             return UploadStatus.Failed;
         }
 
     }
-    private async Task<bool> UploadWithPow(PowRequest pow, string solution, byte[] data, string topic, AlbionServer server, HttpClient client)
+    private async Task<bool> UploadWithPow(PowRequest pow, string solution, byte[] data, string topic, AlbionServer server, HttpClient client, Guid identifier)
     {
         if (client.BaseAddress == null)
         {
-            Log.Error("Failed to upload with Pow. Base address is null.");
+            Log.Error("Failed to upload with Pow. Base address is null. Identifier: {identifier}", identifier);
             return false;
         }
 
@@ -253,11 +266,11 @@ public class Uploader : IDisposable
 
         if (response.StatusCode != HttpStatusCode.OK)
         {
-            Log.Error("HTTP Error while proving pow. Returned: {0} ({1})", response.StatusCode, await response.Content.ReadAsStringAsync());
+            Log.Error("HTTP Error while proving pow. Returned: {0} ({1}). Identifier: {identifier}", response.StatusCode, await response.Content.ReadAsStringAsync(), identifier);
             return false;
         }
 
-        Log.Debug("Successfully sent ingest request to {0}", requestUri);
+        Log.Verbose("Successfully sent ingest request to {0}. Identifier: {identifier}", requestUri, identifier);
         return true;
     }
 
