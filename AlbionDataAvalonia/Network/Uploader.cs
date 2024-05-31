@@ -253,9 +253,10 @@ public class Uploader : IDisposable
         var dataToSend = new FormUrlEncodedContent(new[]
         {
             new KeyValuePair<string, string>("key", pow.Key),
-            new KeyValuePair<string, string>("natsmsg", Encoding.UTF8.GetString(data)),
-            new KeyValuePair<string, string>("serverid", server.Id.ToString()),
             new KeyValuePair<string, string>("solution", solution),
+            new KeyValuePair<string, string>("serverid", server.Id.ToString()),
+            new KeyValuePair<string, string>("natsmsg", Encoding.UTF8.GetString(data)),
+            new KeyValuePair<string, string>("identifier", identifier.ToString())
         });
 
         var requestUri = new Uri(client.BaseAddress, "/pow/" + topic);
