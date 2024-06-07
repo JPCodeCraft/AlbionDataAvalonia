@@ -48,7 +48,7 @@ public partial class App : Application
             try
             {
                 await db.Database.MigrateAsync();
-                Log.Information("Migrations completed successfully");
+                Log.Information("Migrations [if any] completed successfully");
             }
             catch (Exception e)
             {
