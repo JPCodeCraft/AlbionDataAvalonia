@@ -45,7 +45,21 @@ public partial class App : Application
         //MIGRATIONS
         using (var db = new LocalContext())
         {
-            await db.Database.MigrateAsync();
+            try
+            {
+                await db.Database.MigrateAsync();
+                Log.Information("Migrations completed successfully");
+            }
+            catch (Exception e)
+            {
+                Log.Error(e, "Error in migrations, exception: {exception}", e);
+                Log.Information("Deleting database and trying again");
+            }
+            finally
+            {
+                await db.DeleteDatabase();
+                await db.Database.MigrateAsync();
+            }
         }
 
         //DI SETUP
