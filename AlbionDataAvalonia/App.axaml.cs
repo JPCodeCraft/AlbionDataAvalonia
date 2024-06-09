@@ -54,9 +54,6 @@ public partial class App : Application
             {
                 Log.Error(e, "Error in migrations, exception: {exception}", e);
                 Log.Information("Deleting database and trying again");
-            }
-            finally
-            {
                 await db.DeleteDatabase();
                 await db.Database.MigrateAsync();
             }
