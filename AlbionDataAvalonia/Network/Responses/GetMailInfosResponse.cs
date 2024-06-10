@@ -20,7 +20,14 @@ public class GetMailInfosResponse : BaseOperation
 
             if (parameters.TryGetValue(3, out object? _ids))
             {
-                MailIds = (long[])_ids;
+                if (_ids is int[] intIds)
+                {
+                    MailIds = Array.ConvertAll(intIds, id => (long)id);
+                }
+                else if (_ids is long[] longIds)
+                {
+                    MailIds = longIds;
+                }
             }
             if (parameters.TryGetValue(6, out object? _locationIds))
             {
@@ -32,7 +39,14 @@ public class GetMailInfosResponse : BaseOperation
             }
             if (parameters.TryGetValue(11, out object? _received))
             {
-                Received = (long[])_received;
+                if (_received is int[] intReceived)
+                {
+                    Received = Array.ConvertAll(intReceived, id => (long)id);
+                }
+                else if (_received is long[] longReceived)
+                {
+                    Received = longReceived;
+                }
             }
         }
         catch (Exception e)
