@@ -17,7 +17,7 @@ public class ReadMailResponse : BaseOperation
 
             if (parameters.TryGetValue(0, out object? id))
             {
-                MailId = (long)id;
+                MailId = Convert.ToInt64(id);
             }
             if (parameters.TryGetValue(1, out object? text))
             {
