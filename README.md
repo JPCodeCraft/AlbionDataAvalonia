@@ -9,6 +9,12 @@ ATTENTION: this is a beta release. Use it at your own risk.
 
 # Features
 
+🧰 Collects ingame market data and ulpoads to [The Albion Online Data Project's](https://www.albion-online-data.com/) server
+
+📬 Collect's market mail data and shows it to you, so you can get the prices you paid for / sold items
+
+📡 Able to capture market data from loadout's quick buy screen, besides the usual market screens and gold screen
+
 🚀 Launch on startup
 
 📌 Sits on tray
@@ -19,9 +25,7 @@ ATTENTION: this is a beta release. Use it at your own risk.
 
 🤌 Doesn't require admin permission to run (installing NpCap still requires, thought)
 
-📡 Able to capture market data from loadout's quick buy screen, besides the usual market screens and gold screen.
-
-⚠️ Please note that this project is currently in testing phase and not ready for production use.
+⚠️ Please note that this project is currently in testing phase and not ready for production use
 
 # Getting Started
 
