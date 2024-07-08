@@ -15,5 +15,5 @@
 
   "AppSettingsRetryLoadIntervalMins": 1,
 
-  "NetworkDevicesStartDelaySecs": 10
+  "NetworkDevicesStartDelaySecs": 5
 }
