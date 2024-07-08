@@ -9,7 +9,7 @@ ATTENTION: this is a beta release. Use it at your own risk.
 
 # Features
 
-🧰 Collects ingame market data and ulpoads to [The Albion Online Data Project's](https://www.albion-online-data.com/) server
+🧰 Collects ingame market data and uploads to [The Albion Online Data Project's](https://www.albion-online-data.com/) server
 
 📬 Collect's market mail data and shows it to you, so you can get the prices you paid for / sold items
 
