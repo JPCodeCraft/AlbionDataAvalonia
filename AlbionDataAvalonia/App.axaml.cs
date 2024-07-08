@@ -104,7 +104,7 @@ public partial class App : Application
         });
 
         //LISTENER
-        _ = listener.Run().ContinueWith(t =>
+        _ = listener.StartNetworkListeningAsync().ContinueWith(t =>
         {
             if (t.IsFaulted)
             {
