@@ -7,6 +7,8 @@ All the data is uploaded to The Albion Online Data Project! Albion Free Market d
 
 ATTENTION: this is a beta release. Use it at your own risk.
 
+ATTENTION²: if you use this client, uninstall the official AODP one. Otherwise you'll upload everything twice.
+
 # Features
 
 🧰 Collects ingame market data and uploads to [The Albion Online Data Project's](https://www.albion-online-data.com/) server
