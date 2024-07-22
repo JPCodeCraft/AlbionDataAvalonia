@@ -23,6 +23,7 @@ namespace AlbionDataAvalonia.Network.Services
         private readonly PlayerState _playerState;
         private readonly SettingsManager _settingsManager;
         private readonly MailService _mailService;
+        private readonly IdleService _idleService;
 
         private bool hasCleanedUpDevices = false;
         private bool hasFinishedStartingDevices = false;
@@ -31,17 +32,20 @@ namespace AlbionDataAvalonia.Network.Services
         private IPhotonReceiver? receiver;
         private CaptureDeviceList? devices;
 
-        public NetworkListenerService(Uploader uploader, PlayerState playerState, SettingsManager settingsManager, MailService mailService)
+        public NetworkListenerService(Uploader uploader, PlayerState playerState, SettingsManager settingsManager, MailService mailService, IdleService idleService)
         {
             _uploader = uploader;
             _playerState = playerState;
             _settingsManager = settingsManager;
             _mailService = mailService;
+            _idleService = idleService;
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
                 SystemEvents.PowerModeChanged += SystemEvents_PowerModeChanged;
             }
+
+            _idleService.OnDetectedIdle += RestartNetworkListener;
         }
 
         public async Task StartNetworkListeningAsync()
@@ -294,6 +298,12 @@ namespace AlbionDataAvalonia.Network.Services
             }
         }
 
+        private void RestartNetworkListener()
+        {
+            StopNetworkListening();
+            Task.Run(StartNetworkListeningAsync);
+        }
+
         public void Dispose()
         {
             StopNetworkListening();
@@ -301,6 +311,7 @@ namespace AlbionDataAvalonia.Network.Services
             {
                 SystemEvents.PowerModeChanged -= SystemEvents_PowerModeChanged;
             }
+            _idleService.OnDetectedIdle -= RestartNetworkListener;
             Log.Information("Disposed {type}!", nameof(NetworkListenerService));
         }
     }
