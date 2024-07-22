@@ -14,4 +14,6 @@ public class AppSettings
     public double UpdateCheckIntervalHours { get; set; }
     public double AppSettingsRetryLoadIntervalMins { get; set; }
     public int NetworkDevicesStartDelaySecs { get; set; }
+    public int NetworkDevicesIdleMinutes { get; set; }
+    public int NetworkDevicesIdleCheckMinutes { get; set; }
 }

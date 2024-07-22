@@ -73,6 +73,7 @@ public partial class App : Application
         var listener = services.GetRequiredService<NetworkListenerService>();
         var uploader = services.GetRequiredService<Uploader>();
         var localization = services.GetRequiredService<LocalizationService>();
+        var idleService = services.GetRequiredService<IdleService>();
 
         //INITIALIZE SETTINGS
         await settings.InitializeSettings();
@@ -109,6 +110,15 @@ public partial class App : Application
             if (t.IsFaulted)
             {
                 Log.Error(t.Exception, "Error in listener, exception: {exception}", t.Exception);
+            }
+        });
+
+        //IDLE SERVICE
+        _ = idleService.ExecuteAsync().ContinueWith(t =>
+        {
+            if (t.IsFaulted)
+            {
+                Log.Error(t.Exception, "Error in idle service, exception: {exception}", t.Exception);
             }
         });
 
@@ -190,6 +200,7 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<ConnectionService>();
         collection.AddSingleton<SettingsManager>();
         collection.AddSingleton<ListSink>();
+        collection.AddSingleton<IdleService>();
         collection.AddSingleton<Uploader>();
         collection.AddSingleton<MailService>();
         collection.AddSingleton<LocalizationService>();

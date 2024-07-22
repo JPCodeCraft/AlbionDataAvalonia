@@ -42,6 +42,12 @@ public class SettingsManager
         if (!File.Exists(localUserSettingsFilePath))
         {
             localUserSettingsFilePath = deafultUserSettingsFilePath;
+
+            // If we are in development mode, use the default settings file
+#if DEBUG
+            localUserSettingsFilePath = deafultUserSettingsFilePath;
+#endif
+
             string json = File.ReadAllText(localUserSettingsFilePath);
             var settings = JsonSerializer.Deserialize<UserSettings>(json);
 
@@ -72,6 +78,11 @@ public class SettingsManager
 
     private async Task<bool> TryLoadAppSettingsFromRemoteAsync()
     {
+        // If we are in development mode, use the default settings file
+#if DEBUG
+        return false;
+#endif
+
         try
         {
             using HttpClient client = new HttpClient();
