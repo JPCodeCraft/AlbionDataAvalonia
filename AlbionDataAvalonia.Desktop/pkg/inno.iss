@@ -60,8 +60,8 @@ procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
 begin
   if CurUninstallStep = usUninstall then
   begin
-    DeleteConfigFiles := MsgBox('Do you want to remove your configuration files, including stored game emails?' + #13#10 + 
-                                'Click Yes to remove all data or No to keep your configuration.', mbConfirmation, MB_YESNO) = IDYES;
+    DeleteConfigFiles := MsgBox('Do you want to remove your configuration files, including stored game E-MAILS?' + #13#10 + 
+                                'Click YES to remove all data or NO to keep your configuration and emails.', mbConfirmation, MB_YESNO) = IDYES;
   end
   else if (CurUninstallStep = usPostUninstall) and DeleteConfigFiles then
   begin
