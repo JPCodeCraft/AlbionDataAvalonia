@@ -31,9 +31,9 @@ namespace AlbionDataAvalonia.Network.Services
 
                     Log.Debug($"Idle check thread running, last packet time: {_playerState.LastPacketTime}, last idle check: {lastIdleCheck}");
 
-                    lastIdleCheck = DateTime.Now;
+                    lastIdleCheck = DateTime.UtcNow;
 
-                    if ((DateTime.Now - _playerState.LastPacketTime) > TimeSpan.FromMinutes(_settingsManager.AppSettings.NetworkDevicesIdleMinutes))
+                    if ((DateTime.UtcNow - _playerState.LastPacketTime) > TimeSpan.FromMinutes(_settingsManager.AppSettings.NetworkDevicesIdleMinutes))
                     {
                         Log.Debug("Idle check triggered, last packet time: {LastPacketTime}", _playerState.LastPacketTime);
                         OnDetectedIdle?.Invoke();
