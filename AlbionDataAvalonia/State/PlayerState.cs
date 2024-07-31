@@ -48,7 +48,7 @@ namespace AlbionDataAvalonia.State
         private ConcurrentQueue<long> PowSolveTimes { get; } = new();
         public double PowSolveTimeAverage => PowSolveTimes.Count > 0 ? PowSolveTimes.Average() : 0;
 
-        public DateTime LastPacketTime { get; set; }
+        public DateTime LastPacketTime { get; set; } = DateTime.SpecifyKind(DateTime.MinValue, DateTimeKind.Utc);
 
         public AlbionLocation Location
         {
