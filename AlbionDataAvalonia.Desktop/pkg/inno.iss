@@ -2,7 +2,7 @@
 #define MyAppName "Albion Free Market Data Client"
 #define MyAppPublisher "JP Code Craft"
 #define MyAppPublisherURL "https://www.albionfreemarket.com"
-#define MyAppVersion "0.8.2.1"
+#define MyAppVersion "0.8.3.0"
 #define MyAppExeName "AFMDataClient.exe"
 #define MyAppOutputDir "userdocs:Inno Setup Output"
 #define MyAppOutputBaseFilename "AFMDataClientSetup"
@@ -40,8 +40,15 @@ Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: 
 
 [Run]
 Filename: "{app}\{#WinPCapInstallerFilePath}"; Parameters: "/S"; StatusMsg: "Installing WinPcap..."; Flags: shellexec runascurrentuser waituntilterminated; Check: not IsWinPcapInstalled
+Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait
+
+[UninstallRun]
+Filename: "{sys}\taskkill.exe"; Parameters: "/F /IM {#MyAppExeName}"; Flags: runhidden; RunOnceId: "KillMyApp"
 
 [Code]
+var
+  DeleteConfigFiles: Boolean;
+
 function IsWinPcapInstalled: Boolean;
 begin
   Result := RegKeyExists(HKLM, 'SOFTWARE\WOW6432Node\WinPcap') or RegKeyExists(HKLM, 'SOFTWARE\WOW6432Node\Npcap') or RegKeyExists(HKLM, 'SYSTEM\CurrentControlSet\Services\Win10Pcap');
@@ -49,12 +56,15 @@ begin
     MsgBox('WinPcap is not currently installed on your system. We will proceed with the installation now. This is a necessary component for the application to function properly. Please follow the on-screen installation instructions.', mbInformation, MB_OK);
 end;
 
-
-[Run]
-Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait
-
-[UninstallRun]
-Filename: "{sys}\taskkill.exe"; Parameters: "/F /IM {#MyAppExeName}"; Flags: runhidden; RunOnceId: "KillMyApp"
-
-[UninstallDelete]
-Type: filesandordirs; Name: "{localappdata}\AFMDataClient"
+procedure CurUninstallStepChanged(CurUninstallStep: TUninstallStep);
+begin
+  if CurUninstallStep = usUninstall then
+  begin
+    DeleteConfigFiles := MsgBox('Do you want to remove your configuration files, including stored game emails?' + #13#10 + 
+                                'Click Yes to remove all data or No to keep your configuration.', mbConfirmation, MB_YESNO) = IDYES;
+  end
+  else if (CurUninstallStep = usPostUninstall) and DeleteConfigFiles then
+  begin
+    DelTree(ExpandConstant('{localappdata}\AFMDataClient'), True, True, True);
+  end;
+end;
