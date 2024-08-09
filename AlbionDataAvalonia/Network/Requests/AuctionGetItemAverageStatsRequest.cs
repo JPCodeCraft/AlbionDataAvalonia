@@ -14,7 +14,7 @@ public class AuctionGetItemAverageStatsRequest : BaseOperation
     public uint messageID;
     public AuctionGetItemAverageStatsRequest(Dictionary<byte, object> parameters) : base(parameters)
     {
-        Log.Debug("Got {PacketType} packet.", GetType());
+        Log.Verbose("Got {PacketType} packet.", GetType());
 
         try
         {

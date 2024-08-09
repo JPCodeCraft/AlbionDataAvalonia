@@ -5,7 +5,17 @@
 An alternative client for [The Albion Online Data Project](https://www.albion-online-data.com/) that provides the same functionality as the official client, but with a user-friendly graphical interface and easy-to-use settings.
 All the data is uploaded to The Albion Online Data Project! Albion Free Market does not host prices databases.
 
+ATTENTION: this is a beta release. Use it at your own risk.
+
+ATTENTION²: if you use this client, uninstall the official AODP one. Otherwise you'll upload everything twice.
+
 # Features
+
+🧰 Collects ingame market data and uploads to [The Albion Online Data Project's](https://www.albion-online-data.com/) server
+
+📬 Collect's market mail data and shows it to you, so you can get the prices you paid for / sold items
+
+📡 Able to capture market data from loadout's quick buy screen, besides the usual market screens and gold screen
 
 🚀 Launch on startup
 
@@ -17,9 +27,7 @@ All the data is uploaded to The Albion Online Data Project! Albion Free Market d
 
 🤌 Doesn't require admin permission to run (installing NpCap still requires, thought)
 
-📡 Able to capture market data from loadout's quick buy screen, besides the usual market screens and gold screen.
-
-⚠️ Please note that this project is currently in testing phase and not ready for production use.
+⚠️ Please note that this project is currently in testing phase and not ready for production use
 
 # Getting Started
 

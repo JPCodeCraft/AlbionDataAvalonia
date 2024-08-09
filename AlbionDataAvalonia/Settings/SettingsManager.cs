@@ -9,26 +9,25 @@ namespace AlbionDataAvalonia.Settings;
 
 public class SettingsManager
 {
-    string userSettingsDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AFMDataClient");
-
     private string deafultUserSettingsFilePath = Path.Combine(AppContext.BaseDirectory, "DefaultUserSettings.json");
     private string defaultAppSettingsFilePath = Path.Combine(AppContext.BaseDirectory, "DefaultAppSettings.json");
 
     private bool loadedAppSettingsFromRemote = false;
 
     private string appSettingsDownloadUrl = "https://raw.githubusercontent.com/JPCodeCraft/AlbionDataAvalonia/master/AlbionDataAvalonia/DefaultAppSettings.json";
-    public UserSettings UserSettings { get; private set; }
+    public UserSettings UserSettings { get; } = new();
     public AppSettings AppSettings { get; private set; }
     public SettingsManager()
     {
-        LoadUserSettings();
     }
 
-    public async Task Initialize()
+    public async Task InitializeSettings()
     {
+        //LoadUserSettings();
+
         //if (!await TryLoadAppSettingsFromRemoteAsync())
         //{
-        LoadAppSettingsFromLocal();
+            LoadAppSettingsFromLocal();
         //    _ = KeepTryingToLoadAppSettingsFromRemoteAsync();
         //}
     }
@@ -37,18 +36,24 @@ public class SettingsManager
     private void LoadUserSettings()
     {
         // Get the path to the user settings file in the local app data directory
-        string localUserSettingsFilePath = Path.Combine(userSettingsDirectory, "UserSettings.json");
+        string localUserSettingsFilePath = Path.Combine(AppData.LocalPath, "UserSettings.json");
 
         // If the user settings file doesn't exist in the local app data directory, use the default settings file
         if (!File.Exists(localUserSettingsFilePath))
         {
             localUserSettingsFilePath = deafultUserSettingsFilePath;
+
+            // If we are in development mode, use the default settings file
+#if DEBUG
+            localUserSettingsFilePath = deafultUserSettingsFilePath;
+#endif
+
             string json = File.ReadAllText(localUserSettingsFilePath);
             var settings = JsonSerializer.Deserialize<UserSettings>(json);
 
             if (settings != null)
             {
-                UserSettings = settings;
+                UserSettings.UpdateFrom(settings);
                 SaveUserSettings(); // Save the default settings to a new user settings file
             }
         }
@@ -59,7 +64,7 @@ public class SettingsManager
 
             if (settings != null)
             {
-                UserSettings = settings;
+                UserSettings.UpdateFrom(settings);
             }
         }
 
@@ -73,6 +78,11 @@ public class SettingsManager
 
     private async Task<bool> TryLoadAppSettingsFromRemoteAsync()
     {
+        // If we are in development mode, use the default settings file
+#if DEBUG
+        return false;
+#endif
+
         try
         {
             using HttpClient client = new HttpClient();
@@ -147,10 +157,10 @@ public class SettingsManager
             string json = JsonSerializer.Serialize(UserSettings);
 
             // Ensure the directory exists
-            Directory.CreateDirectory(userSettingsDirectory);
+            Directory.CreateDirectory(AppData.LocalPath);
 
             // Get the path to the user settings file in the local app data directory
-            string userSettingsFilePath = Path.Combine(userSettingsDirectory, "UserSettings.json");
+            string userSettingsFilePath = Path.Combine(AppData.LocalPath, "UserSettings.json");
 
             File.WriteAllText(userSettingsFilePath, json);
         }

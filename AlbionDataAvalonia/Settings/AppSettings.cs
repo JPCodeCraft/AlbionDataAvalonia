@@ -1,13 +1,9 @@
-﻿using AlbionDataAvalonia.Network.Models;
-using System.Collections.Generic;
-
-namespace AlbionDataAvalonia.Settings;
+﻿namespace AlbionDataAvalonia.Settings;
 
 public class AppSettings
 {
     public string? NPCapDownloadUrl { get; set; }
     public string? PacketFilterPortText { get; set; }
-    public List<AlbionServer> AlbionServers { get; set; } = new List<AlbionServer>();
     public string? MarketOrdersIngestSubject { get; set; }
     public string? MarketHistoriesIngestSubject { get; set; }
     public string? GoldDataIngestSubject { get; set; }
@@ -18,4 +14,6 @@ public class AppSettings
     public double UpdateCheckIntervalHours { get; set; }
     public double AppSettingsRetryLoadIntervalMins { get; set; }
     public int NetworkDevicesStartDelaySecs { get; set; }
+    public int NetworkDevicesIdleMinutes { get; set; }
+    public int NetworkDevicesIdleCheckMinutes { get; set; }
 }

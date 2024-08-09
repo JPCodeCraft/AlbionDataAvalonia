@@ -13,7 +13,7 @@ public class JoinResponse : BaseOperation
     public readonly int userObjectId;
     public JoinResponse(Dictionary<byte, object> parameters) : base(parameters)
     {
-        Log.Debug("Got {PacketType} packet.", GetType());
+        Log.Verbose("Got {PacketType} packet.", GetType());
         try
         {
             if (parameters.TryGetValue(0, out object objectId))

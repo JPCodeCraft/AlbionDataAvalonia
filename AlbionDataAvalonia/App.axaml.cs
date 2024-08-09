@@ -1,4 +1,6 @@
-﻿using AlbionDataAvalonia.Logging;
+﻿using AlbionDataAvalonia.DB;
+using AlbionDataAvalonia.Localization.Services;
+using AlbionDataAvalonia.Logging;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
@@ -9,6 +11,7 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
+using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using Serilog.Events;
@@ -39,6 +42,23 @@ public partial class App : Application
         // Without this line you will get duplicate validations from both Avalonia and CT
         BindingPlugins.DataValidators.RemoveAt(0);
 
+        //MIGRATIONS
+        using (var db = new LocalContext())
+        {
+            try
+            {
+                await db.Database.MigrateAsync();
+                Log.Information("Migrations [if any] completed successfully");
+            }
+            catch (Exception e)
+            {
+                Log.Error(e, "Error in migrations, exception: {exception}", e);
+                Log.Information("Deleting database and trying again");
+                await db.DeleteDatabase();
+                await db.Database.MigrateAsync();
+            }
+        }
+
         //DI SETUP
         var collection = new ServiceCollection();
         collection.AddCommonServices();
@@ -52,9 +72,11 @@ public partial class App : Application
         var settings = services.GetRequiredService<SettingsManager>();
         var listener = services.GetRequiredService<NetworkListenerService>();
         var uploader = services.GetRequiredService<Uploader>();
+        var localization = services.GetRequiredService<LocalizationService>();
+        var idleService = services.GetRequiredService<IdleService>();
 
         //INITIALIZE SETTINGS
-        await settings.Initialize();
+        await settings.InitializeSettings();
 
         //UPDATER
         _updateTimer = new System.Timers.Timer
@@ -83,13 +105,25 @@ public partial class App : Application
         });
 
         //LISTENER
-        _ = listener.Run().ContinueWith(t =>
+        _ = listener.StartNetworkListeningAsync().ContinueWith(t =>
         {
             if (t.IsFaulted)
             {
                 Log.Error(t.Exception, "Error in listener, exception: {exception}", t.Exception);
             }
         });
+
+        //IDLE SERVICE
+        _ = idleService.ExecuteAsync().ContinueWith(t =>
+        {
+            if (t.IsFaulted)
+            {
+                Log.Error(t.Exception, "Error in idle service, exception: {exception}", t.Exception);
+            }
+        });
+
+        //INITIALIZE LOCALIZATION
+        await localization.InitializeAsync();
 
         //VIEWMODEL
         this.DataContext = vm;
@@ -127,12 +161,17 @@ public partial class App : Application
     {
         string logFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AFMDataClient", "logs", "log-.txt");
 
+        var listSinkLevelSwitch = new Serilog.Core.LoggingLevelSwitch();
+        listSinkLevelSwitch.MinimumLevel = LogEventLevel.Information;
+
+        AppData.ListSinkLevelSwitch = listSinkLevelSwitch;
+
         Log.Logger = new LoggerConfiguration()
-            .WriteTo.Sink(listSink, restrictedToMinimumLevel: LogEventLevel.Information)
+            .WriteTo.Sink(listSink, levelSwitch: listSinkLevelSwitch, restrictedToMinimumLevel: LogEventLevel.Verbose)
             .WriteTo.Console()
             .WriteTo.Debug()
             .WriteTo.File(logFilePath, LogEventLevel.Debug, rollingInterval: RollingInterval.Day, retainedFileCountLimit: 7)
-            .MinimumLevel.Debug()
+            .MinimumLevel.Verbose()
             .CreateLogger();
     }
     public void OnTrayClicked(object sender, EventArgs e)
@@ -161,10 +200,14 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<ConnectionService>();
         collection.AddSingleton<SettingsManager>();
         collection.AddSingleton<ListSink>();
+        collection.AddSingleton<IdleService>();
         collection.AddSingleton<Uploader>();
+        collection.AddSingleton<MailService>();
+        collection.AddSingleton<LocalizationService>();
 
         collection.AddSingleton<MainViewModel>();
         collection.AddSingleton<SettingsViewModel>();
         collection.AddSingleton<LogsViewModel>();
+        collection.AddSingleton<MailsViewModel>();
     }
 }
