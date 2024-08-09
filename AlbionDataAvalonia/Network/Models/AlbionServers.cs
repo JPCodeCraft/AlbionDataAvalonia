@@ -5,11 +5,11 @@ namespace AlbionDataAvalonia.Network.Models;
 
 public static class AlbionServers
 {
-    public static AlbionServer Americas { get; } = new AlbionServer(1, "Americas", "5.188.125", "https://pow.west.albion-online-data.com");
+    public static AlbionServer Americas { get; } = new AlbionServer(1, "Americas", "5.188.125", "http://west.aodp.local:3000/");
 
-    public static AlbionServer Asia { get; } = new AlbionServer(2, "Asia", "5.45.187", "https://pow.east.albion-online-data.com");
+    public static AlbionServer Asia { get; } = new AlbionServer(2, "Asia", "5.45.187", "http://east.aodp.local:3000/");
 
-    public static AlbionServer Europe { get; } = new AlbionServer(3, "Europe", "193.169.238", "https://pow.europe.albion-online-data.com");
+    public static AlbionServer Europe { get; } = new AlbionServer(3, "Europe", "193.169.238", "http://europe.aodp.local:3000/");
 
     public static List<AlbionServer> GetAll() => typeof(AlbionServers).GetProperties().Select(field => field.GetValue(null)).OfType<AlbionServer>().ToList();
     public static AlbionServer? Get(string name) => GetAll().SingleOrDefault(server => server.Name.ToLower() == name.ToLower());
