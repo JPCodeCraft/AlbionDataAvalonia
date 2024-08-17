@@ -5,6 +5,8 @@
 An alternative client for [The Albion Online Data Project](https://www.albion-online-data.com/) that provides the same functionality as the official client, but with a user-friendly graphical interface and easy-to-use settings.
 All the data is uploaded to The Albion Online Data Project! Albion Free Market does not host prices databases.
 
+This software was developed by the [Albion Free Market](www.albionfreemarket.com) developer.
+
 ATTENTION: this is a beta release. Use it at your own risk.
 
 ATTENTION²: if you use this client, uninstall the official AODP one. Otherwise you'll upload everything twice.
