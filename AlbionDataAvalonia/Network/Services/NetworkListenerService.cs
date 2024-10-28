@@ -90,6 +90,7 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddResponseHandler(new ReadMailResponseHandler(_playerState, _mailService));
                 //REQUEST
                 builder.AddRequestHandler(new AuctionGetItemAverageStatsRequestHandler(_playerState));
+                builder.AddRequestHandler(new AuctionGetOffersRequestHandler(_playerState));
 
                 receiver = builder.Build();
 
