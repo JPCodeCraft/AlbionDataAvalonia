@@ -1,0 +1,25 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+	<PropertyGroup>
+		<TargetFramework>netstandard2.0</TargetFramework>
+		<Description>A parser for Photon's Protocol16</Description>
+		<Company>0blu</Company>
+		<Copyright>Copyright ©  2020</Copyright>
+		<AssemblyVersion>4.1.0.0</AssemblyVersion>
+		<FileVersion>4.1.0.0</FileVersion>
+		<Authors>0blu</Authors>
+		<Version>4.1.0</Version>
+		<GeneratePackageOnBuild>false</GeneratePackageOnBuild>
+		<PackageProjectUrl>https://github.com/0blu/PhotonPackageParser</PackageProjectUrl>
+		<PackageTags>Photon Unity3d Sniffing</PackageTags>
+		<RepositoryUrl>https://github.com/0blu/PhotonPackageParser</RepositoryUrl>
+		<RepositoryType>git</RepositoryType>
+		<PackageLicenseExpression>MIT</PackageLicenseExpression>
+		<LangVersion>8.0</LangVersion>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<ProjectReference Include="..\Protocol16\Protocol16.csproj" />
+	</ItemGroup>
+
+</Project>

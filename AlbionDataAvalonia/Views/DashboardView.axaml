@@ -34,9 +34,13 @@
 			<Setter Property="BoxShadow" Value="0 0 10 2 #fa6800" />
 		</Style>
 
+		<Style Selector="Label.Orange">
+			<Setter Property="Foreground" Value="{StaticResource AFMOrange}" />
+		</Style>
+
 	</UserControl.Styles>
 
-	<Grid Margin="10, 10, 10, 10" RowDefinitions="Auto, Auto, Auto, Auto" ColumnDefinitions="*">
+	<Grid Margin="10, 10, 10, 10" RowDefinitions="Auto, Auto, Auto, Auto, Auto" ColumnDefinitions="*">
 
 		<!--QUEUE LINE-->
 		<Grid Margin="0, 10, 0, 20" RowDefinitions="Auto, Auto" ColumnDefinitions="*, 200, 200, *">
@@ -111,6 +115,11 @@
 
 			<Label Grid.Row="0" Grid.Column="2" Content="Uploaded Daily Histories" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
 			<Label Grid.Row="1" Grid.Column="2" Content="{Binding UploadedDailyHistoriesCount, StringFormat=N0}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+		</Grid>
+
+		<!--ENCRYPTION LINE-->
+		<Grid IsVisible="{Binding ShowEncrypted}" Margin="0, 10, 0, 10" RowDefinitions="60" ColumnDefinitions="*" Grid.Row="4">
+			<Label Grid.Row="0" Grid.Column="0" Content="Your market orders are encrypted! Go to AFM Discord to understand what's going on." Classes="Orange" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
 		</Grid>
 
 	</Grid>
