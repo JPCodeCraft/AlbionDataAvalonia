@@ -95,6 +95,10 @@ namespace AlbionDataAvalonia.State
                 {
                     isInGame = result;
                     Log.Verbose("Player is {InGame}", isInGame ? "in game" : "not in game");
+                    if (!isInGame)
+                    {
+                        this.hasEncryptedData = false;
+                    }
                     InvokePlayerStateChanged();
                 }
                 return isInGame;

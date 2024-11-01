@@ -46,6 +46,8 @@ public partial class MainViewModel : ViewModelBase
     private bool showChangeCity = false;
     [ObservableProperty]
     private string changeCityText;
+    [ObservableProperty]
+    private bool showEncrypted = false;
 
     [ObservableProperty]
     private bool showDataUi = false;
@@ -142,6 +144,7 @@ public partial class MainViewModel : ViewModelBase
     {
         ShowChangeCity = !_playerState.CheckLocationIsSet() && _playerState.IsInGame;
         ShowGetInGame = !_playerState.IsInGame;
+        ShowEncrypted = _playerState.HasEncryptedData;
         ShowDataUi = !(ShowChangeCity || ShowGetInGame);
 
         if (_playerState.Location == AlbionLocations.Unknown)
