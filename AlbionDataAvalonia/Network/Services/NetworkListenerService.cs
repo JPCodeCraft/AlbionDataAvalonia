@@ -5,6 +5,7 @@ using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
 using Microsoft.Win32;
 using PacketDotNet;
+using PhotonPackageParser;
 using Serilog;
 using SharpPcap;
 using System;
@@ -199,7 +200,12 @@ namespace AlbionDataAvalonia.Network.Services
                         //Log.Verbose("Packet from {server} server from IP {ip}", server.Name, srcIp);
                         _playerState.AlbionServer = server;
                     }
-                    receiver.ReceivePacket(packet.PayloadData);
+                    var packetStatus = receiver.ReceivePacket(packet.PayloadData);
+                    if (packetStatus == PacketStatus.Encrypted)
+                    {
+                        _playerState.HasEncryptedData = true;
+                        Log.Warning("Encrypted packet received! You can't see market orders!");
+                    }
                 }
             }
             catch (Exception ex)

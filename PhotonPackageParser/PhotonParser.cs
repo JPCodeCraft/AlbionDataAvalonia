@@ -1,8 +1,8 @@
 ﻿using Protocol16;
+using Protocol16.Photon;
 using System;
 using System.Collections.Generic;
 using System.IO;
-using Protocol16.Photon;
 
 namespace PhotonPackageParser
 {
@@ -13,11 +13,11 @@ namespace PhotonPackageParser
 
         private readonly Dictionary<int, SegmentedPackage> _pendingSegments = new Dictionary<int, SegmentedPackage>();
 
-        public void ReceivePacket(byte[] payload)
+        public PacketStatus ReceivePacket(byte[] payload)
         {
             if (payload.Length < PhotonHeaderLength)
             {
-                return;
+                return PacketStatus.InvalidHeader;
             }
 
             int offset = 0;
@@ -32,8 +32,8 @@ namespace PhotonPackageParser
 
             if (isEncrypted)
             {
-                // Encrypted packages are not supported
-                return;
+                // This doesn't really work, flags is always 0?
+                return PacketStatus.Encrypted;
             }
 
             if (isCrcEnabled)
@@ -45,15 +45,20 @@ namespace PhotonPackageParser
                 if (crc != CrcCalculator.Calculate(payload, payload.Length))
                 {
                     // Invalid crc
-                    return;
+                    return PacketStatus.InvalidCrc;
                 }
             }
 
+            PacketStatus response = PacketStatus.Undefined;
+
             for (int commandIdx = 0; commandIdx < commandCount; commandIdx++)
             {
-                HandleCommand(payload, ref offset);
+                response = HandleCommand(payload, ref offset);
             }
+
+            return response;
         }
+
 
         protected abstract void OnRequest(byte operationCode, Dictionary<byte, object> parameters);
 
@@ -61,7 +66,7 @@ namespace PhotonPackageParser
 
         protected abstract void OnEvent(byte code, Dictionary<byte, object> parameters);
 
-        private void HandleCommand(byte[] source, ref int offset)
+        private PacketStatus HandleCommand(byte[] source, ref int offset)
         {
             ReadByte(out byte commandType, source, ref offset);
             ReadByte(out byte channelId, source, ref offset);
@@ -72,11 +77,13 @@ namespace PhotonPackageParser
             NumberDeserializer.Deserialize(out int sequenceNumber, source, ref offset);
             commandLength -= CommandHeaderLength;
 
+            PacketStatus response = PacketStatus.Undefined;
+
             switch ((CommandType)commandType)
             {
                 case CommandType.Disconnect:
                     {
-                        return;
+                        return PacketStatus.DisconnectCommand;
                     }
                 case CommandType.SendUnreliable:
                     {
@@ -86,12 +93,12 @@ namespace PhotonPackageParser
                     }
                 case CommandType.SendReliable:
                     {
-                        HandleSendReliable(source, ref offset, ref commandLength);
+                        response = HandleSendReliable(source, ref offset, ref commandLength);
                         break;
                     }
                 case CommandType.SendFragment:
                     {
-                        HandleSendFragment(source, ref offset, ref commandLength);
+                        response = HandleSendFragment(source, ref offset, ref commandLength);
                         break;
                     }
                 default:
@@ -100,9 +107,10 @@ namespace PhotonPackageParser
                         break;
                     }
             }
+            return response;
         }
 
-        private void HandleSendReliable(byte[] source, ref int offset, ref int commandLength)
+        private PacketStatus HandleSendReliable(byte[] source, ref int offset, ref int commandLength)
         {
             // Skip 1 byte
             offset++;
@@ -116,6 +124,13 @@ namespace PhotonPackageParser
             payload.Seek(0L, SeekOrigin.Begin);
 
             offset += operationLength;
+
+            // Encrypted message for market data?
+            if (messageType == 131)
+            {
+                return PacketStatus.Encrypted;
+            }
+
             switch ((MessageType)messageType)
             {
                 case MessageType.OperationRequest:
@@ -137,9 +152,10 @@ namespace PhotonPackageParser
                         break;
                     }
             }
+            return PacketStatus.Success;
         }
 
-        private void HandleSendFragment(byte[] source, ref int offset, ref int commandLength)
+        private PacketStatus HandleSendFragment(byte[] source, ref int offset, ref int commandLength)
         {
             NumberDeserializer.Deserialize(out int startSequenceNumber, source, ref offset);
             commandLength -= 4;
@@ -153,17 +169,17 @@ namespace PhotonPackageParser
             commandLength -= 4;
 
             int fragmentLength = commandLength;
-            HandleSegmentedPayload(startSequenceNumber, totalLength, fragmentLength, fragmentOffset, source, ref offset);
+            return HandleSegmentedPayload(startSequenceNumber, totalLength, fragmentLength, fragmentOffset, source, ref offset);
         }
 
-        private void HandleFinishedSegmentedPackage(byte[] totalPayload)
+        private PacketStatus HandleFinishedSegmentedPackage(byte[] totalPayload)
         {
             int offset = 0;
             int commandLength = totalPayload.Length;
-            HandleSendReliable(totalPayload, ref offset, ref commandLength);
+            return HandleSendReliable(totalPayload, ref offset, ref commandLength);
         }
 
-        private void HandleSegmentedPayload(int startSequenceNumber, int totalLength, int fragmentLength, int fragmentOffset, byte[] source, ref int offset)
+        private PacketStatus HandleSegmentedPayload(int startSequenceNumber, int totalLength, int fragmentLength, int fragmentOffset, byte[] source, ref int offset)
         {
             SegmentedPackage segmentedPackage = GetSegmentedPackage(startSequenceNumber, totalLength);
 
@@ -174,8 +190,10 @@ namespace PhotonPackageParser
             if (segmentedPackage.BytesWritten >= segmentedPackage.TotalLength)
             {
                 _pendingSegments.Remove(startSequenceNumber);
-                HandleFinishedSegmentedPackage(segmentedPackage.TotalPayload);
+                return HandleFinishedSegmentedPackage(segmentedPackage.TotalPayload);
             }
+
+            return PacketStatus.Success;
         }
 
         private SegmentedPackage GetSegmentedPackage(int startSequenceNumber, int totalLength)
