@@ -21,6 +21,8 @@ public class AuctionGetRequestsResponseHandler : ResponsePacketHandler<AuctionGe
     {
         if (!playerState.CheckOkToUpload()) return;
 
+        playerState.HasEncryptedData = false;
+
         MarketUpload marketUpload = new MarketUpload();
 
         value.marketOrders.ForEach(x => x.LocationId = playerState.Location.Id);
