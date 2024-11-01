@@ -18,6 +18,7 @@ namespace AlbionDataAvalonia.State
         private string playerName = string.Empty;
         private AlbionServer? albionServer = null;
         private bool isInGame = false;
+        private bool hasEncryptedData = false;
 
         public MarketHistoryInfo[] MarketHistoryIDLookup { get; init; }
         public ulong CacheSize => 8192;
@@ -57,7 +58,7 @@ namespace AlbionDataAvalonia.State
             {
                 location = value;
                 Log.Information("Player location set to {Location}", Location.FriendlyName);
-                OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, IsInGame));
+                InvokePlayerStateChanged();
             }
         }
         public string PlayerName
@@ -68,7 +69,7 @@ namespace AlbionDataAvalonia.State
                 if (playerName == value) return;
                 playerName = value;
                 Log.Information("Player name set to {PlayerName}", PlayerName);
-                OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, IsInGame));
+                InvokePlayerStateChanged();
             }
         }
         public AlbionServer? AlbionServer
@@ -82,7 +83,7 @@ namespace AlbionDataAvalonia.State
                 {
                     Log.Information("Server set to {Server}", albionServer.Name);
                 }
-                OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, IsInGame));
+                InvokePlayerStateChanged();
             }
         }
         public bool IsInGame
@@ -94,10 +95,30 @@ namespace AlbionDataAvalonia.State
                 {
                     isInGame = result;
                     Log.Verbose("Player is {InGame}", isInGame ? "in game" : "not in game");
-                    OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, isInGame));
+                    if (!isInGame)
+                    {
+                        this.hasEncryptedData = false;
+                    }
+                    InvokePlayerStateChanged();
                 }
                 return isInGame;
             }
+        }
+
+        public bool HasEncryptedData
+        {
+            get => hasEncryptedData;
+            set
+            {
+                if (hasEncryptedData == value) return;
+                hasEncryptedData = value;
+                InvokePlayerStateChanged();
+            }
+        }
+
+        private void InvokePlayerStateChanged()
+        {
+            OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, IsInGame, HasEncryptedData));
         }
 
         public PlayerState(SettingsManager settingsManager)
@@ -220,7 +241,7 @@ namespace AlbionDataAvalonia.State
             {
                 PowSolveTimes.TryDequeue(out _);
             }
-            OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, IsInGame));
+            InvokePlayerStateChanged();
         }
     }
 }
