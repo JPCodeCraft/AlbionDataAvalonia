@@ -203,6 +203,7 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<IdleService>();
         collection.AddSingleton<Uploader>();
         collection.AddSingleton<MailService>();
+        collection.AddSingleton<TradeService>();
         collection.AddSingleton<LocalizationService>();
 
         collection.AddSingleton<MainViewModel>();

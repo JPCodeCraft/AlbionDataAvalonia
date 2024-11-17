@@ -24,6 +24,7 @@ namespace AlbionDataAvalonia.Network.Services
         private readonly PlayerState _playerState;
         private readonly SettingsManager _settingsManager;
         private readonly MailService _mailService;
+        private readonly TradeService _tradeService;
         private readonly IdleService _idleService;
 
         private bool hasCleanedUpDevices = false;
@@ -33,7 +34,7 @@ namespace AlbionDataAvalonia.Network.Services
         private IPhotonReceiver? receiver;
         private CaptureDeviceList? devices;
 
-        public NetworkListenerService(Uploader uploader, PlayerState playerState, SettingsManager settingsManager, MailService mailService, IdleService idleService)
+        public NetworkListenerService(Uploader uploader, PlayerState playerState, SettingsManager settingsManager, MailService mailService, IdleService idleService, TradeService tradeService)
         {
             _uploader = uploader;
             _playerState = playerState;
@@ -47,6 +48,7 @@ namespace AlbionDataAvalonia.Network.Services
             }
 
             _idleService.OnDetectedIdle += RestartNetworkListener;
+            _tradeService = tradeService;
         }
 
         public async Task StartNetworkListeningAsync()
@@ -82,15 +84,19 @@ namespace AlbionDataAvalonia.Network.Services
                 //builder.AddEventHandler(new LeaveEventHandler(_playerState));
                 //RESPONSE
                 builder.AddResponseHandler(new AuctionGetLoadoutOffersResponseHandler(_uploader, _playerState));
-                builder.AddResponseHandler(new AuctionGetOffersResponseHandler(_uploader, _playerState));
-                builder.AddResponseHandler(new AuctionGetRequestsResponseHandler(_uploader, _playerState));
+                builder.AddResponseHandler(new AuctionGetOffersResponseHandler(_uploader, _playerState, _tradeService));
+                builder.AddResponseHandler(new AuctionGetRequestsResponseHandler(_uploader, _playerState, _tradeService));
                 builder.AddResponseHandler(new AuctionGetItemAverageStatsResponseHandler(_uploader, _playerState));
                 builder.AddResponseHandler(new JoinResponseHandler(_playerState));
                 builder.AddResponseHandler(new AuctionGetGoldAverageStatsResponseHandler(_uploader));
                 builder.AddResponseHandler(new GetMailInfosResponseHandler(_playerState, _mailService, _settingsManager));
                 builder.AddResponseHandler(new ReadMailResponseHandler(_playerState, _mailService));
+                builder.AddResponseHandler(new AuctionBuyOfferResponseHandler(_playerState, _tradeService));
+                builder.AddResponseHandler(new AuctionSellSpecificItemRequestResponseHandler(_playerState, _tradeService));
                 //REQUEST
                 builder.AddRequestHandler(new AuctionGetItemAverageStatsRequestHandler(_playerState));
+                builder.AddRequestHandler(new AuctionBuyOfferRequestHandler(_playerState, _tradeService));
+                builder.AddRequestHandler(new AuctionSellSpecificItemRequestRequestHandler(_playerState, _tradeService));
 
                 receiver = builder.Build();
 

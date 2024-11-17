@@ -8,6 +8,7 @@ namespace AlbionDataAvalonia.DB
     public class LocalContext : DbContext
     {
         public DbSet<AlbionMail> AlbionMails { get; set; }
+        public DbSet<Trade> Trades { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
