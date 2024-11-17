@@ -11,17 +11,21 @@ public class AuctionGetOffersResponseHandler : ResponsePacketHandler<AuctionGetO
 {
     private readonly Uploader uploader;
     private readonly PlayerState playerState;
-    public AuctionGetOffersResponseHandler(Uploader uploader, PlayerState playerState) : base((int)OperationCodes.AuctionGetOffers)
+    private readonly TradeService tradeService;
+    public AuctionGetOffersResponseHandler(Uploader uploader, PlayerState playerState, TradeService tradeService) : base((int)OperationCodes.AuctionGetOffers)
     {
         this.uploader = uploader;
         this.playerState = playerState;
+        this.tradeService = tradeService;
     }
 
     protected override async Task OnActionAsync(AuctionGetOffersResponse value)
     {
+        playerState.HasEncryptedData = false;
+
         if (!playerState.CheckOkToUpload()) return;
 
-        playerState.HasEncryptedData = false;
+        tradeService.AddMarketOrdersToCache(value.marketOrders);
 
         MarketUpload marketUpload = new MarketUpload();
 
