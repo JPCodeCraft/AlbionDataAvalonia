@@ -17,6 +17,7 @@ public class TradeService
     private readonly PlayerState _playerState;
     private readonly SettingsManager _settingsManager;
     private readonly LocalizationService _localizationService;
+    private readonly MailService _mailService;
     private List<Trade> Trades { get; set; } = new();
 
     private readonly Queue<MarketOrder> marketOrdersCache = new Queue<MarketOrder>();
@@ -24,11 +25,14 @@ public class TradeService
 
     public Action<Trade>? OnTradeAdded;
 
-    public TradeService(PlayerState playerState, SettingsManager settingsManager, LocalizationService localizationService)
+    public TradeService(PlayerState playerState, SettingsManager settingsManager, LocalizationService localizationService, MailService mailService)
     {
         _playerState = playerState;
         _settingsManager = settingsManager;
         _localizationService = localizationService;
+        _mailService = mailService;
+
+        _mailService.OnMailDataAdded += async (mail) => await HandleOnMailDataAdded(mail);
     }
 
     public async Task<List<Trade>> GetTrades(int countPerPage, int pageNumber = 0, int? albionServerId = null, bool showDeleted = false, int? locationId = null, TradeType? tradeType = null, TradeOperation? tradeOperation = null)
@@ -175,5 +179,12 @@ public class TradeService
         await AddTradeToDb(unconfirmedTrade);
         unconfirmedTrade = null;
         Log.Debug("Confirmed trade");
+    }
+
+    private async Task HandleOnMailDataAdded(AlbionMail mail)
+    {
+        var trade = new Trade(mail);
+        await AddTradeToDb(trade);
+        Log.Debug("Added trade from mail: {TradeId}", trade.Id);
     }
 }

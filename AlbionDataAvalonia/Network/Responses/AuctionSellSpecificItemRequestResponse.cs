@@ -7,7 +7,7 @@ namespace AlbionDataAvalonia.Network.Responses;
 
 public class AuctionSellSpecificItemRequestResponse : BaseOperation
 {
-    public bool success = false;
+    public bool success = true;
 
     public AuctionSellSpecificItemRequestResponse(Dictionary<byte, object> parameters) : base(parameters)
     {
@@ -15,17 +15,6 @@ public class AuctionSellSpecificItemRequestResponse : BaseOperation
 
         try
         {
-            if (parameters.TryGetValue(0, out object? _success))
-            {
-                if (_success is bool successValue)
-                {
-                    success = successValue;
-                }
-                else
-                {
-                    Log.Debug("No success value found in parameters.");
-                }
-            }
         }
         catch (Exception e)
         {

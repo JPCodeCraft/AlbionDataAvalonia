@@ -31,7 +31,7 @@ public class AuctionSellSpecificItemRequestRequestHandler : RequestPacketHandler
             return;
         }
 
-        var trade = new Trade(order, playerState.AlbionServer?.Id, playerState.PlayerName, TradeType.Instant);
+        var trade = new Trade(order, playerState.AlbionServer?.Id, playerState.PlayerName);
 
         tradeService.SetUnconfirmedTrade(trade);
 
