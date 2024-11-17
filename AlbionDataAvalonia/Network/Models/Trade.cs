@@ -33,7 +33,7 @@ public class Trade
     {
     }
 
-    public Trade(MarketOrder order, int? albionServerId, string playerName, TradeType type)
+    public Trade(MarketOrder order, int? albionServerId, string playerName)
     {
         switch (order.AuctionType)
         {
@@ -54,7 +54,32 @@ public class Trade
         ItemId = order.ItemTypeId;
         PlayerName = playerName;
         UnitSilver = order.UnitPriceSilver / 10000;
-        Type = type;
+        Type = TradeType.Instant;
+    }
+
+    public Trade(AlbionMail mail)
+    {
+        switch (mail.AuctionType)
+        {
+            case AuctionType.offer:
+                Operation = TradeOperation.Sell;
+                SalesTaxesPercent = 0.04;
+                break;
+            case AuctionType.request:
+                Operation = TradeOperation.Buy;
+                SalesTaxesPercent = 0.00;
+                break;
+        }
+        Amount = mail.PartialAmount;
+        AlbionServerId = mail.AlbionServerId;
+        LocationId = mail.LocationId;
+        DateTime = mail.Received;
+        QualityLevel = 0;
+        ItemId = mail.ItemId;
+        PlayerName = mail.PlayerName;
+        UnitSilver = (ulong)mail.UnitSilver;
+        Type = TradeType.Order;
+
     }
 
 }
