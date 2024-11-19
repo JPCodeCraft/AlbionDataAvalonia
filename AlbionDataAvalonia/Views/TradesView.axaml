@@ -1,0 +1,125 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+			 xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
+             x:Class="AlbionDataAvalonia.Views.TradesView"
+			 x:DataType="vm:TradesViewModel"
+			 xmlns:model="using:AlbionDataAvalonia.Network.Models">
+
+	<UserControl.Styles>
+		<Style Selector="Button.Filter">
+			<Setter Property="Padding" Value="10" />
+			<Setter Property="Margin" Value="10" />
+		</Style>
+		<Style Selector="TextBox.Filter">
+			<Setter Property="Padding" Value="10" />
+			<Setter Property="Margin" Value="10" />
+		</Style>
+		<Style Selector="ComboBox.Filter">
+			<Setter Property="Padding" Value="10" />
+			<Setter Property="Margin" Value="10" />
+		</Style>
+	</UserControl.Styles>
+
+	<Grid ColumnDefinitions="*" RowDefinitions="Auto, *">
+
+		<StackPanel Orientation="Horizontal">
+
+			<Button Classes="Filter" Grid.Row="0" Content="Load" Command="{Binding LoadTradesCommand}" />
+
+			<TextBox Classes="Filter" Text="{Binding FilterText}" Name="FilterBox" Width="250"/>
+
+			<ComboBox Classes="Filter" ItemsSource="{Binding Servers}" SelectedItem="{Binding SelectedServer}"
+					  Width="150" >
+				<ComboBox.ItemTemplate>
+					<DataTemplate>
+						<TextBlock Text="{Binding}"/>
+					</DataTemplate>
+				</ComboBox.ItemTemplate>
+			</ComboBox>
+
+			<ComboBox Classes="Filter" ItemsSource="{Binding TradeTypes}" SelectedItem="{Binding SelectedTradeType}" 
+					  Width="100" >
+				<ComboBox.ItemTemplate>
+					<DataTemplate>
+						<TextBlock Text="{Binding}"/>
+					</DataTemplate>
+				</ComboBox.ItemTemplate>
+			</ComboBox>
+
+			<ComboBox Classes="Filter" ItemsSource="{Binding TradeOperations}" SelectedItem="{Binding SelectedOperation}"
+					  Width="100" >
+				<ComboBox.ItemTemplate>
+					<DataTemplate>
+						<TextBlock Text="{Binding}"/>
+					</DataTemplate>
+				</ComboBox.ItemTemplate>
+			</ComboBox>
+
+			<ComboBox Classes="Filter" ItemsSource="{Binding Locations}" SelectedItem="{Binding SelectedLocation}" 
+					  Width="150">
+				<ComboBox.ItemTemplate>
+					<DataTemplate>
+						<TextBlock Text="{Binding}"/>
+					</DataTemplate>
+				</ComboBox.ItemTemplate>
+			</ComboBox>			
+
+		</StackPanel>
+
+		<DataGrid Grid.Row="1" Margin="0" ItemsSource="{Binding Trades}"
+				  AutoGenerateColumns="False" IsReadOnly="True"
+				  GridLinesVisibility="None"
+				  BorderThickness="0" BorderBrush="Gray">
+
+			<DataGrid.Styles>
+				<Style Selector="DataGridColumnHeader /template/ Grid#PART_ColumnHeaderRoot">
+					<Setter Property="Background" Value="rgba(255, 255, 255, 0.2)" />
+				</Style>
+				<Style Selector="DataGridColumnHeader:pointerover /template/ Grid#PART_ColumnHeaderRoot">
+					<Setter Property="Background" Value="rgba(255, 255, 255, 0.4)" />
+				</Style>
+			</DataGrid.Styles>
+
+			<DataGrid.Columns>
+				<DataGridTextColumn Header="Server" Binding="{Binding Server.Name}" />
+				<DataGridTextColumn Header="Player" Binding="{Binding PlayerName}" />
+				<DataGridTextColumn Header="Received" Binding="{Binding DateTime}" />
+				<DataGridTextColumn Header="Type" Binding="{Binding TradeTypeFormatted}" />
+				<DataGridTextColumn Header="Operation" Binding="{Binding TradeOperationFormatted}" />
+				<DataGridTextColumn Header="Item" Binding="{Binding ItemName}" />
+				<DataGridTextColumn Header="Location" Binding="{Binding Location.FriendlyName}" />
+
+				<DataGridTemplateColumn Header="Amount" CanUserSort="True" SortMemberPath="Amount">
+					<DataGridTemplateColumn.CellTemplate>
+						<DataTemplate>
+							<TextBlock Text="{Binding Amount, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" HorizontalAlignment="Center" />
+						</DataTemplate>
+					</DataGridTemplateColumn.CellTemplate>
+				</DataGridTemplateColumn>
+
+				<DataGridTemplateColumn Header="Unit Silver" CanUserSort="True"  SortMemberPath="UnitSilver">
+					<DataGridTemplateColumn.CellTemplate>
+						<DataTemplate>
+							<TextBlock Text="{Binding UnitSilver, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" HorizontalAlignment="Center" />
+						</DataTemplate>
+					</DataGridTemplateColumn.CellTemplate>
+				</DataGridTemplateColumn>
+
+				<DataGridTemplateColumn Header="Total Silver" CanUserSort="True"  SortMemberPath="TotalSilver">
+					<DataGridTemplateColumn.CellTemplate>
+						<DataTemplate>
+							<TextBlock Text="{Binding TotalSilver, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" HorizontalAlignment="Center" />
+						</DataTemplate>
+					</DataGridTemplateColumn.CellTemplate>
+				</DataGridTemplateColumn>
+
+			</DataGrid.Columns>
+		</DataGrid>
+	</Grid>
+
+
+
+</UserControl>

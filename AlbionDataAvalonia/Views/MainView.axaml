@@ -53,6 +53,8 @@
 					Content="Data Client" Padding="0 5 0 15" />
 				<Button Classes="menu" Content="Main" Margin="10" HorizontalAlignment="Stretch"
 					Command="{Binding ShowDashboardCommand}" />
+				<Button Classes="menu" Content="Trades" Margin="10" HorizontalAlignment="Stretch"
+					Command="{Binding ShowTradesCommand}" />
 				<Button Classes="menu" Content="Mails" Margin="10" HorizontalAlignment="Stretch"
 					Command="{Binding ShowMailsCommand}" />
 				<Button Classes="menu" Content="Settings" Margin="10" HorizontalAlignment="Stretch"

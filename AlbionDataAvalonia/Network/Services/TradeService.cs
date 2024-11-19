@@ -70,6 +70,12 @@ public class TradeService
 
                 var result = await query.OrderByDescending(x => x.DateTime).AsNoTracking().Skip(countPerPage * pageNumber).Take(countPerPage).ToListAsync();
 
+                foreach (var trade in result)
+                {
+                    trade.Server = AlbionServers.Get(trade.AlbionServerId ?? 0);
+                    trade.Location = AlbionLocations.Get(trade.LocationId);
+                    trade.ItemName = _localizationService.GetUsName(trade.ItemId);
+                }
 
                 Log.Debug("Loaded {Count} trades", result.Count);
 
@@ -183,7 +189,7 @@ public class TradeService
 
     private async Task HandleOnMailDataAdded(AlbionMail mail)
     {
-        var trade = new Trade(mail);
+        var trade = new Trade(mail, _settingsManager.UserSettings.SalesTax);
         await AddTradeToDb(trade);
         Log.Debug("Added trade from mail: {TradeId}", trade.Id);
     }

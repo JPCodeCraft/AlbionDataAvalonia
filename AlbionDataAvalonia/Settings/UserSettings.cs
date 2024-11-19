@@ -64,7 +64,7 @@ public class UserSettings : INotifyPropertyChanged
         }
     }
 
-    private int maxLogCount = 50;
+    private int maxLogCount = 200;
     public int MaxLogCount
     {
         get => maxLogCount;
@@ -94,12 +94,32 @@ public class UserSettings : INotifyPropertyChanged
         }
     }
 
+    private int tradesToShow = 2000;
+    public int TradesToShow
+    {
+        get => tradesToShow;
+        set
+        {
+            if (tradesToShow != value)
+            {
+                tradesToShow = value;
+                OnPropertyChanged(nameof(TradesToShow));
+                Log.Information("Trades to show set to {TradesToShow}", tradesToShow);
+            }
+        }
+    }
+
     private double salesTax = 0.04;
     public double SalesTax
     {
         get => salesTax;
         set
         {
+            if (value != 0.04 && value != 0.08)
+            {
+                Log.Error("Sales tax must be 0.04 or 0.08. Defaulting to 0.04");
+                value = 0.04;
+            }
             if (salesTax != value)
             {
                 salesTax = value;
