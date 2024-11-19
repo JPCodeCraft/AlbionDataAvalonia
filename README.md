@@ -1,7 +1,11 @@
 # Albion Free Market Data Client
 ## Alternative Albion Data Client
 
-![image](https://github.com/JPCodeCraft/AlbionDataAvalonia/assets/11092613/6ab7caab-8dc4-4dfc-95a9-95b17b8841ca)
+![image](https://github.com/user-attachments/assets/363773f0-f9c0-497d-83b0-79d41e407113)
+
+![image](https://github.com/user-attachments/assets/0ed06288-e2f7-4c97-b68b-59dec3042019)
+
+![image](https://github.com/user-attachments/assets/10725c38-8e8e-45f2-825d-4a88be23ca2d)
 
 An alternative client for [The Albion Online Data Project](https://www.albion-online-data.com/) that provides the same functionality as the official client, but with a user-friendly graphical interface and easy-to-use settings.
 All the data is uploaded to The Albion Online Data Project! Albion Free Market does not host prices databases.
@@ -16,7 +20,9 @@ ATTENTION²: if you use this client, uninstall the official AODP one. Otherwise 
 
 🧰 Collects ingame market data and uploads to [The Albion Online Data Project's](https://www.albion-online-data.com/) server
 
-📬 Collect's market mail data and shows it to you, so you can get the prices you paid for / sold items
+📬 Collects market mail data and shows it to you, so you can get the prices you paid for / sold items
+
+🪙 Collect all your instant buy and sell trades and stores them so you can check prices later
 
 📡 Able to capture market data from loadout's quick buy screen, besides the usual market screens and gold screen
 
