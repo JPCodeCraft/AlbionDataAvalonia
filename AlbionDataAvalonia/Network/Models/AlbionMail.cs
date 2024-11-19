@@ -40,7 +40,7 @@ public class AlbionMail
     public int TotalAmount { get; set; }
     public string ItemId { get; set; } = string.Empty;
     public long TotalSilver { get; set; }
-    public long UnitSilver { get; set; }
+    public double UnitSilver { get; set; }
     public double TaxesPercent { get; set; }
     public long TotalTaxes { get; set; }
     public bool IsSet { get; set; } = false;
@@ -94,7 +94,7 @@ public class AlbionMail
     public void SetData(string mailString)
     {
         var data = GetData(TaxesPercent, mailString);
-        PartialAmount = data.parcialAmount;
+        PartialAmount = data.partialAmount;
         TotalAmount = data.totalAmount;
         ItemId = data.itemId;
         TotalSilver = data.totalSilver;
@@ -109,37 +109,65 @@ public class AlbionMail
     //MARKETPLACE_BUYORDER_EXPIRED_SUMMARY "23|100|65450000000|T5_ALCHEMY_RARE_PANTHER|" BOUGHT_AMOUNT|TOTAL_AMOUNT|TOTAL_REFUND|ITEM_ID
     //MARKETPLACE_SELLORDER_EXPIRED_SUMMARY "0|39|0|T7_JOURNAL_HUNTER_FULL|" SOLD_AMOUNT|TOTAL_AMOUNT|TOTAL_SILVER|ITEM_ID
     //BLACKMARKET_SELLORDER_EXPIRED_SUMMARY "6|53|4420680000|T6_OFF_HORN_KEEPER@1|" SOLD_AMOUNT|TOTAL_AMOUNT|TOTAL_SILVER|ITEM_ID
-    private (int parcialAmount, int totalAmount, string itemId, long totalSilver, long unitSilver, long totalTaxes) GetData(double taxes, string mailString)
+    private (int partialAmount, int totalAmount, string itemId, long totalSilver, double unitSilver, long totalTaxes) GetData(double taxes, string mailString)
     {
+        var parts = mailString.Split('|');
+
+        int partialAmountData = 0;
+        int totalAmountData = 0;
+        string itemIdData = "";
+        long totalSilverData = 0;
+        double unitSilverData = 0;
+        long totalTaxesData = 0;
         try
         {
-            var parts = mailString.Split('|');
             switch (Type)
             {
                 case AlbionMailInfoType.MARKETPLACE_SELLORDER_FINISHED_SUMMARY:
-                    return (int.Parse(parts[0]), int.Parse(parts[0]), parts[1], (long)(long.Parse(parts[2]) * (1 - taxes)) / 10000, (long)(long.Parse(parts[3]) * (1 - taxes)) / 10000, (long)(long.Parse(parts[2]) * (taxes)) / 10000);
+                    partialAmountData = int.Parse(parts[0]);
+                    totalAmountData = partialAmountData;
+                    itemIdData = parts[1];
+                    totalSilverData = (long)(long.Parse(parts[2]) * (1 - taxes)) / 10000;
+                    unitSilverData = totalSilverData / (double)totalAmountData;
+                    totalTaxesData = (long)(long.Parse(parts[2]) * (taxes)) / 10000;
+                    break;
                 case AlbionMailInfoType.MARKETPLACE_BUYORDER_FINISHED_SUMMARY:
-                    return (int.Parse(parts[0]), int.Parse(parts[0]), parts[1], long.Parse(parts[2]) / 10000, long.Parse(parts[3]) / 10000, 0);
+                    partialAmountData = int.Parse(parts[0]);
+                    totalAmountData = partialAmountData;
+                    itemIdData = parts[1];
+                    totalSilverData = long.Parse(parts[2]) / 10000;
+                    unitSilverData = totalSilverData / (double)totalAmountData;
+                    totalTaxesData = (long)(totalSilverData * taxes);
+                    break;
                 case AlbionMailInfoType.MARKETPLACE_BUYORDER_EXPIRED_SUMMARY:
-                    int boughtAmount = int.Parse(parts[0]);
-                    int totalAmount = int.Parse(parts[1]);
+                    partialAmountData = int.Parse(parts[0]);
+                    totalAmountData = int.Parse(parts[1]);
                     long totalRefund = long.Parse(parts[2]) / 10000;
-                    long unitSilverCost = (long)((float)totalRefund / ((totalAmount - boughtAmount) == 0 ? 1 : (float)(totalAmount - boughtAmount)));
-                    long totalSilverCost = unitSilverCost * boughtAmount;
-                    return (boughtAmount, totalAmount, parts[3], totalSilverCost, unitSilverCost, (long)(totalSilverCost * taxes));
+                    itemIdData = parts[3];
+                    unitSilverData = (long)((float)totalRefund / (double)((totalAmountData - partialAmountData) == 0 ? 1 : (float)(totalAmountData - partialAmountData)));
+                    totalSilverData = (long)(unitSilverData * partialAmountData);
+                    break;
                 case AlbionMailInfoType.MARKETPLACE_SELLORDER_EXPIRED_SUMMARY:
-                    int soldAmount = int.Parse(parts[0]);
-                    long totalSilver = (long)(long.Parse(parts[2]) * (1 - taxes)) / 10000;
-                    long unitSilver = (long)((float)totalSilver / ((float)soldAmount == 0 ? 1 : (float)soldAmount));
-                    return (soldAmount, int.Parse(parts[1]), parts[3], totalSilver, unitSilver, (long)(long.Parse(parts[2]) * taxes) / 10000);
+                    partialAmountData = int.Parse(parts[0]);
+                    totalAmountData = int.Parse(parts[1]);
+                    itemIdData = parts[3];
+                    totalSilverData = (long)(long.Parse(parts[2]) * (1 - taxes)) / 10000;
+                    unitSilverData = (long)((float)totalSilverData / (double)((float)partialAmountData == 0 ? 1 : (float)partialAmountData));
+                    totalTaxesData = (long)(long.Parse(parts[2]) * taxes) / 10000;
+                    break;
                 case AlbionMailInfoType.BLACKMARKET_SELLORDER_EXPIRED_SUMMARY:
-                    soldAmount = int.Parse(parts[0]);
-                    totalSilver = (long)(long.Parse(parts[2]) * (1 - taxes)) / 10000;
-                    unitSilver = (long)((float)totalSilver / ((float)soldAmount == 0 ? 1 : (float)soldAmount));
-                    return (soldAmount, int.Parse(parts[1]), parts[3], totalSilver, unitSilver, (long)(long.Parse(parts[2]) * taxes) / 10000);
+                    partialAmountData = int.Parse(parts[0]);
+                    totalAmountData = int.Parse(parts[1]);
+                    itemIdData = parts[3];
+                    totalSilverData = (long)(long.Parse(parts[2]) * (1 - taxes)) / 10000;
+                    unitSilverData = (long)((float)totalSilverData / (double)((float)partialAmountData == 0 ? 1 : (float)partialAmountData));
+                    totalTaxesData = (long)(long.Parse(parts[2]) * taxes) / 10000;
+                    break;
                 default:
-                    return (0, 0, "", 0, 0, 0);
+                    break;
             };
+
+            return (partialAmountData, totalAmountData, itemIdData, totalSilverData, unitSilverData, totalTaxesData);
         }
         catch (Exception e)
         {

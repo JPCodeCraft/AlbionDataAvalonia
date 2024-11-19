@@ -101,7 +101,7 @@
 				<DataGridTemplateColumn Header="Unit Silver" CanUserSort="True"  SortMemberPath="UnitSilver">
 					<DataGridTemplateColumn.CellTemplate>
 						<DataTemplate>
-							<TextBlock Text="{Binding UnitSilver, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" HorizontalAlignment="Center" />
+							<TextBlock Text="{Binding UnitSilver, StringFormat='{}{0:N2}'}" VerticalAlignment="Center" HorizontalAlignment="Center" />
 						</DataTemplate>
 					</DataGridTemplateColumn.CellTemplate>
 				</DataGridTemplateColumn>
