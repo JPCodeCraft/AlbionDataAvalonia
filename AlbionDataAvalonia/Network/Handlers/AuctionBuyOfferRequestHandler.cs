@@ -34,7 +34,7 @@ public class AuctionBuyOfferRequestHandler : RequestPacketHandler<AuctionBuyOffe
             return;
         }
 
-        var trade = new Trade(order, playerState.AlbionServer?.Id, playerState.PlayerName, settingsManager.UserSettings.SalesTax);
+        var trade = new Trade(order, value.amount, playerState.AlbionServer?.Id, playerState.PlayerName, settingsManager.UserSettings.SalesTax);
 
         tradeService.SetUnconfirmedTrade(trade);
 

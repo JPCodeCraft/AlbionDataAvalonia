@@ -15,8 +15,8 @@ public class Trade
     public int Amount { get; set; }
     public string ItemId { get; set; } = string.Empty;
     public byte QualityLevel { get; set; }
-    public ulong UnitSilver { get; set; }
-    public ulong TotalSilver => UnitSilver * (ulong)Amount;
+    public double UnitSilver { get; set; }
+    public ulong TotalSilver => (ulong)(UnitSilver * (ulong)Amount);
     public double SalesTaxesPercent { get; set; } = 0;
     public long SalesTaxes => (long)(TotalSilver * SalesTaxesPercent);
     public bool Deleted { get; set; } = false;
@@ -84,7 +84,7 @@ public class Trade
     {
     }
 
-    public Trade(MarketOrder order, int? albionServerId, string playerName, double salesTax)
+    public Trade(MarketOrder order, int amount, int? albionServerId, string playerName, double salesTax)
     {
         switch (order.AuctionType)
         {
@@ -97,7 +97,7 @@ public class Trade
                 SalesTaxesPercent = salesTax;
                 break;
         }
-        Amount = (int)order.Amount;
+        Amount = amount;
         AlbionServerId = albionServerId;
         LocationId = order.LocationId;
         DateTime = DateTime.UtcNow;
@@ -128,7 +128,7 @@ public class Trade
         QualityLevel = 0;
         ItemId = mail.ItemId;
         PlayerName = mail.PlayerName;
-        UnitSilver = (ulong)mail.UnitSilver;
+        UnitSilver = mail.UnitSilver;
         Type = TradeType.Order;
 
     }
