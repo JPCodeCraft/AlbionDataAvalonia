@@ -7,74 +7,78 @@
              x:Class="AlbionDataAvalonia.Views.SettingsView"
 			 x:DataType="vm:SettingsViewModel">
 
-	<StackPanel>
-		
-		<!--START HIDDEN-->
-		<CheckBox Content="Start Hidden" IsChecked="{Binding UserSettings.StartHidden}" Margin="0 0 0 10"/>
+	<ScrollViewer Padding="0, 0, 20, 20">
+		<StackPanel>
 
-		<!--THREAD COUNT--> 
-		<StackPanel Margin="0 0 0 10">
-			<StackPanel Orientation="Horizontal">
-				<Label Content="Parallel Uploads:" />
-				<Label Content="{Binding UserSettings.DesiredThreadCount, Mode=OneWay, StringFormat={}{0:N0}} " />
-				<Label Content="| Average solve time (last 50):" />
-				<Label Content="{Binding PowSolveTimeAverage, Mode=OneWay, StringFormat={}{0:N0}}}"/>
-				<Label Content="ms" />
+			<!--START HIDDEN-->
+			<CheckBox Content="Start Hidden" IsChecked="{Binding UserSettings.StartHidden}" Margin="0 0 0 10"/>
+
+			<!--THREAD COUNT-->
+			<StackPanel Margin="0 0 0 10">
+				<StackPanel Orientation="Horizontal">
+					<Label Content="Parallel Uploads:" />
+					<Label Content="{Binding UserSettings.DesiredThreadCount, Mode=OneWay, StringFormat={}{0:N0}} " />
+					<Label Content="| Average solve time (last 50):" />
+					<Label Content="{Binding PowSolveTimeAverage, Mode=OneWay, StringFormat={}{0:N0}}}"/>
+					<Label Content="ms" />
+				</StackPanel>
+
+				<Slider Minimum="1" Maximum="{Binding UserSettings.MaxThreadCount}" Value="{Binding UserSettings.DesiredThreadCount}" TickFrequency="1" IsSnapToTickEnabled="True" />
 			</StackPanel>
 
-			<Slider Minimum="1" Maximum="{Binding UserSettings.MaxThreadCount}" Value="{Binding UserSettings.DesiredThreadCount}" TickFrequency="1" IsSnapToTickEnabled="True" />
-		</StackPanel>
+			<!--MAX HASH QUEUE SIZE-->
+			<StackPanel Margin="0 0 0 10">
+				<StackPanel Orientation="Horizontal">
+					<Label Content="Number of uploads to store to avoid duplicates:" />
+					<Label Content="{Binding UserSettings.MaxHashQueueSize, Mode=OneWay} " />
+				</StackPanel>
 
-		<!--MAX HASH QUEUE SIZE-->
-		<StackPanel Margin="0 0 0 10">
-			<StackPanel Orientation="Horizontal">
-				<Label Content="Number of uploads to store to avoid duplicates:" />
-				<Label Content="{Binding UserSettings.MaxHashQueueSize, Mode=OneWay} " />
+				<Slider Minimum="0" Maximum="50" Value="{Binding UserSettings.MaxHashQueueSize}" TickFrequency="1" IsSnapToTickEnabled="True" />
 			</StackPanel>
 
-			<Slider Minimum="0" Maximum="50" Value="{Binding UserSettings.MaxHashQueueSize}" TickFrequency="1" IsSnapToTickEnabled="True" />
-		</StackPanel>
+			<!--MAX LOG COUNT-->
+			<StackPanel Margin="0 0 0 10">
+				<StackPanel Orientation="Horizontal">
+					<Label Content="Maximum log entries:" />
+					<Label Content="{Binding UserSettings.MaxLogCount, Mode=OneWay} " />
+				</StackPanel>
 
-		<!--MAX LOG COUNT-->
-		<StackPanel Margin="0 0 0 10">
-			<StackPanel Orientation="Horizontal">
-				<Label Content="Maximum log entries:" />
-				<Label Content="{Binding UserSettings.MaxLogCount, Mode=OneWay} " />
+				<Slider Minimum="50" Maximum="5000" Value="{Binding UserSettings.MaxLogCount}" TickFrequency="10" IsSnapToTickEnabled="True" />
 			</StackPanel>
 
-			<Slider Minimum="50" Maximum="5000" Value="{Binding UserSettings.MaxLogCount}" TickFrequency="10" IsSnapToTickEnabled="True" />
-		</StackPanel>
+			<!--MAILS PER PAGE-->
+			<StackPanel Margin="0 0 0 10">
+				<StackPanel Orientation="Horizontal">
+					<Label Content="Number of mails to load:" />
+					<Label Content="{Binding UserSettings.MailsPerPage, Mode=OneWay} " />
+				</StackPanel>
 
-		<!--MAILS PER PAGE-->
-		<StackPanel Margin="0 0 0 10">
-			<StackPanel Orientation="Horizontal">
-				<Label Content="Number of mails to load:" />
-				<Label Content="{Binding UserSettings.MailsPerPage, Mode=OneWay} " />
+				<Slider Minimum="100" Maximum="10000" Value="{Binding UserSettings.MailsPerPage}" TickFrequency="100" IsSnapToTickEnabled="True" />
 			</StackPanel>
 
-			<Slider Minimum="100" Maximum="10000" Value="{Binding UserSettings.MailsPerPage}" TickFrequency="100" IsSnapToTickEnabled="True" />
-		</StackPanel>
+			<!--TRADES SHOWN-->
+			<StackPanel Margin="0 0 0 10">
+				<StackPanel Orientation="Horizontal">
+					<Label Content="Number of trades to load:" />
+					<Label Content="{Binding UserSettings.TradesToShow, Mode=OneWay} " />
+				</StackPanel>
 
-		<!--TRADES SHOWN-->
-		<StackPanel Margin="0 0 0 10">
-			<StackPanel Orientation="Horizontal">
-				<Label Content="Number of trades to load:" />
-				<Label Content="{Binding UserSettings.TradesToShow, Mode=OneWay} " />
+				<Slider Minimum="100" Maximum="10000" Value="{Binding UserSettings.TradesToShow}" TickFrequency="100" IsSnapToTickEnabled="True" />
 			</StackPanel>
 
-			<Slider Minimum="100" Maximum="10000" Value="{Binding UserSettings.TradesToShow}" TickFrequency="100" IsSnapToTickEnabled="True" />
-		</StackPanel>
+			<!--LOG VERBOSITY-->
+			<StackPanel Margin="0 0 0 10">
+				<StackPanel Orientation="Horizontal">
+					<Label Content="Log verbosity:" />
+					<Label Content="{Binding UserSettings.LogLevel, Mode=OneWay} " />
+				</StackPanel>
 
-		<!--LOG VERBOSITY-->
-		<StackPanel Margin="0 0 0 10">
-			<StackPanel Orientation="Horizontal">
-				<Label Content="Log verbosity:" />
-				<Label Content="{Binding UserSettings.LogLevel, Mode=OneWay} " />
+				<Slider Minimum="0" Maximum="5" Value="{Binding UserSettings.LogLevel}" TickFrequency="1" IsSnapToTickEnabled="True" />
 			</StackPanel>
 
-			<Slider Minimum="0" Maximum="5" Value="{Binding UserSettings.LogLevel}" TickFrequency="1" IsSnapToTickEnabled="True" />
 		</StackPanel>
-		
-	</StackPanel>
+
+	</ScrollViewer>
+
 
 </UserControl>
