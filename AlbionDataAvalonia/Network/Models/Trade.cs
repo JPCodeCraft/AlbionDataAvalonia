@@ -63,6 +63,23 @@ public class Trade
         }
     }
 
+    [NotMapped]
+    public string QualityLevelFormatted
+    {
+        get
+        {
+            return QualityLevel switch
+            {
+                1 => "Normal",
+                2 => "Good",
+                3 => "Outstanding",
+                4 => "Excellent",
+                8 => "Masterpiece",
+                _ => "Unknown"
+            };
+        }
+    }
+
     public Trade()
     {
     }
