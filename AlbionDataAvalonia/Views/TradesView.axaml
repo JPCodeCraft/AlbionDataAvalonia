@@ -89,6 +89,7 @@
 				<DataGridTextColumn Header="Received" Binding="{Binding DateTime}" />
 				<DataGridTextColumn Header="Type" Binding="{Binding TradeTypeFormatted}" />
 				<DataGridTextColumn Header="Operation" Binding="{Binding TradeOperationFormatted}" />
+				<DataGridTextColumn Header="Quality" Binding="{Binding QualityLevelFormatted}" />
 				<DataGridTextColumn Header="Item" Binding="{Binding ItemName}" />
 				<DataGridTextColumn Header="Location" Binding="{Binding Location.FriendlyName}" />
 
