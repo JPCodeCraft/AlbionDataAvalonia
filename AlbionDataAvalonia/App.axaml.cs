@@ -210,5 +210,6 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<SettingsViewModel>();
         collection.AddSingleton<LogsViewModel>();
         collection.AddSingleton<MailsViewModel>();
+        collection.AddSingleton<TradesViewModel>();
     }
 }

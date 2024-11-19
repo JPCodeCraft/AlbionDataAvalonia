@@ -29,11 +29,45 @@ public class Trade
     [NotMapped]
     public AlbionServer? Server { get; set; }
 
+    [NotMapped]
+    public string TradeTypeFormatted
+    {
+        get
+        {
+            switch (Type)
+            {
+                case TradeType.Instant:
+                    return "Instant";
+                case TradeType.Order:
+                    return "Order";
+                default:
+                    return "Unknown";
+            }
+        }
+    }
+
+    [NotMapped]
+    public string TradeOperationFormatted
+    {
+        get
+        {
+            switch (Operation)
+            {
+                case TradeOperation.Buy:
+                    return "Buy";
+                case TradeOperation.Sell:
+                    return "Sell";
+                default:
+                    return "Unknown";
+            }
+        }
+    }
+
     public Trade()
     {
     }
 
-    public Trade(MarketOrder order, int? albionServerId, string playerName)
+    public Trade(MarketOrder order, int? albionServerId, string playerName, double salesTax)
     {
         switch (order.AuctionType)
         {
@@ -43,7 +77,7 @@ public class Trade
                 break;
             case AuctionType.request:
                 Operation = TradeOperation.Sell;
-                SalesTaxesPercent = 0.04;
+                SalesTaxesPercent = salesTax;
                 break;
         }
         Amount = (int)order.Amount;
@@ -57,13 +91,13 @@ public class Trade
         Type = TradeType.Instant;
     }
 
-    public Trade(AlbionMail mail)
+    public Trade(AlbionMail mail, double salesTax)
     {
         switch (mail.AuctionType)
         {
             case AuctionType.offer:
                 Operation = TradeOperation.Sell;
-                SalesTaxesPercent = 0.04;
+                SalesTaxesPercent = salesTax;
                 break;
             case AuctionType.request:
                 Operation = TradeOperation.Buy;

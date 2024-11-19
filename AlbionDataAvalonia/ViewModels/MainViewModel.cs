@@ -25,6 +25,7 @@ public partial class MainViewModel : ViewModelBase
     private readonly SettingsViewModel _settingsViewModel;
     private readonly LogsViewModel _logsViewModel;
     private readonly MailsViewModel _mailsViewModel;
+    private readonly TradesViewModel _tradesViewModel;
     private readonly Uploader _uploader;
 
     [ObservableProperty]
@@ -91,7 +92,7 @@ public partial class MainViewModel : ViewModelBase
     {
     }
 
-    public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, SettingsManager settingsManager, SettingsViewModel settingsViewModel, LogsViewModel logsViewModel, MailsViewModel mailsViewModel, Uploader uploader)
+    public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, SettingsManager settingsManager, SettingsViewModel settingsViewModel, LogsViewModel logsViewModel, MailsViewModel mailsViewModel, TradesViewModel tradesViewModel, Uploader uploader)
     {
         _playerState = playerState;
         _networkListener = networkListener;
@@ -99,6 +100,7 @@ public partial class MainViewModel : ViewModelBase
         _settingsViewModel = settingsViewModel;
         _logsViewModel = logsViewModel;
         _mailsViewModel = mailsViewModel;
+        _tradesViewModel = tradesViewModel;
         _uploader = uploader;
 
         LocationName = _playerState.Location.FriendlyName;
@@ -267,6 +269,12 @@ public partial class MainViewModel : ViewModelBase
     private void ShowMails()
     {
         CurrentView = new MailsView(_mailsViewModel);
+    }
+
+    [RelayCommand]
+    private void ShowTrades()
+    {
+        CurrentView = new TradesView(_tradesViewModel);
     }
 
     [RelayCommand]

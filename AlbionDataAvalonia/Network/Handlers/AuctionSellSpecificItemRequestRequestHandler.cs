@@ -2,6 +2,7 @@
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Requests;
 using AlbionDataAvalonia.Network.Services;
+using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
 using Serilog;
 using System.Threading.Tasks;
@@ -12,11 +13,13 @@ public class AuctionSellSpecificItemRequestRequestHandler : RequestPacketHandler
 {
     private readonly PlayerState playerState;
     private readonly TradeService tradeService;
+    private readonly SettingsManager settingsManager;
 
-    public AuctionSellSpecificItemRequestRequestHandler(PlayerState playerState, TradeService tradeService) : base((int)OperationCodes.AuctionSellSpecificItemRequest)
+    public AuctionSellSpecificItemRequestRequestHandler(PlayerState playerState, TradeService tradeService, SettingsManager settingsManager) : base((int)OperationCodes.AuctionSellSpecificItemRequest)
     {
         this.playerState = playerState;
         this.tradeService = tradeService;
+        this.settingsManager = settingsManager;
     }
 
     protected override async Task OnActionAsync(AuctionSellSpecificItemRequestRequest value)
@@ -31,7 +34,7 @@ public class AuctionSellSpecificItemRequestRequestHandler : RequestPacketHandler
             return;
         }
 
-        var trade = new Trade(order, playerState.AlbionServer?.Id, playerState.PlayerName);
+        var trade = new Trade(order, playerState.AlbionServer?.Id, playerState.PlayerName, settingsManager.UserSettings.SalesTax);
 
         tradeService.SetUnconfirmedTrade(trade);
 

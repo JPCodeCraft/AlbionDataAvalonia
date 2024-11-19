@@ -44,6 +44,9 @@
 		<Compile Update="Views\DashboardView.axaml.cs">
 			<DependentUpon>DashboardView.axaml</DependentUpon>
 		</Compile>
+		<Compile Update="Views\TradesView.axaml.cs">
+		  <DependentUpon>TradesView.axaml</DependentUpon>
+		</Compile>
 		<Compile Update="Views\MailsView.axaml.cs">
 		  <SubType>Code</SubType>
 		  <DependentUpon>MailsView.axaml</DependentUpon>

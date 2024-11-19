@@ -95,8 +95,8 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddResponseHandler(new AuctionSellSpecificItemRequestResponseHandler(_playerState, _tradeService));
                 //REQUEST
                 builder.AddRequestHandler(new AuctionGetItemAverageStatsRequestHandler(_playerState));
-                builder.AddRequestHandler(new AuctionBuyOfferRequestHandler(_playerState, _tradeService));
-                builder.AddRequestHandler(new AuctionSellSpecificItemRequestRequestHandler(_playerState, _tradeService));
+                builder.AddRequestHandler(new AuctionBuyOfferRequestHandler(_playerState, _tradeService, _settingsManager));
+                builder.AddRequestHandler(new AuctionSellSpecificItemRequestRequestHandler(_playerState, _tradeService, _settingsManager));
 
                 receiver = builder.Build();
 

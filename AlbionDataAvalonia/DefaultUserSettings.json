@@ -2,8 +2,9 @@
   "StartHidden": true,
   "DesiredThreadCount": 1,
   "MaxHashQueueSize": 30,
-  "MaxLogCount": 50,
+  "MaxLogCount": 200,
   "SalesTax": 0.04,
   "MailsPerPage": 200,
+  "TradesToShow": 2000,
   "LogLevel": 2
 }
