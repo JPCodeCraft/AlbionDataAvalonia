@@ -1,5 +1,4 @@
-﻿using PacketDotNet;
-using Serilog;
+﻿using Serilog;
 using System;
 using System.Diagnostics;
 using System.IO;
@@ -42,12 +41,20 @@ public static class ClientUpdater
                 return;
             }
 
-
             var response = await httpClient.GetStringAsync(versionUrl);
             var jsonDocument = JsonDocument.Parse(response);
             var latestVersion = jsonDocument.RootElement.GetProperty("version").GetString();
 
-            if (string.Compare(currentVersion, latestVersion) >= 0)
+            if (latestVersion == null)
+            {
+                Log.Error("Failed to get the latest version from the server.");
+                return;
+            }
+
+            var currentVersionObj = new Version(currentVersion);
+            var latestVersionObj = new Version(latestVersion);
+
+            if (currentVersionObj >= latestVersionObj)
             {
                 Log.Information($"You are using the latest version! Yours: v.{currentVersion} | Latest: v.{latestVersion}");
                 return;
