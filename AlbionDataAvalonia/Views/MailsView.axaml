@@ -90,6 +90,14 @@
 					</DataGridTemplateColumn.CellTemplate>
 				</DataGridTemplateColumn>
 
+				<DataGridTemplateColumn Header="Order Amount" CanUserSort="True" SortMemberPath="PartialAmount">
+					<DataGridTemplateColumn.CellTemplate>
+						<DataTemplate>
+							<TextBlock Text="{Binding TotalAmount, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" HorizontalAlignment="Center" />
+						</DataTemplate>
+					</DataGridTemplateColumn.CellTemplate>
+				</DataGridTemplateColumn>
+
 				<DataGridTemplateColumn Header="Unit Silver" CanUserSort="True"  SortMemberPath="UnitSilver">
 					<DataGridTemplateColumn.CellTemplate>
 						<DataTemplate>
