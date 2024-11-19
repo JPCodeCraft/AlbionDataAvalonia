@@ -40,87 +40,89 @@
 
 	</UserControl.Styles>
 
-	<Grid Margin="10, 10, 10, 10" RowDefinitions="Auto, Auto, Auto, Auto, Auto" ColumnDefinitions="*">
+	<ScrollViewer Padding="0, 0, 20, 20">
+		<Grid Margin="10, 10, 10, 10" RowDefinitions="Auto, Auto, Auto, Auto, Auto" ColumnDefinitions="*">
 
-		<!--QUEUE LINE-->
-		<Grid Margin="0, 10, 0, 20" RowDefinitions="Auto, Auto" ColumnDefinitions="*, 200, 200, *">
-			<Border Classes.RedBlink="{Binding RedBlinking}" Grid.Row="0" Grid.Column="0" VerticalAlignment="Top" HorizontalAlignment="Right" CornerRadius="2" BorderBrush="Silver" BorderThickness="2">
-				<Rectangle RadiusX="1" RadiusY="1" Classes="Indicator Red"  Classes.RedBlink="{Binding RedBlinking}" />
-			</Border>
+			<!--QUEUE LINE-->
+			<Grid Margin="0, 10, 0, 20" RowDefinitions="Auto, Auto" ColumnDefinitions="*, 200, 200, *">
+				<Border Classes.RedBlink="{Binding RedBlinking}" Grid.Row="0" Grid.Column="0" VerticalAlignment="Top" HorizontalAlignment="Right" CornerRadius="2" BorderBrush="Silver" BorderThickness="2">
+					<Rectangle RadiusX="1" RadiusY="1" Classes="Indicator Red"  Classes.RedBlink="{Binding RedBlinking}" />
+				</Border>
 
-			<StackPanel Grid.Row="0" Grid.Column="1" VerticalAlignment="Center">
-				<Label Content="{Binding UploadQueueSize}" FontSize="24" HorizontalAlignment="Center" />
-				<Label Content="Data Upload Queue" HorizontalAlignment="Center"/>
-			</StackPanel>
+				<StackPanel Grid.Row="0" Grid.Column="1" VerticalAlignment="Center">
+					<Label Content="{Binding UploadQueueSize}" FontSize="24" HorizontalAlignment="Center" />
+					<Label Content="Data Upload Queue" HorizontalAlignment="Center"/>
+				</StackPanel>
 
-			<StackPanel Grid.Row="0" Grid.Column="2" VerticalAlignment="Center">
-				<Label Content="{Binding RunningTasksCount}" FontSize="24" HorizontalAlignment="Center" />
-				<Label Content="Running Upload Task" HorizontalAlignment="Center"/>
-			</StackPanel>
+				<StackPanel Grid.Row="0" Grid.Column="2" VerticalAlignment="Center">
+					<Label Content="{Binding RunningTasksCount}" FontSize="24" HorizontalAlignment="Center" />
+					<Label Content="Running Upload Task" HorizontalAlignment="Center"/>
+				</StackPanel>
 
-			<Border Classes.GreenBlink="{Binding GreenBlinking}"  Grid.Row="0" Grid.Column="3" VerticalAlignment="Top" HorizontalAlignment="Left" CornerRadius="2" BorderBrush="Silver" BorderThickness="2">
-				<Rectangle RadiusX="1" RadiusY="1" Classes="Indicator Green" Classes.GreenBlink="{Binding GreenBlinking}" />
-			</Border>
+				<Border Classes.GreenBlink="{Binding GreenBlinking}"  Grid.Row="0" Grid.Column="3" VerticalAlignment="Top" HorizontalAlignment="Left" CornerRadius="2" BorderBrush="Silver" BorderThickness="2">
+					<Rectangle RadiusX="1" RadiusY="1" Classes="Indicator Green" Classes.GreenBlink="{Binding GreenBlinking}" />
+				</Border>
 
-			<!--UPLOAD STATS SUB-LINE-->
-			<Grid Margin="0, 15, 0, 5" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan ="2" RowDefinitions="Auto, Auto" ColumnDefinitions="75, 75, 75" VerticalAlignment="Center" HorizontalAlignment="Center">
-				<Label Grid.Row="0" Grid.Column="0" Content="Success" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-				<Label Grid.Row="0" Grid.Column="1" Content="Skipped" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-				<Label Grid.Row="0" Grid.Column="2" Content="Failed" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-				<Label Grid.Row="1" Grid.Column="0" Content="{Binding UploadSuccessCount, StringFormat=N0}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-				<Label Grid.Row="1" Grid.Column="1" Content="{Binding UploadSkippedCount, StringFormat=N0}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-				<Label Grid.Row="1" Grid.Column="2" Content="{Binding UploadFailedCount, StringFormat=N0}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+				<!--UPLOAD STATS SUB-LINE-->
+				<Grid Margin="0, 15, 0, 5" Grid.Row="2" Grid.Column="1" Grid.ColumnSpan ="2" RowDefinitions="Auto, Auto" ColumnDefinitions="75, 75, 75" VerticalAlignment="Center" HorizontalAlignment="Center">
+					<Label Grid.Row="0" Grid.Column="0" Content="Success" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+					<Label Grid.Row="0" Grid.Column="1" Content="Skipped" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+					<Label Grid.Row="0" Grid.Column="2" Content="Failed" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+					<Label Grid.Row="1" Grid.Column="0" Content="{Binding UploadSuccessCount, StringFormat=N0}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+					<Label Grid.Row="1" Grid.Column="1" Content="{Binding UploadSkippedCount, StringFormat=N0}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+					<Label Grid.Row="1" Grid.Column="2" Content="{Binding UploadFailedCount, StringFormat=N0}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+				</Grid>
 			</Grid>
+
+			<!--LOCATION AND WARNINGS LINE-->
+			<Grid IsVisible="{Binding ShowDataUi}" Margin="0, 10, 0, 10" RowDefinitions="30, 30" ColumnDefinitions="*, *, *" Grid.Row="1">
+				<Label Grid.Row="0" Grid.Column="0" Content="Server" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
+				<Label Grid.Row="1" Grid.Column="0" Content="{Binding AlbionServerName}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+
+				<Label Grid.Row="0" Grid.Column="1" Content="Player Name" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
+				<Label Grid.Row="1" Grid.Column="1" Content="{Binding PlayerName}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+
+				<Label Grid.Row="0" Grid.Column="2" Content="Location" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
+				<Label Grid.Row="1" Grid.Column="2" Content="{Binding LocationName}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+			</Grid>
+
+			<Grid IsVisible="{Binding ShowChangeCity}" Margin="0, 10, 0, 10" RowDefinitions="60" ColumnDefinitions="*" Grid.Row="1">
+				<Label Content="{Binding ChangeCityText}" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold" FontSize="20"/>
+			</Grid>
+
+			<Grid IsVisible="{Binding ShowGetInGame}" Margin="0, 10, 0, 10" RowDefinitions="60" ColumnDefinitions="*" Grid.Row="1">
+				<Label Content="You're good to go. Get ingame." VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold" FontSize="20"/>
+			</Grid>
+
+			<!--PRICES AND GOLD LINE-->
+			<Grid IsVisible="{Binding ShowDataUi}" Margin="0, 10, 0, 10" RowDefinitions="30, 30" ColumnDefinitions="*, *, *" Grid.Row="2">
+				<Label Grid.Row="0" Grid.Column="0" Content="Uploaded Market Offers" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
+				<Label Grid.Row="1" Grid.Column="0" Content="{Binding UploadedMarketOffersCount, StringFormat=N0}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+
+				<Label Grid.Row="0" Grid.Column="1" Content="Uploaded Market Requests" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
+				<Label Grid.Row="1" Grid.Column="1" Content="{Binding UploadedMarketRequestsCount, StringFormat=N0}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+
+				<Label Grid.Row="0" Grid.Column="2" Content="Uploaded Gold Histories" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
+				<Label Grid.Row="1" Grid.Column="2" Content="{Binding UploadedGoldHistoriesCount, StringFormat=N0}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+			</Grid>
+
+			<!--HISTORIES LINE-->
+			<Grid IsVisible="{Binding ShowDataUi}" Margin="0, 10, 0, 10" RowDefinitions="30, 30" ColumnDefinitions="*, *, *" Grid.Row="3">
+				<Label Grid.Row="0" Grid.Column="0" Content="Uploaded Monthly Histories" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
+				<Label Grid.Row="1" Grid.Column="0" Content="{Binding UploadedMonthlyHistoriesCount, StringFormat=N0}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+
+				<Label Grid.Row="0" Grid.Column="1" Content="Uploaded Weekly Histories" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
+				<Label Grid.Row="1" Grid.Column="1" Content="{Binding UploadedWeeklyHistoriesCount, StringFormat=N0}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+
+				<Label Grid.Row="0" Grid.Column="2" Content="Uploaded Daily Histories" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
+				<Label Grid.Row="1" Grid.Column="2" Content="{Binding UploadedDailyHistoriesCount, StringFormat=N0}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
+			</Grid>
+
+			<!--ENCRYPTION LINE-->
+			<Grid IsVisible="{Binding ShowEncrypted}" Margin="0, 10, 0, 10" RowDefinitions="60" ColumnDefinitions="*" Grid.Row="4">
+				<Label Grid.Row="0" Grid.Column="0" Content="Your market orders are encrypted! Go to AFM Discord to understand what's going on." Classes="Orange" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
+			</Grid>
+
 		</Grid>
-
-		<!--LOCATION AND WARNINGS LINE-->
-		<Grid IsVisible="{Binding ShowDataUi}" Margin="0, 10, 0, 10" RowDefinitions="30, 30" ColumnDefinitions="*, *, *" Grid.Row="1">
-			<Label Grid.Row="0" Grid.Column="0" Content="Server" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
-			<Label Grid.Row="1" Grid.Column="0" Content="{Binding AlbionServerName}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-
-			<Label Grid.Row="0" Grid.Column="1" Content="Player Name" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
-			<Label Grid.Row="1" Grid.Column="1" Content="{Binding PlayerName}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-
-			<Label Grid.Row="0" Grid.Column="2" Content="Location" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
-			<Label Grid.Row="1" Grid.Column="2" Content="{Binding LocationName}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-		</Grid>
-
-		<Grid IsVisible="{Binding ShowChangeCity}" Margin="0, 10, 0, 10" RowDefinitions="60" ColumnDefinitions="*" Grid.Row="1">
-			<Label Content="{Binding ChangeCityText}" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold" FontSize="20"/>
-		</Grid>
-
-		<Grid IsVisible="{Binding ShowGetInGame}" Margin="0, 10, 0, 10" RowDefinitions="60" ColumnDefinitions="*" Grid.Row="1">
-			<Label Content="You're good to go. Get ingame." VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold" FontSize="20"/>
-		</Grid>
-
-		<!--PRICES AND GOLD LINE-->
-		<Grid IsVisible="{Binding ShowDataUi}" Margin="0, 10, 0, 10" RowDefinitions="30, 30" ColumnDefinitions="*, *, *" Grid.Row="2">
-			<Label Grid.Row="0" Grid.Column="0" Content="Uploaded Market Offers" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
-			<Label Grid.Row="1" Grid.Column="0" Content="{Binding UploadedMarketOffersCount, StringFormat=N0}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-
-			<Label Grid.Row="0" Grid.Column="1" Content="Uploaded Market Requests" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
-			<Label Grid.Row="1" Grid.Column="1" Content="{Binding UploadedMarketRequestsCount, StringFormat=N0}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-
-			<Label Grid.Row="0" Grid.Column="2" Content="Uploaded Gold Histories" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
-			<Label Grid.Row="1" Grid.Column="2" Content="{Binding UploadedGoldHistoriesCount, StringFormat=N0}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-		</Grid>
-
-		<!--HISTORIES LINE-->
-		<Grid IsVisible="{Binding ShowDataUi}" Margin="0, 10, 0, 10" RowDefinitions="30, 30" ColumnDefinitions="*, *, *" Grid.Row="3">
-			<Label Grid.Row="0" Grid.Column="0" Content="Uploaded Monthly Histories" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
-			<Label Grid.Row="1" Grid.Column="0" Content="{Binding UploadedMonthlyHistoriesCount, StringFormat=N0}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-
-			<Label Grid.Row="0" Grid.Column="1" Content="Uploaded Weekly Histories" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
-			<Label Grid.Row="1" Grid.Column="1" Content="{Binding UploadedWeeklyHistoriesCount, StringFormat=N0}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-
-			<Label Grid.Row="0" Grid.Column="2" Content="Uploaded Daily Histories" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
-			<Label Grid.Row="1" Grid.Column="2" Content="{Binding UploadedDailyHistoriesCount, StringFormat=N0}" VerticalAlignment="Center" HorizontalAlignment="Center"/>
-		</Grid>
-
-		<!--ENCRYPTION LINE-->
-		<Grid IsVisible="{Binding ShowEncrypted}" Margin="0, 10, 0, 10" RowDefinitions="60" ColumnDefinitions="*" Grid.Row="4">
-			<Label Grid.Row="0" Grid.Column="0" Content="Your market orders are encrypted! Go to AFM Discord to understand what's going on." Classes="Orange" VerticalAlignment="Center" HorizontalAlignment="Center" FontWeight="Bold"/>
-		</Grid>
-
-	</Grid>
+	</ScrollViewer>
 </UserControl>

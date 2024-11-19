@@ -33,6 +33,7 @@
 			<Setter Property="HorizontalAlignment" Value="Stretch" />
 		</Style>
 	</UserControl.Styles>
+	
 	<Grid>
 		<Grid.ColumnDefinitions>
 			<ColumnDefinition Width="200" />
@@ -67,11 +68,9 @@
 		</Grid>
 
 		<!-- Main Content -->
-		<ScrollViewer Grid.Column="1" Margin="20">
-			<ContentControl Content="{Binding CurrentView}">
+		<ContentControl Grid.Column="1" Margin="10" Content="{Binding CurrentView}">
 
-			</ContentControl>
-		</ScrollViewer>
+		</ContentControl>
 
 	</Grid>
 </UserControl>
