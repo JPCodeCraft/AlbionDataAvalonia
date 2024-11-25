@@ -35,6 +35,7 @@ public class ConnectionService : IDisposable
     protected void InitialSetup()
     {
         httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("albion-data-sharp");
+        httpClient.DefaultRequestHeaders.Referrer = new Uri("https://github.com/JPCodeCraft/AlbionDataAvalonia");
         if (_playerState.AlbionServer != null)
         {
             httpClient.BaseAddress = new Uri(_playerState.AlbionServer.UploadUrl);
