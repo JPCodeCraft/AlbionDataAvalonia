@@ -92,6 +92,10 @@ public static class ClientUpdater
             {
                 Log.Warning("There's a new version available, but updating on Linux is not supported yet. Please update manually.");
             }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                Log.Warning("There's a new version available, but updating on macOS is not supported yet. Please update manually.");
+            }
         }
         catch (Exception ex)
         {

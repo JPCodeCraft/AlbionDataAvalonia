@@ -307,6 +307,15 @@ public partial class MainViewModel : ViewModelBase
                     UseShellExecute = false
                 });
             }
+            else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = "/bin/bash",
+                    Arguments = "-c \"brew install libpcap\"",
+                    UseShellExecute = false
+                });
+            }
         }
         catch (Exception ex)
         {

@@ -58,6 +58,11 @@ public static class NpCapInstallationChecker
             }
         }
 
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            return true;
+        }
+
         return false;
     }
 }

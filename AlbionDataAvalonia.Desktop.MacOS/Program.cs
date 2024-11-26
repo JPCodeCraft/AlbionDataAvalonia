@@ -2,7 +2,7 @@
 using Serilog;
 using System;
 
-namespace AlbionDataAvalonia.Desktop.Linux;
+namespace AlbionDataAvalonia.Desktop.MacOS;
 
 class Program
 {
