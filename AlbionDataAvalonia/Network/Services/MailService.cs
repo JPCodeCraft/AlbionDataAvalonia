@@ -1,5 +1,6 @@
 ﻿using AlbionDataAvalonia.DB;
 using AlbionDataAvalonia.Localization.Services;
+using AlbionDataAvalonia.Locations;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;

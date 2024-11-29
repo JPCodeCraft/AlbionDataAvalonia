@@ -1,4 +1,5 @@
-﻿using Microsoft.EntityFrameworkCore;
+﻿using AlbionDataAvalonia.Locations.Models;
+using Microsoft.EntityFrameworkCore;
 using Serilog;
 using System;
 using System.ComponentModel.DataAnnotations.Schema;

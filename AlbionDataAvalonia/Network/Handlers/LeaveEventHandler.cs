@@ -1,6 +1,6 @@
 ﻿using Albion.Network;
+using AlbionDataAvalonia.Locations;
 using AlbionDataAvalonia.Network.Events;
-using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.State;
 using System.Threading.Tasks;
 
