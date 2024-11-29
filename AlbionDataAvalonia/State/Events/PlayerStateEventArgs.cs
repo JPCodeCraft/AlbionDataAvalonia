@@ -1,4 +1,5 @@
-﻿using AlbionDataAvalonia.Network.Models;
+﻿using AlbionDataAvalonia.Locations.Models;
+using AlbionDataAvalonia.Network.Models;
 using System;
 
 namespace AlbionDataAvalonia.State.Events

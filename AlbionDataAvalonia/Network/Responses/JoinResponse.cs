@@ -1,5 +1,6 @@
 ﻿using Albion.Network;
-using AlbionDataAvalonia.Network.Models;
+using AlbionDataAvalonia.Locations;
+using AlbionDataAvalonia.Locations.Models;
 using Serilog;
 using System;
 using System.Collections.Generic;

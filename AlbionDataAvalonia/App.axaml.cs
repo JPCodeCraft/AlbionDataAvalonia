@@ -1,5 +1,6 @@
 ﻿using AlbionDataAvalonia.DB;
 using AlbionDataAvalonia.Localization.Services;
+using AlbionDataAvalonia.Locations;
 using AlbionDataAvalonia.Logging;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Settings;
@@ -125,6 +126,9 @@ public partial class App : Application
         //INITIALIZE LOCALIZATION
         await localization.InitializeAsync();
 
+        //INITIALIZE LOCATIONS
+        await AlbionLocations.InitializeAsync();
+
         //VIEWMODEL
         this.DataContext = vm;
 
@@ -202,6 +206,7 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<ListSink>();
         collection.AddSingleton<IdleService>();
         collection.AddSingleton<Uploader>();
+        collection.AddSingleton<AFMUploader>();
         collection.AddSingleton<MailService>();
         collection.AddSingleton<TradeService>();
         collection.AddSingleton<LocalizationService>();

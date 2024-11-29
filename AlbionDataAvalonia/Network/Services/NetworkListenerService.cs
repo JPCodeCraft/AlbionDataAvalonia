@@ -21,6 +21,7 @@ namespace AlbionDataAvalonia.Network.Services
         private static readonly object listenLock = new object();
 
         private readonly Uploader _uploader;
+        private readonly AFMUploader _afmUploader;
         private readonly PlayerState _playerState;
         private readonly SettingsManager _settingsManager;
         private readonly MailService _mailService;
@@ -34,7 +35,7 @@ namespace AlbionDataAvalonia.Network.Services
         private IPhotonReceiver? receiver;
         private CaptureDeviceList? devices;
 
-        public NetworkListenerService(Uploader uploader, PlayerState playerState, SettingsManager settingsManager, MailService mailService, IdleService idleService, TradeService tradeService)
+        public NetworkListenerService(Uploader uploader, PlayerState playerState, SettingsManager settingsManager, MailService mailService, IdleService idleService, TradeService tradeService, AFMUploader afmUploader)
         {
             _uploader = uploader;
             _playerState = playerState;
@@ -49,6 +50,7 @@ namespace AlbionDataAvalonia.Network.Services
 
             _idleService.OnDetectedIdle += RestartNetworkListener;
             _tradeService = tradeService;
+            _afmUploader = afmUploader;
         }
 
         public async Task StartNetworkListeningAsync()
@@ -82,6 +84,7 @@ namespace AlbionDataAvalonia.Network.Services
                 //ADD HANDLERS HERE
                 //EVENTS
                 //builder.AddEventHandler(new LeaveEventHandler(_playerState));
+                builder.AddEventHandler(new PlayerCountsEventHandler(_playerState, _afmUploader));
                 //RESPONSE
                 builder.AddResponseHandler(new AuctionGetLoadoutOffersResponseHandler(_uploader, _playerState));
                 builder.AddResponseHandler(new AuctionGetOffersResponseHandler(_uploader, _playerState, _tradeService));

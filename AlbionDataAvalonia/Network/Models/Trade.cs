@@ -1,4 +1,5 @@
-﻿using System;
+﻿using AlbionDataAvalonia.Locations.Models;
+using System;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace AlbionDataAvalonia.Network.Models;
