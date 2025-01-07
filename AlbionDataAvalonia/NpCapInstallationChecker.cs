@@ -1,4 +1,6 @@
 ﻿using Microsoft.Win32;
+using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 
@@ -38,26 +40,83 @@ public static class NpCapInstallationChecker
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            var startInfo = new ProcessStartInfo
+            // Package names across different distributions
+            var packageNames = new Dictionary<string, string>
             {
-                FileName = "/bin/bash",
-                Arguments = "-c \"dpkg -s libpcap-dev\"",
-                RedirectStandardOutput = true,
-                UseShellExecute = false,
-                CreateNoWindow = true,
+                { "dpkg", "libpcap-dev" },      // Debian, Ubuntu
+                { "pacman", "libpcap" },        // Arch, Manjaro
+                { "rpm", "libpcap-devel" },     // Red Hat, Fedora
+                { "zypper", "libpcap-devel" }   // openSUSE
             };
 
-            var process = new Process { StartInfo = startInfo };
-            process.Start();
-            string output = process.StandardOutput.ReadToEnd();
-            process.WaitForExit();
-
-            if (output.Contains("install ok installed"))
+            foreach (var packageManager in packageNames.Keys)
             {
-                return true;
+                if (IsCommandAvailable(packageManager))
+                {
+                    var (isInstalled, _) = CheckPackageWithManager(packageManager, packageNames[packageManager]);
+                    if (isInstalled)
+                    {
+                        return true;
+                    }
+                }
             }
         }
 
         return false;
+    }
+
+    static private bool IsCommandAvailable(string command)
+    {
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "/bin/bash",
+            Arguments = $"-c \"command -v {command}\"",
+            RedirectStandardOutput = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        using var process = new Process { StartInfo = startInfo };
+        process.Start();
+        process.WaitForExit();
+        return process.ExitCode == 0;
+    }
+
+    static private (bool isInstalled, string output) CheckPackageWithManager(string packageManager, string packageName)
+    {
+        var command = packageManager switch
+        {
+            "dpkg" => $"dpkg -s {packageName}",
+            "pacman" => $"pacman -Qi {packageName}",
+            "rpm" => $"rpm -q {packageName}",
+            "zypper" => $"zypper search -i {packageName}",
+            _ => throw new ArgumentException($"Unsupported package manager: {packageManager}")
+        };
+
+        var startInfo = new ProcessStartInfo
+        {
+            FileName = "/bin/bash",
+            Arguments = $"-c \"{command}\"",
+            RedirectStandardOutput = true,
+            RedirectStandardError = true,
+            UseShellExecute = false,
+            CreateNoWindow = true
+        };
+
+        using var process = new Process { StartInfo = startInfo };
+        process.Start();
+        var output = process.StandardOutput.ReadToEnd();
+        process.WaitForExit();
+
+        var isInstalled = packageManager switch
+        {
+            "dpkg" => output.Contains("install ok installed"),
+            "pacman" => process.ExitCode == 0,
+            "rpm" => process.ExitCode == 0,
+            "zypper" => output.Contains(packageName) && output.Contains("i |"),
+            _ => false
+        };
+
+        return (isInstalled, output);
     }
 }
