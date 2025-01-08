@@ -15,7 +15,7 @@ namespace AlbionDataAvalonia.Locations
         private static List<LocationJson> locations = new List<LocationJson>();
         private static List<AlbionLocation> albionLocations = new List<AlbionLocation>();
 
-        public static AlbionLocation Unknown { get; } = new AlbionLocation(0, "Unknown", "Unknown");
+        public static AlbionLocation Unknown { get; } = new AlbionLocation(-2, "Unknown", "Unknown");
         public static AlbionLocation Unset { get; } = new AlbionLocation(-1, "Unset", "Unset");
 
         public static async Task InitializeAsync()
