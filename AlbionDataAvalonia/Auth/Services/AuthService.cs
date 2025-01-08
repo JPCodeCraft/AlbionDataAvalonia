@@ -17,7 +17,7 @@ namespace AlbionDataAvalonia.Auth.Services
     {
         private readonly SettingsManager _settingsManager;
         private FirebaseAuthResponse? _firebaseUser = null;
-        public event EventHandler<FirebaseAuthResponse?> FirebaseUserChanged;
+        public Action<FirebaseAuthResponse?>? FirebaseUserChanged;
         private CancellationTokenSource? _refreshTokenCts;
 
         public AuthService(SettingsManager settingsManager)
@@ -43,7 +43,7 @@ namespace AlbionDataAvalonia.Auth.Services
                 OnFirebaseUserChanged(_firebaseUser);
                 ScheduleTokenRefresh();
 
-                Log.Information($"User signed in: {_firebaseUser?.Email}");
+                Log.Information($"User signed in: {_firebaseUser?.HiddenEmail}");
             }
             catch (Exception ex)
             {
@@ -226,7 +226,7 @@ namespace AlbionDataAvalonia.Auth.Services
 
         private void OnFirebaseUserChanged(FirebaseAuthResponse? user)
         {
-            FirebaseUserChanged?.Invoke(this, user);
+            FirebaseUserChanged?.Invoke(user);
         }
 
         private class TokenResponse
