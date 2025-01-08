@@ -1,4 +1,6 @@
-﻿using AlbionDataAvalonia.Locations;
+﻿using AlbionDataAvalonia.Auth.Models;
+using AlbionDataAvalonia.Auth.Services;
+using AlbionDataAvalonia.Locations;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Settings;
@@ -28,6 +30,7 @@ public partial class MainViewModel : ViewModelBase
     private readonly MailsViewModel _mailsViewModel;
     private readonly TradesViewModel _tradesViewModel;
     private readonly Uploader _uploader;
+    private readonly AuthService _authService;
 
     [ObservableProperty]
     private string appVersion;
@@ -86,6 +89,11 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private bool greenBlinking = false;
 
+    [ObservableProperty]
+    private FirebaseAuthResponse? firebaseUser = null;
+    [ObservableProperty]
+    private bool userLoggedIn = false;
+
     private int oldUploadQueueSize = 0;
     private int oldRunningTasksCount = 0;
 
@@ -93,7 +101,7 @@ public partial class MainViewModel : ViewModelBase
     {
     }
 
-    public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, SettingsManager settingsManager, SettingsViewModel settingsViewModel, LogsViewModel logsViewModel, MailsViewModel mailsViewModel, TradesViewModel tradesViewModel, Uploader uploader)
+    public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, SettingsManager settingsManager, SettingsViewModel settingsViewModel, LogsViewModel logsViewModel, MailsViewModel mailsViewModel, TradesViewModel tradesViewModel, Uploader uploader, AuthService authService)
     {
         _playerState = playerState;
         _networkListener = networkListener;
@@ -103,6 +111,7 @@ public partial class MainViewModel : ViewModelBase
         _mailsViewModel = mailsViewModel;
         _tradesViewModel = tradesViewModel;
         _uploader = uploader;
+        _authService = authService;
 
         LocationName = _playerState.Location.FriendlyName;
         PlayerName = _playerState.PlayerName;
@@ -132,6 +141,12 @@ public partial class MainViewModel : ViewModelBase
         _playerState.OnUploadedGoldHistoriesCountChanged += count => UploadedGoldHistoriesCount = count;
 
         _playerState.OnUploadStatusCountDicChanged += UpdateUploadStatusCount;
+
+        _authService.FirebaseUserChanged += user =>
+        {
+            FirebaseUser = user;
+            UserLoggedIn = FirebaseUser is not null ? true : false;
+        };
 
         if (NpCapInstallationChecker.IsNpCapInstalled())
         {
@@ -313,6 +328,18 @@ public partial class MainViewModel : ViewModelBase
         {
             Log.Error($"An error occurred while trying to install NpCap: {ex.Message}");
         }
+    }
+
+    [RelayCommand]
+    private async Task Login()
+    {
+        await _authService.SignInAsync();
+    }
+
+    [RelayCommand]
+    private void Logout()
+    {
+        _authService.LogOut();
     }
 
     public void OpenUrl(object? urlObj)

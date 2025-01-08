@@ -1,12 +1,13 @@
+<!-- AlbionDataAvalonia/Views/MainView.axaml -->
 <UserControl xmlns="https://github.com/avaloniaui"
-	xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-	xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
-	xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-	xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
-	xmlns:ani="clr-namespace:Avalonia.Animation;assembly=Avalonia.Animation"
-	mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-	x:Class="AlbionDataAvalonia.Views.MainView"
-	x:DataType="vm:MainViewModel">
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
+             xmlns:ani="clr-namespace:Avalonia.Animation;assembly=Avalonia.Animation"
+             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
+             x:Class="AlbionDataAvalonia.Views.MainView"
+             x:DataType="vm:MainViewModel">
 	<Design.DataContext>
 		<vm:MainViewModel />
 	</Design.DataContext>
@@ -33,7 +34,7 @@
 			<Setter Property="HorizontalAlignment" Value="Stretch" />
 		</Style>
 	</UserControl.Styles>
-	
+
 	<Grid>
 		<Grid.ColumnDefinitions>
 			<ColumnDefinition Width="200" />
@@ -42,35 +43,55 @@
 
 		<!-- Sidebar -->
 		<Grid Grid.Column="0">
+			<Grid.RowDefinitions>
+				<RowDefinition Height="*" />
+				<RowDefinition Height="Auto" />
+			</Grid.RowDefinitions>
 			<Grid.ColumnDefinitions>
 				<ColumnDefinition Width="*" />
 				<ColumnDefinition Width="Auto" />
 			</Grid.ColumnDefinitions>
 
-			<StackPanel Grid.Column="0">
+			<StackPanel Grid.Row="0" Grid.Column="0">
 				<Label HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold"
-					Content="Albion Free Market" Padding="0 15 0 0" />
+                       Content="Albion Free Market" Padding="0 15 0 0" />
 				<Label HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="DemiBold"
-					Content="Data Client" Padding="0 5 0 15" />
+                       Content="Data Client" Padding="0 5 0 15" />
 				<Button Classes="menu" Content="Main" Margin="10" HorizontalAlignment="Stretch"
-					Command="{Binding ShowDashboardCommand}" />
+                        Command="{Binding ShowDashboardCommand}" />
 				<Button Classes="menu" Content="Trades" Margin="10" HorizontalAlignment="Stretch"
-					Command="{Binding ShowTradesCommand}" />
+                        Command="{Binding ShowTradesCommand}" />
 				<Button Classes="menu" Content="Mails" Margin="10" HorizontalAlignment="Stretch"
-					Command="{Binding ShowMailsCommand}" />
+                        Command="{Binding ShowMailsCommand}" />
 				<Button Classes="menu" Content="Settings" Margin="10" HorizontalAlignment="Stretch"
-					Command="{Binding ShowSettingsCommand}" />
+                        Command="{Binding ShowSettingsCommand}" />
 				<Button Classes="menu" Content="Logs" Margin="10" HorizontalAlignment="Stretch"
-					Command="{Binding ShowLogsCommand}" />
+                        Command="{Binding ShowLogsCommand}" />
 			</StackPanel>
 
-			<Rectangle Grid.Column="1" Width="1" Fill="rgba(255,255,255,.1)" VerticalAlignment="Stretch" />
+			<Rectangle Grid.Row="0" Grid.RowSpan="2" Grid.Column="1" Width="1" Fill="rgba(255,255,255,.1)" VerticalAlignment="Stretch" />
+
+			<!-- Authentication Section -->
+			<StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2" Orientation="Vertical" Margin="10">
+				<!-- Login Button -->
+				<Button Content="Login"
+                        Command="{Binding LoginCommand}"
+                        IsVisible="{Binding !UserLoggedIn}"
+                        Margin="0,10,0,0" />
+
+				<!-- Logout and User Info -->
+				<StackPanel Orientation="Vertical"
+                            IsVisible="{Binding UserLoggedIn}"
+                            HorizontalAlignment="Left" Margin="0,10,0,0">
+					<TextBlock Text="{Binding FirebaseUser.Initials}" VerticalAlignment="Center" Margin="0,0,0,10"/>
+					<Button Content="Logout"
+                            Command="{Binding LogoutCommand}" />
+				</StackPanel>
+			</StackPanel>
 		</Grid>
 
 		<!-- Main Content -->
 		<ContentControl Grid.Column="1" Margin="10" Content="{Binding CurrentView}">
-
 		</ContentControl>
-
 	</Grid>
 </UserControl>

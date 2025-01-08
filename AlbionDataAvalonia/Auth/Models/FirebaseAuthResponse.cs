@@ -1,4 +1,5 @@
-﻿using System.Text.Json.Serialization;
+﻿using System;
+using System.Text.Json.Serialization;
 
 namespace AlbionDataAvalonia.Auth.Models;
 
@@ -57,5 +58,13 @@ public class FirebaseAuthResponse
 
     [JsonPropertyName("needConfirmation")]
     public bool NeedConfirmation { get; set; }
+
+    [JsonIgnore]
+    public string Initials => $"{FirstName?[0]}. {LastName?[0]}.";
+
+    [JsonIgnore]
+    public string HiddenEmail => Email is not null && Email.Length > 4
+        ? string.Concat(Email.AsSpan(0, 2), new string('*', Email.Length - 4), Email.AsSpan(Email.Length - 2))
+        : string.Empty;
 }
 
