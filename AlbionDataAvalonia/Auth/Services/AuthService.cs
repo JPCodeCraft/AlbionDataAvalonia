@@ -8,6 +8,7 @@ using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json.Serialization;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.Auth.Services
@@ -15,7 +16,9 @@ namespace AlbionDataAvalonia.Auth.Services
     public class AuthService
     {
         private readonly SettingsManager _settingsManager;
-        public FirebaseAuthResponse? FirebaseUser { get; private set; } = null;
+        private FirebaseAuthResponse? _firebaseUser = null;
+        public event EventHandler<FirebaseAuthResponse?> FirebaseUserChanged;
+        private CancellationTokenSource? _refreshTokenCts;
 
         public AuthService(SettingsManager settingsManager)
         {
@@ -36,7 +39,11 @@ namespace AlbionDataAvalonia.Auth.Services
                 // Await the token retrieval
                 var code = await codeTask;
 
-                FirebaseUser = await GetFirebaseUserAsync(code);
+                _firebaseUser = await GetFirebaseUserAsync(code);
+                OnFirebaseUserChanged(_firebaseUser);
+                ScheduleTokenRefresh();
+
+                Log.Information($"User signed in: {_firebaseUser?.Email}");
             }
             catch (Exception ex)
             {
@@ -98,15 +105,19 @@ namespace AlbionDataAvalonia.Auth.Services
                     throw new Exception("Firebase ID token not found in the response.");
                 }
 
-                if (FirebaseUser == null)
+                if (_firebaseUser == null)
                 {
                     throw new InvalidOperationException("Can't refresh token if you're not logged in.");
                 }
 
-                FirebaseUser.ExpiresIn = jsonResponse.ExpiresIn;
-                FirebaseUser.IdToken = jsonResponse.IdToken;
-                FirebaseUser.RefreshToken = jsonResponse.RefreshToken;
+                _firebaseUser.ExpiresIn = jsonResponse.ExpiresIn;
+                _firebaseUser.IdToken = jsonResponse.IdToken;
+                _firebaseUser.RefreshToken = jsonResponse.RefreshToken;
 
+                OnFirebaseUserChanged(_firebaseUser);
+                ScheduleTokenRefresh();
+
+                Log.Information($"Firebase token refreshed for user: {_firebaseUser.Email}");
             }
             else
             {
@@ -153,8 +164,6 @@ namespace AlbionDataAvalonia.Auth.Services
                 response.OutputStream.Close();
 
                 return code;
-
-
             }
             catch (Exception ex)
             {
@@ -166,6 +175,58 @@ namespace AlbionDataAvalonia.Auth.Services
             {
                 listener.Stop();
             }
+        }
+
+        private void ScheduleTokenRefresh()
+        {
+            if (_firebaseUser != null && int.TryParse(_firebaseUser.ExpiresIn, out int expiresInSeconds))
+            {
+                // Calculate 70% of the expiration time
+                var delay = TimeSpan.FromSeconds(expiresInSeconds * 0.7);
+
+                // Cancel any existing scheduled refresh
+                _refreshTokenCts?.Cancel();
+
+                // Create a new cancellation token source
+                _refreshTokenCts = new CancellationTokenSource();
+
+                // Schedule the token refresh
+                Task.Delay(delay, _refreshTokenCts.Token)
+                    .ContinueWith(async t =>
+                    {
+                        if (!t.IsCanceled && _firebaseUser != null)
+                        {
+                            try
+                            {
+                                await RefreshFirebaseTokenAsync(_firebaseUser.RefreshToken);
+                            }
+                            catch (Exception ex)
+                            {
+                                Log.Error($"Automatic token refresh failed: {ex.Message}");
+                            }
+                        }
+                    }, TaskScheduler.Default);
+
+                Log.Debug($"Token refresh scheduled in {delay.TotalMinutes} minutes.");
+            }
+        }
+
+        public void LogOut()
+        {
+            // Cancel any scheduled token refresh
+            _refreshTokenCts?.Cancel();
+            _refreshTokenCts = null;
+
+            // Clear the user information
+            _firebaseUser = null;
+            OnFirebaseUserChanged(_firebaseUser);
+
+            Log.Information("User has been logged out.");
+        }
+
+        private void OnFirebaseUserChanged(FirebaseAuthResponse? user)
+        {
+            FirebaseUserChanged?.Invoke(this, user);
         }
 
         private class TokenResponse
@@ -190,4 +251,5 @@ namespace AlbionDataAvalonia.Auth.Services
         }
 
     }
+
 }
