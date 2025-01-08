@@ -1,4 +1,5 @@
-﻿using AlbionDataAvalonia.DB;
+﻿using AlbionDataAvalonia.Auth.Services;
+using AlbionDataAvalonia.DB;
 using AlbionDataAvalonia.Localization.Services;
 using AlbionDataAvalonia.Locations;
 using AlbionDataAvalonia.Logging;
@@ -210,6 +211,7 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<MailService>();
         collection.AddSingleton<TradeService>();
         collection.AddSingleton<LocalizationService>();
+        collection.AddSingleton<AuthService>();
 
         collection.AddSingleton<MainViewModel>();
         collection.AddSingleton<SettingsViewModel>();

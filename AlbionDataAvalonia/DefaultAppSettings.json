@@ -17,5 +17,8 @@
 
   "NetworkDevicesStartDelaySecs": 5,
   "NetworkDevicesIdleMinutes": 20,
-  "NetworkDevicesIdleCheckMinutes": 5
+  "NetworkDevicesIdleCheckMinutes": 5,
+
+  "AfmAuthClientId": "615549188968-7fo3h0ldc144p8pq6fm0nts43db8rd6j.apps.googleusercontent.com",
+  "AfmAuthRedirectUri": "http://localhost:5000/"
 }
