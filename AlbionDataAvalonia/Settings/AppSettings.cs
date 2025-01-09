@@ -20,4 +20,5 @@ public class AppSettings
     public string AfmAuthClientId { get; set; }
     public string AfmAuthRedirectUri { get; set; }
     public string AfmAuthApiUrl { get; set; }
+    public string AfmFlipsOrdersApiUrl { get; set; }
 }

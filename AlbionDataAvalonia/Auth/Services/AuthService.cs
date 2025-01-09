@@ -17,8 +17,11 @@ namespace AlbionDataAvalonia.Auth.Services
     {
         private readonly SettingsManager _settingsManager;
         private FirebaseAuthResponse? _firebaseUser = null;
-        public Action<FirebaseAuthResponse?>? FirebaseUserChanged;
         private CancellationTokenSource? _refreshTokenCts;
+
+        public Action<FirebaseAuthResponse?>? FirebaseUserChanged;
+
+        public string? FirebaseUserId => _firebaseUser?.LocalId;
 
         public AuthService(SettingsManager settingsManager)
         {
@@ -71,7 +74,6 @@ namespace AlbionDataAvalonia.Auth.Services
 
             Log.Information("Browser opened for Google Sign-In.");
         }
-
         private async Task<FirebaseAuthResponse?> GetFirebaseUserAsync(string code)
         {
             var url = $"{_settingsManager.AppSettings.AfmAuthApiUrl}/tokenFromCode/{Uri.EscapeDataString(code)}";

@@ -26,6 +26,7 @@ public class Uploader : IDisposable
     private PlayerState _playerState;
     private ConnectionService _connectionService;
     private SettingsManager _settingsManager;
+    private AFMUploader _afmUploader;
 
     public event EventHandler<MarketUploadEventArgs> OnMarketUpload;
     public event EventHandler<GoldPriceUploadEventArgs> OnGoldPriceUpload;
@@ -36,11 +37,12 @@ public class Uploader : IDisposable
     public int uploadQueueCount => uploadQueue.Count;
     public int runningTasksCount => runningTasks.Count;
 
-    public Uploader(PlayerState playerState, ConnectionService connectionService, SettingsManager settingsManager)
+    public Uploader(PlayerState playerState, ConnectionService connectionService, SettingsManager settingsManager, AFMUploader aFMUploader)
     {
         _playerState = playerState;
         _connectionService = connectionService;
         _settingsManager = settingsManager;
+        _afmUploader = aFMUploader;
 
         OnGoldPriceUpload += _playerState.GoldPriceUploadHandler;
         OnMarketUpload += _playerState.MarketUploadHandler;
@@ -58,15 +60,41 @@ public class Uploader : IDisposable
 
             var offers = marketUpload.Orders.Where(x => x.AuctionType == AuctionType.offer).Count();
             var requests = marketUpload.Orders.Where(x => x.AuctionType == AuctionType.request).Count();
-            var data = SerializeData(marketUpload);
 
-            Log.Debug("Starting upload of {Offers} offers, {Requests} requests. Identifier: {identifier}", offers, requests, marketUpload.Identifier);
+            if (_playerState.UploadToAfmOnly)
+            {
+                var uploadStatus = await _afmUploader.UploadMarketOrder(marketUpload);
 
-            var uploadStatus = await UploadData(data, _playerState.AlbionServer, _settingsManager.AppSettings.MarketOrdersIngestSubject ?? "", marketUpload.Identifier);
+                OnMarketUpload?.Invoke(this, new MarketUploadEventArgs(marketUpload, _playerState.AlbionServer, uploadStatus));
 
-            OnMarketUpload?.Invoke(this, new MarketUploadEventArgs(marketUpload, _playerState.AlbionServer, uploadStatus));
+                if (uploadStatus == UploadStatus.Success)
+                {
+                    Log.Information("Market upload to AFM Flipper complete. {Offers} offers, {Requests} requests.", offers, requests);
+                }
+                else
+                {
+                    Log.Error("Market upload to AFM Flipper receiver status {Status}. {Offers} offers, {Requests} requests.", uploadStatus, offers, requests);
+                }
+            }
+            else
+            {
+                var data = SerializeData(marketUpload);
 
-            Log.Information("Market upload complete. {Offers} offers, {Requests} requests. Identifier: {identifier}", offers, requests, marketUpload.Identifier);
+                Log.Debug("Starting upload of {Offers} offers, {Requests} requests. Identifier: {identifier}", offers, requests, marketUpload.Identifier);
+
+                var uploadStatus = await UploadData(data, _playerState.AlbionServer, _settingsManager.AppSettings.MarketOrdersIngestSubject ?? "", marketUpload.Identifier);
+
+                OnMarketUpload?.Invoke(this, new MarketUploadEventArgs(marketUpload, _playerState.AlbionServer, uploadStatus));
+
+                if (uploadStatus == UploadStatus.Success)
+                {
+                    Log.Information("Market upload complete. {Offers} offers, {Requests} requests. Identifier: {identifier}", offers, requests, marketUpload.Identifier);
+                }
+                else
+                {
+                    Log.Error("Market upload received status {Status}. {Offers} offers, {Requests} requests. Identifier: {identifier}", uploadStatus, offers, requests, marketUpload.Identifier);
+                }
+            }
         }
         catch (Exception ex)
         {
@@ -91,7 +119,14 @@ public class Uploader : IDisposable
 
             OnGoldPriceUpload?.Invoke(this, new GoldPriceUploadEventArgs(goldHistoryUpload, _playerState.AlbionServer, uploadStatus));
 
-            Log.Information("Gold price upload complete. {count} histories. Identifier: {identifier}", amount, goldHistoryUpload.Identifier);
+            if (uploadStatus == UploadStatus.Success)
+            {
+                Log.Information("Gold price upload complete. {count} histories. Identifier: {identifier}", amount, goldHistoryUpload.Identifier);
+            }
+            else
+            {
+                Log.Error("Gold price upload received status {Status}. {count} histories. Identifier: {identifier}", uploadStatus, amount, goldHistoryUpload.Identifier);
+            }
         }
         catch (Exception ex)
         {
@@ -117,7 +152,14 @@ public class Uploader : IDisposable
 
             OnMarketHistoryUpload?.Invoke(this, new MarketHistoriesUploadEventArgs(marketHistoriesUpload, _playerState.AlbionServer, uploadStatus));
 
-            Log.Information("Market history upload complete. [{Timescale}] => {count} histories of {item}. Identifier: {identifier}", marketHistoriesUpload.Timescale, count, marketHistoriesUpload.AlbionId, marketHistoriesUpload.Identifier);
+            if (uploadStatus == UploadStatus.Success)
+            {
+                Log.Information("Market history upload complete. [{Timescale}] => {count} histories of {item}. Identifier: {identifier}", marketHistoriesUpload.Timescale, count, marketHistoriesUpload.AlbionId, marketHistoriesUpload.Identifier);
+            }
+            else
+            {
+                Log.Error("Market history upload received status {Status}. [{Timescale}] => {count} histories of {item}. Identifier: {identifier}", uploadStatus, marketHistoriesUpload.Timescale, count, marketHistoriesUpload.AlbionId, marketHistoriesUpload.Identifier);
+            }
         }
         catch (Exception ex)
         {
