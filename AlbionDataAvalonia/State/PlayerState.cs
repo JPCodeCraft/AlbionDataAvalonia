@@ -22,6 +22,8 @@ namespace AlbionDataAvalonia.State
         private bool isInGame = false;
         private bool hasEncryptedData = false;
 
+        private bool uploadToAfmOnly = false;
+
         public MarketHistoryInfo[] MarketHistoryIDLookup { get; init; }
         public ulong CacheSize => 8192;
         private Queue<string> SentDataHashs = new Queue<string>();
@@ -86,6 +88,16 @@ namespace AlbionDataAvalonia.State
                     Log.Information("Server set to {Server}", albionServer.Name);
                 }
                 InvokePlayerStateChanged();
+            }
+        }
+        public bool UploadToAfmOnly
+        {
+            get => uploadToAfmOnly;
+            set
+            {
+                if (uploadToAfmOnly == value) return;
+                uploadToAfmOnly = value;
+                Log.Information("Upload to AFM only set to {UploadToAfmOnly}", uploadToAfmOnly);
             }
         }
         public bool IsInGame

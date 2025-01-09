@@ -22,7 +22,8 @@ namespace AlbionDataAvalonia.ViewModels;
 
 public partial class MainViewModel : ViewModelBase
 {
-    private readonly PlayerState _playerState;
+    [ObservableProperty]
+    private PlayerState playerState;
     private readonly NetworkListenerService _networkListener;
     private readonly SettingsManager _settingsManager;
     private readonly SettingsViewModel _settingsViewModel;
@@ -103,7 +104,7 @@ public partial class MainViewModel : ViewModelBase
 
     public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, SettingsManager settingsManager, SettingsViewModel settingsViewModel, LogsViewModel logsViewModel, MailsViewModel mailsViewModel, TradesViewModel tradesViewModel, Uploader uploader, AuthService authService)
     {
-        _playerState = playerState;
+        this.PlayerState = playerState;
         _networkListener = networkListener;
         _settingsManager = settingsManager;
         _settingsViewModel = settingsViewModel;
@@ -113,9 +114,9 @@ public partial class MainViewModel : ViewModelBase
         _uploader = uploader;
         _authService = authService;
 
-        LocationName = _playerState.Location.FriendlyName;
-        PlayerName = _playerState.PlayerName;
-        AlbionServerName = _playerState.AlbionServer?.Name ?? "Unknown";
+        LocationName = this.PlayerState.Location.FriendlyName;
+        PlayerName = this.PlayerState.PlayerName;
+        AlbionServerName = this.PlayerState.AlbionServer?.Name ?? "Unknown";
 
         UploadQueueSize = _uploader.uploadQueueCount;
         oldUploadQueueSize = UploadQueueSize;
@@ -128,19 +129,19 @@ public partial class MainViewModel : ViewModelBase
 
         _uploader.OnChange += UpdateUploadStats;
 
-        _playerState.OnPlayerStateChanged += UpdateState;
+        this.PlayerState.OnPlayerStateChanged += UpdateState;
 
-        _playerState.OnUploadedMarketRequestsCountChanged += count => UploadedMarketRequestsCount = count;
-        _playerState.OnUploadedMarketOffersCountChanged += count => UploadedMarketOffersCount = count;
-        _playerState.OnUploadedHistoriesCountDicChanged += dic =>
+        this.PlayerState.OnUploadedMarketRequestsCountChanged += count => UploadedMarketRequestsCount = count;
+        this.PlayerState.OnUploadedMarketOffersCountChanged += count => UploadedMarketOffersCount = count;
+        this.PlayerState.OnUploadedHistoriesCountDicChanged += dic =>
         {
             UploadedMonthlyHistoriesCount = dic.ContainsKey(Timescale.Month) ? dic[Timescale.Month] : 0;
             UploadedWeeklyHistoriesCount = dic.ContainsKey(Timescale.Week) ? dic[Timescale.Week] : 0;
             UploadedDailyHistoriesCount = dic.ContainsKey(Timescale.Day) ? dic[Timescale.Day] : 0;
         };
-        _playerState.OnUploadedGoldHistoriesCountChanged += count => UploadedGoldHistoriesCount = count;
+        this.PlayerState.OnUploadedGoldHistoriesCountChanged += count => UploadedGoldHistoriesCount = count;
 
-        _playerState.OnUploadStatusCountDicChanged += UpdateUploadStatusCount;
+        this.PlayerState.OnUploadStatusCountDicChanged += UpdateUploadStatusCount;
 
         _authService.FirebaseUserChanged += user =>
         {
@@ -160,16 +161,16 @@ public partial class MainViewModel : ViewModelBase
 
     private void UpdateVisibilities()
     {
-        ShowChangeCity = !_playerState.CheckLocationIsSet() && _playerState.IsInGame;
-        ShowGetInGame = !_playerState.IsInGame;
-        ShowEncrypted = _playerState.HasEncryptedData;
+        ShowChangeCity = !PlayerState.CheckLocationIsSet() && PlayerState.IsInGame;
+        ShowGetInGame = !PlayerState.IsInGame;
+        ShowEncrypted = PlayerState.HasEncryptedData;
         ShowDataUi = !(ShowChangeCity || ShowGetInGame);
 
-        if (_playerState.Location == AlbionLocations.Unknown)
+        if (playerState.Location == AlbionLocations.Unknown)
         {
             ChangeCityText = "Current location is not supported. Go to a relevant market.";
         }
-        else if (_playerState.Location == AlbionLocations.Unset)
+        else if (PlayerState.Location == AlbionLocations.Unset)
         {
             ChangeCityText = "Location has not been set. Please change maps.";
         }

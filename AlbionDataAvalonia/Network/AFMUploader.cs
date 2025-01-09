@@ -1,4 +1,5 @@
-﻿using AlbionDataAvalonia.Network.Models;
+﻿using AlbionDataAvalonia.Auth.Services;
+using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
 using Serilog;
@@ -14,18 +15,48 @@ namespace AlbionDataAvalonia.Network.Services
     {
         private readonly PlayerState _playerState;
         private readonly SettingsManager _settingsManager;
+        private readonly AuthService _authService;
 
         private readonly HttpClient httpClient = new HttpClient();
 
-        public AFMUploader(PlayerState playerState, SettingsManager settingsManager)
+        public AFMUploader(PlayerState playerState, SettingsManager settingsManager, AuthService authService)
         {
             _playerState = playerState;
             _settingsManager = settingsManager;
+            _authService = authService;
 
             string afmBaseUrl = "https://api.albionfreemarket.com";
 
             httpClient.BaseAddress = new Uri(afmBaseUrl);
             httpClient.DefaultRequestHeaders.Referrer = new Uri("https://github.com/JPCodeCraft/AlbionDataAvalonia");
+        }
+
+        public async Task<UploadStatus> UploadMarketOrder(MarketUpload marketUpload)
+        {
+            if (_playerState.AlbionServer is null)
+            {
+                Log.Error("Cannot upload market order without a server.");
+                return UploadStatus.Failed;
+            }
+            if (_authService.FirebaseUserId is null)
+            {
+                Log.Error("Cannot upload market order without a Firebase user ID.");
+                return UploadStatus.Failed;
+            }
+
+            var afmMarketUpload = new AfmMarketUpload(marketUpload, _playerState.AlbionServer.Id, _authService.FirebaseUserId);
+
+            var requestUri = new Uri(httpClient.BaseAddress, "/dataclient/flipperOrders/");
+            HttpResponseMessage response = await httpClient.PostAsJsonAsync(requestUri, afmMarketUpload);
+
+            if (response.StatusCode != HttpStatusCode.OK)
+            {
+                Log.Error("HTTP Error while uploading AfmMarketUpload. Returned: {0} ({1}).", response.StatusCode, await response.Content.ReadAsStringAsync());
+                return UploadStatus.Failed;
+            }
+
+            Log.Debug("Successfully sent AfmMarketUpload to {0}.", requestUri);
+            return UploadStatus.Success;
         }
 
         public void UploadPlayerCount(PlayerCount playerCount)
