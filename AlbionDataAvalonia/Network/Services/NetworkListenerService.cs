@@ -84,7 +84,7 @@ namespace AlbionDataAvalonia.Network.Services
                 //ADD HANDLERS HERE
                 //EVENTS
                 //builder.AddEventHandler(new LeaveEventHandler(_playerState));
-                builder.AddEventHandler(new PlayerCountsEventHandler(_playerState, _afmUploader));
+                //builder.AddEventHandler(new PlayerCountsEventHandler(_playerState, _afmUploader));
                 //RESPONSE
                 builder.AddResponseHandler(new AuctionGetLoadoutOffersResponseHandler(_uploader, _playerState));
                 builder.AddResponseHandler(new AuctionGetOffersResponseHandler(_uploader, _playerState, _tradeService));
