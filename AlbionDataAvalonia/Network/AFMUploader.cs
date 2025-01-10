@@ -64,7 +64,7 @@ namespace AlbionDataAvalonia.Network.Services
 
             var afmMarketUpload = new AfmMarketUpload(marketUpload, _playerState.AlbionServer.Id, _authService.FirebaseUserId);
 
-            var requestUri = new Uri(httpClient.BaseAddress, "/dataclient/flipperOrders/");
+            var requestUri = new Uri(httpClient.BaseAddress, "flipperOrders");
             var jsonContent = JsonContent.Create(afmMarketUpload, options: new JsonSerializerOptions
             {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -76,7 +76,7 @@ namespace AlbionDataAvalonia.Network.Services
 
             if (response.StatusCode != HttpStatusCode.OK)
             {
-                Log.Error("HTTP Error while uploading AfmMarketUpload. Returned: {0} ({1}).", response.StatusCode, await response.Content.ReadAsStringAsync());
+                Log.Error("HTTP Error while uploading AfmMarketUpload to Url {0}. Returned: {1} ({2}).", requestUri.ToString(), response.StatusCode, await response.Content.ReadAsStringAsync());
                 return UploadStatus.Failed;
             }
 
@@ -91,7 +91,7 @@ namespace AlbionDataAvalonia.Network.Services
 
         private async Task Upload(PlayerCount playerCount)
         {
-            var requestUri = new Uri(httpClient.BaseAddress, "/dataclient/playercount/");
+            var requestUri = new Uri(httpClient.BaseAddress, "playercount");
             HttpResponseMessage response = await httpClient.PostAsJsonAsync(requestUri, playerCount);
 
             if (response.StatusCode != HttpStatusCode.OK)
