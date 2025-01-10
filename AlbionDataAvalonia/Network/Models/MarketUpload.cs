@@ -4,5 +4,5 @@ namespace AlbionDataAvalonia.Network.Models;
 
 public class MarketUpload : BaseUpload
 {
-    public List<MarketOrder> Orders = new List<MarketOrder>();
+    public List<MarketOrder> Orders { get; set; } = new List<MarketOrder>();
 }

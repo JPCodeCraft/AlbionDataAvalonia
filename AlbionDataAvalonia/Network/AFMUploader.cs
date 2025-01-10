@@ -1,4 +1,5 @@
-﻿using AlbionDataAvalonia.Auth.Services;
+﻿using AlbionDataAvalonia.Auth.Models;
+using AlbionDataAvalonia.Auth.Services;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
@@ -7,6 +8,8 @@ using System;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Text.Json;
+using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.Network.Services
@@ -25,9 +28,24 @@ namespace AlbionDataAvalonia.Network.Services
             _settingsManager = settingsManager;
             _authService = authService;
 
-            string afmBaseUrl = "https://api.albionfreemarket.com";
+            _authService.FirebaseUserChanged += (user) => updateAuthHeader(user);
+        }
 
-            httpClient.BaseAddress = new Uri(afmBaseUrl);
+        private void updateAuthHeader(FirebaseAuthResponse? user)
+        {
+            if (user is not null)
+            {
+                httpClient.DefaultRequestHeaders.Authorization = new("Bearer", user.IdToken);
+            }
+            else
+            {
+                httpClient.DefaultRequestHeaders.Authorization = null;
+            }
+        }
+
+        public void Initialize()
+        {
+            httpClient.BaseAddress = new Uri(_settingsManager.AppSettings.AfmTopItemsApiBase);
             httpClient.DefaultRequestHeaders.Referrer = new Uri("https://github.com/JPCodeCraft/AlbionDataAvalonia");
         }
 
@@ -47,7 +65,14 @@ namespace AlbionDataAvalonia.Network.Services
             var afmMarketUpload = new AfmMarketUpload(marketUpload, _playerState.AlbionServer.Id, _authService.FirebaseUserId);
 
             var requestUri = new Uri(httpClient.BaseAddress, "/dataclient/flipperOrders/");
-            HttpResponseMessage response = await httpClient.PostAsJsonAsync(requestUri, afmMarketUpload);
+            var jsonContent = JsonContent.Create(afmMarketUpload, options: new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                WriteIndented = true,
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+            });
+
+            HttpResponseMessage response = await httpClient.PostAsync(requestUri, jsonContent);
 
             if (response.StatusCode != HttpStatusCode.OK)
             {

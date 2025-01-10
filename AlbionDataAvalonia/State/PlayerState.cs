@@ -97,7 +97,7 @@ namespace AlbionDataAvalonia.State
             {
                 if (uploadToAfmOnly == value) return;
                 uploadToAfmOnly = value;
-                Log.Information("Upload to AFM only set to {UploadToAfmOnly}", uploadToAfmOnly);
+                InvokePlayerStateChanged();
             }
         }
         public bool IsInGame
@@ -132,7 +132,7 @@ namespace AlbionDataAvalonia.State
 
         private void InvokePlayerStateChanged()
         {
-            OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, IsInGame, HasEncryptedData));
+            OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, IsInGame, HasEncryptedData, UploadToAfmOnly));
         }
 
         public PlayerState(SettingsManager settingsManager)

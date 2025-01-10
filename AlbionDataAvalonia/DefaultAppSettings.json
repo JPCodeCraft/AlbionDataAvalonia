@@ -22,5 +22,5 @@
   "AfmAuthClientId": "615549188968-7fo3h0ldc144p8pq6fm0nts43db8rd6j.apps.googleusercontent.com",
   "AfmAuthRedirectUri": "http://localhost:5000/",
   "AfmAuthApiUrl": "http://localhost:3023/api",
-  "AfmFlipsOrdersApiUrl": "http://localhost:3023/api/flipsorders"
+  "AfmTopItemsApiBase": "http://localhost:5062"
 }

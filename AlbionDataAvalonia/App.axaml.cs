@@ -74,6 +74,7 @@ public partial class App : Application
         var settings = services.GetRequiredService<SettingsManager>();
         var listener = services.GetRequiredService<NetworkListenerService>();
         var uploader = services.GetRequiredService<Uploader>();
+        var afmUploader = services.GetRequiredService<AFMUploader>();
         var localization = services.GetRequiredService<LocalizationService>();
         var idleService = services.GetRequiredService<IdleService>();
 
@@ -105,6 +106,9 @@ public partial class App : Application
                 Log.Error(t.Exception, "Error in uploader, exception: {exception}", t.Exception);
             }
         });
+
+        //AFM UPLOADER
+        afmUploader.Initialize();
 
         //LISTENER
         _ = listener.StartNetworkListeningAsync().ContinueWith(t =>
