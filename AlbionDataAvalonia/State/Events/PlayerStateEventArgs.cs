@@ -11,13 +11,15 @@ namespace AlbionDataAvalonia.State.Events
         public AlbionServer? AlbionServer { get; set; }
         public bool IsInGame { get; set; }
         public bool HasEncryptedData { get; set; }
-        public PlayerStateEventArgs(AlbionLocation location, string name, AlbionServer? albionServer, bool isInGame, bool hasEncryptedData)
+        public bool UploadToAfmOnly { get; set; }
+        public PlayerStateEventArgs(AlbionLocation location, string name, AlbionServer? albionServer, bool isInGame, bool hasEncryptedData, bool uploadToAfmOnly)
         {
             Location = location;
             Name = name;
             AlbionServer = albionServer;
             IsInGame = isInGame;
             HasEncryptedData = hasEncryptedData;
+            UploadToAfmOnly = uploadToAfmOnly;
         }
     }
 }

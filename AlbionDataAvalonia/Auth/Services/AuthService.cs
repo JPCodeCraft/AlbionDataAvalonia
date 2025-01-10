@@ -1,5 +1,6 @@
 ﻿using AlbionDataAvalonia.Auth.Models;
 using AlbionDataAvalonia.Settings;
+using AlbionDataAvalonia.State;
 using Serilog;
 using System;
 using System.Diagnostics;
@@ -15,7 +16,9 @@ namespace AlbionDataAvalonia.Auth.Services
 {
     public class AuthService
     {
+        private readonly PlayerState _playerState;
         private readonly SettingsManager _settingsManager;
+
         private FirebaseAuthResponse? _firebaseUser = null;
         private CancellationTokenSource? _refreshTokenCts;
 
@@ -23,9 +26,10 @@ namespace AlbionDataAvalonia.Auth.Services
 
         public string? FirebaseUserId => _firebaseUser?.LocalId;
 
-        public AuthService(SettingsManager settingsManager)
+        public AuthService(SettingsManager settingsManager, PlayerState playerState)
         {
             _settingsManager = settingsManager;
+            _playerState = playerState;
         }
 
         public async Task SignInAsync()
@@ -221,6 +225,9 @@ namespace AlbionDataAvalonia.Auth.Services
 
             // Clear the user information
             _firebaseUser = null;
+
+            _playerState.UploadToAfmOnly = false;
+
             OnFirebaseUserChanged(_firebaseUser);
 
             Log.Information("User has been logged out.");

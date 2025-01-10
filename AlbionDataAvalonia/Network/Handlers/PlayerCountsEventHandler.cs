@@ -9,12 +9,12 @@ namespace AlbionDataAvalonia.Network.Handlers;
 public class PlayerCountsEventHandler : EventPacketHandler<PlayerCountsEvent>
 {
     private readonly PlayerState playerState;
-    private readonly AFMUploader aFMUploader;
+    private readonly AFMUploader AfmUploader;
 
     public PlayerCountsEventHandler(PlayerState playerState, AFMUploader aFMUploader) : base((int)EventCodes.PlayerCounts)
     {
         this.playerState = playerState;
-        this.aFMUploader = aFMUploader;
+        this.AfmUploader = aFMUploader;
     }
 
     protected override async Task OnActionAsync(PlayerCountsEvent value)
@@ -23,7 +23,7 @@ public class PlayerCountsEventHandler : EventPacketHandler<PlayerCountsEvent>
         {
             value.PlayerCount.Location = playerState.Location;
             value.PlayerCount.Server = playerState.AlbionServer;
-            this.aFMUploader.UploadPlayerCount(value.PlayerCount);
+            this.AfmUploader.UploadPlayerCount(value.PlayerCount);
         }
         await Task.CompletedTask;
     }
