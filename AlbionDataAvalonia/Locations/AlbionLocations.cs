@@ -36,6 +36,7 @@ namespace AlbionDataAvalonia.Locations
                 {
                     if (int.TryParse(location.Index, out var id))
                     {
+                        if (location.UniqueName == "Caerleon") location.UniqueName = "Black Market";
                         albionLocations.Add(new AlbionLocation(id, location.UniqueName.Replace(" ", ""), location.UniqueName));
                     }
                 }
