@@ -80,10 +80,11 @@ namespace AlbionDataAvalonia.Auth.Services
         }
         private async Task<FirebaseAuthResponse?> GetFirebaseUserAsync(string code)
         {
-            var url = $"{_settingsManager.AppSettings.AfmAuthApiUrl}/tokenFromCode/{Uri.EscapeDataString(code)}";
+            var url = $"{_settingsManager.AppSettings.AfmAuthApiUrl}/tokenFromCode";
+            var query = $"?code={Uri.EscapeDataString(code)}";
 
             using var client = new HttpClient();
-            var response = await client.GetAsync(url);
+            var response = await client.GetAsync(url + query);
 
             if (response.IsSuccessStatusCode)
             {
@@ -97,11 +98,15 @@ namespace AlbionDataAvalonia.Auth.Services
             }
         }
 
+
         private async Task RefreshFirebaseTokenAsync(string refreshToken)
         {
-            var url = $"{_settingsManager.AppSettings.AfmAuthApiUrl}/refreshToken/{Uri.EscapeDataString(refreshToken)}";
+            var url = $"{_settingsManager.AppSettings.AfmAuthApiUrl}/refreshToken";
+            var query = $"?refreshToken={Uri.EscapeDataString(refreshToken)}";
+
             using var client = new HttpClient();
-            var response = await client.GetAsync(url);
+            var response = await client.GetAsync(url + query);
+
             if (response.IsSuccessStatusCode)
             {
                 var jsonResponse = await response.Content.ReadFromJsonAsync<RefreshTokenResponse>();
