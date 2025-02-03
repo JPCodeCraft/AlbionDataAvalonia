@@ -2,13 +2,15 @@
 
 public class AlbionLocation
 {
-    public int Id { get; set; }
+    public string Id { get; set; }
+    public int? IdInt { get; set; }
     public string Name { get; set; }
     public string FriendlyName { get; set; }
 
-    public AlbionLocation(int id, string name, string friendlyName)
+    public AlbionLocation(string id, string name, string friendlyName)
     {
         Id = id;
+        IdInt = AlbionLocations.GetIdInt(id);
         Name = name;
         FriendlyName = friendlyName;
     }

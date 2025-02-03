@@ -27,6 +27,9 @@ public class JoinResponse : BaseOperation
                     case short shortValue:
                         userObjectId = shortValue;
                         break;
+                    case byte byteValue:
+                        userObjectId = byteValue;
+                        break;
                     case null:
                         // Handle null value. For example, you might want to log an error or throw an exception.
                         Log.Error("objectId is null.");
@@ -47,7 +50,7 @@ public class JoinResponse : BaseOperation
             {
                 string location = (string)locationData;
                 if (location.Contains("-Auction2")) location = location.Replace("-Auction2", "");
-                if (AlbionLocations.TryParse(location, out AlbionLocation loc))
+                if (AlbionLocations.TryParse(location, out AlbionLocation? loc) && loc != null)
                 {
                     playerLocation = loc;
                 }

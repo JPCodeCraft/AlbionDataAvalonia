@@ -203,14 +203,18 @@ namespace AlbionDataAvalonia.State
             Log.Verbose("Upload status: {status} => accounted for. Identifier: {identifier}", status, identifier);
         }
 
-        public bool CheckLocationIsSet()
+        public bool CheckLocationIsSet(bool ignoreNullIdInt = false)
         {
             if (location == AlbionLocations.Unknown || location == AlbionLocations.Unset)
             {
                 Log.Warning("Player location is not set. Please change maps.");
                 return false;
             }
-            else return true;
+            if (!ignoreNullIdInt)
+            {
+                if (location.IdInt is null) return false;
+            }
+            return true;
         }
 
         public void AddSentDataHash(string hash)
