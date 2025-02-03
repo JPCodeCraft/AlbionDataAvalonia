@@ -25,7 +25,7 @@ namespace AlbionTopItems.Models.Converters
         {
             if (value.HasValue)
             {
-                writer.WriteStringValue(value.Value.ToString());
+                writer.WriteNumberValue(value.Value);
             }
             else
             {
