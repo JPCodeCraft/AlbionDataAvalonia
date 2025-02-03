@@ -93,7 +93,7 @@ public partial class TradesViewModel : ViewModelBase
             TradeType? tradeType = SelectedTradeType == "Instant" ? TradeType.Instant : SelectedTradeType == "Order" ? TradeType.Order : null;
             TradeOperation? tradeOperation = SelectedOperation == "Sold" ? TradeOperation.Sell : SelectedOperation == "Bought" ? TradeOperation.Buy : null;
 
-            UnfilteredTrades = await _tradeService.GetTrades(_settingsManager.UserSettings.TradesToShow, 0, server?.Id ?? null, false, location?.Id ?? null, tradeType, tradeOperation);
+            UnfilteredTrades = await _tradeService.GetTrades(_settingsManager.UserSettings.TradesToShow, 0, server?.Id ?? null, false, location?.IdInt ?? null, tradeType, tradeOperation);
             FilterTrades();
         }
         catch

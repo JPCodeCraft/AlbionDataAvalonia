@@ -15,8 +15,8 @@ namespace AlbionDataAvalonia.Locations
         private static List<LocationJson> locations = new List<LocationJson>();
         private static List<AlbionLocation> albionLocations = new List<AlbionLocation>();
 
-        public static AlbionLocation Unknown { get; } = new AlbionLocation(-2, "Unknown", "Unknown");
-        public static AlbionLocation Unset { get; } = new AlbionLocation(-1, "Unset", "Unset");
+        public static AlbionLocation Unknown { get; } = new AlbionLocation("-0002", "Unknown", "Unknown");
+        public static AlbionLocation Unset { get; } = new AlbionLocation("-0001", "Unset", "Unset");
 
         public static async Task InitializeAsync()
         {
@@ -34,11 +34,8 @@ namespace AlbionDataAvalonia.Locations
 
                 foreach (var location in locations)
                 {
-                    if (int.TryParse(location.Index, out var id))
-                    {
-                        if (location.UniqueName == "Caerleon") location.UniqueName = "Black Market";
-                        albionLocations.Add(new AlbionLocation(id, location.UniqueName.Replace(" ", ""), location.UniqueName));
-                    }
+                    if (location.UniqueName == "Caerleon") location.UniqueName = "Black Market";
+                    albionLocations.Add(new AlbionLocation(location.Index, location.UniqueName.Replace(" ", ""), location.UniqueName));
                 }
 
                 // add unknown location
@@ -55,28 +52,33 @@ namespace AlbionDataAvalonia.Locations
             }
         }
 
+
         public static List<AlbionLocation> GetAll() => albionLocations;
 
         public static AlbionLocation? Get(string name) => albionLocations
-            .SingleOrDefault(location => location.Name.Equals(name, StringComparison.OrdinalIgnoreCase)
+            .SingleOrDefault(location => location.Id.Equals(name, StringComparison.OrdinalIgnoreCase)
+                || location.Name.Equals(name, StringComparison.OrdinalIgnoreCase)
                 || location.FriendlyName.Replace(" ", "").Equals(name.Replace(" ", "").Replace("@", "").Replace("_", "").Replace("-", ""), StringComparison.OrdinalIgnoreCase));
 
-        public static AlbionLocation? Get(int id) => albionLocations.SingleOrDefault(location => location.Id == id);
-
+        public static AlbionLocation? Get(int id) => Get(id.ToString("D4"));
 
         public static bool TryParse(string info, out AlbionLocation? location)
         {
-            // try to parse to an int, then its Id
-            if (int.TryParse(info, out var id))
-            {
-                location = Get(id);
-            }
-            else
-            {
-                location = Get(info);
-            }
+            location = Get(info);
 
             return location != null;
+        }
+
+        public static int? GetIdInt(string? id)
+        {
+            if (!string.IsNullOrEmpty(id))
+            {
+                if (id.Contains("BLACKBANK-"))
+                {
+                    id = id.Replace("BLACKBANK-", "");
+                }
+            }
+            return int.TryParse(id, out int result) ? result : null;
         }
     }
 }

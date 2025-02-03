@@ -1,4 +1,5 @@
-﻿using AlbionDataAvalonia.Locations.Models;
+﻿using AlbionDataAvalonia.Locations;
+using AlbionDataAvalonia.Locations.Models;
 using System;
 using System.ComponentModel.DataAnnotations.Schema;
 
@@ -87,6 +88,11 @@ public class Trade
 
     public Trade(MarketOrder order, int amount, int? albionServerId, string playerName, double salesTax)
     {
+        if (order.LocationId == null)
+        {
+            throw new ArgumentNullException("LocationId is null");
+        }
+
         switch (order.AuctionType)
         {
             case AuctionType.offer:
@@ -100,7 +106,7 @@ public class Trade
         }
         Amount = amount;
         AlbionServerId = albionServerId;
-        LocationId = order.LocationId;
+        LocationId = order.LocationId ?? AlbionLocations.Unknown.IdInt ?? -2;
         DateTime = DateTime.UtcNow;
         QualityLevel = order.QualityLevel;
         ItemId = order.ItemTypeId;

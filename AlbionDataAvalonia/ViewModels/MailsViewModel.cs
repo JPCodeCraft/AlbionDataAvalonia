@@ -88,7 +88,7 @@ public partial class MailsViewModel : ViewModelBase
             AlbionServers.TryParse(SelectedServer, out AlbionServer? server);
             AuctionType? type = SelectedType == "Sold" ? AuctionType.offer : SelectedType == "Bought" ? AuctionType.request : null;
 
-            UnfilteredMails = await _mailService.GetMails(_settingsManager.UserSettings.MailsPerPage, 0, server?.Id ?? null, false, location?.Id ?? null, type);
+            UnfilteredMails = await _mailService.GetMails(_settingsManager.UserSettings.MailsPerPage, 0, server?.Id ?? null, false, location?.IdInt ?? null, type);
             FilterMails();
         }
         catch
