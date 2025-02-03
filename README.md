@@ -3,7 +3,8 @@
 ## Windows Installation
 
 1. Navigate to the [releases](https://github.com/JPCodeCraft/AlbionDataAvalonia/releases) section to download the installer `AFMDataClientSetup_v_x.x.x.x.exe`.
-2. The application will automatically update to the latest version when available.
+2. After it's installed, the application will be running, but minimized in the system tray, near the Windows clock. To open the UI, simply click the icon in the system tray.
+3. The application will automatically update to the latest version when available.
 
 ## Alternative Albion Data Client
 
