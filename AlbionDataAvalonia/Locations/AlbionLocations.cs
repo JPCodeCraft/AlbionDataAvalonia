@@ -73,9 +73,13 @@ namespace AlbionDataAvalonia.Locations
         {
             if (!string.IsNullOrEmpty(id))
             {
-                if (id.Contains("BLACKBANK-"))
+                if (id.Contains("@"))
                 {
-                    id = id.Replace("BLACKBANK-", "");
+                    id = id.Split('@')[1];
+                    if (id.Contains("BLACKBANK-"))
+                    {
+                        id = id.Replace("BLACKBANK-", "");
+                    }
                 }
             }
             return int.TryParse(id, out int result) ? result : null;
