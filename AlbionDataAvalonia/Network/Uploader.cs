@@ -69,7 +69,7 @@ public class Uploader : IDisposable
 
                 if (uploadStatus == UploadStatus.Success)
                 {
-                    Log.Information("Market upload to AFM Flipper complete. {Offers} offers, {Requests} requests.", offers, requests);
+                    Log.Information("Market upload to AFM Flipper complete. {Offers} offers, {Requests} requests. Locations: {Location} ", offers, requests, string.Join(",", marketUpload.Orders.Select(x => x.LocationId).Distinct()));
                 }
                 else
                 {
@@ -88,7 +88,7 @@ public class Uploader : IDisposable
 
                 if (uploadStatus == UploadStatus.Success)
                 {
-                    Log.Information("Market upload complete. {Offers} offers, {Requests} requests. Identifier: {identifier}", offers, requests, marketUpload.Identifier);
+                    Log.Information("Market upload complete. {Offers} offers, {Requests} requests. Identifier: {identifier}. Locations: {Location}", offers, requests, marketUpload.Identifier, string.Join(",", marketUpload.Orders.Select(x => x.LocationId).Distinct()));
                 }
                 else
                 {
@@ -154,7 +154,7 @@ public class Uploader : IDisposable
 
             if (uploadStatus == UploadStatus.Success)
             {
-                Log.Information("Market history upload complete. [{Timescale}] => {count} histories of {item}. Identifier: {identifier}", marketHistoriesUpload.Timescale, count, marketHistoriesUpload.AlbionId, marketHistoriesUpload.Identifier);
+                Log.Information("Market history upload complete. [{Timescale}] => {count} histories of {item}. Identifier: {identifier}. Location: {Location}", marketHistoriesUpload.Timescale, count, marketHistoriesUpload.AlbionId, marketHistoriesUpload.Identifier, marketHistoriesUpload.LocationId);
             }
             else
             {
