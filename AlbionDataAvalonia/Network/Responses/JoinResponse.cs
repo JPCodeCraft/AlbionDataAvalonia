@@ -49,7 +49,6 @@ public class JoinResponse : BaseOperation
             if (parameters.TryGetValue(8, out object locationData))
             {
                 string location = (string)locationData;
-                if (location.Contains("-Auction2")) location = location.Replace("-Auction2", "");
                 if (AlbionLocations.TryParse(location, out AlbionLocation? loc) && loc != null)
                 {
                     playerLocation = loc;

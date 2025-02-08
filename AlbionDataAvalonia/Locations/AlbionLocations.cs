@@ -73,6 +73,10 @@ namespace AlbionDataAvalonia.Locations
         {
             if (!string.IsNullOrEmpty(id))
             {
+                if (id.Contains("-Auction2"))
+                {
+                    id = id.Replace("-Auction2", "");
+                }
                 if (id.Contains("@"))
                 {
                     id = id.Split('@')[1];
