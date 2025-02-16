@@ -85,6 +85,13 @@ namespace AlbionDataAvalonia.Locations
                         id = id.Replace("BLACKBANK-", "");
                     }
                 }
+                else
+                {
+                    if (id.Contains("BLACKBANK-"))
+                    {
+                        id = id.Replace("BLACKBANK-", "");
+                    }
+                }
             }
             return int.TryParse(id, out int result) ? result : null;
         }
