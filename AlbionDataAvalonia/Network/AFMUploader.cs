@@ -36,10 +36,14 @@ namespace AlbionDataAvalonia.Network.Services
             if (user is not null)
             {
                 httpClient.DefaultRequestHeaders.Authorization = new("Bearer", user.IdToken);
+                httpClient.DefaultRequestHeaders.Remove("X-User-Id");
+                httpClient.DefaultRequestHeaders.Add("X-User-Id", user.LocalId);
+
             }
             else
             {
                 httpClient.DefaultRequestHeaders.Authorization = null;
+                httpClient.DefaultRequestHeaders.Remove("X-User-Id");
             }
         }
 
