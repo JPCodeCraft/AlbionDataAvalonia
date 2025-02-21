@@ -68,7 +68,7 @@ namespace AlbionDataAvalonia.Network.Services
 
             var afmMarketUpload = new AfmMarketUpload(marketUpload, _playerState.AlbionServer.Id, _authService.FirebaseUserId);
 
-            var requestUri = new Uri(httpClient.BaseAddress, "flipperOrders");
+            var requestUri = new Uri(httpClient.BaseAddress, "flipperOrders?contributeToPublic=false");
             var jsonContent = JsonContent.Create(afmMarketUpload, options: new JsonSerializerOptions
             {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,

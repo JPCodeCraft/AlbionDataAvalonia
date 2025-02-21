@@ -25,11 +25,11 @@ public class SettingsManager
     {
         LoadUserSettings();
 
-        if (!await TryLoadAppSettingsFromRemoteAsync())
-        {
-            LoadAppSettingsFromLocal();
-            _ = KeepTryingToLoadAppSettingsFromRemoteAsync();
-        }
+        //if (!await TryLoadAppSettingsFromRemoteAsync())
+        //{
+        LoadAppSettingsFromLocal();
+        //    _ = KeepTryingToLoadAppSettingsFromRemoteAsync();
+        //}
     }
 
 
