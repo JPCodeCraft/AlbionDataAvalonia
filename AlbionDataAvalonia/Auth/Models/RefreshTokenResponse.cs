@@ -21,4 +21,7 @@ public class RefreshTokenResponse
 
     [JsonPropertyName("project_id")]
     public string ProjectId { get; set; }
+
+    [JsonPropertyName("decodedToken")]
+    public FirebaseDecodedToken FirebaseDecodedToken { get; set; }
 }

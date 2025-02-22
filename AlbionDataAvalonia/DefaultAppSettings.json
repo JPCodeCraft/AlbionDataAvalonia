@@ -21,6 +21,6 @@
 
   "AfmAuthClientId": "615549188968-7fo3h0ldc144p8pq6fm0nts43db8rd6j.apps.googleusercontent.com",
   "AfmAuthRedirectUri": "http://localhost:5000/",
-  "AfmAuthApiUrl": "https://api.albionfreemarket.com/be/api",
+  "AfmAuthApiUrl": "https://devapi.albionfreemarket.com/be/api",
   "AfmTopItemsApiBase": "https://devingest.albionfreemarket.com"
 }

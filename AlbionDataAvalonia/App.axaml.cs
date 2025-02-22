@@ -77,9 +77,13 @@ public partial class App : Application
         var afmUploader = services.GetRequiredService<AFMUploader>();
         var localization = services.GetRequiredService<LocalizationService>();
         var idleService = services.GetRequiredService<IdleService>();
+        var authService = services.GetRequiredService<AuthService>();
 
         //INITIALIZE SETTINGS
         await settings.InitializeSettings();
+
+        //AUTH SERVICE
+        await authService.TryAutoLoginAsync();
 
         //UPDATER
         _updateTimer = new System.Timers.Timer

@@ -1,4 +1,5 @@
-﻿using AlbionDataAvalonia.Network.Models;
+﻿using AlbionDataAvalonia.Auth.Models;
+using AlbionDataAvalonia.Network.Models;
 using Microsoft.EntityFrameworkCore;
 using System.IO;
 using System.Threading.Tasks;
@@ -9,6 +10,7 @@ namespace AlbionDataAvalonia.DB
     {
         public DbSet<AlbionMail> AlbionMails { get; set; }
         public DbSet<Trade> Trades { get; set; }
+        public DbSet<UserAuth> UserAuth { get; set; }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {

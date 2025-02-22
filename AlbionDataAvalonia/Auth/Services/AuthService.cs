@@ -1,6 +1,8 @@
 ﻿using AlbionDataAvalonia.Auth.Models;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
+using AlbionDataAvalonia.DB;
+using Microsoft.EntityFrameworkCore;
 using Serilog;
 using System;
 using System.Diagnostics;
@@ -18,6 +20,7 @@ namespace AlbionDataAvalonia.Auth.Services
     {
         private readonly PlayerState _playerState;
         private readonly SettingsManager _settingsManager;
+        private readonly LocalContext _dbContext;
 
         private FirebaseAuthResponse? _firebaseUser = null;
         private CancellationTokenSource? _refreshTokenCts;
@@ -30,6 +33,45 @@ namespace AlbionDataAvalonia.Auth.Services
         {
             _settingsManager = settingsManager;
             _playerState = playerState;
+            _dbContext = new LocalContext();
+        }
+
+        public async Task<bool> TryAutoLoginAsync()
+        {
+            try
+            {
+                var storedAuth = await _dbContext.UserAuth.FirstOrDefaultAsync();
+                if (storedAuth != null && !string.IsNullOrEmpty(storedAuth.RefreshToken))
+                {
+                    Log.Debug($"Found stored refresh token for user: {storedAuth.UserId}");
+                    await RefreshFirebaseTokenAsync(storedAuth.RefreshToken);
+                    return true;
+                }
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Auto-login failed: {ex.Message}");
+            }
+            return false;
+        }
+
+        private async Task StoreRefreshToken(string userId, string refreshToken)
+        {
+            // Remove any existing tokens
+            var existingAuth = await _dbContext.UserAuth.FirstOrDefaultAsync();
+            if (existingAuth != null)
+            {
+                _dbContext.UserAuth.Remove(existingAuth);
+            }
+
+            // Store the new token
+            var userAuth = new UserAuth
+            {
+                UserId = userId,
+                RefreshToken = refreshToken
+            };
+            await _dbContext.UserAuth.AddAsync(userAuth);
+            await _dbContext.SaveChangesAsync();
         }
 
         public async Task SignInAsync()
@@ -47,6 +89,13 @@ namespace AlbionDataAvalonia.Auth.Services
                 var code = await codeTask;
 
                 _firebaseUser = await GetFirebaseUserAsync(code);
+
+                // Store the refresh token
+                if (_firebaseUser != null)
+                {
+                    await StoreRefreshToken(_firebaseUser.LocalId, _firebaseUser.RefreshToken);
+                }
+
                 OnFirebaseUserChanged(_firebaseUser);
                 ScheduleTokenRefresh();
 
@@ -78,6 +127,7 @@ namespace AlbionDataAvalonia.Auth.Services
 
             Log.Information("Browser opened for Google Sign-In.");
         }
+
         private async Task<FirebaseAuthResponse?> GetFirebaseUserAsync(string code)
         {
             var url = $"{_settingsManager.AppSettings.AfmAuthApiUrl}/tokenFromCode";
@@ -98,7 +148,6 @@ namespace AlbionDataAvalonia.Auth.Services
             }
         }
 
-
         private async Task RefreshFirebaseTokenAsync(string refreshToken)
         {
             var url = $"{_settingsManager.AppSettings.AfmAuthApiUrl}/refreshToken";
@@ -118,12 +167,27 @@ namespace AlbionDataAvalonia.Auth.Services
 
                 if (_firebaseUser == null)
                 {
-                    throw new InvalidOperationException("Can't refresh token if you're not logged in.");
+                    _firebaseUser = new FirebaseAuthResponse
+                    {
+                        LocalId = jsonResponse.UserId,
+                        Email = jsonResponse.FirebaseDecodedToken.Email,
+                        FullName = jsonResponse.FirebaseDecodedToken.Name,
+                        PhotoUrl = jsonResponse.FirebaseDecodedToken.Picture,
+                        EmailVerified = jsonResponse.FirebaseDecodedToken.EmailVerified,
+                        IdToken = jsonResponse.IdToken,
+                        RefreshToken = jsonResponse.RefreshToken,
+                        ExpiresIn = jsonResponse.ExpiresIn
+                    };
+                }
+                else
+                {
+                    _firebaseUser.IdToken = jsonResponse.IdToken;
+                    _firebaseUser.RefreshToken = jsonResponse.RefreshToken;
+                    _firebaseUser.ExpiresIn = jsonResponse.ExpiresIn;
                 }
 
-                _firebaseUser.ExpiresIn = jsonResponse.ExpiresIn;
-                _firebaseUser.IdToken = jsonResponse.IdToken;
-                _firebaseUser.RefreshToken = jsonResponse.RefreshToken;
+                // Store the new refresh token
+                await StoreRefreshToken(_firebaseUser.LocalId, jsonResponse.RefreshToken);
 
                 OnFirebaseUserChanged(_firebaseUser);
                 ScheduleTokenRefresh();
@@ -222,7 +286,7 @@ namespace AlbionDataAvalonia.Auth.Services
             }
         }
 
-        public void LogOut()
+        public async Task LogOut()
         {
             // Cancel any scheduled token refresh
             _refreshTokenCts?.Cancel();
@@ -233,6 +297,10 @@ namespace AlbionDataAvalonia.Auth.Services
 
             _playerState.UploadToAfmOnly = false;
 
+            // Clear the table
+            var userAuths = await _dbContext.UserAuth.ToListAsync();
+            _dbContext.UserAuth.RemoveRange(userAuths);
+            await _dbContext.SaveChangesAsync();
             OnFirebaseUserChanged(_firebaseUser);
 
             Log.Information("User has been logged out.");
@@ -246,22 +314,22 @@ namespace AlbionDataAvalonia.Auth.Services
         private class TokenResponse
         {
             [JsonPropertyName("access_token")]
-            public string AccessToken { get; set; }
+            public string? AccessToken { get; set; }
 
             [JsonPropertyName("expires_in")]
             public int ExpiresIn { get; set; }
 
             [JsonPropertyName("token_type")]
-            public string TokenType { get; set; }
+            public string? TokenType { get; set; }
 
             [JsonPropertyName("refresh_token")]
-            public string RefreshToken { get; set; }
+            public string? RefreshToken { get; set; }
 
             [JsonPropertyName("scope")]
-            public string Scope { get; set; }
+            public string? Scope { get; set; }
 
             [JsonPropertyName("id_token")]
-            public string IdToken { get; set; }
+            public string? IdToken { get; set; }
         }
 
     }
