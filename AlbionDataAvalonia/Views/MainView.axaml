@@ -54,19 +54,54 @@
 
 			<StackPanel Grid.Row="0" Grid.Column="0">
 				<Label HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold"
-                       Content="Albion Free Market" Padding="0 15 0 0" />
+					   Content="Albion Free Market" Padding="0 15 0 0" />
 				<Label HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="DemiBold"
-                       Content="Data Client" Padding="0 5 0 15" />
-				<Button Classes="menu" Content="Main" Margin="10" HorizontalAlignment="Stretch"
-                        Command="{Binding ShowDashboardCommand}" />
-				<Button Classes="menu" Content="Trades" Margin="10" HorizontalAlignment="Stretch"
-                        Command="{Binding ShowTradesCommand}" />
-				<Button Classes="menu" Content="Mails" Margin="10" HorizontalAlignment="Stretch"
-                        Command="{Binding ShowMailsCommand}" />
-				<Button Classes="menu" Content="Settings" Margin="10" HorizontalAlignment="Stretch"
-                        Command="{Binding ShowSettingsCommand}" />
-				<Button Classes="menu" Content="Logs" Margin="10" HorizontalAlignment="Stretch"
-                        Command="{Binding ShowLogsCommand}" />
+					   Content="Data Client" Padding="0 5 0 15" />
+				
+				<!-- Main Button with Icon -->
+				<Button Classes="menu" Margin="10" HorizontalAlignment="Stretch"
+						Command="{Binding ShowDashboardCommand}">
+					<StackPanel Orientation="Horizontal">
+						<PathIcon Data="M3,13H11V3H3V13M3,21H11V15H3V21M13,21H21V11H13V21M13,3V9H21V3H13Z" Width="16" Height="16" Margin="0,0,8,0"/>
+						<TextBlock Text="Main" VerticalAlignment="Center"/>
+					</StackPanel>
+				</Button>
+				
+				<!-- Trades Button with Icon -->
+				<Button Classes="menu" Margin="10" HorizontalAlignment="Stretch"
+						Command="{Binding ShowTradesCommand}">
+					<StackPanel Orientation="Horizontal">
+						<PathIcon Data="M3,3H21V5H3V3M3,7H21V9H3V7M3,11H21V13H3V11M3,15H21V17H3V15M3,19H21V21H3V19Z" Width="16" Height="16" Margin="0,0,8,0"/>
+						<TextBlock Text="Trades" VerticalAlignment="Center"/>
+					</StackPanel>
+				</Button>
+				
+				<!-- Mails Button with Icon -->
+				<Button Classes="menu" Margin="10" HorizontalAlignment="Stretch"
+						Command="{Binding ShowMailsCommand}">
+					<StackPanel Orientation="Horizontal">
+						<PathIcon Data="M20,4H4C2.9,4 2,4.9 2,6V18C2,19.1 2.9,20 4,20H20C21.1,20 22,19.1 22,18V6C22,4.9 21.1,4 20,4M20,18H4V8L12,13L20,8V18M20,6L12,11L4,6V6H20V6Z" Width="16" Height="16" Margin="0,0,8,0"/>
+						<TextBlock Text="Mails" VerticalAlignment="Center"/>
+					</StackPanel>
+				</Button>
+				
+				<!-- Settings Button with Icon -->
+				<Button Classes="menu" Margin="10" HorizontalAlignment="Stretch"
+						Command="{Binding ShowSettingsCommand}">
+					<StackPanel Orientation="Horizontal">
+						<PathIcon Data="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z" Width="16" Height="16" Margin="0,0,8,0"/>
+						<TextBlock Text="Settings" VerticalAlignment="Center"/>
+					</StackPanel>
+				</Button>
+				
+				<!-- Logs Button with Icon -->
+				<Button Classes="menu" Margin="10" HorizontalAlignment="Stretch"
+						Command="{Binding ShowLogsCommand}">
+					<StackPanel Orientation="Horizontal">
+						<PathIcon Data="M14,10H19.5L14,4.5V10M5,3H15L21,9V19A2,2 0 0,1 19,21H5C3.89,21 3,20.1 3,19V5C3,3.89 3.89,3 5,3M5,5V19H19V12H12V5H5Z" Width="16" Height="16" Margin="0,0,8,0"/>
+						<TextBlock Text="Logs" VerticalAlignment="Center"/>
+					</StackPanel>
+				</Button>
 			</StackPanel>
 
 			<Rectangle Grid.Row="0" Grid.RowSpan="2" Grid.Column="1" Width="1" Fill="rgba(255,255,255,.1)" VerticalAlignment="Stretch" />
@@ -81,14 +116,18 @@
 
 				<!-- Logout and User Info -->
 				<StackPanel Orientation="Vertical"
-                            IsVisible="{Binding UserLoggedIn}"
-                            HorizontalAlignment="Left" Margin="0,10,0,0">
+							IsVisible="{Binding UserLoggedIn}"
+							HorizontalAlignment="Left" Margin="0,10,0,0">
 					<CheckBox IsChecked="{Binding UploadToAfmOnly}"
 							  ToolTip.Tip="If you mark this, the market orders uploads will be exclusive for the Albion Free Market flipper. They won't be uploaded to AODP and you won't be able to see them in the price checker or the crafting calculator. Only use this when flipping."
 							  Margin="0,0,0,10">Only upload to AFM Flipper</CheckBox>
+					<CheckBox IsChecked="{Binding ContributeToPublic}"
+							  IsEnabled="{Binding UploadToAfmOnly}"
+							  ToolTip.Tip="If you mark this, the orders you upload will be used by everyone in AFM. If you don't mark this, only you will see the orders you upload."
+							  Margin="0,0,0,10">Contribute to public flips</CheckBox>
 					<TextBlock Text="{Binding FirebaseUser.Initials}" VerticalAlignment="Center" Margin="0,0,0,10"/>
 					<Button Content="Logout"
-                            Command="{Binding LogoutCommand}" />
+							Command="{Binding LogoutCommand}" />
 				</StackPanel>
 			</StackPanel>
 		</Grid>

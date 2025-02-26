@@ -23,6 +23,7 @@ namespace AlbionDataAvalonia.State
         private bool hasEncryptedData = false;
 
         private bool uploadToAfmOnly = false;
+        private bool contributeToPublic = false;
 
         public MarketHistoryInfo[] MarketHistoryIDLookup { get; init; }
         public ulong CacheSize => 8192;
@@ -100,6 +101,16 @@ namespace AlbionDataAvalonia.State
                 InvokePlayerStateChanged();
             }
         }
+        public bool ContributeToPublic
+        {
+            get => contributeToPublic;
+            set
+            {
+                if (contributeToPublic == value) return;
+                contributeToPublic = value;
+                InvokePlayerStateChanged();
+            }
+        }
         public bool IsInGame
         {
             get
@@ -132,7 +143,7 @@ namespace AlbionDataAvalonia.State
 
         private void InvokePlayerStateChanged()
         {
-            OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, IsInGame, HasEncryptedData, UploadToAfmOnly));
+            OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, IsInGame, HasEncryptedData, UploadToAfmOnly, ContributeToPublic));
         }
 
         public PlayerState(SettingsManager settingsManager)

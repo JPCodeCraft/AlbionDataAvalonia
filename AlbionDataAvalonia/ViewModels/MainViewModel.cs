@@ -53,6 +53,14 @@ public partial class MainViewModel : ViewModelBase
     }
 
     [ObservableProperty]
+    private bool contributeToPublic = false;
+
+    partial void OnContributeToPublicChanged(bool value)
+    {
+        _playerState.ContributeToPublic = value;
+    }
+
+    [ObservableProperty]
     private bool showGetInGame = false;
 
     [ObservableProperty]
@@ -196,6 +204,7 @@ public partial class MainViewModel : ViewModelBase
         PlayerName = e.Name;
         AlbionServerName = e.AlbionServer?.Name ?? "Unknown";
         UploadToAfmOnly = e.UploadToAfmOnly;
+        ContributeToPublic = e.ContributeToPublic;
 
         UpdateVisibilities();
     }
@@ -239,7 +248,8 @@ public partial class MainViewModel : ViewModelBase
         if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.Shutdown();
-        };
+        }
+        ;
     }
     [RelayCommand]
     public void ShowMainWindow()
