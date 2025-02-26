@@ -1,26 +1,20 @@
 {
   "NPCapDownloadUrl": "https://npcap.com/#download",
-
   "PacketFilterPortText": "udp port 5056",
-
   "MarketOrdersIngestSubject": "marketorders.ingest",
   "MarketHistoriesIngestSubject": "markethistories.ingest",
   "GoldDataIngestSubject": "goldprices.ingest",
-
   "LatestVersionUrl": "https://raw.githubusercontent.com/JPCodeCraft/AlbionDataAvalonia/master/AlbionDataAvalonia.Desktop/LatestVersion.json",
   "LatesVersionDownloadUrl": "https://github.com/JPCodeCraft/AlbionDataAvalonia/releases/latest/download/{fileName}",
   "FileNameFormat": "AFMDataClientSetup_v_{version}.exe",
   "FirstUpdateCheckDelayMins": 0.1,
   "UpdateCheckIntervalHours": 1,
-
   "AppSettingsRetryLoadIntervalMins": 1,
-
   "NetworkDevicesStartDelaySecs": 5,
   "NetworkDevicesIdleMinutes": 20,
   "NetworkDevicesIdleCheckMinutes": 5,
-
   "AfmAuthClientId": "615549188968-7fo3h0ldc144p8pq6fm0nts43db8rd6j.apps.googleusercontent.com",
   "AfmAuthRedirectUri": "http://localhost:5000/",
-  "AfmAuthApiUrl": "https://devapi.albionfreemarket.com/be/api",
-  "AfmTopItemsApiBase": "https://devingest.albionfreemarket.com"
+  "AfmAuthApiUrl": "https://api.albionfreemarket.com/be/api",
+  "AfmTopItemsApiBase": "https://ingest.albionfreemarket.com"
 }
