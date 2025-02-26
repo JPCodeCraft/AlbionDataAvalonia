@@ -10,7 +10,7 @@
         Title="Albion Data Client"
 		ExtendClientAreaToDecorationsHint="True"
 		ExtendClientAreaTitleBarHeightHint="30"
-		MinWidth="800" MinHeight="250"
+		MinWidth="800" MinHeight="600"
 		x:DataType="vm:MainViewModel">
 
 	<Window.Styles>
