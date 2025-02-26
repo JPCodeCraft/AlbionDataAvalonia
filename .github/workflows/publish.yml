@@ -27,15 +27,25 @@ jobs:
           id: get_diff
           run: |
             git fetch --tags
-            LATEST_TAG=$(git describe --tags --abbrev=0)
+            # Try to get latest tag, but don't fail if none exists
+            LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
             CURRENT_COMMIT=$(git rev-parse HEAD)
             REPO_URL="https://github.com/JPCodeCraft/AlbionDataAvalonia"
-            COMMIT_LOG=$(git log --pretty=format:"[%h]($REPO_URL/commit/%H) - %s" $LATEST_TAG..$CURRENT_COMMIT)
-            if [ -z "$COMMIT_LOG" ]; then
-              COMMIT_LOG="No new commits since the last release."
+            
+            if [ -z "$LATEST_TAG" ]; then
+              echo "No tags found. Using all commits for the log."
+              # Get all commits or limit to a reasonable number
+              COMMIT_LOG=$(git log --max-count=20 --pretty=format:"[%h]($REPO_URL/commit/%H) - %s")
+            else
+              echo "Found tag: $LATEST_TAG"
+              COMMIT_LOG=$(git log --pretty=format:"[%h]($REPO_URL/commit/%H) - %s" $LATEST_TAG..$CURRENT_COMMIT)
+              if [ -z "$COMMIT_LOG" ]; then
+                COMMIT_LOG="No new commits since the last release."
+              fi
             fi
+            
             COMMIT_LOG=${COMMIT_LOG//$'\n'/<br>}
-            echo "Latest Tag: $LATEST_TAG"
+            echo "Latest Tag: ${LATEST_TAG:-None}"
             echo "Current Commit: $CURRENT_COMMIT"
             echo "Commit Log: $COMMIT_LOG"
             echo "COMMIT_LOG=$COMMIT_LOG" >> $GITHUB_ENV
