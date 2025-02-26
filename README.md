@@ -13,7 +13,8 @@ An alternative client for [The Albion Online Data Project](https://www.albion-on
 
 > **Free and Open Source**: This software is completely free, open source (check license) and is not tied to the usage of Albion Free Market website. The data uploaded via this software to AODP can be seen in any Albion Online fansite that consumes AODP and even on your own sheets.
 
-![Main Interface](https://github.com/user-attachments/assets/363773f0-f9c0-497d-83b0-79d41e407113)
+![Main Interface](https://github.com/user-attachments/assets/ba7d2d33-9e80-49b2-aeae-6173892de15e)
+
 
 ## 🚀 Features
 
@@ -78,13 +79,13 @@ AFM Data Client should be able to run on MacOS, but users have reported issues. 
 
 ## 📊 Features Showcase
 
-### Market Overview
-
-![Market Overview](https://github.com/user-attachments/assets/0ed06288-e2f7-4c97-b68b-59dec3042019)
-
 ### User Trades
 
-![User Trades](https://github.com/user-attachments/assets/10725c38-8e8e-45f2-825d-4a88be23ca2d)
+![User Trades](https://github.com/user-attachments/assets/b9287aa0-feb2-43ad-98db-7a0543c4b4f2)
+
+### Settings
+
+![Settings](https://github.com/user-attachments/assets/660ba5ac-3f92-4060-8912-e91eb3a74c97)
 
 ## ❓ FAQ
 
