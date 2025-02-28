@@ -72,6 +72,7 @@ curl -s https://api.github.com/repos/JPCodeCraft/AlbionDataAvalonia/releases/lat
 ### MacOS
 
 AFM Data Client should be able to run on MacOS, but users have reported issues. Feel free to contribute to the repository if you can.
+Attention: at the moment there's no MacOS release available to download. To try it you'd need to build it yourself.
 
 ## 💻 System Requirements
 
