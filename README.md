@@ -3,6 +3,15 @@
 [![Release](https://img.shields.io/github/v/release/JPCodeCraft/AlbionDataAvalonia)](https://github.com/JPCodeCraft/AlbionDataAvalonia/releases)
 [![Downloads](https://img.shields.io/github/downloads/JPCodeCraft/AlbionDataAvalonia/total)](https://tooomm.github.io/github-release-stats/?username=jpcodecraft&repository=AlbionDataAvalonia)
 
+## ⚠️ ATTENTION
+
+After instalation, the Data Client will be minimized in system tray!
+
+![image](https://github.com/user-attachments/assets/7093690e-5735-4636-bc69-7d00e57f7d57)
+
+
+## 💻 Data Client
+
 An alternative client for [The Albion Online Data Project](https://www.albion-online-data.com/) that provides the same functionality as the official client, but with a user-friendly graphical interface and easy-to-use settings.
 
 > **Note**: Data is mostly uploaded to The Albion Online Data Project, except when the user explicitly chooses not to.
