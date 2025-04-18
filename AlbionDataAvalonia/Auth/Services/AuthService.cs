@@ -13,6 +13,8 @@ using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
+using System.Runtime.InteropServices;
+using Microsoft.Win32;
 
 namespace AlbionDataAvalonia.Auth.Services
 {
@@ -34,6 +36,36 @@ namespace AlbionDataAvalonia.Auth.Services
             _settingsManager = settingsManager;
             _playerState = playerState;
             _dbContext = new LocalContext();
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                SystemEvents.PowerModeChanged += SystemEvents_PowerModeChanged;
+            }
+        }
+
+        private async void SystemEvents_PowerModeChanged(object sender, PowerModeChangedEventArgs e)
+        {
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+            {
+                try
+                {
+                    switch (e.Mode)
+                    {
+                        case PowerModes.Suspend:
+                            break;
+                        case PowerModes.Resume:
+                            Log.Information("System resumed from sleep. Waiting 10 seconds before forcing token refresh.");
+                            await Task.Delay(TimeSpan.FromSeconds(10));
+                            Log.Information("Forcing token refresh after delay.");
+                            await ForceTokenRefreshAsync();
+                            break;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "Error handling power mode change event");
+                }
+            }
         }
 
         public async Task<bool> TryAutoLoginAsync()
@@ -249,6 +281,25 @@ namespace AlbionDataAvalonia.Auth.Services
             finally
             {
                 listener.Stop();
+            }
+        }
+
+        public async Task ForceTokenRefreshAsync()
+        {
+            if (_firebaseUser == null || string.IsNullOrEmpty(_firebaseUser.RefreshToken))
+            {
+                Log.Debug("Cannot force token refresh: No user is logged in or refresh token is missing.");
+                return;
+            }
+
+            Log.Information("Forcing token refresh...");
+            try
+            {
+                await RefreshFirebaseTokenAsync(_firebaseUser.RefreshToken);
+            }
+            catch (Exception ex)
+            {
+                Log.Error($"Forced token refresh failed: {ex.Message}");
             }
         }
 
