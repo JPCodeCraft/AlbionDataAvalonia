@@ -56,6 +56,10 @@ jobs:
           with:
             dotnet-version: '8.0.x' 
 
+        - name: Install zip
+          run: choco install zip -y
+          shell: pwsh
+
         - name: Publish projects (Windows and Linux)
           run: |
             dotnet publish ./AlbionDataAvalonia.Desktop/AlbionDataAvalonia.Desktop.csproj --configuration Release
@@ -70,6 +74,12 @@ jobs:
           with:
             path: ./AlbionDataAvalonia.Desktop/pkg/inno.iss
             options: /O+
+
+        - name: Compress macOS .app bundle
+          run: |
+            cd ./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net8.0/osx-x64/publish/
+            zip -r AFMDataClient_MacOS64.app.zip AFMDataClient_MacOS64.app
+          shell: bash
 
         - name: Create Tag
           id: create_tag
@@ -131,12 +141,6 @@ jobs:
             asset_path: ./AlbionDataAvalonia.Desktop.Linux/bin/Release/net8.0/linux-x64/publish/AFMDataClient_Linux64_Uninstaller.sh
             asset_name: AFMDataClient_Linux64_Uninstaller.sh
             asset_content_type: application/x-sh
-
-        - name: Compress macOS .app bundle
-          run: |
-            cd ./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net8.0/osx-x64/publish/
-            zip -r AFMDataClient_MacOS64.app.zip AFMDataClient_MacOS64.app
-          shell: bash
 
         - name: Upload Release Asset (macOS .app Bundle)
           uses: actions/upload-release-asset@v1
