@@ -132,15 +132,21 @@ jobs:
             asset_name: AFMDataClient_Linux64_Uninstaller.sh
             asset_content_type: application/x-sh
 
+        - name: Compress macOS .app bundle
+          run: |
+            cd ./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net8.0/osx-x64/publish/
+            zip -r AFMDataClient_MacOS64.app.zip AFMDataClient_MacOS64.app
+          shell: bash
+
         - name: Upload Release Asset (macOS .app Bundle)
           uses: actions/upload-release-asset@v1
           env:
             GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
           with:
             upload_url: ${{ steps.create_release.outputs.upload_url }}
-            asset_path: ./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net8.0/osx-x64/publish/AFMDataClient_MacOS64.app
-            asset_name: AFMDataClient_MacOS64.app
-            asset_content_type: application/octet-stream
+            asset_path: ./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net8.0/osx-x64/publish/AFMDataClient_MacOS64.app.zip
+            asset_name: AFMDataClient_MacOS64.app.zip
+            asset_content_type: application/zip
 
         - name: Create LatestVersion.json
           run: |
