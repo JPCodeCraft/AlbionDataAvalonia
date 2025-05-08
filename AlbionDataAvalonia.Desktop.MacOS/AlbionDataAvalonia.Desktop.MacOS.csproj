@@ -1,6 +1,6 @@
 <Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
-		<OutputType>Exe</OutputType>
+		<OutputType>WinExe</OutputType>
 		<TargetFramework>net8.0</TargetFramework>
 		<Nullable>enable</Nullable>
 		<PublishSingleFile>true</PublishSingleFile>
@@ -8,6 +8,9 @@
 		<IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
 		<SelfContained>true</SelfContained>
 		<RuntimeIdentifier>osx-x64</RuntimeIdentifier>
+		<UseAppHost>true</UseAppHost>
+		<MacOSAppBundle>true</MacOSAppBundle>
+		<MacOSAppCategory>public.app-category.utilities</MacOSAppCategory>
 	</PropertyGroup>
 
 	<PropertyGroup>
@@ -28,4 +31,48 @@
 		<PackageReference Include="Avalonia.Desktop" Version="11.0.10" />
 		<ProjectReference Include="..\AlbionDataAvalonia\AlbionDataAvalonia.csproj" />
 	</ItemGroup>
+
+	<Target Name="CreateMacOSAppBundle" AfterTargets="Publish">
+		<PropertyGroup>
+			<AppBundlePath>$(PublishDir)$(AssemblyName).app</AppBundlePath>
+		</PropertyGroup>
+
+		<ItemGroup>
+			<InfoPlist Include="Info.plist">
+				<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			</InfoPlist>
+		</ItemGroup>
+
+		<MakeDir Directories="$(AppBundlePath)/Contents/MacOS" />
+		<MakeDir Directories="$(AppBundlePath)/Contents/Resources" />
+
+		<Copy SourceFiles="$(PublishDir)$(AssemblyName)" DestinationFolder="$(AppBundlePath)/Contents/MacOS" />
+		<Copy SourceFiles="@(InfoPlist)" DestinationFolder="$(AppBundlePath)/Contents" />
+	</Target>
+
+	<Target Name="SetWrapperAsEntryPoint" AfterTargets="Publish">
+		<PropertyGroup>
+			<AppBundlePath>$(PublishDir)$(AssemblyName).app</AppBundlePath>
+		</PropertyGroup>
+
+		<Copy SourceFiles="run.sh" DestinationFolder="$(AppBundlePath)/Contents/MacOS" />
+
+		<!-- Only execute chmod on Unix-based systems -->
+		<Exec Command="chmod +x $(AppBundlePath)/Contents/MacOS/run.sh" Condition=" '$(OS)' == 'Unix' " />
+		<Exec Command="mv $(AppBundlePath)/Contents/MacOS/run.sh $(AppBundlePath)/Contents/MacOS/AlbionDataAvalonia" Condition=" '$(OS)' == 'Unix' " />
+	</Target>
+
+	<Target Name="AddAppIcon" AfterTargets="Publish">
+		<PropertyGroup>
+			<AppBundlePath>$(PublishDir)$(AssemblyName).app</AppBundlePath>
+		</PropertyGroup>
+
+		<ItemGroup>
+			<AppIcon Include="..\AlbionDataAvalonia\Assets\logo.icns">
+				<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			</AppIcon>
+		</ItemGroup>
+
+		<Copy SourceFiles="..\AlbionDataAvalonia\Assets\logo.icns" DestinationFolder="$(AppBundlePath)/Contents/Resources" />
+	</Target>
 </Project>

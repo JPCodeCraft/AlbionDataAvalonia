@@ -1,20 +1,20 @@
 ﻿using AlbionDataAvalonia.Auth.Models;
+using AlbionDataAvalonia.DB;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
-using AlbionDataAvalonia.DB;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Win32;
 using Serilog;
 using System;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading;
 using System.Threading.Tasks;
-using System.Runtime.InteropServices;
-using Microsoft.Win32;
 
 namespace AlbionDataAvalonia.Auth.Services
 {
@@ -23,6 +23,8 @@ namespace AlbionDataAvalonia.Auth.Services
         private readonly PlayerState _playerState;
         private readonly SettingsManager _settingsManager;
         private readonly LocalContext _dbContext;
+
+        private bool _isForcingTokenRefresh = false;
 
         private FirebaseAuthResponse? _firebaseUser = null;
         private CancellationTokenSource? _refreshTokenCts;
@@ -292,13 +294,22 @@ namespace AlbionDataAvalonia.Auth.Services
                 return;
             }
 
+            if (_isForcingTokenRefresh)
+            {
+                Log.Debug("Token refresh is already in progress. Canceled.");
+                return;
+            }
+
             Log.Information("Forcing token refresh...");
             try
             {
+                _isForcingTokenRefresh = true;
                 await RefreshFirebaseTokenAsync(_firebaseUser.RefreshToken);
+                _isForcingTokenRefresh = false;
             }
             catch (Exception ex)
             {
+                _isForcingTokenRefresh = false;
                 Log.Error($"Forced token refresh failed: {ex.Message}");
             }
         }

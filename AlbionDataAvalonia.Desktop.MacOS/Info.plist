@@ -1,0 +1,30 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+    <key>CFBundleName</key>
+    <string>AlbionDataAvalonia</string>
+    <key>CFBundleDisplayName</key>
+    <string>Albion Data Avalonia</string>
+    <key>CFBundleIdentifier</key>
+    <string>com.albiondataavalonia.app</string>
+    <key>CFBundleVersion</key>
+    <string>$(Version)</string>
+    <key>CFBundleShortVersionString</key>
+    <string>$(Version)</string>
+    <key>CFBundleExecutable</key>
+    <string>AlbionDataAvalonia</string>
+    <key>CFBundlePackageType</key>
+    <string>APPL</string>
+    <key>CFBundleSignature</key>
+    <string>????</string>
+    <key>CFBundleInfoDictionaryVersion</key>
+    <string>6.0</string>
+    <key>LSMinimumSystemVersion</key>
+    <string>10.13</string>
+    <key>NSPrincipalClass</key>
+    <string>NSApplication</string>
+    <key>CFBundleIconFile</key>
+    <string>logo.icns</string>
+</dict>
+</plist>

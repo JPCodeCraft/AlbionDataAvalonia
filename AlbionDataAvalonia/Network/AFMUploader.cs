@@ -81,6 +81,10 @@ namespace AlbionDataAvalonia.Network.Services
             if (response.StatusCode != HttpStatusCode.OK)
             {
                 Log.Error("HTTP Error while uploading AfmMarketUpload to Url {0}. Returned: {1} ({2}).", requestUri.ToString(), response.StatusCode, await response.Content.ReadAsStringAsync());
+                if (response.StatusCode == HttpStatusCode.Unauthorized)
+                {
+                    await _authService.ForceTokenRefreshAsync();
+                }
                 return UploadStatus.Failed;
             }
 

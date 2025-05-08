@@ -61,6 +61,10 @@ jobs:
             dotnet publish ./AlbionDataAvalonia.Desktop/AlbionDataAvalonia.Desktop.csproj --configuration Release
             dotnet publish ./AlbionDataAvalonia.Desktop.Linux/AlbionDataAvalonia.Desktop.Linux.csproj --configuration Release
 
+        - name: Publish macOS project
+          run: |
+            dotnet publish ./AlbionDataAvalonia.Desktop.MacOS/AlbionDataAvalonia.Desktop.MacOS.csproj --configuration Release
+
         - name: Compile .ISS to .EXE Installer
           uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
           with:
@@ -127,6 +131,16 @@ jobs:
             asset_path: ./AlbionDataAvalonia.Desktop.Linux/bin/Release/net8.0/linux-x64/publish/AFMDataClient_Linux64_Uninstaller.sh
             asset_name: AFMDataClient_Linux64_Uninstaller.sh
             asset_content_type: application/x-sh
+
+        - name: Upload Release Asset (macOS .app Bundle)
+          uses: actions/upload-release-asset@v1
+          env:
+            GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
+          with:
+            upload_url: ${{ steps.create_release.outputs.upload_url }}
+            asset_path: ./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net8.0/osx-x64/publish/AFMDataClient_MacOS64.app
+            asset_name: AFMDataClient_MacOS64.app
+            asset_content_type: application/octet-stream
 
         - name: Create LatestVersion.json
           run: |
