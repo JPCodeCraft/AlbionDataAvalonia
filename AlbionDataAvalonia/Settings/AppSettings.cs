@@ -1,4 +1,6 @@
-﻿namespace AlbionDataAvalonia.Settings;
+﻿using System.Collections.Generic;
+
+namespace AlbionDataAvalonia.Settings;
 
 public class AppSettings
 {
@@ -21,4 +23,6 @@ public class AppSettings
     public string AfmAuthRedirectUri { get; set; }
     public string AfmAuthApiUrl { get; set; }
     public string AfmTopItemsApiBase { get; set; }
+
+    public List<string> ItemsToUploadToAfm { get; set; } = new List<string>();
 }

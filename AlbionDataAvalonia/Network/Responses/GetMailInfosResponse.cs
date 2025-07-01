@@ -29,15 +29,15 @@ public class GetMailInfosResponse : BaseOperation
                     MailIds = longIds;
                 }
             }
-            if (parameters.TryGetValue(6, out object? _locationIds))
+            if (parameters.TryGetValue(7, out object? _locationIds))
             {
                 LocationIds = (string[])_locationIds;
             }
-            if (parameters.TryGetValue(10, out object? _types))
+            if (parameters.TryGetValue(11, out object? _types))
             {
                 Types = (string[])_types;
             }
-            if (parameters.TryGetValue(11, out object? _received))
+            if (parameters.TryGetValue(12, out object? _received))
             {
                 if (_received is int[] intReceived)
                 {

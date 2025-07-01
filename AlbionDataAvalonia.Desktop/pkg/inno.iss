@@ -2,7 +2,7 @@
 #define MyAppName "Albion Free Market Data Client"
 #define MyAppPublisher "JP Code Craft"
 #define MyAppPublisherURL "https://www.albionfreemarket.com"
-#define MyAppVersion "0.12.2.2"
+#define MyAppVersion "0.13.0.0"
 #define MyAppExeName "AFMDataClient.exe"
 #define MyAppOutputDir "userdocs:Inno Setup Output"
 #define MyAppOutputBaseFilename "AFMDataClientSetup"

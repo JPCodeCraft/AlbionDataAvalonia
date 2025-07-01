@@ -1,4 +1,5 @@
 ﻿namespace AlbionDataAvalonia.Network;
+
 public enum OperationCodes
 {
     Unused,
@@ -141,7 +142,6 @@ public enum OperationCodes
     GetCharacterSteamAchievements,
     GetCharacterStats,
     GetKillHistoryDetails,
-    LearnMasteryLevel,
     ReSpecAchievement,
     ChangeAvatar,
     GetRankings,
@@ -337,6 +337,10 @@ public enum OperationCodes
     SteamIdHasActiveAccount,
     CheckEmailAccountState,
     LinkAccountToSteamId,
+    EpicIdHasActiveAccount,
+    LinkAccountToEpicId,
+    XboxIdHasActiveAccount,
+    LinkAccountToXboxToken,
     InAppConfirmPaymentGooglePlay,
     InAppConfirmPaymentAppleAppStore,
     InAppPurchaseRequest,
@@ -366,7 +370,6 @@ public enum OperationCodes
     GetPersonalSeasonPastRewardData,
     UseConsumableFromInventory,
     ClaimPersonalSeasonReward,
-    EasyAntiCheatMessageToServer,
     XignCodeMessageToServer,
     BattlEyeMessageToServer,
     SetNextTutorialState,
@@ -444,6 +447,10 @@ public enum OperationCodes
     GetPvpChallengeData,
     ClaimPvpChallengeWeeklyReward,
     GetPersonalMightStats,
+    GetPvpChallengeSeasonRewards,
+    GetPvpChallengeSeasonRewardItems,
+    ClaimPvpChallengeSeasonRewards,
+    ClaimPvpChallengeSeasonRewardItems,
     AuctionGetLoadoutOffers,
     AuctionBuyLoadoutOffer,
     AccountDeletionRequest,
@@ -500,6 +507,7 @@ public enum OperationCodes
     PartyReadyCheckUpdate,
     ClaimAlbionJournalReward,
     TrackAlbionJournalAchievements,
+    TrackAlbionJournalAchievementSubCategory,
     RequestOutlandsTeleportationUsage,
     PickupFromPiledObjectStart,
     PickupFromPiledObjectCancel,
@@ -512,4 +520,10 @@ public enum OperationCodes
     AssetOverviewSearchTabContent,
     AssetOverviewRecoverPlayerVault,
     ImmortalizeKillTrophy,
+    ArmorySearch,
+    ArmoryItemUsageStatistics,
+    ArmoryActivityUsageStatistics,
+    HellDungeonUseStaticEntrance,
+    TravelIslandShowroom,
+    GetXuids
 }

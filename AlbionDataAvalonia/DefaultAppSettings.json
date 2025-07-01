@@ -16,5 +16,6 @@
   "AfmAuthClientId": "615549188968-7fo3h0ldc144p8pq6fm0nts43db8rd6j.apps.googleusercontent.com",
   "AfmAuthRedirectUri": "http://localhost:5000/",
   "AfmAuthApiUrl": "https://api.albionfreemarket.com/be/api",
-  "AfmTopItemsApiBase": "https://ingest.albionfreemarket.com"
+  "AfmTopItemsApiBase": "https://ingest.albionfreemarket.com",
+  "ItemsToUploadToAfm": ["_ALCHEMY_EXTRACT_", "_FISHSAUCE_", "_RUNE", "_SOUL", "_RELIC"]
 }

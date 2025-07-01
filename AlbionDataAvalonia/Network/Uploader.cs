@@ -57,42 +57,59 @@ public class Uploader : IDisposable
         }
         try
         {
-
-            var offers = marketUpload.Orders.Where(x => x.AuctionType == AuctionType.offer).Count();
-            var requests = marketUpload.Orders.Where(x => x.AuctionType == AuctionType.request).Count();
-
             if (_playerState.UploadToAfmOnly)
             {
-                var uploadStatus = await _afmUploader.UploadMarketOrder(marketUpload);
+                var afmUploadStatus = await _afmUploader.UploadMarketOrder(marketUpload);
+                OnMarketUpload?.Invoke(this, new MarketUploadEventArgs(marketUpload, _playerState.AlbionServer, afmUploadStatus));
 
-                OnMarketUpload?.Invoke(this, new MarketUploadEventArgs(marketUpload, _playerState.AlbionServer, uploadStatus));
-
-                if (uploadStatus == UploadStatus.Success)
+                if (afmUploadStatus == UploadStatus.Success)
                 {
-                    Log.Information("Market upload to AFM Flipper complete. {Offers} offers, {Requests} requests. Locations: {Location} ", offers, requests, string.Join(",", marketUpload.Orders.Select(x => x.LocationId).Distinct()));
+                    Log.Information("Market upload to AFM Flipper complete. {Offers} offers, {Requests} requests. Locations: {Location}",
+                        marketUpload.Orders.Count(x => x.AuctionType == AuctionType.offer),
+                        marketUpload.Orders.Count(x => x.AuctionType == AuctionType.request),
+                        string.Join(",", marketUpload.Orders.Select(x => x.LocationId).Distinct()));
                 }
                 else
                 {
-                    Log.Error("Market upload to AFM Flipper receiver status {Status}. {Offers} offers, {Requests} requests.", uploadStatus, offers, requests);
+                    Log.Error("Market upload to AFM Flipper receiver status {Status}. {Offers} offers, {Requests} requests.",
+                        afmUploadStatus,
+                        marketUpload.Orders.Count(x => x.AuctionType == AuctionType.offer),
+                        marketUpload.Orders.Count(x => x.AuctionType == AuctionType.request));
                 }
+            }
+
+            var ordersForPublicUpload = new List<MarketOrder>();
+            if (!_playerState.UploadToAfmOnly)
+            {
+                ordersForPublicUpload.AddRange(marketUpload.Orders);
             }
             else
             {
-                var data = SerializeData(marketUpload);
+                ordersForPublicUpload.AddRange(marketUpload.Orders.Where(o =>
+                    _settingsManager.AppSettings.ItemsToUploadToAfm?.Any(s => o.ItemTypeId.Contains(s)) == true));
+            }
 
-                Log.Debug("Starting upload of {Offers} offers, {Requests} requests. Identifier: {identifier}", offers, requests, marketUpload.Identifier);
+            if (ordersForPublicUpload.Any())
+            {
+                var publicMarketUpload = new MarketUpload();
+                publicMarketUpload.Orders = ordersForPublicUpload;
+                var data = SerializeData(publicMarketUpload);
+                var offers = publicMarketUpload.Orders.Count(x => x.AuctionType == AuctionType.offer);
+                var requests = publicMarketUpload.Orders.Count(x => x.AuctionType == AuctionType.request);
 
-                var uploadStatus = await UploadData(data, _playerState.AlbionServer, _settingsManager.AppSettings.MarketOrdersIngestSubject ?? "", marketUpload.Identifier);
+                Log.Debug("Starting public upload of {Offers} offers, {Requests} requests. Identifier: {identifier}", offers, requests, publicMarketUpload.Identifier);
 
-                OnMarketUpload?.Invoke(this, new MarketUploadEventArgs(marketUpload, _playerState.AlbionServer, uploadStatus));
+                var uploadStatus = await UploadData(data, _playerState.AlbionServer, _settingsManager.AppSettings.MarketOrdersIngestSubject ?? "", publicMarketUpload.Identifier);
+
+                OnMarketUpload?.Invoke(this, new MarketUploadEventArgs(publicMarketUpload, _playerState.AlbionServer, uploadStatus));
 
                 if (uploadStatus == UploadStatus.Success)
                 {
-                    Log.Information("Market upload complete. {Offers} offers, {Requests} requests. Identifier: {identifier}. Locations: {Location}", offers, requests, marketUpload.Identifier, string.Join(",", marketUpload.Orders.Select(x => x.LocationId).Distinct()));
+                    Log.Information("Public market upload complete. {Offers} offers, {Requests} requests. Identifier: {identifier}. Locations: {Location}", offers, requests, publicMarketUpload.Identifier, string.Join(",", publicMarketUpload.Orders.Select(x => x.LocationId).Distinct()));
                 }
                 else
                 {
-                    Log.Error("Market upload received status {Status}. {Offers} offers, {Requests} requests. Identifier: {identifier}", uploadStatus, offers, requests, marketUpload.Identifier);
+                    Log.Error("Public market upload received status {Status}. {Offers} offers, {Requests} requests. Identifier: {identifier}", uploadStatus, offers, requests, publicMarketUpload.Identifier);
                 }
             }
         }
