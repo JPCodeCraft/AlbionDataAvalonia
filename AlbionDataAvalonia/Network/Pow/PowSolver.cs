@@ -13,14 +13,16 @@ namespace AlbionDataAvalonia.Network.Pow;
 
 public class PowSolver
 {
-    private SHA256 sha256 = SHA256.Create();
-    private static readonly string[] byteToBinaryLookup = Enumerable.Range(0, 256).Select(i => Convert.ToString(i, 2).PadLeft(8, '0')).ToArray();
-    private static readonly string[] byteToHexLookup = Enumerable.Range(0, 256).Select(i => i.ToString("x2")).ToArray();
-
-    private int counter = 0;
+    private readonly SHA256 _sha256 = SHA256.Create();
+    private ulong _counter;
+    private static readonly byte[] HexDigits = "0123456789abcdef"u8.ToArray();
 
     public PowSolver()
     {
+        // Initialize with random starting point to avoid solver overlap
+        byte[] randomBytes = new byte[8];
+        Random.Shared.NextBytes(randomBytes);
+        _counter = BitConverter.ToUInt64(randomBytes);
     }
 
     public async Task<PowRequest?> GetPowRequest(AlbionServer server, HttpClient client)
@@ -32,10 +34,9 @@ public class PowSolver
         }
 
         var requestUri = new Uri(client.BaseAddress, "/pow");
-        var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
+        using var request = new HttpRequestMessage(HttpMethod.Get, requestUri);
 
-        HttpResponseMessage response = await client.SendAsync(request);
-
+        using var response = await client.SendAsync(request);
         if (response.StatusCode != HttpStatusCode.OK)
         {
             Log.Error("Got bad response code when getting PoW: {0}", response.StatusCode);
@@ -43,63 +44,86 @@ public class PowSolver
         }
 
         var content = await response.Content.ReadAsStringAsync();
-        var powRequest = JsonSerializer.Deserialize<PowRequest>(content);
-        if (powRequest is not null)
-        {
-            return powRequest;
-        }
-        else
-        {
-            return null;
-        }
+        return JsonSerializer.Deserialize<PowRequest>(content);
     }
 
-    private string SequentialHex(int n)
-    {
-        return (++counter).ToString("x").PadLeft(n * 2, '0');
-    }
-
-    private string ToBinaryBytes(string s)
-    {
-        StringBuilder buffer = new StringBuilder(s.Length * 8);
-        foreach (char c in s)
-        {
-            buffer.Append(byteToBinaryLookup[(byte)c]);
-        }
-        return buffer.ToString();
-    }
-
-    // Solves a pow looping through possible solutions
-    // until a correct one is found
-    // returns the solution
-    public Task<string> SolvePow(PowRequest pow)
-    {
-        return Task.Run(() => ProcessPow(pow));
-    }
+    public Task<string> SolvePow(PowRequest pow) => Task.Run(() => ProcessPow(pow));
 
     private string ProcessPow(PowRequest pow)
     {
+        // Precompute constant components
+        ReadOnlySpan<byte> prefix = "aod^"u8;
+        byte[] suffix = Encoding.UTF8.GetBytes($"^{pow.Key}");
+        int totalLength = prefix.Length + 16 + suffix.Length;
+
+        // Buffer for hash input
+        byte[] inputBuffer = new byte[totalLength];
+
+        // Copy fixed components
+        prefix.CopyTo(inputBuffer);
+        suffix.CopyTo(inputBuffer.AsSpan(prefix.Length + 16));
+
+        // Hash output buffer
+        byte[] hashBuffer = new byte[32];
+
         while (true)
         {
-            var hex = SequentialHex(8);
-            string hash = ToBinaryBytes(GetHash($"aod^{hex}^{pow.Key}"));
-            if (hash.StartsWith(pow.Wanted, StringComparison.Ordinal))
+            // Write current counter as hex to buffer
+            WriteCounterHex(inputBuffer, prefix.Length, _counter++);
+
+            // Compute hash
+            _sha256.TryComputeHash(inputBuffer, hashBuffer, out _);
+
+            // Check if hash meets difficulty
+            if (CheckLeadingBits(hashBuffer, pow.Wanted))
             {
-                return hex;
+                return Encoding.ASCII.GetString(inputBuffer, prefix.Length, 16);
             }
         }
     }
 
-    private string GetHash(string input)
+    private void WriteCounterHex(byte[] buffer, int offset, ulong value)
     {
-        byte[] bytes = Encoding.UTF8.GetBytes(input);
-        byte[] hashBytes = sha256.ComputeHash(bytes);
-        StringBuilder builder = new StringBuilder(hashBytes.Length * 2);
-        foreach (byte b in hashBytes)
+        // Write 16 hex digits (8 bytes) in big-endian order
+        for (int i = 0; i < 16; i++)
         {
-            builder.Append(byteToHexLookup[b]);
+            // Process 4 bits at a time (from high to low)
+            int nibble = (int)((value >> (60 - i * 4)) & 0xF);
+            buffer[offset + i] = HexDigits[nibble];
         }
-        return builder.ToString();
     }
 
+    private bool CheckLeadingBits(byte[] hash, string wanted)
+    {
+        int totalBits = wanted.Length;
+        int totalBytes = (totalBits + 7) / 8;
+        Span<byte> hexChars = stackalloc byte[totalBytes];
+
+        // Generate first N hex characters needed for comparison
+        for (int i = 0; i < totalBytes; i++)
+        {
+            int byteIdx = i / 2;
+            byte b = hash[byteIdx];
+            int nibble = (i % 2 == 0) ? b >> 4 : b & 0x0F;
+            hexChars[i] = HexDigits[nibble];
+        }
+
+        // Compare bits
+        for (int i = 0; i < totalBits; i++)
+        {
+            int charIdx = i / 8;
+            int bitIdx = 7 - (i % 8);  // MSB first
+
+            byte current = hexChars[charIdx];
+            int currentBit = (current >> bitIdx) & 1;
+            int expectedBit = wanted[i] == '1' ? 1 : 0;
+
+            if (currentBit != expectedBit)
+            {
+                return false;
+            }
+        }
+
+        return true;
+    }
 }
