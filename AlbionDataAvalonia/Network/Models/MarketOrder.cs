@@ -1,4 +1,6 @@
-﻿using AlbionTopItems.Models.Converters;
+﻿using AlbionDataAvalonia.Locations;
+using AlbionDataAvalonia.Locations.Models;
+using AlbionTopItems.Models.Converters;
 using System;
 using System.Text.Json.Serialization;
 
@@ -19,4 +21,12 @@ public class MarketOrder
     public uint Amount { get; set; }
     public AuctionType AuctionType { get; set; }
     public DateTime Expires { get; set; }
+    [JsonIgnore]
+    public AlbionLocation Location
+    {
+        get
+        {
+            return AlbionLocations.Get(LocationId ?? -2) ?? AlbionLocations.Unknown;
+        }
+    }
 }

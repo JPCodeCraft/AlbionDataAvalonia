@@ -69,6 +69,16 @@ namespace AlbionDataAvalonia.Locations
             return location != null;
         }
 
+        public static Dictionary<string, string> CityToMarketId = new Dictionary<string, string>()
+        {
+            { "0000", "0007" }, // Thetford to Thetford Market
+            { "1000", "1002" }, // Lymhurst to Lymhurst Market
+            { "2000", "2004" }, // Bridgewatch to Bridgewatch Market
+            { "3004", "3008" }, // Martlock to Martlock Market
+            { "4000", "4002" }, // Fort Sterling to Fort Sterling Market            
+            { "5000", "5003" }  // Brecilien to Brecilien Market
+        };
+
         public static int? GetIdInt(string? id)
         {
             if (!string.IsNullOrEmpty(id))
@@ -76,6 +86,15 @@ namespace AlbionDataAvalonia.Locations
                 if (id.Contains("-Auction2"))
                 {
                     id = id.Replace("-Auction2", "");
+                }
+                if (id.Contains("-HellDen"))
+                {
+                    id = id.Replace("-HellDen", "");
+                    id = CityToMarketId.TryGetValue(id, out string? marketId) ? marketId : id;
+                    if (id == "3003")
+                    {
+                        id = "3005"; // Caerleon Market
+                    }
                 }
                 if (id.Contains("@"))
                 {

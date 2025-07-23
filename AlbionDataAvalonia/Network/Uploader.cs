@@ -67,7 +67,7 @@ public class Uploader : IDisposable
                     Log.Information("Market upload to AFM Flipper complete. {Offers} offers, {Requests} requests. Locations: {Location}",
                         marketUpload.Orders.Count(x => x.AuctionType == AuctionType.offer),
                         marketUpload.Orders.Count(x => x.AuctionType == AuctionType.request),
-                        string.Join(",", marketUpload.Orders.Select(x => x.LocationId).Distinct()));
+                        string.Join(",", marketUpload.Orders.Select(x => x.Location.FriendlyName).Distinct()));
                 }
                 else
                 {
@@ -105,7 +105,7 @@ public class Uploader : IDisposable
 
                 if (uploadStatus == UploadStatus.Success)
                 {
-                    Log.Information("Public market upload complete. {Offers} offers, {Requests} requests. Identifier: {identifier}. Locations: {Location}", offers, requests, publicMarketUpload.Identifier, string.Join(",", publicMarketUpload.Orders.Select(x => x.LocationId).Distinct()));
+                    Log.Information("Public market upload complete. {Offers} offers, {Requests} requests. Identifier: {identifier}. Locations: {Location}", offers, requests, publicMarketUpload.Identifier, string.Join(",", publicMarketUpload.Orders.Select(x => x.Location.FriendlyName).Distinct()));
                 }
                 else
                 {
@@ -171,7 +171,7 @@ public class Uploader : IDisposable
 
             if (uploadStatus == UploadStatus.Success)
             {
-                Log.Information("Market history upload complete. [{Timescale}] => {count} histories of {item}. Identifier: {identifier}. Location: {Location}", marketHistoriesUpload.Timescale, count, marketHistoriesUpload.AlbionId, marketHistoriesUpload.Identifier, marketHistoriesUpload.LocationId);
+                Log.Information("Market history upload complete. [{Timescale}] => {count} histories of {item}. Identifier: {identifier}. Location: {Location}", marketHistoriesUpload.Timescale, count, marketHistoriesUpload.AlbionId, marketHistoriesUpload.Identifier, marketHistoriesUpload.Location.FriendlyName);
             }
             else
             {
