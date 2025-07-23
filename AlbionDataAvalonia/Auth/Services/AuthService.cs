@@ -226,7 +226,7 @@ namespace AlbionDataAvalonia.Auth.Services
                 OnFirebaseUserChanged(_firebaseUser);
                 ScheduleTokenRefresh();
 
-                Log.Information($"Firebase token refreshed for user: {_firebaseUser.Email}");
+                Log.Information($"Firebase token refreshed for user: {_firebaseUser.HiddenEmail}");
             }
             else
             {
