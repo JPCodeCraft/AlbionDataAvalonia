@@ -28,7 +28,7 @@ namespace AlbionDataAvalonia.Migrations
 
                     b.HasKey("UserId");
 
-                    b.ToTable("UserAuth");
+                    b.ToTable("UserAuth", (string)null);
                 });
 
             modelBuilder.Entity("AlbionDataAvalonia.Network.Models.AlbionMail", b =>
@@ -93,7 +93,7 @@ namespace AlbionDataAvalonia.Migrations
 
                     b.HasIndex("AlbionServerId", "LocationId", "AuctionType", "Deleted", "Received");
 
-                    b.ToTable("AlbionMails");
+                    b.ToTable("AlbionMails", (string)null);
                 });
 
             modelBuilder.Entity("AlbionDataAvalonia.Network.Models.Trade", b =>
@@ -142,7 +142,7 @@ namespace AlbionDataAvalonia.Migrations
 
                     b.HasKey("Id");
 
-                    b.ToTable("Trades");
+                    b.ToTable("Trades", (string)null);
                 });
 #pragma warning restore 612, 618
         }

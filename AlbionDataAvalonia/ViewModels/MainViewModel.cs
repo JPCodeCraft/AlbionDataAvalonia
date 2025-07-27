@@ -176,7 +176,7 @@ public partial class MainViewModel : ViewModelBase
 
     private void UpdateVisibilities()
     {
-        ShowChangeCity = !_playerState.CheckLocationIsSet(true) && _playerState.IsInGame;
+        ShowChangeCity = !_playerState.CheckLocationIsSet() && _playerState.IsInGame;
         ShowGetInGame = !_playerState.IsInGame;
         ShowEncrypted = _playerState.HasEncryptedData;
         ShowDataUi = !(ShowChangeCity || ShowGetInGame);

@@ -5,6 +5,6 @@
         public uint AlbionId { get; set; }
         public Timescale Timescale { get; set; }
         public ushort Quality { get; set; }
-        public int LocationID { get; set; }
+        public string LocationID { get; set; } = string.Empty;
     }
 }

@@ -49,9 +49,10 @@ public class JoinResponse : BaseOperation
             if (parameters.TryGetValue(8, out object locationData))
             {
                 string location = (string)locationData;
-                if (AlbionLocations.TryParse(location, out AlbionLocation? loc) && loc != null)
+                var albionLocation = AlbionLocations.Get(location);
+                if (albionLocation != null)
                 {
-                    playerLocation = loc;
+                    playerLocation = albionLocation;
                 }
                 else
                 {

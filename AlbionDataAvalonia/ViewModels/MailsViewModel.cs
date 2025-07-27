@@ -32,7 +32,21 @@ public partial class MailsViewModel : ViewModelBase
 
     private List<AlbionMail> UnfilteredMails { get; set; } = new();
 
-    public List<string> Locations { get; set; } = new();
+    public List<string> Locations
+    {
+        get
+        {
+            var locations = Mails
+                .Select(t => t.Location?.FriendlyName)
+                .Where(x => !string.IsNullOrEmpty(x))
+                .Distinct()
+                .OrderBy(x => x)
+                .Cast<string>()
+                .ToList();
+            locations.Insert(0, "Any");
+            return locations;
+        }
+    }
     [ObservableProperty]
     private string selectedLocation = "Any";
 
@@ -61,9 +75,6 @@ public partial class MailsViewModel : ViewModelBase
 
         _mailService.OnMailAdded += HandleMailAdded;
         _mailService.OnMailDataAdded += HandleMailDataAdded;
-
-        Locations = AlbionLocations.GetAll().Select(x => x.FriendlyName).OrderBy(x => x).ToList();
-        Locations.Insert(0, "Any");
 
         Servers = AlbionServers.GetAll().Select(x => x.Name).ToList();
         Servers.Insert(0, "Any");

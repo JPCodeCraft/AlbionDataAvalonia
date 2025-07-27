@@ -9,6 +9,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Text.Json;
+using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
 
@@ -68,13 +69,31 @@ namespace AlbionDataAvalonia.Network.Services
 
             var afmMarketUpload = new AfmMarketUpload(marketUpload, _playerState.AlbionServer.Id, _authService.FirebaseUserId);
 
-            var requestUri = new Uri(httpClient.BaseAddress, "flipperOrders?contributeToPublic=" + _playerState.ContributeToPublic);
-            var jsonContent = JsonContent.Create(afmMarketUpload, options: new JsonSerializerOptions
+            var serializerOptions = new JsonSerializerOptions
             {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                WriteIndented = true,
                 DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-            });
+            };
+
+            // Serialize to a JsonNode to manipulate it
+            JsonNode? jsonNode = JsonSerializer.SerializeToNode(afmMarketUpload, serializerOptions);
+
+            if (jsonNode is JsonObject jsonObject && jsonObject["orders"] is JsonArray ordersArray)
+            {
+                for (int i = 0; i < ordersArray.Count; i++)
+                {
+                    var originalOrder = afmMarketUpload.Orders[i];
+                    var orderNode = ordersArray[i]?.AsObject();
+                    if (orderNode != null)
+                    {
+                        // Replace string LocationId with the integer AODPLocationIdInt
+                        orderNode["locationId"] = originalOrder.Location.MarketLocation?.IdInt?.ToString() ?? "0";
+                    }
+                }
+            }
+
+            var requestUri = new Uri(httpClient.BaseAddress, "flipperOrders?contributeToPublic=" + _playerState.ContributeToPublic);
+            var jsonContent = JsonContent.Create(jsonNode, options: serializerOptions);
 
             HttpResponseMessage response = await httpClient.PostAsync(requestUri, jsonContent);
 

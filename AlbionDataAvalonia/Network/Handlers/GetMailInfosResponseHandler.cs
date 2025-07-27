@@ -35,10 +35,20 @@ public class GetMailInfosResponseHandler : ResponsePacketHandler<GetMailInfosRes
         for (int i = 0; i < value.MailIds.Length; i++)
         {
             if (value.LocationIds[i] == "@BLACK_MARKET") value.LocationIds[i] = "3003";
-            if (value.LocationIds[i].Contains("BLACKBANK")) value.LocationIds[i] = (AlbionLocations.GetIdInt(value.LocationIds[i].Split("@")[1]) ?? 0).ToString("D4") ?? "-0002";
-            var location = AlbionLocations.TryParse(value.LocationIds[i], out var loc) ? loc ?? AlbionLocations.Unknown : AlbionLocations.Unknown;
+
+            // getting the location, we need to clear out the data before the @
+            string? query;
+            if (value.LocationIds[i].Contains("@"))
+            {
+                query = value.LocationIds[i].Split('@')[1];
+            }
+            else
+            {
+                query = value.LocationIds[i];
+            }
+            var location = AlbionLocations.Get(query) ?? AlbionLocations.Unknown;
             var type = Enum.TryParse(typeof(AlbionMailInfoType), value.Types[i], true, out object? parsedType) ? (AlbionMailInfoType)parsedType : AlbionMailInfoType.UNKNOWN;
-            AlbionMail mail = new(value.MailIds[i], location.IdInt ?? -2, playerState.PlayerName, type, new DateTime(value.Received[i]), playerState.AlbionServer.Id, settingsManager.UserSettings.SalesTax);
+            AlbionMail mail = new(value.MailIds[i], location.MarketLocation?.IdInt ?? -2, playerState.PlayerName, type, new DateTime(value.Received[i]), playerState.AlbionServer.Id, settingsManager.UserSettings.SalesTax);
 
             if (mail.Type != AlbionMailInfoType.UNKNOWN)
             {

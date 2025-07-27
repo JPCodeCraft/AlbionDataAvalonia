@@ -21,44 +21,60 @@
 			<Setter Property="Padding" Value="10" />
 			<Setter Property="Margin" Value="10" />
 		</Style>
+        <Style Selector="TextBlock.FilterLabel">
+            <Setter Property="FontSize" Value="12"/>
+            <Setter Property="Foreground" Value="#888"/>
+            <Setter Property="Margin" Value="0,0,0,2"/>
+        </Style>
 	</UserControl.Styles>
 
 	<Grid ColumnDefinitions="*" RowDefinitions="Auto, *">
 
-		<StackPanel Orientation="Horizontal">
+		<StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" Margin="0,8,0,8">
 
-			<Button Classes="Filter" Grid.Row="0" Content="Load" Command="{Binding LoadMailsCommand}" />
+            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+                <Button Classes="Filter" Content="Load" Command="{Binding LoadMailsCommand}" />
+            </StackPanel>
 
-			<TextBox Classes="Filter" Text="{Binding FilterText}" Name="FilterBox" Width="250"/>
+            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+                <TextBlock Classes="FilterLabel" Text="Search an Item..."/>
+                <TextBox Classes="Filter" Text="{Binding FilterText}" Name="FilterBox" Width="250"/>
+            </StackPanel>
 
-			<ComboBox Classes="Filter" ItemsSource="{Binding Servers}" SelectedItem="{Binding SelectedServer}"
-					  Width="150" >
-				<ComboBox.ItemTemplate>
-					<DataTemplate>
-						<TextBlock Text="{Binding}"/>
-					</DataTemplate>
-				</ComboBox.ItemTemplate>
-			</ComboBox>
+            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+                <TextBlock Classes="FilterLabel" Text="Server"/>
+                <ComboBox Classes="Filter" ItemsSource="{Binding Servers}" SelectedItem="{Binding SelectedServer}" Width="150">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </StackPanel>
 
-			<ComboBox Classes="Filter" ItemsSource="{Binding AuctionTypes}" SelectedItem="{Binding SelectedType}" 
-					  Width="100" >
-				<ComboBox.ItemTemplate>
-					<DataTemplate>
-						<TextBlock Text="{Binding}"/>
-					</DataTemplate>
-				</ComboBox.ItemTemplate>
-			</ComboBox>
+            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+                <TextBlock Classes="FilterLabel" Text="Operation"/>
+                <ComboBox Classes="Filter" ItemsSource="{Binding AuctionTypes}" SelectedItem="{Binding SelectedType}" Width="100">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </StackPanel>
 
-			<ComboBox Classes="Filter" ItemsSource="{Binding Locations}" SelectedItem="{Binding SelectedLocation}" 
-					  Width="150">
-				<ComboBox.ItemTemplate>
-					<DataTemplate>
-						<TextBlock Text="{Binding}"/>
-					</DataTemplate>
-				</ComboBox.ItemTemplate>
-			</ComboBox>			
+            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+                <TextBlock Classes="FilterLabel" Text="Location"/>
+                <ComboBox Classes="Filter" ItemsSource="{Binding Locations}" SelectedItem="{Binding SelectedLocation}" Width="150">
+                    <ComboBox.ItemTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding}"/>
+                        </DataTemplate>
+                    </ComboBox.ItemTemplate>
+                </ComboBox>
+            </StackPanel>
 
-		</StackPanel>
+        </StackPanel>
 
 		<DataGrid Grid.Row="1" Margin="0" ItemsSource="{Binding Mails}"
 				  AutoGenerateColumns="False" IsReadOnly="True"

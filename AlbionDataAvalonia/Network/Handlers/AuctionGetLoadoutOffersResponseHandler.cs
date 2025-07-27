@@ -25,7 +25,7 @@ public class AuctionGetLoadoutOffersResponseHandler : ResponsePacketHandler<Auct
 
         value.marketOrders.ForEach(x =>
         {
-            if (x.LocationId == null) x.LocationId = playerState.Location.IdInt ?? -2;
+            if (x.LocationId == null) x.LocationId = playerState.Location.Id;
         });
 
         marketUpload.Orders.AddRange(value.marketOrders);

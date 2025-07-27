@@ -78,7 +78,7 @@ public class MailService
     {
         foreach (var mail in mails)
         {
-            mail.Location = AlbionLocations.Get(mail.LocationId);
+            mail.Location = AlbionLocations.GetByIntId(mail.LocationId);
             mail.Server = AlbionServers.GetAll().SingleOrDefault(x => x.Id == mail.AlbionServerId);
             mail.ItemName = _localizationService.GetUsName(mail.ItemId);
         }

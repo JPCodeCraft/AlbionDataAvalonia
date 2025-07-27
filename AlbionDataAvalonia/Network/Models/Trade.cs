@@ -106,12 +106,12 @@ public class Trade
         }
         Amount = amount;
         AlbionServerId = albionServerId;
-        LocationId = order.LocationId ?? AlbionLocations.Unknown.IdInt ?? -2;
+        LocationId = order.Location.MarketLocation?.IdInt ?? -2;
         DateTime = DateTime.UtcNow;
         QualityLevel = order.QualityLevel;
         ItemId = order.ItemTypeId;
         PlayerName = playerName;
-        UnitSilver = order.UnitPriceSilver / 10000;
+        UnitSilver = order.AuctionType == AuctionType.offer ? Math.Round(order.UnitPriceSilver / 10000.0) + Math.Round(order.DistanceFee / 10000.0) : Math.Round(order.UnitPriceSilver / 10000.0) - Math.Round(order.DistanceFee / 10000.0);
         Type = TradeType.Instant;
     }
 

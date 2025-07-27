@@ -8,7 +8,7 @@ namespace AlbionDataAvalonia.Network.Models;
 public class MarketHistoriesUpload : BaseUpload
 {
     public uint AlbionId;
-    public int LocationId;
+    public string LocationId = string.Empty;
     public byte QualityLevel;
     public Timescale Timescale;
     public List<MarketHistory> MarketHistories = new List<MarketHistory>();

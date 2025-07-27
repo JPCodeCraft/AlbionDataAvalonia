@@ -6,6 +6,7 @@ namespace AlbionDataAvalonia.Network.Models;
 public static class AlbionServers
 {
     public static AlbionServer Americas { get; } = new AlbionServer(1, "Americas", "5.188.125", "https://pow.west.albion-online-data.com");
+    // public static AlbionServer Americas { get; } = new AlbionServer(1, "Americas", "5.188.125", "http://localhost:3000");
 
     public static AlbionServer Asia { get; } = new AlbionServer(2, "Asia", "5.45.187", "https://pow.east.albion-online-data.com");
 

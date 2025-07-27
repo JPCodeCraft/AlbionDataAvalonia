@@ -32,7 +32,7 @@ public class Uploader : IDisposable
     public event EventHandler<GoldPriceUploadEventArgs> OnGoldPriceUpload;
     public event EventHandler<MarketHistoriesUploadEventArgs> OnMarketHistoryUpload;
 
-    public event Action OnChange;
+    public event Action? OnChange;
 
     public int uploadQueueCount => uploadQueue.Count;
     public int runningTasksCount => runningTasks.Count;
@@ -48,6 +48,8 @@ public class Uploader : IDisposable
         OnMarketUpload += _playerState.MarketUploadHandler;
         OnMarketHistoryUpload += _playerState.MarketHistoryUploadHandler;
     }
+
+    // MARK: Upload MarketUpload
     private async Task Upload(MarketUpload marketUpload)
     {
         if (_playerState.AlbionServer == null)
@@ -67,7 +69,7 @@ public class Uploader : IDisposable
                     Log.Information("Market upload to AFM Flipper complete. {Offers} offers, {Requests} requests. Locations: {Location}",
                         marketUpload.Orders.Count(x => x.AuctionType == AuctionType.offer),
                         marketUpload.Orders.Count(x => x.AuctionType == AuctionType.request),
-                        string.Join(",", marketUpload.Orders.Select(x => x.Location.FriendlyName).Distinct()));
+                        string.Join(",", marketUpload.Orders.Select(x => x.Location.MarketLocation?.FriendlyName ?? "Unknown").Distinct()));
                 }
                 else
                 {
@@ -105,7 +107,7 @@ public class Uploader : IDisposable
 
                 if (uploadStatus == UploadStatus.Success)
                 {
-                    Log.Information("Public market upload complete. {Offers} offers, {Requests} requests. Identifier: {identifier}. Locations: {Location}", offers, requests, publicMarketUpload.Identifier, string.Join(",", publicMarketUpload.Orders.Select(x => x.Location.FriendlyName).Distinct()));
+                    Log.Information("Public market upload complete. {Offers} offers, {Requests} requests. Identifier: {identifier}. Locations: {Location}", offers, requests, publicMarketUpload.Identifier, string.Join(",", publicMarketUpload.Orders.Select(x => x.Location.MarketLocation?.FriendlyName ?? "Unknown").Distinct()));
                 }
                 else
                 {
@@ -118,6 +120,8 @@ public class Uploader : IDisposable
             Log.Error(ex, "Exception while uploading market data. Identifier: {identifier}", marketUpload.Identifier);
         }
     }
+
+    // MARK: Upload GoldPriceUpload
     private async Task Upload(GoldPriceUpload goldHistoryUpload)
     {
         if (_playerState.AlbionServer == null)
@@ -150,6 +154,8 @@ public class Uploader : IDisposable
             Log.Error(ex, "Exception while uploading gold data. Identifier: {identifier}", goldHistoryUpload.Identifier);
         }
     }
+
+    // MARK: Upload MarketHistoriesUpload
     private async Task Upload(MarketHistoriesUpload marketHistoriesUpload)
     {
         if (_playerState.AlbionServer == null)
@@ -171,7 +177,7 @@ public class Uploader : IDisposable
 
             if (uploadStatus == UploadStatus.Success)
             {
-                Log.Information("Market history upload complete. [{Timescale}] => {count} histories of {item}. Identifier: {identifier}. Location: {Location}", marketHistoriesUpload.Timescale, count, marketHistoriesUpload.AlbionId, marketHistoriesUpload.Identifier, marketHistoriesUpload.Location.FriendlyName);
+                Log.Information("Market history upload complete. [{Timescale}] => {count} histories of {item}. Identifier: {identifier}. Location: {Location}", marketHistoriesUpload.Timescale, count, marketHistoriesUpload.AlbionId, marketHistoriesUpload.Identifier, marketHistoriesUpload.Location.MarketLocation?.FriendlyName ?? "Unknown");
             }
             else
             {

@@ -74,7 +74,7 @@ public class TradeService
                 foreach (var trade in result)
                 {
                     trade.Server = AlbionServers.Get(trade.AlbionServerId ?? 0);
-                    trade.Location = AlbionLocations.Get(trade.LocationId);
+                    trade.Location = AlbionLocations.GetByIntId(trade.LocationId);
                     trade.ItemName = _localizationService.GetUsName(trade.ItemId);
                 }
 
