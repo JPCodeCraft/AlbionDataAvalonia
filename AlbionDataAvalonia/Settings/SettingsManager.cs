@@ -14,7 +14,7 @@ public class SettingsManager
 
     private bool loadedAppSettingsFromRemote = false;
 
-    private string appSettingsDownloadUrl = "https://raw.githubusercontent.com/JPCodeCraft/AlbionDataAvalonia/master/AlbionDataAvalonia/DefaultAppSettings.json";
+    private string appSettingsDownloadUrl = "https://cdn.albionfreemarket.com/AlbionDataAvalonia/AlbionDataAvalonia/DefaultAppSettings.json";
     public UserSettings UserSettings { get; } = new();
     public AppSettings AppSettings { get; private set; }
     public SettingsManager()

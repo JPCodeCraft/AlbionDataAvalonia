@@ -11,7 +11,7 @@ namespace AlbionDataAvalonia.Locations
 {
     public static class AlbionLocations
     {
-        private const string JsonUrl = "https://raw.githubusercontent.com/ao-data/ao-bin-dumps/master/formatted/world.json";
+        private const string JsonUrl = "https://cdn.albionfreemarket.com/ao-bin-dumps/formatted/world.json";
         private static List<LocationJson> locations = new List<LocationJson>();
         private static List<AlbionLocation> albionLocations = new List<AlbionLocation>();
 

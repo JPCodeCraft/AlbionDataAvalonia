@@ -25,7 +25,7 @@ namespace AlbionDataAvalonia.State
         private bool uploadToAfmOnly = false;
         private bool contributeToPublic = false;
 
-        public MarketHistoryInfo[] MarketHistoryIDLookup { get; init; }
+        public MarketHistoryInfo?[] MarketHistoryIDLookup { get; init; }
         public ulong CacheSize => 8192;
         private Queue<string> SentDataHashs = new Queue<string>();
 

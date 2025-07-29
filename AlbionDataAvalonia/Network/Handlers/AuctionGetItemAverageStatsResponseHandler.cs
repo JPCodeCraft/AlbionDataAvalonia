@@ -25,12 +25,13 @@ public class AuctionGetItemAverageStatsResponseHandler : ResponsePacketHandler<A
         MarketHistoriesUpload marketHistoriesUpload = new MarketHistoriesUpload();
 
         //load info from history
-        MarketHistoryInfo info = playerState.MarketHistoryIDLookup[value.messageID % playerState.CacheSize];
+        MarketHistoryInfo? info = playerState.MarketHistoryIDLookup[value.messageID % playerState.CacheSize];
         if (info == null)
         {
             Log.Warning("Market History - No info found for messageID {MessageID}. ", value.messageID);
             return;
         }
+        playerState.MarketHistoryIDLookup[value.messageID % playerState.CacheSize] = null; // clear the entry to prevent future lookups
 
         //loops entries and fix amounts
         for (int i = 0; i < value.itemAmounts.Length; i++)

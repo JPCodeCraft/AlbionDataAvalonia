@@ -9,7 +9,7 @@ namespace AlbionDataAvalonia.Localization.Services
 {
     public class LocalizationService
     {
-        private const string JsonUrl = "https://raw.githubusercontent.com/JPCodeCraft/AlbionFormattedItemsParser/main/us_name_mappings.json";
+        private const string JsonUrl = "https://cdn.albionfreemarket.com/AlbionFormattedItemsParser/us_name_mappings.json";
         private Dictionary<string, string> nameMappings = new();
 
         public async Task InitializeAsync()
