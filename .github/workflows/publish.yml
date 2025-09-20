@@ -8,161 +8,160 @@ jobs:
     runs-on: windows-latest
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
 
-        - name: Checkout code
-          uses: actions/checkout@v4
-          with:
-            token: ${{ secrets.GITHUB_TOKEN }}
-            fetch-depth: 0
-          
-        - name: Get the version
-          id: get_version
-          run: |
-            $version = (Select-String -Path ./AlbionDataAvalonia.Desktop/pkg/inno.iss -Pattern '#define MyAppVersion "(.*)"').Matches.Groups[1].Value
-            echo "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
-            echo "Found version: $version"
-          shell: pwsh
-          
-        - name: Get diff
-          id: get_diff
-          run: |
-            git fetch --tags
-            # Try to get latest tag, but don't fail if none exists
-            LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
-            CURRENT_COMMIT=$(git rev-parse HEAD)
-            REPO_URL="https://github.com/JPCodeCraft/AlbionDataAvalonia"
-            
-            if [ -z "$LATEST_TAG" ]; then
-              echo "No tags found. Using all commits for the log."
-              # Get all commits or limit to a reasonable number
-              COMMIT_LOG=$(git log --max-count=20 --pretty=format:"[%h]($REPO_URL/commit/%H) - %s")
-            else
-              echo "Found tag: $LATEST_TAG"
-              COMMIT_LOG=$(git log --pretty=format:"[%h]($REPO_URL/commit/%H) - %s" $LATEST_TAG..$CURRENT_COMMIT)
-              if [ -z "$COMMIT_LOG" ]; then
-                COMMIT_LOG="No new commits since the last release."
-              fi
+      - name: Get the version
+        id: get_version
+        run: |
+          $version = (Select-String -Path ./AlbionDataAvalonia.Desktop/pkg/inno.iss -Pattern '#define MyAppVersion "(.*)"').Matches.Groups[1].Value
+          echo "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "Found version: $version"
+        shell: pwsh
+
+      - name: Get diff
+        id: get_diff
+        run: |
+          git fetch --tags
+          # Try to get latest tag, but don't fail if none exists
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          CURRENT_COMMIT=$(git rev-parse HEAD)
+          REPO_URL="https://github.com/JPCodeCraft/AlbionDataAvalonia"
+
+          if [ -z "$LATEST_TAG" ]; then
+            echo "No tags found. Using all commits for the log."
+            # Get all commits or limit to a reasonable number
+            COMMIT_LOG=$(git log --max-count=20 --pretty=format:"[%h]($REPO_URL/commit/%H) - %s")
+          else
+            echo "Found tag: $LATEST_TAG"
+            COMMIT_LOG=$(git log --pretty=format:"[%h]($REPO_URL/commit/%H) - %s" $LATEST_TAG..$CURRENT_COMMIT)
+            if [ -z "$COMMIT_LOG" ]; then
+              COMMIT_LOG="No new commits since the last release."
             fi
-            
-            COMMIT_LOG=${COMMIT_LOG//$'\n'/<br>}
-            echo "Latest Tag: ${LATEST_TAG:-None}"
-            echo "Current Commit: $CURRENT_COMMIT"
-            echo "Commit Log: $COMMIT_LOG"
-            echo "COMMIT_LOG=$COMMIT_LOG" >> $GITHUB_ENV
-          shell: bash
+          fi
 
-        - name: Setup .NET
-          uses: actions/setup-dotnet@v4
-          with:
-            dotnet-version: '8.0.x' 
+          COMMIT_LOG=${COMMIT_LOG//$'\n'/<br>}
+          echo "Latest Tag: ${LATEST_TAG:-None}"
+          echo "Current Commit: $CURRENT_COMMIT"
+          echo "Commit Log: $COMMIT_LOG"
+          echo "COMMIT_LOG=$COMMIT_LOG" >> $GITHUB_ENV
+        shell: bash
 
-        - name: Install zip
-          run: choco install zip -y
-          shell: pwsh
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "8.0.x"
 
-        - name: Publish projects (Windows and Linux)
-          run: |
-            dotnet publish ./AlbionDataAvalonia.Desktop/AlbionDataAvalonia.Desktop.csproj --configuration Release
-            dotnet publish ./AlbionDataAvalonia.Desktop.Linux/AlbionDataAvalonia.Desktop.Linux.csproj --configuration Release
+      - name: Install zip
+        run: choco install zip -y
+        shell: pwsh
 
-        - name: Publish macOS project
-          run: |
-            dotnet publish ./AlbionDataAvalonia.Desktop.MacOS/AlbionDataAvalonia.Desktop.MacOS.csproj --configuration Release
+      - name: Publish projects (Windows and Linux)
+        run: |
+          dotnet publish ./AlbionDataAvalonia.Desktop/AlbionDataAvalonia.Desktop.csproj --configuration Release
+          dotnet publish ./AlbionDataAvalonia.Desktop.Linux/AlbionDataAvalonia.Desktop.Linux.csproj --configuration Release
 
-        - name: Compile .ISS to .EXE Installer
-          uses: Minionguyjpro/Inno-Setup-Action@v1.2.2
-          with:
-            path: ./AlbionDataAvalonia.Desktop/pkg/inno.iss
-            options: /O+
+      - name: Publish macOS project
+        run: |
+          dotnet publish ./AlbionDataAvalonia.Desktop.MacOS/AlbionDataAvalonia.Desktop.MacOS.csproj --configuration Release
 
-        - name: Compress macOS .app bundle
-          run: |
-            cd ./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net8.0/osx-x64/publish/
-            zip -r AFMDataClient_MacOS64.app.zip AFMDataClient_MacOS64.app
-          shell: bash
+      - name: Compile .ISS to .EXE Installer
+        uses: Minionguyjpro/Inno-Setup-Action@v1.2.7
+        with:
+          path: AlbionDataAvalonia.Desktop/pkg/inno.iss
+          options: /O+
 
-        - name: Create Tag
-          id: create_tag
-          run: |
-            git tag v.${{ env.VERSION }}
-            git push origin v.${{ env.VERSION }}
-          shell: pwsh
+      - name: Compress macOS .app bundle
+        run: |
+          cd ./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net8.0/osx-x64/publish/
+          zip -r AFMDataClient_MacOS64.app.zip AFMDataClient_MacOS64.app
+        shell: bash
 
-        - name: Create Release
-          id: create_release
-          uses: actions/create-release@v1
-          env:
-            GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
-          with:
-            tag_name: v.${{ env.VERSION }}
-            release_name: Albion Free Market Data Client v.${{ env.VERSION }}
-            body: |
-              Changes since last release:
-              ${{ env.COMMIT_LOG }}
-            draft: false
-            prerelease: false
+      - name: Create Tag
+        id: create_tag
+        run: |
+          git tag v.${{ env.VERSION }}
+          git push origin v.${{ env.VERSION }}
+        shell: pwsh
 
-        - name: Upload Release Asset (Windows Installer)
-          uses: actions/upload-release-asset@v1
-          env:
-            GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
-          with:
-            upload_url: ${{ steps.create_release.outputs.upload_url }}
-            asset_path: C:/Users/runneradmin/Documents/Inno Setup Output/AFMDataClientSetup_v_${{ env.VERSION }}.exe
-            asset_name: AFMDataClientSetup_v_${{ env.VERSION }}.exe
-            asset_content_type: application/octet-stream
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
+        with:
+          tag_name: v.${{ env.VERSION }}
+          release_name: Albion Free Market Data Client v.${{ env.VERSION }}
+          body: |
+            Changes since last release:
+            ${{ env.COMMIT_LOG }}
+          draft: false
+          prerelease: false
 
-        - name: Upload Release Asset (Linux Binary)
-          uses: actions/upload-release-asset@v1
-          env:
-            GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
-          with:
-            upload_url: ${{ steps.create_release.outputs.upload_url }}
-            asset_path: ./AlbionDataAvalonia.Desktop.Linux/bin/Release/net8.0/linux-x64/publish/AFMDataClient_Linux64
-            asset_name: AFMDataClient_Linux64
-            asset_content_type: application/octet-stream
+      - name: Upload Release Asset (Windows Installer)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: C:/Users/runneradmin/Documents/Inno Setup Output/AFMDataClientSetup_v_${{ env.VERSION }}.exe
+          asset_name: AFMDataClientSetup_v_${{ env.VERSION }}.exe
+          asset_content_type: application/octet-stream
 
-        - name: Upload Release Asset (Linux Installer)
-          uses: actions/upload-release-asset@v1
-          env:
-            GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
-          with:
-            upload_url: ${{ steps.create_release.outputs.upload_url }}
-            asset_path: ./AlbionDataAvalonia.Desktop.Linux/bin/Release/net8.0/linux-x64/publish/AFMDataClient_Linux64_Installer.sh
-            asset_name: AFMDataClient_Linux64_Installer.sh
-            asset_content_type: application/x-sh
+      - name: Upload Release Asset (Linux Binary)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./AlbionDataAvalonia.Desktop.Linux/bin/Release/net8.0/linux-x64/publish/AFMDataClient_Linux64
+          asset_name: AFMDataClient_Linux64
+          asset_content_type: application/octet-stream
 
-        - name: Upload Release Asset (Linux Uninstaller)
-          uses: actions/upload-release-asset@v1
-          env:
-            GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
-          with:
-            upload_url: ${{ steps.create_release.outputs.upload_url }}
-            asset_path: ./AlbionDataAvalonia.Desktop.Linux/bin/Release/net8.0/linux-x64/publish/AFMDataClient_Linux64_Uninstaller.sh
-            asset_name: AFMDataClient_Linux64_Uninstaller.sh
-            asset_content_type: application/x-sh
+      - name: Upload Release Asset (Linux Installer)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./AlbionDataAvalonia.Desktop.Linux/bin/Release/net8.0/linux-x64/publish/AFMDataClient_Linux64_Installer.sh
+          asset_name: AFMDataClient_Linux64_Installer.sh
+          asset_content_type: application/x-sh
 
-        - name: Upload Release Asset (macOS .app Bundle)
-          uses: actions/upload-release-asset@v1
-          env:
-            GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
-          with:
-            upload_url: ${{ steps.create_release.outputs.upload_url }}
-            asset_path: ./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net8.0/osx-x64/publish/AFMDataClient_MacOS64.app.zip
-            asset_name: AFMDataClient_MacOS64.app.zip
-            asset_content_type: application/zip
+      - name: Upload Release Asset (Linux Uninstaller)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./AlbionDataAvalonia.Desktop.Linux/bin/Release/net8.0/linux-x64/publish/AFMDataClient_Linux64_Uninstaller.sh
+          asset_name: AFMDataClient_Linux64_Uninstaller.sh
+          asset_content_type: application/x-sh
 
-        - name: Create LatestVersion.json
-          run: |
-            $version = "${{ env.VERSION }}"
-            $json = @{ version = $version } | ConvertTo-Json
-            $json | Out-File -FilePath ./AlbionDataAvalonia.Desktop/LatestVersion.json -Encoding utf8
-          shell: pwsh
+      - name: Upload Release Asset (macOS .app Bundle)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net8.0/osx-x64/publish/AFMDataClient_MacOS64.app.zip
+          asset_name: AFMDataClient_MacOS64.app.zip
+          asset_content_type: application/zip
 
-        - name: Commit and push changes
-          run: |
-              git config --local user.email "action@github.com"
-              git config --local user.name "GitHub Action"
-              git add ./AlbionDataAvalonia.Desktop/LatestVersion.json
-              git commit -m "Update LatestVersion.json"
-              git push
+      - name: Create LatestVersion.json
+        run: |
+          $version = "${{ env.VERSION }}"
+          $json = @{ version = $version } | ConvertTo-Json
+          $json | Out-File -FilePath ./AlbionDataAvalonia.Desktop/LatestVersion.json -Encoding utf8
+        shell: pwsh
+
+      - name: Commit and push changes
+        run: |
+          git config --local user.email "action@github.com"
+          git config --local user.name "GitHub Action"
+          git add ./AlbionDataAvalonia.Desktop/LatestVersion.json
+          git commit -m "Update LatestVersion.json"
+          git push
