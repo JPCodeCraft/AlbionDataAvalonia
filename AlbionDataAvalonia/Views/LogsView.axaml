@@ -23,9 +23,26 @@
 		<DataGrid.Columns>
 			<DataGridTextColumn Header="Timestamp" Binding="{Binding LogEvent.Timestamp.LocalDateTime}" FontSize="12" />
 			<DataGridTextColumn Header="Level" Binding="{Binding LogEvent.Level}" FontSize="12" />
-			<DataGridTextColumn Header="Message" Binding="{Binding RenderedMessage}" Width="*" FontSize="12"/>
-		</DataGrid.Columns>
-	</DataGrid>
+				<DataGridTemplateColumn Header="Message" Width="*">
+					<DataGridTemplateColumn.CellTemplate>
+						<DataTemplate>
+								<TextBlock Text="{Binding RenderedMessage}" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center"
+								Classes="log-message"
+								DataContextChanged="LogMessage_DataContextChanged"
+								PointerReleased="LogMessage_PointerReleased">
+								<TextBlock.Styles>
+									<Style Selector="TextBlock.log-message.link">
+										<Setter Property="Cursor" Value="Hand" />
+										<Setter Property="Foreground" Value="#FF1E88E5" />
+										<Setter Property="TextDecorations" Value="Underline" />
+									</Style>
+								</TextBlock.Styles>
+							</TextBlock>
+						</DataTemplate>
+					</DataGridTemplateColumn.CellTemplate>
+				</DataGridTemplateColumn>
+			</DataGrid.Columns>
+		</DataGrid>
 
 
 

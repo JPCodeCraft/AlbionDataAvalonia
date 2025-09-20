@@ -107,7 +107,9 @@ public class Uploader : IDisposable
 
                 if (uploadStatus == UploadStatus.Success)
                 {
-                    Log.Information("Public market upload complete. {Offers} offers, {Requests} requests. Identifier: {identifier}. Locations: {Location}", offers, requests, publicMarketUpload.Identifier, string.Join(",", publicMarketUpload.Orders.Select(x => x.Location.MarketLocation?.FriendlyName ?? "Unknown").Distinct()));
+                    var serverName = _playerState.AlbionServer?.Name ?? string.Empty;
+                    var serverLogger = Log.ForContext("server", serverName);
+                    serverLogger.Information("Public market upload complete. {Offers} offers, {Requests} requests. Identifier: {identifier}. Locations: {Location}", offers, requests, publicMarketUpload.Identifier, string.Join(",", publicMarketUpload.Orders.Select(x => x.Location.MarketLocation?.FriendlyName ?? "Unknown").Distinct()));
                 }
                 else
                 {
