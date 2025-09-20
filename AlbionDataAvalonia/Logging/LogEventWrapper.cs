@@ -5,6 +5,13 @@ namespace AlbionDataAvalonia.Logging;
 
 public class LogEventWrapper
 {
+    private static readonly string[] PublicUploadMessagePrefixes =
+    {
+        "Public market upload complete",
+        "Gold price upload complete",
+        "Market history upload complete"
+    };
+
     public LogEvent LogEvent { get; }
 
     public string RenderedMessage
@@ -33,7 +40,22 @@ public class LogEventWrapper
     private static string? TryBuildPublicUploadUrl(LogEvent logEvent)
     {
         var messageTemplate = logEvent.MessageTemplate.Text;
-        if (messageTemplate is null || !messageTemplate.StartsWith("Public market upload complete", StringComparison.Ordinal))
+        if (messageTemplate is null)
+        {
+            return null;
+        }
+
+        var matchesPrefix = false;
+        foreach (var prefix in PublicUploadMessagePrefixes)
+        {
+            if (messageTemplate.StartsWith(prefix, StringComparison.Ordinal))
+            {
+                matchesPrefix = true;
+                break;
+            }
+        }
+
+        if (!matchesPrefix)
         {
             return null;
         }

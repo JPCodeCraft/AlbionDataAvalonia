@@ -144,7 +144,9 @@ public class Uploader : IDisposable
 
             if (uploadStatus == UploadStatus.Success)
             {
-                Log.Information("Gold price upload complete. {count} histories. Identifier: {identifier}", amount, goldHistoryUpload.Identifier);
+                var serverName = _playerState.AlbionServer?.Name ?? string.Empty;
+                var serverLogger = Log.ForContext("server", serverName);
+                serverLogger.Information("Gold price upload complete. {count} histories. Identifier: {identifier}", amount, goldHistoryUpload.Identifier);
             }
             else
             {
@@ -179,7 +181,9 @@ public class Uploader : IDisposable
 
             if (uploadStatus == UploadStatus.Success)
             {
-                Log.Information("Market history upload complete. [{Timescale}] => {count} histories of {item}. Identifier: {identifier}. Location: {Location}", marketHistoriesUpload.Timescale, count, marketHistoriesUpload.AlbionId, marketHistoriesUpload.Identifier, marketHistoriesUpload.Location.MarketLocation?.FriendlyName ?? "Unknown");
+                var serverName = _playerState.AlbionServer?.Name ?? string.Empty;
+                var serverLogger = Log.ForContext("server", serverName);
+                serverLogger.Information("Market history upload complete. [{Timescale}] => {count} histories of {item}. Identifier: {identifier}. Location: {Location}", marketHistoriesUpload.Timescale, count, marketHistoriesUpload.AlbionId, marketHistoriesUpload.Identifier, marketHistoriesUpload.Location.MarketLocation?.FriendlyName ?? "Unknown");
             }
             else
             {
