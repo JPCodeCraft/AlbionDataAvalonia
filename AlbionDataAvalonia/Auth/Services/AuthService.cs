@@ -24,10 +24,13 @@ namespace AlbionDataAvalonia.Auth.Services
         private readonly SettingsManager _settingsManager;
         private readonly LocalContext _dbContext;
 
-        private bool _isForcingTokenRefresh = false;
-
         private FirebaseAuthResponse? _firebaseUser = null;
         private CancellationTokenSource? _refreshTokenCts;
+
+        private readonly SemaphoreSlim _tokenRefreshLock = new(1, 1);
+        private DateTimeOffset? _tokenExpiryUtc;
+        private static readonly TimeSpan TokenRefreshLeadTime = TimeSpan.FromMinutes(5);
+        private static readonly TimeSpan MinScheduledRefreshDelay = TimeSpan.FromSeconds(30);
 
         public Action<FirebaseAuthResponse?>? FirebaseUserChanged;
 
@@ -70,29 +73,90 @@ namespace AlbionDataAvalonia.Auth.Services
             }
         }
 
-        public async Task<bool> TryAutoLoginAsync()
+        public async Task<bool> TryAutoLoginAsync(CancellationToken cancellationToken = default)
         {
             try
             {
-                var storedAuth = await _dbContext.UserAuth.FirstOrDefaultAsync();
+                var storedAuth = await _dbContext.UserAuth.FirstOrDefaultAsync(cancellationToken);
                 if (storedAuth != null && !string.IsNullOrEmpty(storedAuth.RefreshToken))
                 {
                     Log.Debug($"Found stored refresh token for user: {storedAuth.UserId}");
-                    await RefreshFirebaseTokenAsync(storedAuth.RefreshToken);
+                    await RefreshFirebaseTokenAsync(storedAuth.RefreshToken, cancellationToken);
                     return true;
                 }
             }
+            catch (AuthServiceException ex) when (ex.IsInvalidRefreshToken)
+            {
+                Log.Warning("Stored refresh token rejected during auto-login. Initiating logout.");
+                await LogOut();
+            }
             catch (Exception ex)
             {
-                Log.Error($"Auto-login failed: {ex.Message}");
+                Log.Error(ex, "Auto-login failed");
             }
             return false;
         }
 
-        private async Task StoreRefreshToken(string userId, string refreshToken)
+        public async Task<bool> EnsureValidTokenAsync(bool forceRefresh = false, CancellationToken cancellationToken = default)
+        {
+            if (_firebaseUser == null || string.IsNullOrEmpty(_firebaseUser.RefreshToken))
+            {
+                return false;
+            }
+
+            if (!forceRefresh && !ShouldRefreshToken())
+            {
+                return true;
+            }
+
+            await _tokenRefreshLock.WaitAsync(cancellationToken);
+            try
+            {
+                if (!forceRefresh && !ShouldRefreshToken())
+                {
+                    return true;
+                }
+
+                await RefreshFirebaseTokenAsync(_firebaseUser.RefreshToken, cancellationToken);
+                return true;
+            }
+            catch (AuthServiceException ex) when (ex.IsInvalidRefreshToken)
+            {
+                Log.Warning("Token refresh rejected by server ({StatusCode}). Logging out user.", ex.StatusCode);
+                await LogOut();
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Token refresh failed");
+                return false;
+            }
+            finally
+            {
+                _tokenRefreshLock.Release();
+            }
+        }
+
+        public async Task<bool> TryRecoverFromUnauthorizedAsync(CancellationToken cancellationToken = default)
+        {
+            if (_firebaseUser == null)
+            {
+                return false;
+            }
+
+            var refreshed = await EnsureValidTokenAsync(forceRefresh: true, cancellationToken);
+            if (!refreshed)
+            {
+                Log.Warning("Failed to recover from unauthorized response. User may need to sign in again.");
+            }
+
+            return refreshed;
+        }
+
+        private async Task StoreRefreshToken(string userId, string refreshToken, CancellationToken cancellationToken = default)
         {
             // Remove any existing tokens
-            var existingAuth = await _dbContext.UserAuth.FirstOrDefaultAsync();
+            var existingAuth = await _dbContext.UserAuth.FirstOrDefaultAsync(cancellationToken);
             if (existingAuth != null)
             {
                 _dbContext.UserAuth.Remove(existingAuth);
@@ -105,7 +169,7 @@ namespace AlbionDataAvalonia.Auth.Services
                 RefreshToken = refreshToken
             };
             await _dbContext.UserAuth.AddAsync(userAuth);
-            await _dbContext.SaveChangesAsync();
+            await _dbContext.SaveChangesAsync(cancellationToken);
         }
 
         public async Task SignInAsync()
@@ -122,13 +186,16 @@ namespace AlbionDataAvalonia.Auth.Services
                 // Await the token retrieval
                 var code = await codeTask;
 
-                _firebaseUser = await GetFirebaseUserAsync(code);
+                var authResponse = await GetFirebaseUserAsync(code);
 
-                // Store the refresh token
-                if (_firebaseUser != null)
+                if (authResponse == null || string.IsNullOrEmpty(authResponse.RefreshToken))
                 {
-                    await StoreRefreshToken(_firebaseUser.LocalId, _firebaseUser.RefreshToken);
+                    throw new AuthServiceException("Firebase sign-in did not return a refresh token.");
                 }
+
+                UpdateFirebaseUser(authResponse);
+
+                await StoreRefreshToken(_firebaseUser!.LocalId, _firebaseUser.RefreshToken);
 
                 OnFirebaseUserChanged(_firebaseUser);
                 ScheduleTokenRefresh();
@@ -162,66 +229,45 @@ namespace AlbionDataAvalonia.Auth.Services
             Log.Information("Browser opened for Google Sign-In.");
         }
 
-        private async Task<FirebaseAuthResponse?> GetFirebaseUserAsync(string code)
+        private async Task<FirebaseAuthResponse?> GetFirebaseUserAsync(string code, CancellationToken cancellationToken = default)
         {
             var url = $"{_settingsManager.AppSettings.AfmAuthApiUrl}/tokenFromCode";
             var query = $"?code={Uri.EscapeDataString(code)}";
 
             using var client = new HttpClient();
-            var response = await client.GetAsync(url + query);
+            var response = await client.GetAsync(url + query, cancellationToken);
 
             if (response.IsSuccessStatusCode)
             {
-                var jsonResponse = await response.Content.ReadFromJsonAsync<FirebaseAuthResponse>();
+                var jsonResponse = await response.Content.ReadFromJsonAsync<FirebaseAuthResponse>(cancellationToken: cancellationToken);
                 return jsonResponse;
             }
             else
             {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                throw new Exception($"Failed to get Firebase token: {response.StatusCode}, {errorContent}");
+                var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+                throw AuthServiceException.TokenExchangeError(response.StatusCode, errorContent);
             }
         }
 
-        private async Task RefreshFirebaseTokenAsync(string refreshToken)
+        private async Task RefreshFirebaseTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
         {
             var url = $"{_settingsManager.AppSettings.AfmAuthApiUrl}/refreshToken";
             var query = $"?refreshToken={Uri.EscapeDataString(refreshToken)}";
 
             using var client = new HttpClient();
-            var response = await client.GetAsync(url + query);
+            var response = await client.GetAsync(url + query, cancellationToken);
 
             if (response.IsSuccessStatusCode)
             {
-                var jsonResponse = await response.Content.ReadFromJsonAsync<RefreshTokenResponse>();
+                var jsonResponse = await response.Content.ReadFromJsonAsync<RefreshTokenResponse>(cancellationToken: cancellationToken);
 
                 if (jsonResponse == null || string.IsNullOrEmpty(jsonResponse.IdToken))
                 {
-                    throw new Exception("Firebase ID token not found in the response.");
+                    throw new AuthServiceException("Firebase ID token not found in the refresh response.");
                 }
 
-                if (_firebaseUser == null)
-                {
-                    _firebaseUser = new FirebaseAuthResponse
-                    {
-                        LocalId = jsonResponse.UserId,
-                        Email = jsonResponse.FirebaseDecodedToken.Email,
-                        FullName = jsonResponse.FirebaseDecodedToken.Name,
-                        PhotoUrl = jsonResponse.FirebaseDecodedToken.Picture,
-                        EmailVerified = jsonResponse.FirebaseDecodedToken.EmailVerified,
-                        IdToken = jsonResponse.IdToken,
-                        RefreshToken = jsonResponse.RefreshToken,
-                        ExpiresIn = jsonResponse.ExpiresIn
-                    };
-                }
-                else
-                {
-                    _firebaseUser.IdToken = jsonResponse.IdToken;
-                    _firebaseUser.RefreshToken = jsonResponse.RefreshToken;
-                    _firebaseUser.ExpiresIn = jsonResponse.ExpiresIn;
-                }
-
-                // Store the new refresh token
-                await StoreRefreshToken(_firebaseUser.LocalId, jsonResponse.RefreshToken);
+                UpdateFirebaseUser(jsonResponse);
+                await StoreRefreshToken(_firebaseUser!.LocalId, jsonResponse.RefreshToken, cancellationToken);
 
                 OnFirebaseUserChanged(_firebaseUser);
                 ScheduleTokenRefresh();
@@ -230,9 +276,83 @@ namespace AlbionDataAvalonia.Auth.Services
             }
             else
             {
-                var errorContent = await response.Content.ReadAsStringAsync();
-                throw new Exception($"Failed to refresh Firebase token: {response.StatusCode}, {errorContent}");
+                var errorContent = await response.Content.ReadAsStringAsync(cancellationToken);
+                throw AuthServiceException.RefreshTokenError(response.StatusCode, errorContent);
             }
+        }
+
+        private void UpdateFirebaseUser(RefreshTokenResponse jsonResponse)
+        {
+            if (_firebaseUser == null)
+            {
+                _firebaseUser = new FirebaseAuthResponse
+                {
+                    LocalId = jsonResponse.UserId,
+                    Email = jsonResponse.FirebaseDecodedToken?.Email ?? string.Empty,
+                    FullName = jsonResponse.FirebaseDecodedToken?.Name ?? string.Empty,
+                    PhotoUrl = jsonResponse.FirebaseDecodedToken?.Picture ?? string.Empty,
+                    EmailVerified = jsonResponse.FirebaseDecodedToken?.EmailVerified ?? false,
+                    IdToken = jsonResponse.IdToken,
+                    RefreshToken = jsonResponse.RefreshToken,
+                    ExpiresIn = jsonResponse.ExpiresIn
+                };
+            }
+            else
+            {
+                _firebaseUser.IdToken = jsonResponse.IdToken;
+                _firebaseUser.RefreshToken = jsonResponse.RefreshToken;
+                _firebaseUser.ExpiresIn = jsonResponse.ExpiresIn;
+
+                if (!string.IsNullOrEmpty(jsonResponse.FirebaseDecodedToken?.Email))
+                {
+                    _firebaseUser.Email = jsonResponse.FirebaseDecodedToken.Email;
+                }
+
+                if (!string.IsNullOrEmpty(jsonResponse.FirebaseDecodedToken?.Name))
+                {
+                    _firebaseUser.FullName = jsonResponse.FirebaseDecodedToken.Name;
+                }
+
+                if (!string.IsNullOrEmpty(jsonResponse.FirebaseDecodedToken?.Picture))
+                {
+                    _firebaseUser.PhotoUrl = jsonResponse.FirebaseDecodedToken.Picture;
+                }
+
+                if (jsonResponse.FirebaseDecodedToken is not null)
+                {
+                    _firebaseUser.EmailVerified = jsonResponse.FirebaseDecodedToken.EmailVerified;
+                }
+            }
+
+            UpdateTokenExpiry(jsonResponse.ExpiresIn);
+        }
+
+        private void UpdateFirebaseUser(FirebaseAuthResponse authResponse)
+        {
+            _firebaseUser = authResponse;
+            UpdateTokenExpiry(authResponse.ExpiresIn);
+        }
+
+        private void UpdateTokenExpiry(string? expiresIn)
+        {
+            if (int.TryParse(expiresIn, out var seconds) && seconds > 0)
+            {
+                _tokenExpiryUtc = DateTimeOffset.UtcNow.AddSeconds(seconds);
+            }
+            else
+            {
+                _tokenExpiryUtc = null;
+            }
+        }
+
+        private bool ShouldRefreshToken()
+        {
+            if (_tokenExpiryUtc == null)
+            {
+                return true;
+            }
+
+            return DateTimeOffset.UtcNow >= _tokenExpiryUtc.Value - TokenRefreshLeadTime;
         }
 
         private async Task<string> HandleRedirectAndGetAuthCodeAsync()
@@ -286,7 +406,7 @@ namespace AlbionDataAvalonia.Auth.Services
             }
         }
 
-        public async Task ForceTokenRefreshAsync()
+        public async Task ForceTokenRefreshAsync(CancellationToken cancellationToken = default)
         {
             if (_firebaseUser == null || string.IsNullOrEmpty(_firebaseUser.RefreshToken))
             {
@@ -294,58 +414,59 @@ namespace AlbionDataAvalonia.Auth.Services
                 return;
             }
 
-            if (_isForcingTokenRefresh)
-            {
-                Log.Debug("Token refresh is already in progress. Canceled.");
-                return;
-            }
-
             Log.Information("Forcing token refresh...");
-            try
+            var refreshed = await EnsureValidTokenAsync(forceRefresh: true, cancellationToken);
+            if (!refreshed)
             {
-                _isForcingTokenRefresh = true;
-                await RefreshFirebaseTokenAsync(_firebaseUser.RefreshToken);
-                _isForcingTokenRefresh = false;
-            }
-            catch (Exception ex)
-            {
-                _isForcingTokenRefresh = false;
-                Log.Error($"Forced token refresh failed: {ex.Message}");
+                Log.Warning("Forced token refresh did not succeed.");
             }
         }
 
         private void ScheduleTokenRefresh()
         {
-            if (_firebaseUser != null && int.TryParse(_firebaseUser.ExpiresIn, out int expiresInSeconds))
+            _refreshTokenCts?.Cancel();
+
+            if (_firebaseUser == null)
             {
-                // Calculate 70% of the expiration time
-                var delay = TimeSpan.FromSeconds(expiresInSeconds * 0.7);
-
-                // Cancel any existing scheduled refresh
-                _refreshTokenCts?.Cancel();
-
-                // Create a new cancellation token source
-                _refreshTokenCts = new CancellationTokenSource();
-
-                // Schedule the token refresh
-                Task.Delay(delay, _refreshTokenCts.Token)
-                    .ContinueWith(async t =>
-                    {
-                        if (!t.IsCanceled && _firebaseUser != null)
-                        {
-                            try
-                            {
-                                await RefreshFirebaseTokenAsync(_firebaseUser.RefreshToken);
-                            }
-                            catch (Exception ex)
-                            {
-                                Log.Error($"Automatic token refresh failed: {ex.Message}");
-                            }
-                        }
-                    }, TaskScheduler.Default);
-
-                Log.Debug($"Token refresh scheduled in {delay.TotalMinutes} minutes.");
+                return;
             }
+
+            TimeSpan delay;
+
+            if (_tokenExpiryUtc.HasValue)
+            {
+                delay = _tokenExpiryUtc.Value - DateTimeOffset.UtcNow - TokenRefreshLeadTime;
+                if (delay < MinScheduledRefreshDelay)
+                {
+                    delay = MinScheduledRefreshDelay;
+                }
+            }
+            else
+            {
+                delay = MinScheduledRefreshDelay;
+            }
+
+            _refreshTokenCts = new CancellationTokenSource();
+
+            Task.Delay(delay, _refreshTokenCts.Token)
+                .ContinueWith(async t =>
+                {
+                    if (t.IsCanceled)
+                    {
+                        return;
+                    }
+
+                    try
+                    {
+                        await EnsureValidTokenAsync(forceRefresh: true);
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, "Automatic token refresh failed");
+                    }
+                }, TaskScheduler.Default);
+
+            Log.Debug($"Token refresh scheduled in {delay.TotalMinutes:F1} minutes.");
         }
 
         public async Task LogOut()
@@ -353,6 +474,7 @@ namespace AlbionDataAvalonia.Auth.Services
             // Cancel any scheduled token refresh
             _refreshTokenCts?.Cancel();
             _refreshTokenCts = null;
+            _tokenExpiryUtc = null;
 
             // Clear the user information
             _firebaseUser = null;
