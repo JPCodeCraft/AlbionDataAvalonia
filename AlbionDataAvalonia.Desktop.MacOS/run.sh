@@ -4,5 +4,8 @@
 export DISPLAY=:0
 export HOME="$HOME"
 
-# Run the actual executable with elevated privileges
-exec "$(dirname "$0")/Contents/MacOS/AlbionDataAvalonia" "$@"
+# Ensure deterministic working directory inside the app bundle
+APP_DIR="$(cd "$(dirname "$0")" && pwd)"
+
+# Run the published binary (single-file bundle output)
+exec "$APP_DIR/AFMDataClient_MacOS64" "$@"
