@@ -24,28 +24,57 @@ namespace AlbionDataAvalonia.Network.Services
 
         private readonly HttpClient httpClient = new HttpClient();
 
+        private readonly object _headersLock = new();
+
         public AFMUploader(PlayerState playerState, SettingsManager settingsManager, AuthService authService)
         {
             _playerState = playerState;
             _settingsManager = settingsManager;
             _authService = authService;
 
-            _authService.FirebaseUserChanged += (user) => updateAuthHeader(user);
+            _authService.FirebaseUserChanged += (user) => UpdateAuthHeader(user);
         }
 
-        private void updateAuthHeader(FirebaseAuthResponse? user)
+        private void UpdateAuthHeader(FirebaseAuthResponse? user)
         {
-            if (user is not null)
+            lock (_headersLock)
             {
-                httpClient.DefaultRequestHeaders.Authorization = new("Bearer", user.IdToken);
-                httpClient.DefaultRequestHeaders.Remove("X-User-Id");
-                httpClient.DefaultRequestHeaders.Add("X-User-Id", user.LocalId);
+                try
+                {
+                    if (user is not null &&
+                        !string.IsNullOrWhiteSpace(user.IdToken) &&
+                        !string.IsNullOrWhiteSpace(user.LocalId))
+                    {
+                        var newAuth = new System.Net.Http.Headers.AuthenticationHeaderValue("Bearer", user.IdToken);
 
-            }
-            else
-            {
-                httpClient.DefaultRequestHeaders.Authorization = null;
-                httpClient.DefaultRequestHeaders.Remove("X-User-Id");
+                        // Only set if changed to reduce churn
+                        if (!Equals(httpClient.DefaultRequestHeaders.Authorization, newAuth))
+                        {
+                            httpClient.DefaultRequestHeaders.Authorization = newAuth;
+                        }
+
+                        // Replace X-User-Id safely, avoiding validation exceptions
+                        httpClient.DefaultRequestHeaders.Remove("X-User-Id");
+                        if (!httpClient.DefaultRequestHeaders.TryAddWithoutValidation("X-User-Id", user.LocalId))
+                        {
+                            Log.Warning("Failed to set X-User-Id header due to validation.");
+                        }
+
+                        Log.Debug("Set AFM upload auth header for user");
+                    }
+                    else
+                    {
+                        httpClient.DefaultRequestHeaders.Authorization = null;
+                        httpClient.DefaultRequestHeaders.Remove("X-User-Id");
+                        Log.Debug("Cleared AFM upload auth header, since no user is logged in");
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(ex, "Error while updating AFM upload auth header; clearing headers as a fallback.");
+                    httpClient.DefaultRequestHeaders.Authorization = null;
+                    httpClient.DefaultRequestHeaders.Remove("X-User-Id");
+                }
             }
         }
 
