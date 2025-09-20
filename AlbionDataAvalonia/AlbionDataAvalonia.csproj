@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<TargetFramework>net8.0</TargetFramework>
-		<Version>0.14.1.0</Version>
+		<Version>0.15.0.0</Version>
 		<Nullable>enable</Nullable>
 		<LangVersion>latest</LangVersion>
 		<AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
@@ -24,7 +24,8 @@
 		<!--Condition
 		below is needed to remove Avalonia.Diagnostics package from build output in Release
 		configuration.-->
-		<PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics" Version="11.0.10" />
+		<PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics"
+			Version="11.0.10" />
 		<PackageReference Include="Google.Apis.Auth" Version="1.68.0" />
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.5.0" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="8.0.5" />
@@ -46,11 +47,11 @@
 			<DependentUpon>DashboardView.axaml</DependentUpon>
 		</Compile>
 		<Compile Update="Views\TradesView.axaml.cs">
-		  <DependentUpon>TradesView.axaml</DependentUpon>
+			<DependentUpon>TradesView.axaml</DependentUpon>
 		</Compile>
 		<Compile Update="Views\MailsView.axaml.cs">
-		  <SubType>Code</SubType>
-		  <DependentUpon>MailsView.axaml</DependentUpon>
+			<SubType>Code</SubType>
+			<DependentUpon>MailsView.axaml</DependentUpon>
 		</Compile>
 		<Compile Update="Views\PCapView.axaml.cs">
 			<DependentUpon>PCapView.axaml</DependentUpon>
@@ -71,7 +72,7 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <ProjectReference Include="..\Albion.Network\Albion.Network.csproj" />
+		<ProjectReference Include="..\Albion.Network\Albion.Network.csproj" />
 	</ItemGroup>
 
 	<ItemGroup>
@@ -81,9 +82,9 @@
 	</ItemGroup>
 
 	<ItemGroup>
-	  <AvaloniaXaml Update="Views\MailsView.axaml">
-	    <SubType>Designer</SubType>
-	  </AvaloniaXaml>
+		<AvaloniaXaml Update="Views\MailsView.axaml">
+			<SubType>Designer</SubType>
+		</AvaloniaXaml>
 	</ItemGroup>
 
 	<ItemGroup>
