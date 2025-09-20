@@ -36,6 +36,8 @@ namespace AlbionDataAvalonia.Auth.Services
 
         public string? FirebaseUserId => _firebaseUser?.LocalId;
 
+        public FirebaseAuthResponse? CurrentFirebaseUser => _firebaseUser;
+
         public AuthService(SettingsManager settingsManager, PlayerState playerState)
         {
             _settingsManager = settingsManager;

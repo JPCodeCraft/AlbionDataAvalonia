@@ -82,6 +82,9 @@ namespace AlbionDataAvalonia.Network.Services
         {
             httpClient.BaseAddress = new Uri(_settingsManager.AppSettings.AfmTopItemsApiBase);
             httpClient.DefaultRequestHeaders.Referrer = new Uri("https://github.com/JPCodeCraft/AlbionDataAvalonia");
+
+            // Ensure we apply headers immediately if a session already exists.
+            UpdateAuthHeader(_authService.CurrentFirebaseUser);
         }
 
         public async Task<UploadStatus> UploadMarketOrder(MarketUpload marketUpload)
