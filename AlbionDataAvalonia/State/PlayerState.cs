@@ -289,6 +289,17 @@ namespace AlbionDataAvalonia.State
             InvokePlayerStateChanged();
         }
 
+        public void ClearPowSolveStatistics()
+        {
+            lock (powSolveTimesLock)
+            {
+                powSolveTimes.Clear();
+                powSolveStatistics = PowSolveStatistics.Empty;
+            }
+
+            InvokePlayerStateChanged();
+        }
+
         private PowSolveStatistics CalculatePowSolveStatistics(long latest)
         {
             if (powSolveTimes.Count == 0)

@@ -3,6 +3,7 @@ using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
 
 namespace AlbionDataAvalonia.ViewModels;
 
@@ -58,6 +59,19 @@ public partial class SettingsViewModel : ViewModelBase
     }
 
     public int PowSolveWindowSize => _playerState?.PowSolveWindowSize ?? 0;
+
+    [RelayCommand]
+    private void ClearPowSolveStats()
+    {
+        if (_playerState == null)
+        {
+            return;
+        }
+
+        _playerState.ClearPowSolveStatistics();
+        lastPowSolveStatsRefresh = DateTimeOffset.MinValue;
+        UpdatePowSolveStatistics();
+    }
 
     private void MaybeUpdatePowSolveStatistics()
     {

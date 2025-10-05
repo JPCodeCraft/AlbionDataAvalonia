@@ -22,10 +22,13 @@
 
 				<Slider Minimum="1" Maximum="{Binding UserSettings.MaxThreadCount}" Value="{Binding UserSettings.DesiredThreadCount}" TickFrequency="1" IsSnapToTickEnabled="True" />
 
-				<Border Background="{DynamicResource ThemeBackgroundBrush}" CornerRadius="4" Padding="12" BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1">
-					<StackPanel Spacing="8">
-						<TextBlock Text="Pow solve performance" FontWeight="Bold" />
-						<TextBlock FontSize="12" Opacity="0.8">
+					<Border Background="{DynamicResource ThemeBackgroundBrush}" CornerRadius="4" Padding="12" BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1">
+						<StackPanel Spacing="8">
+							<Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+								<TextBlock Text="Pow solve performance" FontWeight="Bold" VerticalAlignment="Center" />
+								<Button Grid.Column="1" Content="Clear" Command="{Binding ClearPowSolveStatsCommand}" HorizontalAlignment="Right" />
+							</Grid>
+							<TextBlock FontSize="12" Opacity="0.8">
 							<Run Text="Tracking last " />
 							<Run Text="{Binding PowSolveSampleCount, Mode=OneWay, StringFormat={}{0:N0}}" />
 							<Run Text=" of " />
