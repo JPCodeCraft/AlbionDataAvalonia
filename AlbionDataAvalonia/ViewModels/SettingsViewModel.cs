@@ -1,5 +1,7 @@
-﻿using AlbionDataAvalonia.Settings;
+﻿using System;
+using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 
 namespace AlbionDataAvalonia.ViewModels;
@@ -36,6 +38,9 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty]
     private double powSolveTimeStandardDeviation;
 
+    private readonly TimeSpan powSolveStatsRefreshInterval = TimeSpan.FromSeconds(3);
+    private DateTimeOffset lastPowSolveStatsRefresh = DateTimeOffset.MinValue;
+
     public SettingsViewModel()
     {
     }
@@ -48,13 +53,32 @@ public partial class SettingsViewModel : ViewModelBase
         userSettings = _settingsManager.UserSettings;
 
         UpdatePowSolveStatistics();
-        _playerState.OnPlayerStateChanged += (_, _) => UpdatePowSolveStatistics();
+        lastPowSolveStatsRefresh = DateTimeOffset.UtcNow;
+        _playerState.OnPlayerStateChanged += (_, _) => MaybeUpdatePowSolveStatistics();
     }
 
     public int PowSolveWindowSize => _playerState?.PowSolveWindowSize ?? 0;
 
+    private void MaybeUpdatePowSolveStatistics()
+    {
+        var now = DateTimeOffset.UtcNow;
+        if (now - lastPowSolveStatsRefresh < powSolveStatsRefreshInterval)
+        {
+            return;
+        }
+
+        lastPowSolveStatsRefresh = now;
+        UpdatePowSolveStatistics();
+    }
+
     private void UpdatePowSolveStatistics()
     {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(UpdatePowSolveStatistics);
+            return;
+        }
+
         if (_playerState == null)
         {
             PowSolveSampleCount = 0;
