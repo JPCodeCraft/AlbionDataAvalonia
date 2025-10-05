@@ -31,9 +31,13 @@
       <PublishOutput>
         $(ProjectDir)bin/$(Configuration)/$(TargetFramework)/$(RuntimeIdentifier)/publish</PublishOutput>
     </PropertyGroup>
-    <Exec Command="cp $(ProjectDir)install/AFMDataClient_Linux64_Installer.sh $(PublishOutput)/" />
-    <Exec Command="chmod +x $(PublishOutput)/AFMDataClient_Linux64_Installer.sh" />
-    <Exec Command="cp $(ProjectDir)install/AFMDataClient_Linux64_Uninstaller.sh $(PublishOutput)/" />
-    <Exec Command="chmod +x $(PublishOutput)/AFMDataClient_Linux64_Uninstaller.sh" />
+    <Copy SourceFiles="$(ProjectDir)install/AFMDataClient_Linux64_Installer.sh"
+      DestinationFolder="$(PublishOutput)" />
+    <Copy SourceFiles="$(ProjectDir)install/AFMDataClient_Linux64_Uninstaller.sh"
+      DestinationFolder="$(PublishOutput)" />
+    <Exec Command="chmod +x $(PublishOutput)/AFMDataClient_Linux64_Installer.sh"
+      Condition=" '$(OS)' == 'Unix' " />
+    <Exec Command="chmod +x $(PublishOutput)/AFMDataClient_Linux64_Uninstaller.sh"
+      Condition=" '$(OS)' == 'Unix' " />
   </Target>
 </Project>
