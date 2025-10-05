@@ -51,79 +51,115 @@ public class PowSolver
 
     private string ProcessPow(PowRequest pow)
     {
-        // Precompute constant components
         ReadOnlySpan<byte> prefix = "aod^"u8;
         byte[] suffix = Encoding.UTF8.GetBytes($"^{pow.Key}");
         int totalLength = prefix.Length + 16 + suffix.Length;
 
-        // Buffer for hash input
         byte[] inputBuffer = new byte[totalLength];
-
-        // Copy fixed components
         prefix.CopyTo(inputBuffer);
         suffix.CopyTo(inputBuffer.AsSpan(prefix.Length + 16));
 
-        // Hash output buffer
-        byte[] hashBuffer = new byte[32];
+        PowDifficulty difficulty = PowDifficulty.Create(pow.Wanted);
+        Span<byte> counterSpan = inputBuffer.AsSpan(prefix.Length, 16);
+        Span<byte> hashBuffer = stackalloc byte[32];
 
         while (true)
         {
-            // Write current counter as hex to buffer
-            WriteCounterHex(inputBuffer, prefix.Length, _counter++);
-
-            // Compute hash
+            WriteCounterHex(counterSpan, _counter++);
             _sha256.TryComputeHash(inputBuffer, hashBuffer, out _);
 
-            // Check if hash meets difficulty
-            if (CheckLeadingBits(hashBuffer, pow.Wanted))
+            if (CheckLeadingBits(hashBuffer, difficulty))
             {
                 return Encoding.ASCII.GetString(inputBuffer, prefix.Length, 16);
             }
         }
     }
 
-    private void WriteCounterHex(byte[] buffer, int offset, ulong value)
+    private static void WriteCounterHex(Span<byte> destination, ulong value)
     {
-        // Write 16 hex digits (8 bytes) in big-endian order
-        for (int i = 0; i < 16; i++)
+        for (int i = destination.Length - 1; i >= 0; i--)
         {
-            // Process 4 bits at a time (from high to low)
-            int nibble = (int)((value >> (60 - i * 4)) & 0xF);
-            buffer[offset + i] = HexDigits[nibble];
+            destination[i] = HexDigits[(int)(value & 0xF)];
+            value >>= 4;
         }
     }
 
-    private bool CheckLeadingBits(byte[] hash, string wanted)
+    private static bool CheckLeadingBits(ReadOnlySpan<byte> hash, PowDifficulty difficulty)
     {
-        int totalBits = wanted.Length;
-        int totalBytes = (totalBits + 7) / 8;
-        Span<byte> hexChars = stackalloc byte[totalBytes];
-
-        // Generate first N hex characters needed for comparison
-        for (int i = 0; i < totalBytes; i++)
+        ReadOnlySpan<byte> expected = difficulty.ExpectedSpan;
+        if (expected.Length == 0)
         {
-            int byteIdx = i / 2;
-            byte b = hash[byteIdx];
-            int nibble = (i % 2 == 0) ? b >> 4 : b & 0x0F;
-            hexChars[i] = HexDigits[nibble];
+            return true;
         }
 
-        // Compare bits
-        for (int i = 0; i < totalBits; i++)
+        ReadOnlySpan<byte> masks = difficulty.MaskSpan;
+
+        for (int i = 0; i < expected.Length; i++)
         {
-            int charIdx = i / 8;
-            int bitIdx = 7 - (i % 8);  // MSB first
+            int byteIdx = i >> 1;
+            byte source = hash[byteIdx];
+            byte nibble = (i & 1) == 0 ? (byte)(source >> 4) : (byte)(source & 0x0F);
+            byte ascii = HexDigits[nibble];
 
-            byte current = hexChars[charIdx];
-            int currentBit = (current >> bitIdx) & 1;
-            int expectedBit = wanted[i] == '1' ? 1 : 0;
-
-            if (currentBit != expectedBit)
+            if (((ascii ^ expected[i]) & masks[i]) != 0)
             {
                 return false;
             }
         }
 
         return true;
+    }
+
+    private sealed class PowDifficulty
+    {
+        private static readonly PowDifficulty Empty = new PowDifficulty(Array.Empty<byte>(), Array.Empty<byte>());
+
+        private readonly byte[] _expected;
+        private readonly byte[] _mask;
+
+        private PowDifficulty(byte[] expected, byte[] mask)
+        {
+            _expected = expected;
+            _mask = mask;
+        }
+
+        public ReadOnlySpan<byte> ExpectedSpan => _expected;
+        public ReadOnlySpan<byte> MaskSpan => _mask;
+
+        public static PowDifficulty Create(string? wanted)
+        {
+            if (string.IsNullOrEmpty(wanted))
+            {
+                return Empty;
+            }
+
+            int bitLength = wanted.Length;
+            int byteLength = (bitLength + 7) / 8;
+            byte[] expected = new byte[byteLength];
+            byte[] mask = new byte[byteLength];
+
+            int globalBitIndex = 0;
+            for (int i = 0; i < byteLength; i++)
+            {
+                int bitsInThisByte = Math.Min(8, bitLength - globalBitIndex);
+                byte expectedByte = 0;
+                byte maskByte = 0;
+
+                for (int bit = 0; bit < bitsInThisByte; bit++, globalBitIndex++)
+                {
+                    int bitIdx = 7 - bit;
+                    maskByte |= (byte)(1 << bitIdx);
+                    if (wanted[globalBitIndex] == '1')
+                    {
+                        expectedByte |= (byte)(1 << bitIdx);
+                    }
+                }
+
+                expected[i] = expectedByte;
+                mask[i] = maskByte;
+            }
+
+            return new PowDifficulty(expected, mask);
+        }
     }
 }
