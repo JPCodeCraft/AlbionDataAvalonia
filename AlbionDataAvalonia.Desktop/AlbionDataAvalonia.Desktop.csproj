@@ -11,6 +11,10 @@
     <ApplicationManifest>app.manifest</ApplicationManifest>
   </PropertyGroup>
   <PropertyGroup>
+    <RuntimeIdentifier>win-x64</RuntimeIdentifier>
+    <SelfContained>true</SelfContained>
+  </PropertyGroup>
+  <PropertyGroup>
     <AssemblyTitle>Albion Free Market Data Client</AssemblyTitle>
     <AssemblyName>AFMDataClient</AssemblyName>
   </PropertyGroup>

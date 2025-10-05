@@ -6,10 +6,10 @@
 #define MyAppExeName "AFMDataClient.exe"
 #define MyAppOutputDir "userdocs:Inno Setup Output"
 #define MyAppOutputBaseFilename "AFMDataClientSetup"
-#define MyAppSourceDir "..\\bin\\Release\\net8.0\\publish\\*"
-#define MyAppIconFile "..\\bin\\Release\\net8.0\\publish\\Assets\\afm-logo.ico"
+#define MyAppSourceDir "..\\bin\\Release\\net10.0-windows\\win-x64\\publish\\*"
+#define MyAppIconFile "..\\bin\\Release\\net10.0-windows\\win-x64\\publish\\Assets\\afm-logo.ico"
 #define MyAppIconFilePath "Assets\afm-logo.ico"
-#define WinPCapInstallerFile "..\\bin\\Release\\net8.0\\publish\\ThirdParty\\WinPcap_4_1_3.exe"
+#define WinPCapInstallerFile "..\\bin\\Release\\net10.0-windows\\win-x64\\publish\\ThirdParty\\WinPcap_4_1_3.exe"
 #define WinPCapInstallerFilePath "ThirdParty\WinPcap_4_1_3.exe"
 
 [Setup]
