@@ -15,6 +15,27 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty]
     private double powSolveTimeAverage;
 
+    [ObservableProperty]
+    private double powSolveTimeMedian;
+
+    [ObservableProperty]
+    private double powSolveTimePercentile95;
+
+    [ObservableProperty]
+    private double powSolveTimeMin;
+
+    [ObservableProperty]
+    private double powSolveTimeMax;
+
+    [ObservableProperty]
+    private double powSolveTimeLatest;
+
+    [ObservableProperty]
+    private int powSolveSampleCount;
+
+    [ObservableProperty]
+    private double powSolveTimeStandardDeviation;
+
     public SettingsViewModel()
     {
     }
@@ -26,7 +47,35 @@ public partial class SettingsViewModel : ViewModelBase
 
         userSettings = _settingsManager.UserSettings;
 
-        _playerState.OnPlayerStateChanged += (sender, args) => PowSolveTimeAverage = _playerState.PowSolveTimeAverage;
+        UpdatePowSolveStatistics();
+        _playerState.OnPlayerStateChanged += (_, _) => UpdatePowSolveStatistics();
+    }
+
+    public int PowSolveWindowSize => _playerState?.PowSolveWindowSize ?? 0;
+
+    private void UpdatePowSolveStatistics()
+    {
+        if (_playerState == null)
+        {
+            PowSolveSampleCount = 0;
+            PowSolveTimeAverage = 0;
+            PowSolveTimeMedian = 0;
+            PowSolveTimePercentile95 = 0;
+            PowSolveTimeMin = 0;
+            PowSolveTimeMax = 0;
+            PowSolveTimeLatest = 0;
+            PowSolveTimeStandardDeviation = 0;
+            return;
+        }
+
+        PowSolveSampleCount = _playerState.PowSolveSampleCount;
+        PowSolveTimeAverage = _playerState.PowSolveTimeAverage;
+        PowSolveTimeMedian = _playerState.PowSolveTimeMedian;
+        PowSolveTimePercentile95 = _playerState.PowSolveTimePercentile95;
+        PowSolveTimeMin = _playerState.PowSolveTimeMin;
+        PowSolveTimeMax = _playerState.PowSolveTimeMax;
+        PowSolveTimeLatest = _playerState.PowSolveTimeLatest;
+        PowSolveTimeStandardDeviation = _playerState.PowSolveTimeStandardDeviation;
     }
 
 }

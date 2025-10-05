@@ -51,8 +51,21 @@ namespace AlbionDataAvalonia.State
 
         public int UserObjectId { get; set; }
 
-        private ConcurrentQueue<long> PowSolveTimes { get; } = new();
-        public double PowSolveTimeAverage => PowSolveTimes.Count > 0 ? PowSolveTimes.Average() : 0;
+        private const int PowSolveWindowSizeValue = 200;
+        private readonly Queue<long> powSolveTimes = new();
+        private readonly object powSolveTimesLock = new();
+
+        private PowSolveStatistics powSolveStatistics = PowSolveStatistics.Empty;
+
+        public int PowSolveWindowSize => PowSolveWindowSizeValue;
+        public int PowSolveSampleCount => powSolveStatistics.Count;
+        public double PowSolveTimeAverage => powSolveStatistics.Average;
+        public double PowSolveTimeMedian => powSolveStatistics.Median;
+        public double PowSolveTimePercentile95 => powSolveStatistics.Percentile95;
+        public double PowSolveTimeStandardDeviation => powSolveStatistics.StandardDeviation;
+        public long PowSolveTimeMin => powSolveStatistics.Min;
+        public long PowSolveTimeMax => powSolveStatistics.Max;
+        public long PowSolveTimeLatest => powSolveStatistics.Latest;
 
         public DateTime LastPacketTime { get; set; } = DateTime.SpecifyKind(DateTime.MinValue, DateTimeKind.Utc);
 
@@ -261,12 +274,118 @@ namespace AlbionDataAvalonia.State
 
         public void AddPowSolveTime(long time)
         {
-            PowSolveTimes.Enqueue(time);
-            while (PowSolveTimes.Count > 50)
+            lock (powSolveTimesLock)
             {
-                PowSolveTimes.TryDequeue(out _);
+                powSolveTimes.Enqueue(time);
+
+                while (powSolveTimes.Count > PowSolveWindowSizeValue)
+                {
+                    _ = powSolveTimes.Dequeue();
+                }
+
+                powSolveStatistics = CalculatePowSolveStatistics(time);
             }
+
             InvokePlayerStateChanged();
+        }
+
+        private PowSolveStatistics CalculatePowSolveStatistics(long latest)
+        {
+            if (powSolveTimes.Count == 0)
+            {
+                return PowSolveStatistics.Empty;
+            }
+
+            var snapshot = powSolveTimes.ToArray();
+            if (snapshot.Length == 0)
+            {
+                return PowSolveStatistics.Empty;
+            }
+
+            var ordered = (long[])snapshot.Clone();
+            Array.Sort(ordered);
+
+            double average = snapshot.Average();
+            double median = CalculateMedian(ordered);
+            double percentile95 = CalculatePercentile(ordered, 0.95);
+            double standardDeviation = CalculateStandardDeviation(snapshot, average);
+            long min = ordered[0];
+            long max = ordered[^1];
+            int count = snapshot.Length;
+
+            return new PowSolveStatistics(average, median, percentile95, standardDeviation, min, max, latest, count);
+        }
+
+        private static double CalculateMedian(long[] ordered)
+        {
+            if (ordered.Length == 0)
+            {
+                return 0;
+            }
+
+            int middleIndex = ordered.Length / 2;
+            if (ordered.Length % 2 == 0)
+            {
+                return (ordered[middleIndex - 1] + ordered[middleIndex]) / 2.0;
+            }
+
+            return ordered[middleIndex];
+        }
+
+        private static double CalculatePercentile(long[] ordered, double percentile)
+        {
+            if (ordered.Length == 0)
+            {
+                return 0;
+            }
+
+            if (ordered.Length == 1)
+            {
+                return ordered[0];
+            }
+
+            double position = (ordered.Length - 1) * percentile;
+            int lowerIndex = (int)Math.Floor(position);
+            int upperIndex = (int)Math.Ceiling(position);
+
+            if (lowerIndex == upperIndex)
+            {
+                return ordered[lowerIndex];
+            }
+
+            double fraction = position - lowerIndex;
+            return ordered[lowerIndex] + (ordered[upperIndex] - ordered[lowerIndex]) * fraction;
+        }
+
+        private static double CalculateStandardDeviation(long[] samples, double average)
+        {
+            if (samples.Length <= 1)
+            {
+                return 0;
+            }
+
+            double varianceSum = 0;
+            for (int i = 0; i < samples.Length; i++)
+            {
+                double diff = samples[i] - average;
+                varianceSum += diff * diff;
+            }
+
+            double variance = varianceSum / samples.Length;
+            return Math.Sqrt(variance);
+        }
+
+        private readonly record struct PowSolveStatistics(
+            double Average,
+            double Median,
+            double Percentile95,
+            double StandardDeviation,
+            long Min,
+            long Max,
+            long Latest,
+            int Count)
+        {
+            public static PowSolveStatistics Empty => new(0, 0, 0, 0, 0, 0, 0, 0);
         }
     }
 }

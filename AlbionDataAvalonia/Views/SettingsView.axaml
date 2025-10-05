@@ -8,22 +8,67 @@
 			 x:DataType="vm:SettingsViewModel">
 
 	<ScrollViewer Padding="0, 0, 20, 20">
-		<StackPanel>
+		<StackPanel Spacing="16">
 
 			<!--START HIDDEN-->
 			<CheckBox Content="Start Hidden" IsChecked="{Binding UserSettings.StartHidden}" Margin="0 0 0 10"/>
 
 			<!--THREAD COUNT-->
-			<StackPanel Margin="0 0 0 10">
-				<StackPanel Orientation="Horizontal">
-					<Label Content="Parallel Uploads:" />
-					<Label Content="{Binding UserSettings.DesiredThreadCount, Mode=OneWay, StringFormat={}{0:N0}} " />
-					<Label Content="| Average solve time (last 50):" />
-					<Label Content="{Binding PowSolveTimeAverage, Mode=OneWay, StringFormat={}{0:N0}}}"/>
-					<Label Content="ms" />
-				</StackPanel>
+			<StackPanel Margin="0 0 0 10" Spacing="12">
+				<Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+					<TextBlock Text="Parallel uploads" />
+					<TextBlock Grid.Column="1" Text="{Binding UserSettings.DesiredThreadCount, Mode=OneWay, StringFormat={}{0:N0}}" />
+				</Grid>
 
 				<Slider Minimum="1" Maximum="{Binding UserSettings.MaxThreadCount}" Value="{Binding UserSettings.DesiredThreadCount}" TickFrequency="1" IsSnapToTickEnabled="True" />
+
+				<Border Background="{DynamicResource ThemeBackgroundBrush}" CornerRadius="4" Padding="12" BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1">
+					<StackPanel Spacing="8">
+						<TextBlock Text="Pow solve performance" FontWeight="Bold" />
+						<TextBlock FontSize="12" Opacity="0.8">
+							<Run Text="Tracking last " />
+							<Run Text="{Binding PowSolveSampleCount, Mode=OneWay, StringFormat={}{0:N0}}" />
+							<Run Text=" of " />
+							<Run Text="{Binding PowSolveWindowSize, Mode=OneWay, StringFormat={}{0:N0}}" />
+							<Run Text=" solves" />
+						</TextBlock>
+
+						<UniformGrid Columns="2" Rows="4" Margin="0,8,0,0">
+							<StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
+								<TextBlock Text="Latest:" FontWeight="SemiBold" />
+								<TextBlock Text="{Binding PowSolveTimeLatest, Mode=OneWay, StringFormat={}{0:N0} ms}" />
+							</StackPanel>
+							<StackPanel Orientation="Horizontal" Spacing="6" Margin="16,0,0,6">
+								<TextBlock Text="Average:" FontWeight="SemiBold" />
+								<TextBlock Text="{Binding PowSolveTimeAverage, Mode=OneWay, StringFormat={}{0:N1} ms}" />
+							</StackPanel>
+							<StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
+								<TextBlock Text="Median:" FontWeight="SemiBold" />
+								<TextBlock Text="{Binding PowSolveTimeMedian, Mode=OneWay, StringFormat={}{0:N0} ms}" />
+							</StackPanel>
+							<StackPanel Orientation="Horizontal" Spacing="6" Margin="16,0,0,6">
+								<TextBlock Text="95th percentile:" FontWeight="SemiBold" />
+								<TextBlock Text="{Binding PowSolveTimePercentile95, Mode=OneWay, StringFormat={}{0:N0} ms}" />
+							</StackPanel>
+							<StackPanel Orientation="Horizontal" Spacing="6">
+								<TextBlock Text="Min:" FontWeight="SemiBold" />
+								<TextBlock Text="{Binding PowSolveTimeMin, Mode=OneWay, StringFormat={}{0:N0} ms}" />
+							</StackPanel>
+							<StackPanel Orientation="Horizontal" Spacing="6" Margin="16,0,0,0">
+								<TextBlock Text="Max:" FontWeight="SemiBold" />
+								<TextBlock Text="{Binding PowSolveTimeMax, Mode=OneWay, StringFormat={}{0:N0} ms}" />
+							</StackPanel>
+							<StackPanel Orientation="Horizontal" Spacing="6">
+								<TextBlock Text="Std dev:" FontWeight="SemiBold" />
+								<TextBlock Text="{Binding PowSolveTimeStandardDeviation, Mode=OneWay, StringFormat={}{0:N1} ms}" />
+							</StackPanel>
+							<StackPanel Orientation="Horizontal" Spacing="6" Margin="16,0,0,0">
+								<TextBlock Text="Samples:" FontWeight="SemiBold" />
+								<TextBlock Text="{Binding PowSolveSampleCount, Mode=OneWay, StringFormat={}{0:N0}}" />
+							</StackPanel>
+						</UniformGrid>
+					</StackPanel>
+				</Border>
 			</StackPanel>
 
 			<!--MAX HASH QUEUE SIZE-->
