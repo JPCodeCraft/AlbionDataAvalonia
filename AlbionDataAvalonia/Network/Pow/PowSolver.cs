@@ -11,19 +11,13 @@ using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.Network.Pow;
 
-public class PowSolver
+public partial class PowSolver
 {
     private readonly SHA256 _sha256 = SHA256.Create();
     private ulong _counter;
     private static readonly byte[] HexDigits = "0123456789abcdef"u8.ToArray();
 
-    public PowSolver()
-    {
-        // Initialize with random starting point to avoid solver overlap
-        byte[] randomBytes = new byte[8];
-        Random.Shared.NextBytes(randomBytes);
-        _counter = BitConverter.ToUInt64(randomBytes);
-    }
+    internal void ResetCounter(ulong value) => _counter = value;
 
     public async Task<PowRequest?> GetPowRequest(AlbionServer server, HttpClient client)
     {
@@ -49,7 +43,7 @@ public class PowSolver
 
     public Task<string> SolvePow(PowRequest pow) => Task.Run(() => ProcessPow(pow));
 
-    private string ProcessPow(PowRequest pow)
+    internal string ProcessPow(PowRequest pow)
     {
         ReadOnlySpan<byte> prefix = "aod^"u8;
         byte[] suffix = Encoding.UTF8.GetBytes($"^{pow.Key}");
@@ -66,7 +60,7 @@ public class PowSolver
         while (true)
         {
             WriteCounterHex(counterSpan, _counter++);
-            _sha256.TryComputeHash(inputBuffer, hashBuffer, out _);
+            TryComputeHash(inputBuffer, hashBuffer);
 
             if (CheckLeadingBits(hashBuffer, difficulty))
             {
@@ -75,16 +69,27 @@ public class PowSolver
         }
     }
 
-    private static void WriteCounterHex(Span<byte> destination, ulong value)
+    internal static void WriteCounterHex(Span<byte> destination, ulong value)
     {
+        // SEQUENTIAL
         for (int i = destination.Length - 1; i >= 0; i--)
         {
             destination[i] = HexDigits[(int)(value & 0xF)];
             value >>= 4;
         }
+
+        // RANDOM
+        // for (int i = 0; i < destination.Length; i++)
+        // {
+        //     destination[i] = HexDigits[Random.Shared.Next(16)];
+        // }
     }
 
-    private static bool CheckLeadingBits(ReadOnlySpan<byte> hash, PowDifficulty difficulty)
+    internal void TryComputeHash(ReadOnlySpan<byte> input, Span<byte> hashBuffer) =>
+        _sha256.TryComputeHash(input, hashBuffer, out _);
+    // SHA256.TryHashData(input, hashBuffer, out +_);
+
+    internal static bool CheckLeadingBits(ReadOnlySpan<byte> hash, PowDifficulty difficulty)
     {
         ReadOnlySpan<byte> expected = difficulty.ExpectedSpan;
         if (expected.Length == 0)
@@ -110,7 +115,7 @@ public class PowSolver
         return true;
     }
 
-    private sealed class PowDifficulty
+    internal sealed class PowDifficulty
     {
         private static readonly PowDifficulty Empty = new PowDifficulty(Array.Empty<byte>(), Array.Empty<byte>());
 
