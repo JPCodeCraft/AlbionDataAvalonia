@@ -41,6 +41,7 @@ public partial class SettingsViewModel : ViewModelBase
 
     private readonly TimeSpan powSolveStatsRefreshInterval = TimeSpan.FromSeconds(3);
     private DateTimeOffset lastPowSolveStatsRefresh = DateTimeOffset.MinValue;
+    private IDisposable? pendingPowSolveStatsRefreshRegistration;
 
     public SettingsViewModel()
     {
@@ -69,18 +70,45 @@ public partial class SettingsViewModel : ViewModelBase
         }
 
         _playerState.ClearPowSolveStatistics();
+        pendingPowSolveStatsRefreshRegistration?.Dispose();
+        pendingPowSolveStatsRefreshRegistration = null;
         lastPowSolveStatsRefresh = DateTimeOffset.MinValue;
         UpdatePowSolveStatistics();
     }
 
     private void MaybeUpdatePowSolveStatistics()
     {
-        var now = DateTimeOffset.UtcNow;
-        if (now - lastPowSolveStatsRefresh < powSolveStatsRefreshInterval)
+        if (!Dispatcher.UIThread.CheckAccess())
         {
+            Dispatcher.UIThread.Post(MaybeUpdatePowSolveStatistics);
             return;
         }
 
+        var now = DateTimeOffset.UtcNow;
+        var elapsed = now - lastPowSolveStatsRefresh;
+        if (elapsed < powSolveStatsRefreshInterval)
+        {
+            if (pendingPowSolveStatsRefreshRegistration == null)
+            {
+                var remaining = powSolveStatsRefreshInterval - elapsed;
+                if (remaining < TimeSpan.Zero)
+                {
+                    remaining = TimeSpan.Zero;
+                }
+
+                pendingPowSolveStatsRefreshRegistration = DispatcherTimer.RunOnce(() =>
+                {
+                    pendingPowSolveStatsRefreshRegistration = null;
+                    lastPowSolveStatsRefresh = DateTimeOffset.UtcNow;
+                    UpdatePowSolveStatistics();
+                }, remaining);
+            }
+
+            return;
+        }
+
+        pendingPowSolveStatsRefreshRegistration?.Dispose();
+        pendingPowSolveStatsRefreshRegistration = null;
         lastPowSolveStatsRefresh = now;
         UpdatePowSolveStatistics();
     }
