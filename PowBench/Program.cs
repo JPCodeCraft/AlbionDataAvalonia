@@ -85,17 +85,19 @@ internal static class Program
         Console.WriteLine("Step timings:");
 
         StepStats writeStats = MeasureStep(challenges, StepTarget.WriteCounterHex);
+        StepStats incrementStats = MeasureStep(challenges, StepTarget.IncrementHexAsciiInPlace);
         StepStats hashStats = MeasureStep(challenges, StepTarget.TryComputeHash);
         StepStats checkStats = MeasureStep(challenges, StepTarget.CheckLeadingBits);
 
         PrintStepStats("WriteCounterHex", writeStats);
+        PrintStepStats("IncrementHex", incrementStats);
         PrintStepStats("TryComputeHash", hashStats);
         PrintStepStats("CheckLeadingBits", checkStats);
     }
 
     private static StepStats MeasureStep(PowRequest[] challenges, StepTarget target)
     {
-        var perStepIterationNanoseconds = new double[challenges.Length];
+        var perStepExecutionNanoseconds = new double[challenges.Length];
         var perIterationTotalNanoseconds = new double[challenges.Length];
         var perSolveStepMilliseconds = new double[challenges.Length];
         double totalStepNanoseconds = 0;
@@ -103,15 +105,17 @@ internal static class Program
         double totalSolveStepMilliseconds = 0;
         long totalIterations = 0;
         double totalIterationsPerSolve = 0;
+        long totalStepExecutions = 0;
+        double totalStepExecutionsPerSolve = 0;
 
         for (int i = 0; i < challenges.Length; i++)
         {
             SingleStepResult result = MeasureStepForChallenge(challenges[i], target);
-            double stepPerIterationNs = result.Iterations > 0 ? result.StepNanoseconds / result.Iterations : 0;
+            double stepPerExecutionNs = result.StepExecutions > 0 ? result.StepNanoseconds / result.StepExecutions : 0;
             double iterationPerIterationNs = result.Iterations > 0 ? result.TotalIterationNanoseconds / result.Iterations : 0;
             double stepPerSolveMs = result.StepNanoseconds / 1_000_000.0;
 
-            perStepIterationNanoseconds[i] = stepPerIterationNs;
+            perStepExecutionNanoseconds[i] = stepPerExecutionNs;
             perIterationTotalNanoseconds[i] = iterationPerIterationNs;
             perSolveStepMilliseconds[i] = stepPerSolveMs;
 
@@ -120,15 +124,17 @@ internal static class Program
             totalSolveStepMilliseconds += stepPerSolveMs;
             totalIterations += result.Iterations;
             totalIterationsPerSolve += result.Iterations;
+            totalStepExecutions += result.StepExecutions;
+            totalStepExecutionsPerSolve += result.StepExecutions;
         }
 
-        Array.Sort(perStepIterationNanoseconds);
+        Array.Sort(perStepExecutionNanoseconds);
         Array.Sort(perIterationTotalNanoseconds);
         Array.Sort(perSolveStepMilliseconds);
 
-        double stepMeanNs = totalIterations > 0 ? totalStepNanoseconds / totalIterations : 0;
-        double stepMedianNs = Percentile(perStepIterationNanoseconds, 50);
-        double stepP95Ns = Percentile(perStepIterationNanoseconds, 95);
+        double stepMeanNs = totalStepExecutions > 0 ? totalStepNanoseconds / totalStepExecutions : 0;
+        double stepMedianNs = Percentile(perStepExecutionNanoseconds, 50);
+        double stepP95Ns = Percentile(perStepExecutionNanoseconds, 95);
 
         double iterationMeanNs = totalIterations > 0 ? totalIterationNanoseconds / totalIterations : 0;
         double iterationMedianNs = Percentile(perIterationTotalNanoseconds, 50);
@@ -138,6 +144,7 @@ internal static class Program
         double stepMedianSolveMs = Percentile(perSolveStepMilliseconds, 50);
         double stepP95SolveMs = Percentile(perSolveStepMilliseconds, 95);
         double meanIterationsPerSolve = perSolveStepMilliseconds.Length > 0 ? totalIterationsPerSolve / perSolveStepMilliseconds.Length : 0;
+        double meanStepsPerSolve = perSolveStepMilliseconds.Length > 0 ? totalStepExecutionsPerSolve / perSolveStepMilliseconds.Length : 0;
 
         return new StepStats(
             stepMeanNs,
@@ -150,7 +157,9 @@ internal static class Program
             stepMedianSolveMs,
             stepP95SolveMs,
             totalIterations,
-            meanIterationsPerSolve);
+            meanIterationsPerSolve,
+            totalStepExecutions,
+            meanStepsPerSolve);
     }
 
     private static SingleStepResult MeasureStepForChallenge(PowRequest challenge, StepTarget target)
@@ -175,23 +184,24 @@ internal static class Program
         double totalStepNanoseconds = 0;
         double totalIterationNanoseconds = 0;
         long iterations = 0;
+        long stepExecutions = 0;
+
+        if (target == StepTarget.WriteCounterHex)
+        {
+            long start = Stopwatch.GetTimestamp();
+            PowSolver.WriteCounterHex(counterSpan, counter);
+            long end = Stopwatch.GetTimestamp();
+            totalStepNanoseconds += (end - start) * TickToNanoseconds;
+            stepExecutions++;
+        }
+        else
+        {
+            PowSolver.WriteCounterHex(counterSpan, counter);
+        }
 
         while (true)
         {
             long iterationStart = Stopwatch.GetTimestamp();
-
-            if (target == StepTarget.WriteCounterHex)
-            {
-                long start = Stopwatch.GetTimestamp();
-                PowSolver.WriteCounterHex(counterSpan, counter);
-                long end = Stopwatch.GetTimestamp();
-                totalStepNanoseconds += (end - start) * TickToNanoseconds;
-                counter++;
-            }
-            else
-            {
-                PowSolver.WriteCounterHex(counterSpan, counter++);
-            }
 
             if (target == StepTarget.TryComputeHash)
             {
@@ -199,6 +209,7 @@ internal static class Program
                 solver.TryComputeHash(inputBuffer, hashBuffer);
                 long end = Stopwatch.GetTimestamp();
                 totalStepNanoseconds += (end - start) * TickToNanoseconds;
+                stepExecutions++;
             }
             else
             {
@@ -212,6 +223,7 @@ internal static class Program
                 isMatch = PowSolver.CheckLeadingBits(hashBuffer, difficulty);
                 long end = Stopwatch.GetTimestamp();
                 totalStepNanoseconds += (end - start) * TickToNanoseconds;
+                stepExecutions++;
             }
             else
             {
@@ -220,23 +232,41 @@ internal static class Program
 
             iterations++;
 
-            long iterationEnd = Stopwatch.GetTimestamp();
-            totalIterationNanoseconds += (iterationEnd - iterationStart) * TickToNanoseconds;
-
+            long iterationEnd;
             if (isMatch)
             {
+                iterationEnd = Stopwatch.GetTimestamp();
+                totalIterationNanoseconds += (iterationEnd - iterationStart) * TickToNanoseconds;
                 break;
             }
+
+            counter++;
+
+            if (target == StepTarget.IncrementHexAsciiInPlace)
+            {
+                long start = Stopwatch.GetTimestamp();
+                PowSolver.IncrementHexAsciiInPlace(counterSpan);
+                long end = Stopwatch.GetTimestamp();
+                totalStepNanoseconds += (end - start) * TickToNanoseconds;
+                stepExecutions++;
+            }
+            else
+            {
+                PowSolver.IncrementHexAsciiInPlace(counterSpan);
+            }
+
+            iterationEnd = Stopwatch.GetTimestamp();
+            totalIterationNanoseconds += (iterationEnd - iterationStart) * TickToNanoseconds;
         }
 
-        return new SingleStepResult(totalStepNanoseconds, totalIterationNanoseconds, iterations);
+        return new SingleStepResult(totalStepNanoseconds, totalIterationNanoseconds, iterations, stepExecutions);
     }
 
     private static void PrintStepStats(string name, StepStats stats)
     {
-        Console.WriteLine($"  {name,-16} step/iter mean {stats.StepMeanNanoseconds:F1} ns, median {stats.StepMedianNanoseconds:F1} ns, 95th {stats.StepNinetyFifthNanoseconds:F1} ns (iters {stats.TotalIterations})");
-        Console.WriteLine($"  {string.Empty,-16} iter total mean {stats.IterationMeanNanoseconds:F1} ns, median {stats.IterationMedianNanoseconds:F1} ns, 95th {stats.IterationNinetyFifthNanoseconds:F1} ns");
-        Console.WriteLine($"  {string.Empty,-16} step/solve mean {stats.MeanSolveMilliseconds:F3} ms, median {stats.MedianSolveMilliseconds:F3} ms, 95th {stats.NinetyFifthSolveMilliseconds:F3} ms, iterations/solve {stats.MeanIterationsPerSolve:F1}");
+        Console.WriteLine($"  {name,-16} step/call mean {stats.StepMeanNanoseconds:F1} ns, median {stats.StepMedianNanoseconds:F1} ns, 95th {stats.StepNinetyFifthNanoseconds:F1} ns (calls {stats.TotalStepExecutions})");
+        Console.WriteLine($"  {string.Empty,-16} iter total mean {stats.IterationMeanNanoseconds:F1} ns, median {stats.IterationMedianNanoseconds:F1} ns, 95th {stats.IterationNinetyFifthNanoseconds:F1} ns (iters {stats.TotalIterations})");
+        Console.WriteLine($"  {string.Empty,-16} step/solve mean {stats.MeanSolveMilliseconds:F3} ms, median {stats.MedianSolveMilliseconds:F3} ms, 95th {stats.NinetyFifthSolveMilliseconds:F3} ms, steps/solve {stats.MeanStepsPerSolve:F1}, iterations/solve {stats.MeanIterationsPerSolve:F1}");
     }
 
     private static double Percentile(double[] sortedSamples, double percentile)
@@ -262,6 +292,7 @@ internal static class Program
     private enum StepTarget
     {
         WriteCounterHex,
+        IncrementHexAsciiInPlace,
         TryComputeHash,
         CheckLeadingBits
     }
@@ -277,12 +308,15 @@ internal static class Program
         double MedianSolveMilliseconds,
         double NinetyFifthSolveMilliseconds,
         long TotalIterations,
-        double MeanIterationsPerSolve);
+        double MeanIterationsPerSolve,
+        long TotalStepExecutions,
+        double MeanStepsPerSolve);
 
     private readonly record struct SingleStepResult(
         double StepNanoseconds,
         double TotalIterationNanoseconds,
-        long Iterations);
+        long Iterations,
+        long StepExecutions);
 
     private static class PowChallengeFactory
     {

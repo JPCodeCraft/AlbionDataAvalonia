@@ -8,6 +8,8 @@ using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
+using System.Runtime.CompilerServices;
+
 
 namespace AlbionDataAvalonia.Network.Pow;
 
@@ -57,33 +59,62 @@ public partial class PowSolver
         Span<byte> counterSpan = inputBuffer.AsSpan(prefix.Length, 16);
         Span<byte> hashBuffer = stackalloc byte[32];
 
+        // write once, then increment ASCII in-place each loop
+        ulong ctr = _counter;
+        WriteCounterHex(counterSpan, ctr);
+
         while (true)
         {
-            WriteCounterHex(counterSpan, _counter++);
             TryComputeHash(inputBuffer, hashBuffer);
 
             if (CheckLeadingBits(hashBuffer, difficulty))
             {
-                return Encoding.ASCII.GetString(inputBuffer, prefix.Length, 16);
+                // keep original semantics where _counter has advanced by 1 after success
+                _counter = ctr + 1;
+                return Encoding.ASCII.GetString(counterSpan);
             }
+
+            ctr++;
+            IncrementHexAsciiInPlace(counterSpan); // O(1) on average
         }
     }
-
-    internal static void WriteCounterHex(Span<byte> destination, ulong value)
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void IncrementHexAsciiInPlace(Span<byte> s)
     {
-        // SEQUENTIAL
-        for (int i = destination.Length - 1; i >= 0; i--)
-        {
-            destination[i] = HexDigits[(int)(value & 0xF)];
-            value >>= 4;
-        }
+        const byte ZERO = (byte)'0';
+        const byte NINE = (byte)'9';
+        const byte A = (byte)'a';
+        const byte F = (byte)'f';
 
-        // RANDOM
-        // for (int i = 0; i < destination.Length; i++)
-        // {
-        //     destination[i] = HexDigits[Random.Shared.Next(16)];
-        // }
+        // start from least-significant nibble (rightmost)
+        for (int i = s.Length - 1; i >= 0; i--)
+        {
+            byte c = s[i];
+
+            if (c == F) { s[i] = ZERO; continue; } // carry to next nibble
+            if (c == NINE) { s[i] = A; break; }    // 9 -> a, no carry
+
+            // '0'..'8' or 'a'..'e'
+            s[i] = (byte)(c + 1);
+            break;
+        }
+        // if we carried past the most-significant nibble, it naturally wraps to all '0's
     }
+
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    internal static void WriteCounterHex(Span<byte> dst, ulong value)
+    {
+        // write two hex chars per byte, most-significant first
+        for (int i = 15; i >= 0; i -= 2)
+        {
+            byte b = (byte)(value & 0xFF);
+            value >>= 8;
+            dst[i - 1] = HexDigits[b >> 4];
+            dst[i] = HexDigits[b & 0xF];
+        }
+    }
+
 
     internal void TryComputeHash(ReadOnlySpan<byte> input, Span<byte> hashBuffer) =>
         _sha256.TryComputeHash(input, hashBuffer, out _);
