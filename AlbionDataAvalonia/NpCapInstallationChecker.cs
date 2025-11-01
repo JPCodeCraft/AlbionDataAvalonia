@@ -36,13 +36,22 @@ public static class NpCapInstallationChecker
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            // Check if libpcap shared object files exist directly
-            if (File.Exists("/usr/lib/libpcap.so") || File.Exists("/usr/local/lib/libpcap.so"))
+            if (TryLoadLibpcap())
             {
                 return true;
             }
 
-            // Define package names for each package manager
+            if (IsLibpcapInCommonPaths())
+            {
+                return true;
+            }
+
+            if (IsLibpcapReportedByLdconfig())
+            {
+                return true;
+            }
+
+            // Fallback: probe common package managers for a libpcap installation
             var packageNames = new Dictionary<string, string>
             {
                 { "dpkg", "libpcap-dev" },       // Debian, Ubuntu
@@ -53,7 +62,8 @@ public static class NpCapInstallationChecker
                 { "slackpkg", "libpcap" },       // Slackware
                 { "dnf", "libpcap-devel" },      // Fedora (newer)
                 { "yum", "libpcap-devel" },      // Older Red Hat-based
-                { "apk", "libpcap-dev" }         // Alpine Linux
+                { "apk", "libpcap-dev" },        // Alpine Linux
+                { "nix-env", "libpcap" }         // NixOS / nix package manager
             };
 
             // Check each package manager
@@ -72,10 +82,71 @@ public static class NpCapInstallationChecker
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
-            return true; // Always true for macOS as per your decision
+            return true; // Always true for macOS
         }
 
         return false;
+    }
+
+    static private bool TryLoadLibpcap()
+    {
+        var candidateNames = new[]
+        {
+            "libpcap.so",
+            "libpcap.so.1",
+            "libpcap.so.0.8"
+        };
+
+        foreach (var libraryName in candidateNames)
+        {
+            if (NativeLibrary.TryLoad(libraryName, out var handle))
+            {
+                NativeLibrary.Free(handle);
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    static private bool IsLibpcapInCommonPaths()
+    {
+        var searchDirectories = new[]
+        {
+            "/usr/lib",
+            "/usr/local/lib",
+            "/lib",
+            "/usr/lib/x86_64-linux-gnu",
+            "/lib/x86_64-linux-gnu",
+            "/usr/lib/aarch64-linux-gnu",
+            "/lib/aarch64-linux-gnu"
+        };
+
+        foreach (var directory in searchDirectories)
+        {
+            if (!Directory.Exists(directory))
+            {
+                continue;
+            }
+
+            foreach (var _ in Directory.EnumerateFiles(directory, "libpcap.so*"))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    static private bool IsLibpcapReportedByLdconfig()
+    {
+        if (!IsCommandAvailable("ldconfig"))
+        {
+            return false;
+        }
+
+        var (_, output) = RunCommand("ldconfig -p | grep libpcap");
+        return !string.IsNullOrWhiteSpace(output);
     }
 
     static private bool IsCommandAvailable(string command)
@@ -97,7 +168,6 @@ public static class NpCapInstallationChecker
 
     static private (bool isInstalled, string output) CheckPackageWithManager(string packageManager, string packageName)
     {
-        // Define the command to check if the package is installed
         var command = packageManager switch
         {
             "dpkg" => $"dpkg -s {packageName}",
@@ -109,9 +179,32 @@ public static class NpCapInstallationChecker
             "dnf" => $"dnf list installed {packageName}", // Fedora: List installed
             "yum" => $"yum list installed {packageName}", // Older Red Hat: List installed
             "apk" => $"apk info -e {packageName}",        // Alpine: Check if installed
+            "nix-env" => $"nix-env -q {packageName}",
             _ => throw new ArgumentException($"Unsupported package manager: {packageManager}")
         };
 
+        var (exitCode, output) = RunCommand(command);
+
+        var isInstalled = packageManager switch
+        {
+            "dpkg" => output.Contains("install ok installed", StringComparison.OrdinalIgnoreCase),
+            "pacman" => exitCode == 0,
+            "rpm" => exitCode == 0,
+            "zypper" => output.Contains(packageName, StringComparison.OrdinalIgnoreCase) && output.Contains("i |"),
+            "emerge" => output.Contains("[I]"),          // Gentoo: [I] indicates installed
+            "slackpkg" => output.Contains("INSTALLED", StringComparison.OrdinalIgnoreCase),
+            "dnf" => exitCode == 0,
+            "yum" => exitCode == 0,
+            "apk" => exitCode == 0,
+            "nix-env" => !string.IsNullOrWhiteSpace(output),
+            _ => false
+        };
+
+        return (isInstalled, output);
+    }
+
+    static private (int exitCode, string output) RunCommand(string command)
+    {
         var startInfo = new ProcessStartInfo
         {
             FileName = "/bin/bash",
@@ -127,21 +220,6 @@ public static class NpCapInstallationChecker
         var output = process.StandardOutput.ReadToEnd();
         process.WaitForExit();
 
-        // Determine if the package is installed based on the output or exit code
-        var isInstalled = packageManager switch
-        {
-            "dpkg" => output.Contains("install ok installed"),
-            "pacman" => process.ExitCode == 0,
-            "rpm" => process.ExitCode == 0,
-            "zypper" => output.Contains(packageName) && output.Contains("i |"),
-            "emerge" => output.Contains("[I]"),          // Gentoo: [I] indicates installed
-            "slackpkg" => output.Contains("INSTALLED"),  // Slackware: Check for "INSTALLED"
-            "dnf" => process.ExitCode == 0,
-            "yum" => process.ExitCode == 0,
-            "apk" => process.ExitCode == 0,              // Alpine: Exit code 0 if installed
-            _ => false
-        };
-
-        return (isInstalled, output);
+        return (process.ExitCode, output);
     }
 }
