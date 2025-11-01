@@ -84,15 +84,15 @@ namespace AlbionDataAvalonia.Network.Services
 
                 ReceiverBuilder builder = ReceiverBuilder.Create();
 
-                //ADD HANDLERS HERE
-                //EVENTS
-                //builder.AddEventHandler(new LeaveEventHandler(_playerState));
-                //builder.AddEventHandler(new PlayerCountsEventHandler(_playerState, _afmUploader));
-                builder.AddEventHandler(new AttachItemContainerEventHandler(_playerState));
-                builder.AddEventHandler(new NewItemEventHandler(_playerState, _itemsIdsService));
-                builder.AddEventHandler(new NewEquipmentItemLegendarySoulEventHandler(_playerState));
-                builder.AddEventHandler(new BankVaultInfoEventHandler(_playerState));
-                //RESPONSE
+                // ADD HANDLERS HERE
+                // EVENTS
+                // builder.AddEventHandler(new LeaveEventHandler(_playerState));
+                // builder.AddEventHandler(new PlayerCountsEventHandler(_playerState, _afmUploader));
+                // builder.AddEventHandler(new AttachItemContainerEventHandler(_playerState));
+                // builder.AddEventHandler(new NewItemEventHandler(_playerState, _itemsIdsService));
+                // builder.AddEventHandler(new NewEquipmentItemLegendarySoulEventHandler(_playerState));
+                // builder.AddEventHandler(new BankVaultInfoEventHandler(_playerState));
+                // RESPONSE
                 builder.AddResponseHandler(new AuctionGetLoadoutOffersResponseHandler(_uploader, _playerState));
                 builder.AddResponseHandler(new AuctionGetOffersResponseHandler(_uploader, _playerState, _tradeService));
                 builder.AddResponseHandler(new AuctionGetRequestsResponseHandler(_uploader, _playerState, _tradeService));
@@ -103,11 +103,11 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddResponseHandler(new ReadMailResponseHandler(_playerState, _mailService));
                 builder.AddResponseHandler(new AuctionBuyOfferResponseHandler(_playerState, _tradeService));
                 builder.AddResponseHandler(new AuctionSellSpecificItemRequestResponseHandler(_playerState, _tradeService));
-                builder.AddResponseHandler(new AssetOverviewResponseHandler(_playerState));
-                builder.AddResponseHandler(new AssetOverviewUnfreezeCacheResponseHandler(_playerState));
-                builder.AddResponseHandler(new AssetOverviewTabsResponseHandler(_playerState));
-                builder.AddResponseHandler(new AssetOverviewTabContentResponseHandler(_playerState));
-                //REQUEST
+                // builder.AddResponseHandler(new AssetOverviewResponseHandler(_playerState));
+                // builder.AddResponseHandler(new AssetOverviewUnfreezeCacheResponseHandler(_playerState));
+                // builder.AddResponseHandler(new AssetOverviewTabsResponseHandler(_playerState));
+                // builder.AddResponseHandler(new AssetOverviewTabContentResponseHandler(_playerState));
+                // REQUEST
                 builder.AddRequestHandler(new AuctionGetItemAverageStatsRequestHandler(_playerState));
                 builder.AddRequestHandler(new AuctionBuyOfferRequestHandler(_playerState, _tradeService, _settingsManager));
                 builder.AddRequestHandler(new AuctionSellSpecificItemRequestRequestHandler(_playerState, _tradeService, _settingsManager));
