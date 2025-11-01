@@ -27,8 +27,6 @@ namespace Albion.Network
 
         protected internal override Task OnHandleAsync(EventPacket packet)
         {
-            Console.WriteLine($"EventPacketHandler: Received event with code {(EventCodes)packet.EventCode}");
-
             if (isSingleCode)
             {
                 if (packet.EventCode != singleEventCode)
