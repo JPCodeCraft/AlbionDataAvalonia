@@ -1,5 +1,6 @@
 ﻿using System;
 using System.Threading.Tasks;
+using AlbionDataAvalonia.Shared;
 
 namespace Albion.Network
 {
@@ -16,6 +17,8 @@ namespace Albion.Network
 
         protected internal override Task OnHandleAsync(ResponsePacket packet)
         {
+            Console.WriteLine($"ResponsePacketHandler: Received response with code {(OperationCodes)packet.OperationCode}");
+
             if (operationCode != packet.OperationCode)
             {
                 return NextAsync(packet);

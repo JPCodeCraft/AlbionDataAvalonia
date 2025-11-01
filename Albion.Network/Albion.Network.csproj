@@ -24,6 +24,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<ProjectReference Include="..\AlbionDataAvalonia.Shared\AlbionDataAvalonia.Shared.csproj" />
 		<ProjectReference Include="..\PhotonPackageParser\PhotonPackageParser.csproj" />
 	</ItemGroup>
 

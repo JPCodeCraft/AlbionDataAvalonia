@@ -22,12 +22,12 @@
 			<Setter Property="Background" Value="Transparent" />
 			<Setter Property="Template">
 				<ControlTemplate>
-					<ContentPresenter Content="{TemplateBinding Content}">
+					<ContentPresenter Content="{TemplateBinding Content}"
+                                      TextElement.Foreground="{TemplateBinding Foreground}"
+                                      TextElement.FontSize="{TemplateBinding FontSize}">
 						<ContentPresenter.Styles>
 							<Style Selector="TextBlock">
-								<Setter Property="Foreground" Value="{TemplateBinding Foreground}"/>
-								<Setter Property="FontSize" Value="{TemplateBinding FontSize}"/>
-								<Setter Property="TextDecorations" Value="Underline"/>
+								<Setter Property="TextDecorations" Value="Underline" />
 							</Style>
 						</ContentPresenter.Styles>
 					</ContentPresenter>

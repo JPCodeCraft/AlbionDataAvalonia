@@ -1,7 +1,7 @@
 ﻿
 Microsoft Visual Studio Solution File, Format Version 12.00
-# Visual Studio Version 17
-VisualStudioVersion = 17.9.34701.34
+# Visual Studio Version 18
+VisualStudioVersion = 18.0.11104.47 d18.0
 MinimumVisualStudioVersion = 10.0.40219.1
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "AlbionDataAvalonia", "AlbionDataAvalonia\AlbionDataAvalonia.csproj", "{ACB97A25-0335-4628-B618-B522FCC46116}"
 EndProject
@@ -16,6 +16,8 @@ EndProject
 Project("{9A19103F-16F7-4668-BE54-9A1E7A4F7556}") = "Protocol16", "Protocol16\Protocol16.csproj", "{1C66B007-75D9-4DAD-B79E-DA2AE1DE78A0}"
 EndProject
 Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "PowBench", "PowBench\PowBench.csproj", "{BD06515A-E764-42C2-9390-FD8761EEA81C}"
+EndProject
+Project("{FAE04EC0-301F-11D3-BF4B-00C04F79EFBC}") = "AlbionDataAvalonia.Shared", "AlbionDataAvalonia.Shared\AlbionDataAvalonia.Shared.csproj", "{ED4E7065-B6C0-43CF-BF64-FC12290B5F30}"
 EndProject
 Global
 	GlobalSection(SolutionConfigurationPlatforms) = preSolution
@@ -171,6 +173,26 @@ Global
 		{BD06515A-E764-42C2-9390-FD8761EEA81C}.Release|x64.Build.0 = Release|Any CPU
 		{BD06515A-E764-42C2-9390-FD8761EEA81C}.Release|x86.ActiveCfg = Release|Any CPU
 		{BD06515A-E764-42C2-9390-FD8761EEA81C}.Release|x86.Build.0 = Release|Any CPU
+		{ED4E7065-B6C0-43CF-BF64-FC12290B5F30}.Debug|Any CPU.ActiveCfg = Debug|Any CPU
+		{ED4E7065-B6C0-43CF-BF64-FC12290B5F30}.Debug|Any CPU.Build.0 = Debug|Any CPU
+		{ED4E7065-B6C0-43CF-BF64-FC12290B5F30}.Debug|ARM.ActiveCfg = Debug|Any CPU
+		{ED4E7065-B6C0-43CF-BF64-FC12290B5F30}.Debug|ARM.Build.0 = Debug|Any CPU
+		{ED4E7065-B6C0-43CF-BF64-FC12290B5F30}.Debug|ARM64.ActiveCfg = Debug|Any CPU
+		{ED4E7065-B6C0-43CF-BF64-FC12290B5F30}.Debug|ARM64.Build.0 = Debug|Any CPU
+		{ED4E7065-B6C0-43CF-BF64-FC12290B5F30}.Debug|x64.ActiveCfg = Debug|Any CPU
+		{ED4E7065-B6C0-43CF-BF64-FC12290B5F30}.Debug|x64.Build.0 = Debug|Any CPU
+		{ED4E7065-B6C0-43CF-BF64-FC12290B5F30}.Debug|x86.ActiveCfg = Debug|Any CPU
+		{ED4E7065-B6C0-43CF-BF64-FC12290B5F30}.Debug|x86.Build.0 = Debug|Any CPU
+		{ED4E7065-B6C0-43CF-BF64-FC12290B5F30}.Release|Any CPU.ActiveCfg = Release|Any CPU
+		{ED4E7065-B6C0-43CF-BF64-FC12290B5F30}.Release|Any CPU.Build.0 = Release|Any CPU
+		{ED4E7065-B6C0-43CF-BF64-FC12290B5F30}.Release|ARM.ActiveCfg = Release|Any CPU
+		{ED4E7065-B6C0-43CF-BF64-FC12290B5F30}.Release|ARM.Build.0 = Release|Any CPU
+		{ED4E7065-B6C0-43CF-BF64-FC12290B5F30}.Release|ARM64.ActiveCfg = Release|Any CPU
+		{ED4E7065-B6C0-43CF-BF64-FC12290B5F30}.Release|ARM64.Build.0 = Release|Any CPU
+		{ED4E7065-B6C0-43CF-BF64-FC12290B5F30}.Release|x64.ActiveCfg = Release|Any CPU
+		{ED4E7065-B6C0-43CF-BF64-FC12290B5F30}.Release|x64.Build.0 = Release|Any CPU
+		{ED4E7065-B6C0-43CF-BF64-FC12290B5F30}.Release|x86.ActiveCfg = Release|Any CPU
+		{ED4E7065-B6C0-43CF-BF64-FC12290B5F30}.Release|x86.Build.0 = Release|Any CPU
 	EndGlobalSection
 	GlobalSection(SolutionProperties) = preSolution
 		HideSolutionNode = FALSE

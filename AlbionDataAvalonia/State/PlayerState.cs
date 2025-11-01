@@ -57,6 +57,10 @@ namespace AlbionDataAvalonia.State
 
         private PowSolveStatistics powSolveStatistics = PowSolveStatistics.Empty;
 
+        //MARK: Items and Vaults
+        private ConcurrentDictionary<long, NewItem> _newItems = new();
+        private ConcurrentDictionary<Guid, AlbionVault> _vaults = new();
+
         public int PowSolveWindowSize => PowSolveWindowSizeValue;
         public int PowSolveSampleCount => powSolveStatistics.Count;
         public double PowSolveTimeAverage => powSolveStatistics.Average;
@@ -168,6 +172,63 @@ namespace AlbionDataAvalonia.State
             timer.Elapsed += OnTimerElapsed;
             timer.Start();
         }
+
+        // MARK: New Items And Vaults Methods
+        public void AddNewItem(NewItem item)
+        {
+            if (item.ObjectId is null) return;
+
+            var objectId = item.ObjectId.Value;
+
+            if (_newItems.TryGetValue(objectId, out var existingItem))
+            {
+                existingItem.Quantity = item.Quantity;
+                existingItem.CurrentDurability = item.CurrentDurability;
+                existingItem.EstimatedMarketValue = item.EstimatedMarketValue;
+                existingItem.LastSeen = DateTime.UtcNow;
+            }
+            else
+            {
+                _newItems[objectId] = item;
+            }
+        }
+
+        public void AddLegendarySoul(LegendarySoul legendarySoul)
+        {
+            if (_newItems.TryGetValue(legendarySoul.ObjectId, out var existingItem))
+            {
+                existingItem.LegendarySoul = legendarySoul;
+            }
+            else
+            {
+                Log.Warning("Legendary soul received for unknown item ObjectId: {ObjectId}", legendarySoul.ObjectId);
+            }
+        }
+
+        public void AddOrUpdateVault(AlbionVault vault)
+        {
+            _vaults.AddOrUpdate(vault.Guid, vault, (key, existingVault) => vault);
+        }
+
+        public void AddContainerToVault(Guid vaultGuid, AlbionContainer container)
+        {
+            if (_vaults.TryGetValue(vaultGuid, out var vault))
+            {
+                if (!vault.Containers.Any(c => c.Guid == container.Guid))
+                {
+                    vault.Containers.Add(container);
+                }
+                else
+                {
+                    Log.Warning("Attempted to add duplicate container Guid: {ContainerGuid} to vault Guid: {VaultGuid}", container.Guid, vaultGuid);
+                }
+            }
+            else
+            {
+                Log.Warning("Attempted to add container to unknown vault Guid: {VaultGuid}", vaultGuid);
+            }
+        }
+
         private void OnTimerElapsed(object? sender, System.Timers.ElapsedEventArgs e)
         {
             _ = IsInGame;

@@ -1,4 +1,5 @@
 ﻿using Albion.Network;
+using AlbionDataAvalonia.Items.Services;
 using AlbionDataAvalonia.Network.Handlers;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Settings;
@@ -27,6 +28,7 @@ namespace AlbionDataAvalonia.Network.Services
         private readonly MailService _mailService;
         private readonly TradeService _tradeService;
         private readonly IdleService _idleService;
+        private readonly ItemsIdsService _itemsIdsService;
 
         private bool hasCleanedUpDevices = false;
         private bool hasFinishedStartingDevices = false;
@@ -35,13 +37,14 @@ namespace AlbionDataAvalonia.Network.Services
         private IPhotonReceiver? receiver;
         private CaptureDeviceList? devices;
 
-        public NetworkListenerService(Uploader uploader, PlayerState playerState, SettingsManager settingsManager, MailService mailService, IdleService idleService, TradeService tradeService, AFMUploader afmUploader)
+        public NetworkListenerService(Uploader uploader, PlayerState playerState, SettingsManager settingsManager, MailService mailService, IdleService idleService, TradeService tradeService, AFMUploader afmUploader, ItemsIdsService itemsIdsService)
         {
             _uploader = uploader;
             _playerState = playerState;
             _settingsManager = settingsManager;
             _mailService = mailService;
             _idleService = idleService;
+            _itemsIdsService = itemsIdsService;
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
@@ -85,6 +88,10 @@ namespace AlbionDataAvalonia.Network.Services
                 //EVENTS
                 //builder.AddEventHandler(new LeaveEventHandler(_playerState));
                 //builder.AddEventHandler(new PlayerCountsEventHandler(_playerState, _afmUploader));
+                builder.AddEventHandler(new AttachItemContainerEventHandler(_playerState));
+                builder.AddEventHandler(new NewItemEventHandler(_playerState, _itemsIdsService));
+                builder.AddEventHandler(new NewEquipmentItemLegendarySoulEventHandler(_playerState));
+                builder.AddEventHandler(new BankVaultInfoEventHandler(_playerState));
                 //RESPONSE
                 builder.AddResponseHandler(new AuctionGetLoadoutOffersResponseHandler(_uploader, _playerState));
                 builder.AddResponseHandler(new AuctionGetOffersResponseHandler(_uploader, _playerState, _tradeService));
@@ -96,6 +103,10 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddResponseHandler(new ReadMailResponseHandler(_playerState, _mailService));
                 builder.AddResponseHandler(new AuctionBuyOfferResponseHandler(_playerState, _tradeService));
                 builder.AddResponseHandler(new AuctionSellSpecificItemRequestResponseHandler(_playerState, _tradeService));
+                builder.AddResponseHandler(new AssetOverviewResponseHandler(_playerState));
+                builder.AddResponseHandler(new AssetOverviewUnfreezeCacheResponseHandler(_playerState));
+                builder.AddResponseHandler(new AssetOverviewTabsResponseHandler(_playerState));
+                builder.AddResponseHandler(new AssetOverviewTabContentResponseHandler(_playerState));
                 //REQUEST
                 builder.AddRequestHandler(new AuctionGetItemAverageStatsRequestHandler(_playerState));
                 builder.AddRequestHandler(new AuctionBuyOfferRequestHandler(_playerState, _tradeService, _settingsManager));

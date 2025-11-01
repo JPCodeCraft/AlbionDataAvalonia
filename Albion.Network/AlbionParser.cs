@@ -1,4 +1,5 @@
-﻿using PhotonPackageParser;
+﻿using AlbionDataAvalonia.Shared;
+using PhotonPackageParser;
 using System;
 using System.Collections.Generic;
 
@@ -22,7 +23,7 @@ namespace Albion.Network
         {
             if (Code == 3)
             {
-                Parameters.Add(252, EventCodes.Move);
+                Parameters.Add(252, (short)EventCodes.Move);
             }
 
             short eventCode = ParseEventCode(Parameters);
@@ -54,7 +55,19 @@ namespace Albion.Network
                 throw new InvalidOperationException();
             }
 
-            return (short)value;
+            switch (value)
+            {
+                case short shortValue:
+                    return shortValue;
+                case int intValue:
+                    return (short)intValue;
+                case byte byteValue:
+                    return byteValue;
+                case Enum enumValue:
+                    return (short)Convert.ToInt16(enumValue);
+                default:
+                    throw new InvalidCastException($"Unable to cast object of type '{value.GetType()}' to Int16.");
+            }
         }
 
         private short ParseEventCode(Dictionary<byte, object> parameters)
@@ -64,7 +77,19 @@ namespace Albion.Network
                 throw new InvalidOperationException();
             }
 
-            return (short)value;
+            switch (value)
+            {
+                case short shortValue:
+                    return shortValue;
+                case int intValue:
+                    return (short)intValue;
+                case byte byteValue:
+                    return byteValue;
+                case Enum enumValue:
+                    return (short)Convert.ToInt16(enumValue);
+                default:
+                    throw new InvalidCastException($"Unable to cast object of type '{value.GetType()}' to Int16.");
+            }
         }
     }
 }

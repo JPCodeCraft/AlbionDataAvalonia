@@ -1,6 +1,6 @@
 ﻿using AlbionDataAvalonia.Auth.Services;
 using AlbionDataAvalonia.DB;
-using AlbionDataAvalonia.Localization.Services;
+using AlbionDataAvalonia.Items.Services;
 using AlbionDataAvalonia.Locations;
 using AlbionDataAvalonia.Logging;
 using AlbionDataAvalonia.Network.Services;
@@ -76,6 +76,7 @@ public partial class App : Application
         var uploader = services.GetRequiredService<Uploader>();
         var afmUploader = services.GetRequiredService<AFMUploader>();
         var localization = services.GetRequiredService<LocalizationService>();
+        var itemsIdsService = services.GetRequiredService<ItemsIdsService>();
         var idleService = services.GetRequiredService<IdleService>();
         var authService = services.GetRequiredService<AuthService>();
 
@@ -134,6 +135,9 @@ public partial class App : Application
 
         //INITIALIZE LOCALIZATION
         await localization.InitializeAsync();
+
+        //INITIALIZE ITEMS IDS
+        await itemsIdsService.InitializeAsync();
 
         //INITIALIZE LOCATIONS
         await AlbionLocations.InitializeAsync();
@@ -219,6 +223,7 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<MailService>();
         collection.AddSingleton<TradeService>();
         collection.AddSingleton<LocalizationService>();
+        collection.AddSingleton<ItemsIdsService>();
         collection.AddSingleton<AuthService>();
 
         collection.AddSingleton<MainViewModel>();
