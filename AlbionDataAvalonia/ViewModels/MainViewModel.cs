@@ -352,7 +352,18 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private async Task Login()
     {
-        await _authService.SignInAsync();
+        try
+        {
+            await _authService.SignInAsync();
+        }
+        catch (AuthServiceException ex)
+        {
+            Log.Error("Authentication error: {Message}", ex.Message);
+        }
+        catch (Exception ex)
+        {
+            Log.Error("An unexpected error occurred during login: {Message}", ex.Message);
+        }
     }
 
     [RelayCommand]
