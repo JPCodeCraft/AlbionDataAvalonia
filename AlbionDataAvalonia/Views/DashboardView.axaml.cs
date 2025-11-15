@@ -26,6 +26,18 @@ namespace AlbionDataAvalonia.Views
             e.Handled = true;
         }
 
+        private void NpcapLink_PointerReleased(object? sender, PointerReleasedEventArgs e)
+        {
+            if (e.InitialPressMouseButton != MouseButton.Left)
+            {
+                return;
+            }
+
+            var uri = new Uri("https://npcap.com/#download");
+            OpenUrl(uri);
+            e.Handled = true;
+        }
+
         private void OpenUrl(Uri uri)
         {
             try
