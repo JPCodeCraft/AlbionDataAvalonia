@@ -4,8 +4,40 @@ on:
   workflow_dispatch:
 
 jobs:
+  build-macos:
+    runs-on: macos-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+          dotnet-quality: "preview"
+
+      - name: Publish macOS project
+        run: |
+          dotnet publish ./AlbionDataAvalonia.Desktop.MacOS/AlbionDataAvalonia.Desktop.MacOS.csproj --configuration Release
+
+      - name: Compress macOS .app bundle
+        run: |
+          cd ./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-x64/publish/
+          zip -r AFMDataClient_MacOS64.app.zip AFMDataClient_MacOS64.app
+
+      - name: Upload macOS artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-app
+          path: ./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-x64/publish/AFMDataClient_MacOS64.app.zip
+
   build:
     runs-on: windows-latest
+    needs: build-macos
 
     steps:
       - name: Checkout code
@@ -65,21 +97,17 @@ jobs:
           dotnet publish ./AlbionDataAvalonia.Desktop/AlbionDataAvalonia.Desktop.csproj --configuration Release
           dotnet publish ./AlbionDataAvalonia.Desktop.Linux/AlbionDataAvalonia.Desktop.Linux.csproj --configuration Release
 
-      - name: Publish macOS project
-        run: |
-          dotnet publish ./AlbionDataAvalonia.Desktop.MacOS/AlbionDataAvalonia.Desktop.MacOS.csproj --configuration Release
+      - name: Download macOS artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-app
+          path: AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-x64/publish
 
       - name: Compile .ISS to .EXE Installer
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.7
         with:
           path: AlbionDataAvalonia.Desktop/pkg/inno.iss
           options: /O+
-
-      - name: Compress macOS .app bundle
-        run: |
-          cd ./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-x64/publish/
-          zip -r AFMDataClient_MacOS64.app.zip AFMDataClient_MacOS64.app
-        shell: bash
 
       - name: Create Tag
         id: create_tag

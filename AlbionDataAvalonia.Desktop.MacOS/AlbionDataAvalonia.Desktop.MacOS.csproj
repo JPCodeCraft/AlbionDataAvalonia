@@ -48,11 +48,10 @@
     <PropertyGroup>
       <AppBundlePath>$(PublishDir)$(AssemblyName).app</AppBundlePath>
     </PropertyGroup>
-    <Copy SourceFiles="run.sh" DestinationFolder="$(AppBundlePath)/Contents/MacOS" />
+    <Copy SourceFiles="run.sh"
+      DestinationFiles="$(AppBundlePath)/Contents/MacOS/AlbionDataAvalonia" />
     <!-- Only execute chmod on Unix-based systems -->
-    <Exec Command="chmod +x $(AppBundlePath)/Contents/MacOS/run.sh" Condition=" '$(OS)' == 'Unix' " />
-    <Exec
-      Command="mv $(AppBundlePath)/Contents/MacOS/run.sh $(AppBundlePath)/Contents/MacOS/AlbionDataAvalonia"
+    <Exec Command="chmod +x $(AppBundlePath)/Contents/MacOS/AlbionDataAvalonia"
       Condition=" '$(OS)' == 'Unix' " />
   </Target>
   <Target Name="AddAppIcon" AfterTargets="Publish">
