@@ -3,9 +3,9 @@
 
     public enum EventCodes
     {
-        Unused = 0,
+        Unused,
         Leave,
-        JoinFinished, // <- UserInfo,
+        JoinFinished,
         Move,
         Teleport,
         ChangeEquipment,
@@ -29,21 +29,21 @@
         StoredTargetsUpdate,
         ChannelingEnded,
         AttackBuilding,
-        InventoryPutItem, //  map[0:652 1:6 2:[118 -97 114 112 -46 84 -60 75 -103 -93 -3 -29 118 -125 -50 96] 3:17 252:23] (0: ObjectId, 1: Inventory slot (no value is slot 0), 2: InteractGuid)
-        InventoryDeleteItem, // map[0:754 1:48 252:24] (0: ObjectId) 
+        InventoryPutItem,
+        InventoryDeleteItem,
         InventoryState,
         NewCharacter,
-        NewEquipmentItem, //  map[0:657 1:2036 2:1 4:28169331 5:Apolo540 6:3 7:90000000 8:[] 9:[0] 252:27] (0: ObjectId, 1: ItemId, 2: Amount, 4: Est. market value, 5: CrafterName)
+        NewEquipmentItem,
         NewSiegeBannerItem,
-        NewSimpleItem, //  map[0:505 1:7006 2:1 3:true 4:29033970 252:27] (0: ObjectId, 1: ItemId, 2: Amount, 4: Est. market value)
+        NewSimpleItem,
         NewFurnitureItem,
         NewKillTrophyItem,
         NewJournalItem,
-        NewLaborerItem, // [0:513 1:7996 2:4 4:522947156 5: 6:10000 7:72000000 252:32]
+        NewLaborerItem,
         NewEquipmentItemLegendarySoul,
         NewSimpleHarvestableObject,
         NewSimpleHarvestableObjectList,
-        NewHarvestableObject, // map[0:[3405 3468] 1:[6 6] 2:[3 2] 3:[182 -383 176 -369 183 -371] 4:[3 3] 252:35] - 0: ObjectId 2: Max charges, 4: Current charges
+        NewHarvestableObject,
         NewTreasureDestinationObject,
         TreasureDestinationObjectStatus,
         CloseTreasureDestinationObject,
@@ -62,14 +62,14 @@
         LaborerObjectInfo,
         LaborerObjectJobInfo,
         MarketPlaceBuildingInfo,
-        HarvestStart, // map[0:5270 1:637926215956544319 2:637926215956544319 3:4250 4:16 5:1.6169999 6:5287 7:2195 252:52] - 0 = UserId, 3 = ObjectId, 5: Abbauzeit 7: Abbau-Tool (T8_2H_TOOL_SICKLE), 
+        HarvestStart,
         HarvestCancel,
-        HarvestFinished, // map[0:5270 1:637926215956544319 2:637926215972723131 3:4250 4:1 5:1 7:28 8:[] 9:[] 252:54] - 0: UserId, 3: ObjectId, 4:ItemId 5: Res Standard Quantity 6: Sammelbonus Res, 6: Premium Bonus Res, 8: Inhalt in der Ressource
-        TakeSilver, // map[0:-57 1:2178162 2:-57 3:10000000 8:10000 252:55]
+        HarvestFinished,
+        TakeSilver,
         RemoveSilver,
         ActionOnBuildingStart,
         ActionOnBuildingCancel,
-        ActionOnBuildingFinished, // Repear: [60]evInstallResourceCancel - map[0:1562 1:63802829 282167 2:442 3:454 4:2 252:60] 0: UserObjectId, 2: ActionId, 4: ActionType
+        ActionOnBuildingFinished,
         ItemRerollQualityFinished,
         InstallResourceStart,
         InstallResourceCancel,
@@ -84,16 +84,16 @@
         StopEmote,
         SystemMessage,
         UtilityTextMessage,
-        UpdateMoney, // map[0:4195 1:884995625105 252:71] (0: ObjectId, 1: CurrentSilver)
-        UpdateFame, // map[0:4195 1:5811910006347 2:100000000 4:10000 6:1 7:427 252:72] (0: ObjectId, 1: TotalPlayerFame, 2: fameWithZoneMultiplier, 3: GroupSize, 4: Multiplier, 5: IsPremiumBonus, 6: BonusFactor, 8: UsedBagInsightItemIndex, 10: SatchelFame, )
+        UpdateMoney,
+        UpdateFame,
         UpdateLearningPoints,
-        UpdateReSpecPoints, // map[0:[0 55814284204 0 0 0] 1:1 2:9948534 3:10000000 252:78] 2: GainedReSpec, 3: PaidSilver
+        UpdateReSpecPoints,
         UpdateCurrency,
         UpdateFactionStanding,
-        UpdateStanding, // map[0:11575080 1:3858360 2:970279167 252:81] 0: StandingPoints
+        UpdateStanding,
         Respawn,
         ServerDebugLog,
-        CharacterEquipmentChanged, // map[0:297 1:26283117 2:[0 1721 0 0 0 2330 2301 2468 0 0] 5:[-1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 -1 3168] 252:85]
+        CharacterEquipmentChanged,
         RegenerationHealthChanged,
         RegenerationEnergyChanged,
         RegenerationMountHealthChanged,
@@ -101,10 +101,9 @@
         RegenerationHealthEnergyComboChanged,
         RegenerationPlayerComboChanged,
         DurabilityChanged,
-        NewLoot, // map[0:1863 2:1853 3:Dicky 4:[236.79169 -185.40233] 5:42.864536 6:true 7:1 10:[[-85 -58 82 55 101 -15 76 79 -103 -113 -21 8 -33 46 -99 -28]] 
-                 // 12:637993823308929158 18:[] 19:[-63 68 12 104 -29 1 114 78 -91 -75 -21 68 -13 -96 -29 -67] 20:[-23 20 93 -6 73 127 19 78 -65 44 -42 65 -97 105 -82 -16] 21:25900 22:0 23:3 24:-1 252:89]
-        AttachItemContainer, //  map[0:78 1:[-99 -50 125 -49 86 0 -115 74 -74 67 9 101 -87 -71 -66 -10] 3:[0 0 0 0 0 0 656 657] 4:8 252:89] (0: ObjectId, 3: ItemId[])
-        DetachItemContainer, //  map[0:[-95 72 -77 -75 -70 34 127 73 -114 -96 28 8 75 -107 -106 125] 252:90]
+        NewLoot,
+        AttachItemContainer,
+        DetachItemContainer,
         InvalidateItemContainer,
         LockItemContainer,
         GuildUpdate,
@@ -128,7 +127,7 @@
         MatchUpdate,
         ActiveMatchUpdate,
         NewMob,
-        DebugAggroInfo,
+        DebugMobInfo,
         DebugVariablesInfo,
         DebugReputationInfo,
         DebugDiminishingReturnInfo,
@@ -233,22 +232,23 @@
         Cloak,
         PartyInvitation,
         PartyJoinRequest,
-        PartyJoined, // map[0:14368 2:1 3:[-45 -35 124 14 -23 103 -41 74 -71 66 67 20 -12 60 44 -101] 4:[[-45 -35 124 14 -23 103 -41 74 -71 66 67 20 -12 60 44 -101] [-118 61 -70 72 17 -107 121 72 -102 110 20 -25 64 20 106 2]] 5:[Triky313 Bruno313] 6:[0 0] 7:[18 0] 8:[35 0] 9:[-1 -1] 10:[true true] 252:212]
-        PartyDisbanded, // map[1:14184 252:213]
-        PartyPlayerJoined, // map[0:11925 1:[-63 -19 39 16 26 35 -25 67 -111 60 -87 -58 -31 -100 -124 -44] 2:Mitch77 3:1 4:20 5:12 6:-1 7:true 252:214]
+        PartyJoined,
+        PartyDisbanded,
+        PartyPlayerJoined,
         PartyChangedOrder,
-        PartyPlayerLeft, // map[0:14368 1:[-45 -35 124 14 -23 103 -41 74 -71 66 67 20 -12 60 44 -101] 252:216]
-        PartyLeaderChanged, // map[0:14595 1:[-45 -35 124 14 -23 103 -41 74 -71 66 67 20 -12 60 44 -101] 252:217]
-        PartyLootSettingChangedPlayer, // map[0:14368 1:1 252:218]
+        PartyPlayerLeft,
+        PartyLeaderChanged,
+        PartyLootSettingChangedPlayer,
         PartySilverGained,
-        PartyPlayerUpdated, // map[0:Bruno313 1:true 3:5 252:221]
+        PartyPlayerUpdated,
         PartyInvitationAnswer,
         PartyJoinRequestAnswer,
         PartyMarkedObjectsUpdated,
         PartyOnClusterPartyJoined,
-        PartySetRoleFlag, // map[0:8 1:[-118 61 -70 72 17 -107 121 72 -102 110 20 -25 64 20 106 2] 252:225] (0: FlagType, 1: ObjectId)
+        PartySetRoleFlag,
         PartyInviteOrJoinPlayerEquipmentInfo,
         PartyReadyCheckUpdate,
+        PartyFactionWarfareReinforcementSettingChangedPlayer,
         SpellCooldownUpdate,
         NewHellgateExitPortal,
         NewExpeditionExit,
@@ -277,8 +277,8 @@
         EnteringHellgateLockStart,
         EnteringHellgateLockCancel,
         PlayerCounts,
-        InCombatStateUpdate, // map[0:671362 1:true 2:true 252:257] | 1 = true; player hits enemy | 2 = true; enemy hits player
-        OtherGrabbedLoot, // LOOT: map[0:424 1:Triky313 2:Bruno313 4:1841 5:1 252:256] | SILVER: map[0:6436 2:Triky313 3:true 5:1550115 252:256] (0: ObjectId, 1: LootedBody, 2: Looter, 4: ItemId, 5: Quantity) 
+        InCombatStateUpdate,
+        OtherGrabbedLoot,
         TreasureChestUsingStart,
         TreasureChestUsingFinished,
         TreasureChestUsingCancel,
@@ -303,6 +303,7 @@
         FriendUpdated,
         PartyLootItems,
         PartyLootItemsRemoved,
+        PartyLootItemTypesRemoved,
         ReputationUpdate,
         DefenseUnitAttackBegin,
         DefenseUnitAttackEnd,
@@ -335,17 +336,17 @@
         DebugDrawEvent,
         RecordCameraMove,
         RecordStart,
-        ClaimPowerCrystalStart,
-        ClaimPowerCrystalCancel,
-        ClaimPowerCrystalReset,
-        ClaimPowerCrystalFinished,
+        DeliverCarriableObjectStart,
+        DeliverCarriableObjectCancel,
+        DeliverCarriableObjectReset,
+        DeliverCarriableObjectFinished,
         TerritoryClaimStart,
         TerritoryClaimCancel,
         TerritoryClaimFinished,
         TerritoryScheduleResult,
         TerritoryUpgradeWithPowerCrystalResult,
-        ReturningPowerCrystalStart,
-        ReturningPowerCrystalFinished,
+        ReceiveCarriableObjectStart,
+        ReceiveCarriableObjectFinished,
         UpdateAccountState,
         StartDeterministicRoam,
         GuildFullAccessTagsUpdated,
@@ -361,7 +362,7 @@
         NewFloatObject,
         NewFishingZoneObject,
         FishingMiniGame,
-        SteamAchievementCompleted,
+        AlbionJournalAchievementCompleted,
         UpdatePuppet,
         ChangeFlaggingFinished,
         NewOutpostObject,
@@ -391,12 +392,12 @@
         TutorialUpdate,
         TriggerHintBox,
         RandomDungeonPositionInfo,
-        NewLootChest, // map[0:23 1:[20.5 177.5] 2:423 3:KEEPER_SOLO_BOOKCHEST_STANDARD 4:FOREST_GREEN_LOOTCHEST_KEEPER_SOLO_BOOKCHEST_STANDARD 5:4 6:637734315213820408 7:[] 8:[] 13:true 252:367] // map[0:4399 1:[165 -263] 3:TREASURE_SOLO_UNCOMMON 4:SWAMP_DEAD_LOOTCHEST_TREASURE_SOLO_UNCOMMON 5:4 6:637926439332719127 7:[] 8:[] 13:true 14:SWAMP_DEAD_TREASURE_SOLO 16:31ff503a-ded6-53d6-974a-7e32e3126457 252:370]
-        UpdateLootChest, // 0=ObjectId, 3=PlayerGuid, 4=PlayerGuid, 7=Free4All map[0:4769 1:5 2:637927794424868192 3:[[-45 -35 124 14 -23 103 -41 74 -71 66 67 20 -12 60 44 -101]] 4:[[-45 -35 124 14 -23 103 -41 74 -71 66 67 20 -12 60 44 -101]] 6:true 7:true 8:2.6 9:true 252:371]
-        LootChestOpened, // map[0:23 252:369]
+        NewLootChest,
+        UpdateLootChest,
+        LootChestOpened,
         UpdateLootProtectedByMobsWithMinimapDisplay,
-        NewShrine, // map[0:19 1:[-89 90] 2:180 3:GENERAL_SHRINE_COMBAT_BUFF 4:SHRINE_NON_COMBAT_BUFF 5:1 6:637734312344532502 252:371]
-        UpdateShrine, // map[0:19 1:2 2:637734313445294913 252:372]
+        NewShrine,
+        UpdateShrine,
         UpdateRoom,
         NewMobSoul,
         NewHellgateShrine,
@@ -405,14 +406,14 @@
         MutePlayerUpdate,
         ShopTileUpdate,
         ShopUpdate,
-        EasyAntiCheatKick,
+        AntiCheatKick,
         BattlEyeServerMessage,
         UnlockVanityUnlock,
         AvatarUnlocked,
         CustomizationChanged,
         BaseVaultInfo,
         GuildVaultInfo,
-        BankVaultInfo, // map[0:6 1:6466931c-65a1-4c5d-870b-8724cf2611dc@3007 2:[] 3:[] 4:[] 5:[] 6:[] 7:[] 8:[] 252:390]
+        BankVaultInfo,
         RecoveryVaultPlayerInfo,
         RecoveryVaultGuildInfo,
         UpdateWardrobe,
@@ -483,17 +484,17 @@
         UpdateFactionRank,
         FactionWarfareCampaignRewardsUnlocked,
         FeaturedFeatureUpdate,
-        NewPowerCrystalObject,
+        NewCarriableObject,
         MinimapCrystalPositionMarker,
-        CarryPowerCrystalUpdate,
-        PickupPowerCrystalStart,
-        PickupPowerCrystalCancel,
-        PickupPowerCrystalFinished,
+        CarriedObjectUpdate,
+        PickupCarriableObjectStart,
+        PickupCarriableObjectCancel,
+        PickupCarriableObjectFinished,
         DoSimpleActionStart,
         DoSimpleActionCancel,
         DoSimpleActionFinished,
         NotifyGuestAccountVerified,
-        MightAndFavorReceivedEvent, // map[0:63063 2:21021 3:16617 5:5539 6:349680 8:0 252:470] (0: Might, 2: Premium of might, 3: Favor, 5: Premium of favor, 6: Total favor, 8: ???) 
+        MightAndFavorReceivedEvent,
         WeeklyPvpChallengeRewardStateUpdate,
         NewUnlockedPvpSeasonChallengeRewards,
         StaticDungeonEntrancesDungeonEventStatusUpdates,
@@ -568,7 +569,7 @@
         InteractWithTrackFinished,
         NewDynamicCompound,
         LegendaryItemDestroyed,
-        AttunementInfo, //  map[0:T8_MAIN_AXE@4 1:0 2:180810 3:1000000000 252:554] 0: UniqueItemName, 2: GainedAttunement, 3: MaximalAttunementValue
+        AttunementInfo,
         TerritoryClaimRaidedRawEnergyCrystalResult,
         CarriedObjectExpiryWarning,
         CarriedObjectExpired,
@@ -640,6 +641,29 @@
         JournalQuestProgressInfo,
         NewHellDungeonRoomShrineObject,
         HellDungeonRoomShrineStateUpdate,
-        SimpleBehaviourBuildingStateUpdate
+        SimpleBehaviourBuildingStateUpdate,
+        SetTimeScaling,
+        StopTimeScaling,
+        KeyValidation,
+        PlayerJoinMapMarkerTimerStates,
+        NewMapMarkerTimer,
+        RemoveMapMarkerTimer,
+        NewFactionFortressObject,
+        FactionFortressAnnouncePlayerEjection,
+        RewardFactionWarfareSupply,
+        FactionCaptureAreaProgressUpdate,
+        FactionFortressClaimed,
+        FactionFortressWeaponCachesSpawned,
+        FactionFortressWeaponCacheClaimed,
+        FactionFortressFightStateUpdate,
+        FactionFortressCutoffFightStateUpdate,
+        FactionFortressFightEnded,
+        NewFactionWarfarePortal,
+        FactionPortalTargetUpdate,
+        FactionFortressFightStartedInRemoteClusterEvent,
+        FactionFortressFightFinishedInRemoteClusterEvent,
+        FactionDuchySupplyWarDefensiveVictoryEvent,
+        FactionDuchyReconnectedFromCutoffEvent,
+        FactionFortressCutoffFightCancelledByClusterOwnerChangeEvent,
     }
 }
