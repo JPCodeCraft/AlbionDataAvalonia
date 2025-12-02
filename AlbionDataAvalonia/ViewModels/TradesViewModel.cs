@@ -9,7 +9,9 @@ using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.ViewModels;
@@ -19,9 +21,16 @@ public partial class TradesViewModel : ViewModelBase
     private readonly SettingsManager _settingsManager;
     private readonly PlayerState _playerState;
     private readonly TradeService _tradeService;
+    private readonly CsvExportService _csvExportService;
 
     [ObservableProperty]
     private string filterText = string.Empty;
+
+    [ObservableProperty]
+    private bool isExporting;
+
+    [ObservableProperty]
+    private int exportProgress;
 
     private ObservableCollection<Trade> trades = new();
     public ObservableCollection<Trade> Trades
@@ -72,11 +81,12 @@ public partial class TradesViewModel : ViewModelBase
     {
     }
 
-    public TradesViewModel(SettingsManager settingsManager, PlayerState playerState, TradeService tradeService)
+    public TradesViewModel(SettingsManager settingsManager, PlayerState playerState, TradeService tradeService, CsvExportService csvExportService)
     {
         _settingsManager = settingsManager;
         _playerState = playerState;
         _tradeService = tradeService;
+        _csvExportService = csvExportService;
 
         _tradeService.OnTradeAdded += HandleTradeAdded;
 
@@ -130,5 +140,20 @@ public partial class TradesViewModel : ViewModelBase
             filteredList = UnfilteredTrades;
         }
         Trades = new ObservableCollection<Trade>(filteredList.OrderByDescending(x => x.DateTime).Take(_settingsManager.UserSettings.TradesToShow));
+    }
+
+    public async Task ExportToCsvAsync(Stream stream, CancellationToken cancellationToken = default)
+    {
+        IsExporting = true;
+        ExportProgress = 0;
+        try
+        {
+            var progress = new Progress<int>(p => ExportProgress = p);
+            await _csvExportService.ExportTradesToCsvAsync(stream, progress, cancellationToken);
+        }
+        finally
+        {
+            IsExporting = false;
+        }
     }
 }

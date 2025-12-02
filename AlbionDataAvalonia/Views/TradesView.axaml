@@ -36,6 +36,14 @@
             </StackPanel>
 
             <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+                <Button Classes="Filter" Content="Export CSV" Name="ExportCsvButton" Click="ExportCsvButton_Click" IsEnabled="{Binding !IsExporting}" />
+            </StackPanel>
+
+            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Center" IsVisible="{Binding IsExporting}">
+                <ProgressBar Minimum="0" Maximum="100" Value="{Binding ExportProgress}" Width="150" Height="20" />
+            </StackPanel>
+
+            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Bottom">
                 <TextBlock Classes="FilterLabel" Text="Search an Item..."/>
                 <TextBox Classes="Filter" Text="{Binding FilterText}" Name="FilterBox" Width="250"/>
             </StackPanel>

@@ -225,6 +225,7 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<LocalizationService>();
         collection.AddSingleton<ItemsIdsService>();
         collection.AddSingleton<AuthService>();
+        collection.AddSingleton<CsvExportService>();
 
         collection.AddSingleton<MainViewModel>();
         collection.AddSingleton<SettingsViewModel>();

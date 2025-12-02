@@ -9,7 +9,9 @@ using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.ViewModels;
@@ -19,9 +21,16 @@ public partial class MailsViewModel : ViewModelBase
     private readonly SettingsManager _settingsManager;
     private readonly PlayerState _playerState;
     private readonly MailService _mailService;
+    private readonly CsvExportService _csvExportService;
 
     [ObservableProperty]
     private string filterText = string.Empty;
+
+    [ObservableProperty]
+    private bool isExporting;
+
+    [ObservableProperty]
+    private int exportProgress;
 
     private ObservableCollection<AlbionMail> mails = new();
     public ObservableCollection<AlbionMail> Mails
@@ -67,11 +76,12 @@ public partial class MailsViewModel : ViewModelBase
     {
     }
 
-    public MailsViewModel(SettingsManager settingsManager, PlayerState playerState, MailService mailService)
+    public MailsViewModel(SettingsManager settingsManager, PlayerState playerState, MailService mailService, CsvExportService csvExportService)
     {
         _settingsManager = settingsManager;
         _playerState = playerState;
         _mailService = mailService;
+        _csvExportService = csvExportService;
 
         _mailService.OnMailAdded += HandleMailAdded;
         _mailService.OnMailDataAdded += HandleMailDataAdded;
@@ -130,5 +140,20 @@ public partial class MailsViewModel : ViewModelBase
             filteredList = UnfilteredMails;
         }
         Mails = new ObservableCollection<AlbionMail>(filteredList.OrderByDescending(x => x.Received).Take(_settingsManager.UserSettings.MailsPerPage));
+    }
+
+    public async Task ExportToCsvAsync(Stream stream, CancellationToken cancellationToken = default)
+    {
+        IsExporting = true;
+        ExportProgress = 0;
+        try
+        {
+            var progress = new Progress<int>(p => ExportProgress = p);
+            await _csvExportService.ExportMailsToCsvAsync(stream, progress, cancellationToken);
+        }
+        finally
+        {
+            IsExporting = false;
+        }
     }
 }
