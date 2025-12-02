@@ -1,4 +1,5 @@
 using Avalonia;
+using Serilog;
 using System;
 
 namespace AlbionDataAvalonia.Desktop.MacOS;
@@ -11,8 +12,15 @@ class Program
     [STAThread]
     public static void Main(string[] args)
     {
-        BuildAvaloniaApp()
-        .StartWithClassicDesktopLifetime(args);
+        try
+        {
+            BuildAvaloniaApp()
+            .StartWithClassicDesktopLifetime(args);
+        }
+        catch (Exception e)
+        {
+            Log.Fatal(e, "Global Exception Handler.");
+        }
     }
 
     // Avalonia configuration, don't remove; also used by visual designer.

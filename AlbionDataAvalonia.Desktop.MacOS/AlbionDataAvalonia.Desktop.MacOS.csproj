@@ -26,7 +26,7 @@
     </PackageReference>
   </ItemGroup>
   <ItemGroup>
-    <PackageReference Include="Avalonia.Desktop" Version="11.0.10" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.7" />
     <ProjectReference Include="..\AlbionDataAvalonia\AlbionDataAvalonia.csproj" />
   </ItemGroup>
   <Target Name="CreateMacOSAppBundle" AfterTargets="Publish">
@@ -37,12 +37,18 @@
       <InfoPlist Include="Info.plist">
         <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
       </InfoPlist>
+      <ConfigFiles
+        Include="$(PublishDir)DefaultAppSettings.json;$(PublishDir)DefaultUserSettings.json" />
     </ItemGroup>
     <MakeDir Directories="$(AppBundlePath)/Contents/MacOS" />
     <MakeDir Directories="$(AppBundlePath)/Contents/Resources" />
     <Copy SourceFiles="$(PublishDir)$(AssemblyName)"
       DestinationFolder="$(AppBundlePath)/Contents/MacOS" />
     <Copy SourceFiles="@(InfoPlist)" DestinationFolder="$(AppBundlePath)/Contents" />
+    <!-- Copy required configuration files to the MacOS folder -->
+    <Copy SourceFiles="@(ConfigFiles)"
+      DestinationFolder="$(AppBundlePath)/Contents/MacOS"
+      Condition="Exists('$(PublishDir)DefaultAppSettings.json')" />
   </Target>
   <Target Name="SetWrapperAsEntryPoint" AfterTargets="Publish">
     <PropertyGroup>
