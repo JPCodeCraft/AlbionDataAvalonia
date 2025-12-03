@@ -80,8 +80,8 @@ public class CsvExportService
                     Escape(itemName, delimiter),
                     Escape(location?.FriendlyName ?? "", delimiter),
                     trade.Amount.ToString(culture),
-                    trade.UnitSilver.ToString("N2", culture),
-                    trade.TotalSilver.ToString("N0", culture)
+                    trade.UnitSilver.ToString("F2", culture),
+                    trade.TotalSilver.ToString("F0", culture)
                 });
 
                 await writer.WriteLineAsync(line);
@@ -152,10 +152,10 @@ public class CsvExportService
                     Escape(mail.AuctionTypeFormatted, delimiter),
                     Escape(itemName, delimiter),
                     Escape(location?.FriendlyName ?? "", delimiter),
-                    mail.PartialAmount.ToString("N0", culture),
-                    mail.TotalAmount.ToString("N0", culture),
-                    mail.UnitSilver.ToString("N2", culture),
-                    mail.TotalSilver.ToString("N0", culture)
+                    mail.PartialAmount.ToString("F0", culture),
+                    mail.TotalAmount.ToString("F0", culture),
+                    mail.UnitSilver.ToString("F2", culture),
+                    mail.TotalSilver.ToString("F0", culture)
                 });
 
                 await writer.WriteLineAsync(line);
