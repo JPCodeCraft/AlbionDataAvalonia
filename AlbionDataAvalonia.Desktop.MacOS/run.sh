@@ -7,9 +7,16 @@ export HOME="$HOME"
 # Ensure deterministic working directory inside the app bundle
 APP_DIR="$(cd "$(dirname "$0")" && pwd)"
 
-# Change to the app directory so that relative paths work correctly
-# This ensures DefaultAppSettings.json and DefaultUserSettings.json can be found
-cd "$APP_DIR"
-
-# Run the published binary (single-file bundle output)
-exec "$APP_DIR/AFMDataClient_MacOS64" "$@"
+# Check if we're already running as root
+if [ "$EUID" -eq 0 ]; then
+    # Already root - preserve user's HOME if running via sudo
+    if [ -n "$SUDO_USER" ]; then
+        export HOME=$(eval echo ~$SUDO_USER)
+    fi
+    cd "$APP_DIR"
+    exec "$APP_DIR/AFMDataClient_MacOS64" "$@"
+else
+    # Not root - prompt for admin privileges using osascript
+    # This shows the native macOS password dialog
+    osascript -e "do shell script \"cd '$APP_DIR' && DISPLAY=:0 HOME='$HOME' '$APP_DIR/AFMDataClient_MacOS64'\" with administrator privileges"
+fi
