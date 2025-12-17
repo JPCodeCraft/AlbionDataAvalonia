@@ -22,7 +22,7 @@ jobs:
 
       - name: Publish macOS project
         run: |
-          dotnet publish ./AlbionDataAvalonia.Desktop.MacOS/AlbionDataAvalonia.Desktop.MacOS.csproj --configuration Release
+          dotnet publish ./AlbionDataAvalonia.Desktop.MacOS/AlbionDataAvalonia.Desktop.MacOS.csproj -c Release -r osx-arm64
 
       - name: Import Apple Developer ID certificate (temp keychain)
         env:
