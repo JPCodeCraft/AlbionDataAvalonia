@@ -24,16 +24,55 @@ jobs:
         run: |
           dotnet publish ./AlbionDataAvalonia.Desktop.MacOS/AlbionDataAvalonia.Desktop.MacOS.csproj --configuration Release
 
-      - name: Compress macOS .app bundle
+      - name: Import Apple Developer ID certificate (temp keychain)
+        env:
+          DEVELOPER_ID_CERT_BASE64: ${{ secrets.DEVELOPER_ID_CERT_BASE64 }}
+          DEVELOPER_ID_CERT_PASSWORD: ${{ secrets.DEVELOPER_ID_CERT_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
         run: |
-          cd ./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-x64/publish/
-          zip -r AFMDataClient_MacOS64.app.zip AFMDataClient_MacOS64.app
+          echo "$DEVELOPER_ID_CERT_BASE64" | base64 --decode > dev_id.p12
+          security create-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security set-keychain-settings -lut 21600 build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" build.keychain
+          security import dev_id.p12 -k build.keychain -P "$DEVELOPER_ID_CERT_PASSWORD" -T /usr/bin/codesign
+          security list-keychains -d user -s build.keychain login.keychain
+          security find-identity -p codesigning -v
 
-      - name: Upload macOS artifact
+      - name: Codesign macOS app (.app)
+        env:
+          DEVELOPER_ID_IDENTITY: ${{ secrets.DEVELOPER_ID_IDENTITY }}
+        run: |
+          APP_DIR="./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS64.app"
+          codesign --force --deep --options runtime --entitlements packaging/macos/entitlements.plist --timestamp -s "$DEVELOPER_ID_IDENTITY" "$APP_DIR"
+          codesign -dv --verbose=4 "$APP_DIR" || true
+
+      - name: Zip app for notarization
+        run: |
+          APP_DIR="./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS64.app"
+          ZIP_PATH="./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS64.app.zip"
+          ditto -c -k --sequesterRsrc --keepParent "$APP_DIR" "$ZIP_PATH"
+
+      - name: Notarize with notarytool (wait)
+        env:
+          AC_API_KEY_ID: ${{ secrets.AC_API_KEY_ID }}
+          AC_API_ISSUER_ID: ${{ secrets.AC_API_ISSUER_ID }}
+          AC_API_KEY_P8_BASE64: ${{ secrets.AC_API_KEY_P8_BASE64 }}
+        run: |
+          echo "$AC_API_KEY_P8_BASE64" | base64 --decode > AuthKey.p8
+          ZIP_PATH="./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS64.app.zip"
+          xcrun notarytool submit "$ZIP_PATH" --key AuthKey.p8 --key-id "$AC_API_KEY_ID" --issuer "$AC_API_ISSUER_ID" --wait
+
+      - name: Staple and validate
+        run: |
+          APP_DIR="./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS64.app"
+          xcrun stapler staple "$APP_DIR"
+          spctl -a -vv "$APP_DIR" || true
+
+      - name: Upload macOS artifact (signed+notarized)
         uses: actions/upload-artifact@v4
         with:
           name: macos-app
-          path: ./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-x64/publish/AFMDataClient_MacOS64.app.zip
+          path: ./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS64.app.zip
 
   build:
     runs-on: windows-latest
@@ -101,7 +140,7 @@ jobs:
         uses: actions/download-artifact@v4
         with:
           name: macos-app
-          path: AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-x64/publish
+          path: AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish
 
       - name: Compile .ISS to .EXE Installer
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.7
@@ -176,7 +215,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-x64/publish/AFMDataClient_MacOS64.app.zip
+          asset_path: ./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS64.app.zip
           asset_name: AFMDataClient_MacOS64.app.zip
           asset_content_type: application/zip
 
