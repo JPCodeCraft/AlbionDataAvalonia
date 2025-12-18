@@ -86,21 +86,28 @@ public partial class App : Application
         //AUTH SERVICE
         await authService.TryAutoLoginAsync();
 
-        //UPDATER
-        _updateTimer = new System.Timers.Timer
+        //UPDATER (Windows only)
+        if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.Windows))
         {
-            AutoReset = true,
-            Interval = TimeSpan.FromMinutes(settings.AppSettings.FirstUpdateCheckDelayMins).TotalMilliseconds, // Delay for the first run
-            Enabled = true
-        };
-        _updateTimer.Elapsed += async (sender, e) =>
-        {
-            // Change the interval to one hour after the first run
-            _updateTimer.Interval = TimeSpan.FromHours(settings.AppSettings.UpdateCheckIntervalHours).TotalMilliseconds;
+            _updateTimer = new System.Timers.Timer
+            {
+                AutoReset = true,
+                Interval = TimeSpan.FromMinutes(settings.AppSettings.FirstUpdateCheckDelayMins).TotalMilliseconds, // Delay for the first run
+                Enabled = true
+            };
+            _updateTimer.Elapsed += async (sender, e) =>
+            {
+                // Change the interval to one hour after the first run
+                _updateTimer.Interval = TimeSpan.FromHours(settings.AppSettings.UpdateCheckIntervalHours).TotalMilliseconds;
 
-            await ClientUpdater.CheckForUpdatesAsync(settings.AppSettings.LatestVersionUrl, settings.AppSettings.LatesVersionDownloadUrl, settings.AppSettings.FileNameFormat);
-        };
-        _updateTimer.Start();
+                await ClientUpdater.CheckForUpdatesAsync(settings.AppSettings.LatestVersionUrl, settings.AppSettings.LatesVersionDownloadUrl, settings.AppSettings.FileNameFormat);
+            };
+            _updateTimer.Start();
+        }
+        else
+        {
+            Log.Information("Auto-updater is disabled on this OS.");
+        }
 
         //UPLOADER
         var uploaderCancellationToken = new CancellationTokenSource();
@@ -147,7 +154,15 @@ public partial class App : Application
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
-            desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            // On macOS, quit when last window closes; elsewhere keep explicit shutdown to allow tray behavior
+            if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX))
+            {
+                desktop.ShutdownMode = ShutdownMode.OnLastWindowClose;
+            }
+            else
+            {
+                desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            }
 
             if (desktop.MainWindow == null)
             {

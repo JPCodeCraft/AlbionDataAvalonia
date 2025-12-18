@@ -75,7 +75,18 @@ namespace AlbionDataAvalonia.Network.Services
 
                 if (NpCapInstallationChecker.IsNpCapInstalled() == false)
                 {
-                    Log.Error("NpCap is not installed, please install it to use this application");
+                    if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+                    {
+                        Log.Error("Packet capture permissions are not configured. Click 'Install requirements', then log out/in, and click 'Check again'.");
+                    }
+                    else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+                    {
+                        Log.Error("libpcap is not installed or cannot be opened. Install libpcap (e.g., 'sudo apt-get install libpcap-dev') and click 'Check again'.");
+                    }
+                    else
+                    {
+                        Log.Error("Npcap is not installed. Please install Npcap and click 'Check again'.");
+                    }
                     return;
                 }
 

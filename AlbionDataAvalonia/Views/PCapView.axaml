@@ -8,8 +8,8 @@
 
 	<StackPanel x:DataType="vm:MainViewModel">
 		<StackPanel HorizontalAlignment="Center">
-			<Label Margin="0, 10, 0, 10" HorizontalAlignment="Center" Content="You need to install NpCap for the client to work." FontWeight="Bold" FontSize="20"/>
-			<Button Margin="0, 10, 0, 10" HorizontalAlignment="Center" Content="Go to download page" Command="{Binding InstallNpCapCommand}" />
+			<Label Margin="0, 10, 0, 10" HorizontalAlignment="Center" Content="You need to enable packet capture support for your OS." FontWeight="Bold" FontSize="20"/>
+			<Button Margin="0, 10, 0, 10" HorizontalAlignment="Center" Content="Install requirements" Command="{Binding InstallNpCapCommand}" />
 			<Button Margin="0, 10, 0, 10" HorizontalAlignment="Center" Content="Check again..." Command="{Binding ShowDashboardCommand}" />
 		</StackPanel>
 	</StackPanel>

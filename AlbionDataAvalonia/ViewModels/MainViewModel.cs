@@ -15,6 +15,7 @@ using Serilog;
 using System;
 using System.Collections.Concurrent;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
@@ -333,7 +334,9 @@ public partial class MainViewModel : ViewModelBase
             {
                 OpenUrl(_settingsManager.AppSettings.NPCapDownloadUrl);
             }
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            try
             {
                 Process.Start(new ProcessStartInfo
                 {
@@ -342,6 +345,54 @@ public partial class MainViewModel : ViewModelBase
                     UseShellExecute = false
                 });
             }
+            catch (Exception ex)
+            {
+                Log.Error("Install requirements error (Linux): {Message}", ex.Message);
+            }
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            try
+            {
+                // Prefer script inside the .app bundle exposed by run.sh
+                var candidates = new System.Collections.Generic.List<string>();
+                var bundleDir = Environment.GetEnvironmentVariable("AFM_APP_DIR");
+                if (!string.IsNullOrWhiteSpace(bundleDir))
+                    candidates.Add(Path.Combine(bundleDir!, "install", "install_access_bpf.sh"));
+
+                // Fallback to AppContext.BaseDirectory (single-file extraction dir)
+                candidates.Add(Path.Combine(AppContext.BaseDirectory, "install", "install_access_bpf.sh"));
+
+                // Fallback to default install location
+                candidates.Add("/Applications/AFM Data Client.app/Contents/MacOS/install/install_access_bpf.sh");
+
+                string? scriptPath = null;
+                foreach (var c in candidates)
+                {
+                    if (File.Exists(c)) { scriptPath = c; break; }
+                }
+
+                if (scriptPath == null)
+                {
+                    Log.Error("Install requirements script not found. Tried: {Candidates}", string.Join(", ", candidates));
+                    return;
+                }
+
+                var osa = new ProcessStartInfo
+                {
+                    FileName = "osascript",
+                    UseShellExecute = false
+                };
+                // do shell script "<path>" with administrator privileges
+                osa.ArgumentList.Add("-e");
+                osa.ArgumentList.Add($"do shell script \"{scriptPath}\" with administrator privileges");
+                Process.Start(osa);
+            }
+            catch (Exception ex)
+            {
+                Log.Error("Install requirements error (macOS): {Message}", ex.Message);
+            }
+        }
         }
         catch (Exception ex)
         {

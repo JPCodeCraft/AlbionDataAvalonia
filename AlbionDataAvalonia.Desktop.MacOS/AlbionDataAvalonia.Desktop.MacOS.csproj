@@ -7,7 +7,7 @@
     <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <SelfContained>true</SelfContained>
-    <RuntimeIdentifier>osx-x64</RuntimeIdentifier>
+    <RuntimeIdentifier>osx-arm64</RuntimeIdentifier>
     <UseAppHost>true</UseAppHost>
     <MacOSAppBundle>true</MacOSAppBundle>
     <MacOSAppCategory>public.app-category.utilities</MacOSAppCategory>
@@ -19,8 +19,8 @@
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="4.14.0" />
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="4.14.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.0-rc.1.25451.107" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.0-rc.1.25451.107">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.1" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.1">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
@@ -49,6 +49,19 @@
     <Copy SourceFiles="@(ConfigFiles)"
       DestinationFolder="$(AppBundlePath)/Contents/MacOS"
       Condition="Exists('$(PublishDir)DefaultAppSettings.json')" />
+
+    <!-- Include install scripts for BPF permissions -->
+    <MakeDir Directories="$(AppBundlePath)/Contents/MacOS/install" />
+    <Copy SourceFiles="install/install_access_bpf.sh"
+          DestinationFolder="$(AppBundlePath)/Contents/MacOS/install"
+          Condition="Exists('install/install_access_bpf.sh')" />
+    <Copy SourceFiles="install/uninstall_access_bpf.sh"
+          DestinationFolder="$(AppBundlePath)/Contents/MacOS/install"
+          Condition="Exists('install/uninstall_access_bpf.sh')" />
+    <Exec Command="chmod +x $(AppBundlePath)/Contents/MacOS/install/install_access_bpf.sh"
+          Condition=" '$(OS)' == 'Unix' And Exists('install/install_access_bpf.sh') " />
+    <Exec Command="chmod +x $(AppBundlePath)/Contents/MacOS/install/uninstall_access_bpf.sh"
+          Condition=" '$(OS)' == 'Unix' And Exists('install/uninstall_access_bpf.sh') " />
   </Target>
   <Target Name="SetWrapperAsEntryPoint" AfterTargets="Publish">
     <PropertyGroup>

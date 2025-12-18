@@ -4,6 +4,7 @@ using AlbionDataAvalonia.State;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using System.Runtime.InteropServices;
 
 namespace AlbionDataAvalonia.ViewModels;
 
@@ -60,6 +61,9 @@ public partial class SettingsViewModel : ViewModelBase
     }
 
     public int PowSolveWindowSize => _playerState?.PowSolveWindowSize ?? 0;
+
+    public bool IsMac => RuntimeInformation.IsOSPlatform(OSPlatform.OSX);
+    public bool NotMac => !IsMac;
 
     [RelayCommand]
     private void ClearPowSolveStats()

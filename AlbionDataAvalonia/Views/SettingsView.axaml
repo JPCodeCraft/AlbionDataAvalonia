@@ -11,7 +11,7 @@
 		<StackPanel Spacing="16">
 
 			<!--START HIDDEN-->
-			<CheckBox Content="Start Hidden" IsChecked="{Binding UserSettings.StartHidden}" Margin="0 0 0 10"/>
+			<CheckBox Content="Start Hidden" IsChecked="{Binding UserSettings.StartHidden}" IsVisible="{Binding NotMac}" Margin="0 0 0 10"/>
 
 			<!--THREAD COUNT-->
 			<StackPanel Margin="0 0 0 10" Spacing="12">
