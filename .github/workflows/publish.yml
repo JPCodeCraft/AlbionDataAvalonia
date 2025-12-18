@@ -1,3 +1,4 @@
+# Automated build and release workflow for AlbionDataAvalonia
 name: Build and Release
 
 on:
