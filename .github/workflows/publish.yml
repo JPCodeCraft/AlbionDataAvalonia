@@ -228,69 +228,20 @@ jobs:
           git push origin v.${{ env.VERSION }}
         shell: pwsh
 
-      - name: Create Release
-        id: create_release
-        uses: actions/create-release@v1
+      - name: Create Release and Upload Assets
         env:
-          GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
-        with:
-          tag_name: v.${{ env.VERSION }}
-          release_name: Albion Free Market Data Client v.${{ env.VERSION }}
-          body: |
-            Changes since last release:
-            ${{ env.COMMIT_LOG }}
-          draft: false
-          prerelease: false
-
-      - name: Upload Release Asset (Windows Installer)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: C:/Users/runneradmin/Documents/Inno Setup Output/AFMDataClientSetup_v_${{ env.VERSION }}.exe
-          asset_name: AFMDataClientSetup_v_${{ env.VERSION }}.exe
-          asset_content_type: application/octet-stream
-
-      - name: Upload Release Asset (Linux Binary)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./AlbionDataAvalonia.Desktop.Linux/bin/Release/net10.0/linux-x64/publish/AFMDataClient_Linux64
-          asset_name: AFMDataClient_Linux64
-          asset_content_type: application/octet-stream
-
-      - name: Upload Release Asset (Linux Installer)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./AlbionDataAvalonia.Desktop.Linux/bin/Release/net10.0/linux-x64/publish/AFMDataClient_Linux64_Installer.sh
-          asset_name: AFMDataClient_Linux64_Installer.sh
-          asset_content_type: application/x-sh
-
-      - name: Upload Release Asset (Linux Uninstaller)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./AlbionDataAvalonia.Desktop.Linux/bin/Release/net10.0/linux-x64/publish/AFMDataClient_Linux64_Uninstaller.sh
-          asset_name: AFMDataClient_Linux64_Uninstaller.sh
-          asset_content_type: application/x-sh
-
-      - name: Upload Release Asset (macOS .app Bundle)
-        uses: actions/upload-release-asset@v1
-        env:
-          GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
-        with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS64.app.zip
-          asset_name: AFMDataClient_MacOS64.app.zip
-          asset_content_type: application/zip
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release create "v.${{ env.VERSION }}" \
+            "C:/Users/runneradmin/Documents/Inno Setup Output/AFMDataClientSetup_v_${{ env.VERSION }}.exe#AFMDataClientSetup_v_${{ env.VERSION }}.exe" \
+            "./AlbionDataAvalonia.Desktop.Linux/bin/Release/net10.0/linux-x64/publish/AFMDataClient_Linux64#AFMDataClient_Linux64" \
+            "./AlbionDataAvalonia.Desktop.Linux/bin/Release/net10.0/linux-x64/publish/AFMDataClient_Linux64_Installer.sh#AFMDataClient_Linux64_Installer.sh" \
+            "./AlbionDataAvalonia.Desktop.Linux/bin/Release/net10.0/linux-x64/publish/AFMDataClient_Linux64_Uninstaller.sh#AFMDataClient_Linux64_Uninstaller.sh" \
+            "./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS64.app.zip#AFMDataClient_MacOS64.app.zip" \
+            --title "Albion Free Market Data Client v.${{ env.VERSION }}" \
+            --notes "Changes since last release:
+${{ env.COMMIT_LOG }}"
+        shell: bash
 
       - name: Create LatestVersion.json
         run: |
