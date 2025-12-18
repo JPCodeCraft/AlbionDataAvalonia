@@ -83,10 +83,57 @@ jobs:
             echo "✗ Notarization result file not found"
           fi
 
-      - name: Staple (will run after manual approval of RequestUUID)
+      - name: Extract notarization Submission ID
         run: |
-          echo "Note: Stapling is a manual step after notarization completes."
-          echo "Once Apple approves the submission, use: xcrun stapler staple <APP_PATH>"
+          if [ ! -f notarize_result.txt ]; then
+            echo "notarize_result.txt not found"; exit 1;
+          fi
+          SUBMISSION_ID=$(sed -n 's/^[[:space:]]*id:[[:space:]]*\(.*\)$/\1/p' notarize_result.txt | head -n1)
+          if [ -z "$SUBMISSION_ID" ]; then
+            echo "Failed to parse Submission ID from output:"; cat notarize_result.txt; exit 1;
+          fi
+          echo "SUBMISSION_ID=$SUBMISSION_ID" >> "$GITHUB_ENV"
+          echo "Submission ID: $SUBMISSION_ID"
+
+      - name: Wait for notarization result (poll)
+        env:
+          AC_API_KEY_ID: ${{ secrets.AC_API_KEY_ID }}
+          AC_API_ISSUER_ID: ${{ secrets.AC_API_ISSUER_ID }}
+        run: |
+          ATTEMPTS=30
+          SLEEP_SECS=30
+          STATUS=""
+          for i in $(seq 1 $ATTEMPTS); do
+            echo "Polling notarization status (attempt $i/$ATTEMPTS)..."
+            xcrun notarytool info "$SUBMISSION_ID" --key AuthKey.p8 --key-id "$AC_API_KEY_ID" --issuer "$AC_API_ISSUER_ID" 2>&1 | tee notary_info.txt || true
+            STATUS=$(sed -n 's/^[[:space:]]*status:[[:space:]]*\(.*\)$/\1/p' notary_info.txt | tr 'A-Z' 'a-z' | head -n1)
+            echo "Current status: ${STATUS:-unknown}"
+            if echo "$STATUS" | grep -q '^accepted'; then
+              echo "Accepted by Apple"; break;
+            fi
+            if echo "$STATUS" | grep -q '^invalid'; then
+              echo "Invalid submission. Fetching log..."
+              xcrun notarytool log "$SUBMISSION_ID" --key AuthKey.p8 --key-id "$AC_API_KEY_ID" --issuer "$AC_API_ISSUER_ID" | tee notary_log.txt
+              exit 1
+            fi
+            sleep $SLEEP_SECS
+          done
+          if ! echo "$STATUS" | grep -q '^accepted'; then
+            echo "Timed out waiting for notarization"; exit 1;
+          fi
+
+      - name: Staple and validate
+        run: |
+          APP_DIR="./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS64.app"
+          xcrun stapler staple "$APP_DIR"
+          spctl -a -vv "$APP_DIR" || true
+
+      - name: Re-zip stapled app for distribution
+        run: |
+          APP_DIR="./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS64.app"
+          ZIP_PATH="./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS64.app.zip"
+          rm -f "$ZIP_PATH"
+          ditto -c -k --sequesterRsrc --keepParent "$APP_DIR" "$ZIP_PATH"
 
       - name: Upload macOS artifact (signed+notarized)
         uses: actions/upload-artifact@v4
