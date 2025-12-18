@@ -1,3 +1,11 @@
+# Notes:
+# - This workflow currently creates a Windows/Linux/macOS release using GitHub-managed actions.
+# - If maintainers want to enable macOS code signing + Apple notarization in the future,
+#   you can add a separate macOS signing job that uses the following GitHub secrets:
+#   DEVELOPER_ID_CERT_BASE64, DEVELOPER_ID_CERT_PASSWORD, DEVELOPER_ID_IDENTITY,
+#   KEYCHAIN_PASSWORD, AC_API_KEY_ID, AC_API_ISSUER_ID, AC_API_KEY_P8_BASE64.
+# - Keep that job optional (guard with `if:` on secrets) so Windows/Linux releases are unaffected
+#   when those secrets are not configured.
 name: Build and Release
 
 on:
