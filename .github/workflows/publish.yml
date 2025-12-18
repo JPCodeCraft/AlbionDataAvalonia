@@ -100,26 +100,32 @@ jobs:
           AC_API_KEY_ID: ${{ secrets.AC_API_KEY_ID }}
           AC_API_ISSUER_ID: ${{ secrets.AC_API_ISSUER_ID }}
         run: |
-          ATTEMPTS=30
+          ATTEMPTS=60
           SLEEP_SECS=30
           STATUS=""
+          MAX_WAIT=$((ATTEMPTS * SLEEP_SECS))
+          echo "Will wait up to $MAX_WAIT seconds for Apple notarization..."
           for i in $(seq 1 $ATTEMPTS); do
-            echo "Polling notarization status (attempt $i/$ATTEMPTS)..."
+            ELAPSED=$((i * SLEEP_SECS))
+            echo "[${ELAPSED}s/$MAX_WAIT] Polling notarization status (attempt $i/$ATTEMPTS)..."
             xcrun notarytool info "$SUBMISSION_ID" --key AuthKey.p8 --key-id "$AC_API_KEY_ID" --issuer "$AC_API_ISSUER_ID" 2>&1 | tee notary_info.txt || true
             STATUS=$(sed -n 's/^[[:space:]]*status:[[:space:]]*\(.*\)$/\1/p' notary_info.txt | tr 'A-Z' 'a-z' | head -n1)
-            echo "Current status: ${STATUS:-unknown}"
+            echo "Status: ${STATUS:-unknown}"
             if echo "$STATUS" | grep -q '^accepted'; then
-              echo "Accepted by Apple"; break;
+              echo "✓ Accepted by Apple after $ELAPSED seconds"; break;
             fi
             if echo "$STATUS" | grep -q '^invalid'; then
-              echo "Invalid submission. Fetching log..."
+              echo "✗ Invalid submission. Fetching detailed log..."
               xcrun notarytool log "$SUBMISSION_ID" --key AuthKey.p8 --key-id "$AC_API_KEY_ID" --issuer "$AC_API_ISSUER_ID" | tee notary_log.txt
               exit 1
             fi
-            sleep $SLEEP_SECS
+            if [ $i -lt $ATTEMPTS ]; then
+              echo "Waiting ${SLEEP_SECS}s before next check..."
+              sleep $SLEEP_SECS
+            fi
           done
           if ! echo "$STATUS" | grep -q '^accepted'; then
-            echo "Timed out waiting for notarization"; exit 1;
+            echo "✗ Timed out after $MAX_WAIT seconds waiting for notarization approval"; exit 1;
           fi
 
       - name: Staple and validate
