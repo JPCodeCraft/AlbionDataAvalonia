@@ -3,6 +3,11 @@ name: Build and Release
 
 on:
   workflow_dispatch:
+  push:
+    branches:
+      - release/macos-signing
+    paths:
+      - '.github/workflows/publish.yml'
 
 jobs:
   build-macos:
