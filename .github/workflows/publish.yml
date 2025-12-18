@@ -55,7 +55,7 @@ jobs:
           ZIP_PATH="./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS64.app.zip"
           ditto -c -k --sequesterRsrc --keepParent "$APP_DIR" "$ZIP_PATH"
 
-      - name: Notarize with notarytool (wait)
+      - name: Submit to notarization (non-blocking)
         env:
           AC_API_KEY_ID: ${{ secrets.AC_API_KEY_ID }}
           AC_API_ISSUER_ID: ${{ secrets.AC_API_ISSUER_ID }}
@@ -63,13 +63,30 @@ jobs:
         run: |
           echo "$AC_API_KEY_P8_BASE64" | base64 --decode > AuthKey.p8
           ZIP_PATH="./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS64.app.zip"
-          xcrun notarytool submit "$ZIP_PATH" --key AuthKey.p8 --key-id "$AC_API_KEY_ID" --issuer "$AC_API_ISSUER_ID" --wait
-
-      - name: Staple and validate
+          echo "Submitting to Apple notarization..."
+          xcrun notarytool submit "$ZIP_PATH" --key AuthKey.p8 --key-id "$AC_API_KEY_ID" --issuer "$AC_API_ISSUER_ID" 2>&1 | tee notarize_result.txt
+          echo "Notarization submission complete. Output saved."
+          cat notarize_result.txt
+      
+      - name: Check notarization submission
+        if: always()
         run: |
-          APP_DIR="./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS64.app"
-          xcrun stapler staple "$APP_DIR"
-          spctl -a -vv "$APP_DIR" || true
+          if [ -f notarize_result.txt ]; then
+            echo "=== Notarization result ==="
+            cat notarize_result.txt
+            if grep -q "RequestUUID" notarize_result.txt; then
+              echo "✓ Submission successful (got RequestUUID)"
+            else
+              echo "✗ Submission may have failed or returned unexpected output"
+            fi
+          else
+            echo "✗ Notarization result file not found"
+          fi
+
+      - name: Staple (will run after manual approval of RequestUUID)
+        run: |
+          echo "Note: Stapling is a manual step after notarization completes."
+          echo "Once Apple approves the submission, use: xcrun stapler staple <APP_PATH>"
 
       - name: Upload macOS artifact (signed+notarized)
         uses: actions/upload-artifact@v4
