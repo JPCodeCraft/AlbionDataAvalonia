@@ -1,8 +1,11 @@
+using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.ViewModels;
 using Avalonia.Controls;
+using Avalonia.Input;
 using Avalonia.Platform.Storage;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace AlbionDataAvalonia.Views
 {
@@ -35,6 +38,25 @@ namespace AlbionDataAvalonia.Views
 
             await using var stream = await file.OpenWriteAsync();
             await vm.ExportToCsvAsync(stream);
+        }
+
+        private void MailsGrid_SelectionChanged(object? sender, SelectionChangedEventArgs e)
+        {
+            if (DataContext is not MailsViewModel vm) return;
+            if (sender is not DataGrid grid) return;
+
+            vm.UpdateSelectedMails(grid.SelectedItems.OfType<AlbionMail>());
+        }
+
+        private async void CopyValuePointerPressed(object? sender, PointerPressedEventArgs e)
+        {
+            if (sender is not TextBlock textBlock) return;
+            if (string.IsNullOrWhiteSpace(textBlock.Text)) return;
+
+            var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+            if (clipboard == null) return;
+
+            await clipboard.SetTextAsync(textBlock.Text);
         }
     }
 }
