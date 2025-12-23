@@ -5,6 +5,7 @@ using Avalonia.Input;
 using Avalonia.Platform.Storage;
 using System;
 using System.Collections.Generic;
+using System.Globalization;
 using System.Linq;
 
 namespace AlbionDataAvalonia.Views
@@ -51,12 +52,14 @@ namespace AlbionDataAvalonia.Views
         private async void CopyValuePointerPressed(object? sender, PointerPressedEventArgs e)
         {
             if (sender is not TextBlock textBlock) return;
-            if (string.IsNullOrWhiteSpace(textBlock.Text)) return;
+            if (textBlock.Tag is not IFormattable formattable) return;
 
             var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
             if (clipboard == null) return;
 
-            await clipboard.SetTextAsync(textBlock.Text);
+            string format = textBlock.Tag is decimal ? "F2" : "F0";
+            var text = formattable.ToString(format, CultureInfo.InvariantCulture);
+            await clipboard.SetTextAsync(text);
         }
     }
 }
