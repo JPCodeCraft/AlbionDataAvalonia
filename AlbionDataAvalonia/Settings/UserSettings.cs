@@ -144,6 +144,21 @@ public class UserSettings : INotifyPropertyChanged
                     Log.Information("Log level set to {LogLevel}", logLevel);
                 }
                 OnPropertyChanged(nameof(LogLevel));
+                OnPropertyChanged(nameof(LogLevelIndex));
+            }
+        }
+    }
+
+    public int LogLevelIndex
+    {
+        get => (int)logLevel;
+        set
+        {
+            var clamped = Math.Clamp(value, 0, 5);
+            var nextLevel = (LogEventLevel)clamped;
+            if (logLevel != nextLevel)
+            {
+                LogLevel = nextLevel;
             }
         }
     }
