@@ -9,7 +9,6 @@ After instalation, the Data Client will be minimized in system tray!
 
 ![image](https://github.com/user-attachments/assets/7093690e-5735-4636-bc69-7d00e57f7d57)
 
-
 ## 💻 Data Client
 
 An alternative client for [The Albion Online Data Project](https://www.albion-online-data.com/) that provides the same functionality as the official client, but with a user-friendly graphical interface and easy-to-use settings.
@@ -23,7 +22,6 @@ An alternative client for [The Albion Online Data Project](https://www.albion-on
 > **Free and Open Source**: This software is completely free, open source (check license) and is not tied to the usage of Albion Free Market website. The data uploaded via this software to AODP can be seen in any Albion Online fansite that consumes AODP and even on your own sheets.
 
 ![Main Interface](https://github.com/user-attachments/assets/ba7d2d33-9e80-49b2-aeae-6173892de15e)
-
 
 ## 🚀 Features
 
@@ -81,7 +79,7 @@ curl -s https://api.github.com/repos/JPCodeCraft/AlbionDataAvalonia/releases/lat
 ### MacOS
 
 AFM Data Client should be able to run on MacOS, but users have reported issues. Feel free to contribute to the repository if you can.
-Attention: at the moment there's no MacOS release available to download. To try it you'd need to build it yourself.
+If you are on Apple Silicon, download `AFMDataClient_MacOS_arm64.app.zip`. Intel users should download `AFMDataClient_MacOS_x64.app.zip`.
 
 ## 💻 System Requirements
 

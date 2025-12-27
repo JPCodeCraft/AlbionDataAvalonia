@@ -7,14 +7,14 @@
     <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
     <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
     <SelfContained>true</SelfContained>
-    <RuntimeIdentifier>osx-x64</RuntimeIdentifier>
+    <RuntimeIdentifiers>osx-x64;osx-arm64</RuntimeIdentifiers>
     <UseAppHost>true</UseAppHost>
     <MacOSAppBundle>true</MacOSAppBundle>
     <MacOSAppCategory>public.app-category.utilities</MacOSAppCategory>
   </PropertyGroup>
   <PropertyGroup>
     <AssemblyTitle>Albion Free Market Data Client</AssemblyTitle>
-    <AssemblyName>AFMDataClient_MacOS64</AssemblyName>
+    <AssemblyName>AFMDataClient_MacOS</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
     <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />

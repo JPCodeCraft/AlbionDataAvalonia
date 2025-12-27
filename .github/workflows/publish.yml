@@ -20,20 +20,35 @@ jobs:
           dotnet-version: "10.0.x"
           dotnet-quality: "preview"
 
-      - name: Publish macOS project
+      - name: Publish macOS project (x64)
         run: |
-          dotnet publish ./AlbionDataAvalonia.Desktop.MacOS/AlbionDataAvalonia.Desktop.MacOS.csproj --configuration Release
+          dotnet publish ./AlbionDataAvalonia.Desktop.MacOS/AlbionDataAvalonia.Desktop.MacOS.csproj --configuration Release -r osx-x64
 
-      - name: Compress macOS .app bundle
+      - name: Publish macOS project (arm64)
+        run: |
+          dotnet publish ./AlbionDataAvalonia.Desktop.MacOS/AlbionDataAvalonia.Desktop.MacOS.csproj --configuration Release -r osx-arm64
+
+      - name: Compress macOS .app bundle (x64)
         run: |
           cd ./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-x64/publish/
-          zip -r AFMDataClient_MacOS64.app.zip AFMDataClient_MacOS64.app
+          zip -r AFMDataClient_MacOS_x64.app.zip AFMDataClient_MacOS.app
 
-      - name: Upload macOS artifact
+      - name: Compress macOS .app bundle (arm64)
+        run: |
+          cd ./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/
+          zip -r AFMDataClient_MacOS_arm64.app.zip AFMDataClient_MacOS.app
+
+      - name: Upload macOS artifact (x64)
         uses: actions/upload-artifact@v4
         with:
-          name: macos-app
-          path: ./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-x64/publish/AFMDataClient_MacOS64.app.zip
+          name: macos-app-x64
+          path: ./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-x64/publish/AFMDataClient_MacOS_x64.app.zip
+
+      - name: Upload macOS artifact (arm64)
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-app-arm64
+          path: ./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS_arm64.app.zip
 
   build:
     runs-on: windows-latest
@@ -97,11 +112,17 @@ jobs:
           dotnet publish ./AlbionDataAvalonia.Desktop/AlbionDataAvalonia.Desktop.csproj --configuration Release
           dotnet publish ./AlbionDataAvalonia.Desktop.Linux/AlbionDataAvalonia.Desktop.Linux.csproj --configuration Release
 
-      - name: Download macOS artifact
+      - name: Download macOS artifact (x64)
         uses: actions/download-artifact@v4
         with:
-          name: macos-app
+          name: macos-app-x64
           path: AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-x64/publish
+
+      - name: Download macOS artifact (arm64)
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-app-arm64
+          path: AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish
 
       - name: Compile .ISS to .EXE Installer
         uses: Minionguyjpro/Inno-Setup-Action@v1.2.7
@@ -170,14 +191,24 @@ jobs:
           asset_name: AFMDataClient_Linux64_Uninstaller.sh
           asset_content_type: application/x-sh
 
-      - name: Upload Release Asset (macOS .app Bundle)
+      - name: Upload Release Asset (macOS .app Bundle x64)
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: ./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-x64/publish/AFMDataClient_MacOS64.app.zip
-          asset_name: AFMDataClient_MacOS64.app.zip
+          asset_path: ./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-x64/publish/AFMDataClient_MacOS_x64.app.zip
+          asset_name: AFMDataClient_MacOS_x64.app.zip
+          asset_content_type: application/zip
+
+      - name: Upload Release Asset (macOS .app Bundle arm64)
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: ./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS_arm64.app.zip
+          asset_name: AFMDataClient_MacOS_arm64.app.zip
           asset_content_type: application/zip
 
       - name: Create LatestVersion.json

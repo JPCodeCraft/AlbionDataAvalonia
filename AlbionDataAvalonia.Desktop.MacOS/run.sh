@@ -14,9 +14,9 @@ if [ "$EUID" -eq 0 ]; then
         export HOME=$(eval echo ~$SUDO_USER)
     fi
     cd "$APP_DIR"
-    exec "$APP_DIR/AFMDataClient_MacOS64" "$@"
+    exec "$APP_DIR/AFMDataClient_MacOS" "$@"
 else
     # Not root - prompt for admin privileges using osascript
     # This shows the native macOS password dialog
-    osascript -e "do shell script \"cd '$APP_DIR' && DISPLAY=:0 HOME='$HOME' '$APP_DIR/AFMDataClient_MacOS64'\" with administrator privileges"
+    osascript -e "do shell script \"cd '$APP_DIR' && DISPLAY=:0 HOME='$HOME' '$APP_DIR/AFMDataClient_MacOS'\" with administrator privileges"
 fi
