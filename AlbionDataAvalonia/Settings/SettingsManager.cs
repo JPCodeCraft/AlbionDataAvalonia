@@ -16,7 +16,7 @@ public class SettingsManager
 
     private string appSettingsDownloadUrl = "https://cdn.albionfreemarket.com/AlbionDataAvalonia/AlbionDataAvalonia/DefaultAppSettings.json";
     public UserSettings UserSettings { get; } = new();
-    public AppSettings AppSettings { get; private set; }
+    public AppSettings AppSettings { get; private set; } = new();
     public SettingsManager()
     {
     }
@@ -35,37 +35,44 @@ public class SettingsManager
 
     private void LoadUserSettings()
     {
-        // Get the path to the user settings file in the local app data directory
-        string localUserSettingsFilePath = Path.Combine(AppData.LocalPath, "UserSettings.json");
-
-        // If the user settings file doesn't exist in the local app data directory, use the default settings file
-        if (!File.Exists(localUserSettingsFilePath))
+        try
         {
-            localUserSettingsFilePath = deafultUserSettingsFilePath;
+            // Get the path to the user settings file in the local app data directory
+            string localUserSettingsFilePath = Path.Combine(AppData.LocalPath, "UserSettings.json");
 
-            // If we are in development mode, use the default settings file
+            // If the user settings file doesn't exist in the local app data directory, use the default settings file
+            if (!File.Exists(localUserSettingsFilePath))
+            {
+                localUserSettingsFilePath = deafultUserSettingsFilePath;
+
+                // If we are in development mode, use the default settings file
 #if DEBUG
-            localUserSettingsFilePath = deafultUserSettingsFilePath;
+                localUserSettingsFilePath = deafultUserSettingsFilePath;
 #endif
 
-            string json = File.ReadAllText(localUserSettingsFilePath);
-            var settings = JsonSerializer.Deserialize<UserSettings>(json);
+                string json = File.ReadAllText(localUserSettingsFilePath);
+                var settings = JsonSerializer.Deserialize<UserSettings>(json);
 
-            if (settings != null)
+                if (settings != null)
+                {
+                    UserSettings.UpdateFrom(settings);
+                    SaveUserSettings(); // Save the default settings to a new user settings file
+                }
+            }
+            else
             {
-                UserSettings.UpdateFrom(settings);
-                SaveUserSettings(); // Save the default settings to a new user settings file
+                string json = File.ReadAllText(localUserSettingsFilePath);
+                var settings = JsonSerializer.Deserialize<UserSettings>(json);
+
+                if (settings != null)
+                {
+                    UserSettings.UpdateFrom(settings);
+                }
             }
         }
-        else
+        catch (Exception ex)
         {
-            string json = File.ReadAllText(localUserSettingsFilePath);
-            var settings = JsonSerializer.Deserialize<UserSettings>(json);
-
-            if (settings != null)
-            {
-                UserSettings.UpdateFrom(settings);
-            }
+            Log.Error(ex, "Failed to load user settings; using defaults.");
         }
 
         UserSettings.PropertyChanged += UserSettings_PropertyChanged;
@@ -138,6 +145,7 @@ public class SettingsManager
         catch (Exception ex)
         {
             Log.Error($"Error in LoadAppSettingsFromLocal: {ex}");
+            AppSettings ??= new AppSettings();
         }
     }
 

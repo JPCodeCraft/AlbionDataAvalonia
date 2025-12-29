@@ -18,5 +18,6 @@ if [ "$EUID" -eq 0 ]; then
 else
     # Not root - prompt for admin privileges using osascript
     # This shows the native macOS password dialog
-    osascript -e "do shell script \"cd '$APP_DIR' && DISPLAY=:0 HOME='$HOME' '$APP_DIR/AFMDataClient_MacOS'\" with administrator privileges"
+    osascript -e "do shell script \"cd '$APP_DIR' && DISPLAY=:0 HOME='$HOME' '$APP_DIR/AFMDataClient_MacOS'\" with administrator privileges" &
+    exit 0
 fi

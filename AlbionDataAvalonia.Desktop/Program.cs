@@ -1,6 +1,7 @@
 ﻿using Avalonia;
 using Serilog;
 using System;
+using System.IO;
 
 namespace AlbionDataAvalonia.Desktop;
 
@@ -19,7 +20,12 @@ class Program
         }
         catch (Exception e)
         {
+            TryWriteStartupCrashLog(e);
             Log.Fatal(e, "Global Exception Handler.");
+        }
+        finally
+        {
+            Log.CloseAndFlush();
         }
     }
 
@@ -29,4 +35,20 @@ class Program
             .UsePlatformDetect()
             .WithInterFont()
             .LogToTrace();
+
+    private static void TryWriteStartupCrashLog(Exception exception)
+    {
+        try
+        {
+            var logDir = Path.Combine(
+                Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),
+                "AFMDataClient",
+                "logs");
+            Directory.CreateDirectory(logDir);
+            File.WriteAllText(Path.Combine(logDir, "startup-crash.txt"), exception.ToString());
+        }
+        catch
+        {
+        }
+    }
 }

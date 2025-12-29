@@ -1,35 +1,18 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <OutputType>WinExe</OutputType>
+    <OutputType>Exe</OutputType>
     <TargetFramework>net10.0</TargetFramework>
-    <Nullable>enable</Nullable>
     <PublishSingleFile>true</PublishSingleFile>
-    <IncludeAllContentForSelfExtract>true</IncludeAllContentForSelfExtract>
-    <IncludeNativeLibrariesForSelfExtract>true</IncludeNativeLibrariesForSelfExtract>
-    <SelfContained>true</SelfContained>
     <RuntimeIdentifiers>osx-x64;osx-arm64</RuntimeIdentifiers>
     <UseAppHost>true</UseAppHost>
-    <MacOSAppBundle>true</MacOSAppBundle>
-    <MacOSAppCategory>public.app-category.utilities</MacOSAppCategory>
+    <SelfContained>true</SelfContained>
   </PropertyGroup>
   <PropertyGroup>
     <AssemblyTitle>Albion Free Market Data Client</AssemblyTitle>
     <AssemblyName>AFMDataClient_MacOS</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="5.0.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.1">
-      <PrivateAssets>all</PrivateAssets>
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-    </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.1">
-      <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
-      <PrivateAssets>all</PrivateAssets>
-    </PackageReference>
-  </ItemGroup>
-  <ItemGroup>
-    <PackageReference Include="Avalonia.Desktop" Version="11.3.7" />
+    <PackageReference Include="Avalonia.Desktop" Version="11.3.10" />
     <ProjectReference Include="..\AlbionDataAvalonia\AlbionDataAvalonia.csproj" />
   </ItemGroup>
   <Target Name="CreateMacOSAppBundle" AfterTargets="Publish">
@@ -37,21 +20,19 @@
       <AppBundlePath>$(PublishDir)$(AssemblyName).app</AppBundlePath>
     </PropertyGroup>
     <ItemGroup>
-      <InfoPlist Include="Info.plist">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      </InfoPlist>
-      <ConfigFiles
-        Include="$(PublishDir)DefaultAppSettings.json;$(PublishDir)DefaultUserSettings.json" />
+      <PublishFiles Include="$(PublishDir)**"
+        Exclude="$(PublishDir)**/*.app;$(PublishDir)**/*.app/**;$(AppBundlePath)**" />
+      <InfoPlist Include="Info.plist" />
+      <AppIcon Include="..\AlbionDataAvalonia\Assets\logo.icns" />
     </ItemGroup>
     <MakeDir Directories="$(AppBundlePath)/Contents/MacOS" />
     <MakeDir Directories="$(AppBundlePath)/Contents/Resources" />
-    <Copy SourceFiles="$(PublishDir)$(AssemblyName)"
-      DestinationFolder="$(AppBundlePath)/Contents/MacOS" />
+    <Copy SourceFiles="@(PublishFiles)"
+      DestinationFiles="@(PublishFiles->'$(AppBundlePath)/Contents/MacOS/%(RecursiveDir)%(Filename)%(Extension)')" />
     <Copy SourceFiles="@(InfoPlist)" DestinationFolder="$(AppBundlePath)/Contents" />
-    <!-- Copy required configuration files to the MacOS folder -->
-    <Copy SourceFiles="@(ConfigFiles)"
-      DestinationFolder="$(AppBundlePath)/Contents/MacOS"
-      Condition="Exists('$(PublishDir)DefaultAppSettings.json')" />
+    <Copy SourceFiles="@(AppIcon)" DestinationFolder="$(AppBundlePath)/Contents/Resources" />
+    <Exec Command="chmod +x $(AppBundlePath)/Contents/MacOS/$(AssemblyName)"
+      Condition=" '$(OS)' == 'Unix' and Exists('$(AppBundlePath)/Contents/MacOS/$(AssemblyName)') " />
   </Target>
   <Target Name="SetWrapperAsEntryPoint" AfterTargets="Publish">
     <PropertyGroup>
@@ -59,20 +40,7 @@
     </PropertyGroup>
     <Copy SourceFiles="run.sh"
       DestinationFiles="$(AppBundlePath)/Contents/MacOS/AlbionDataAvalonia" />
-    <!-- Only execute chmod on Unix-based systems -->
     <Exec Command="chmod +x $(AppBundlePath)/Contents/MacOS/AlbionDataAvalonia"
       Condition=" '$(OS)' == 'Unix' " />
-  </Target>
-  <Target Name="AddAppIcon" AfterTargets="Publish">
-    <PropertyGroup>
-      <AppBundlePath>$(PublishDir)$(AssemblyName).app</AppBundlePath>
-    </PropertyGroup>
-    <ItemGroup>
-      <AppIcon Include="..\AlbionDataAvalonia\Assets\logo.icns">
-        <CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
-      </AppIcon>
-    </ItemGroup>
-    <Copy SourceFiles="..\AlbionDataAvalonia\Assets\logo.icns"
-      DestinationFolder="$(AppBundlePath)/Contents/Resources" />
   </Target>
 </Project>

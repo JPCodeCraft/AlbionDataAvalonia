@@ -3,9 +3,9 @@
 <plist version="1.0">
 <dict>
     <key>CFBundleName</key>
-    <string>AlbionDataAvalonia</string>
+    <string>AFM Data Client</string>
     <key>CFBundleDisplayName</key>
-    <string>Albion Data Avalonia</string>
+    <string>AFM Data Client</string>
     <key>CFBundleIdentifier</key>
     <string>com.albiondataavalonia.app</string>
     <key>CFBundleVersion</key>
@@ -26,5 +26,7 @@
     <string>NSApplication</string>
     <key>CFBundleIconFile</key>
     <string>logo.icns</string>
+    <key>NSHighResolutionCapable</key>
+    <true/>
 </dict>
 </plist>
