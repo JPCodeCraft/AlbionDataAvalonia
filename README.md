@@ -78,8 +78,28 @@ curl -s https://api.github.com/repos/JPCodeCraft/AlbionDataAvalonia/releases/lat
 
 ### MacOS
 
-AFM Data Client should be able to run on MacOS, but users have reported issues. Feel free to contribute to the repository if you can.
+AFM Data Client should be able to run on MacOS, but it's not very developed. Feel free to contribute to the repository if you can.
 If you are on Apple Silicon, download `AFMDataClient_MacOS_arm64.app.zip`. Intel users should download `AFMDataClient_MacOS_x64.app.zip`.
+
+Since the app is not signed, you'll get a warning like this when you try to run it:
+
+<img width="384" height="365" alt="Screenshot 2025-12-28 224658" src="https://github.com/user-attachments/assets/9855fd14-59c4-49aa-a7f9-7e392236e853" />
+
+If you click the ? button, this is the explanation and instructions shown on how to allow the app to run:
+
+<img width="924" height="779" alt="Screenshot 2025-12-28 224734" src="https://github.com/user-attachments/assets/05d0f10e-ec03-4fc9-b277-36fab9732066" />
+
+So in the Security section, click Open Anyway. You will need to type your password to allow it.
+
+<img width="900" height="429" alt="Screenshot 2025-12-28 224836" src="https://github.com/user-attachments/assets/20192951-1cb5-4b21-90fc-4acaa2afe555" />
+
+Everytime you open the app, it'll ask for your password, since it needs elevated privileges to be able to listen to the network packets. 
+
+The app will stay minimized in the top right.
+
+<img width="411" height="110" alt="Screenshot 2025-12-28 225223" src="https://github.com/user-attachments/assets/36249bfa-f19e-40e4-aad1-5e4d50f1fddc" />
+
+There's no automatic update feature for MacOS, so you should manually download new versions.
 
 ## 💻 System Requirements
 
