@@ -57,9 +57,11 @@
 	<ItemGroup>
 		<None Update="DefaultAppSettings.json">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
 		</None>
 		<None Update="DefaultUserSettings.json">
 			<CopyToOutputDirectory>PreserveNewest</CopyToOutputDirectory>
+			<CopyToPublishDirectory>PreserveNewest</CopyToPublishDirectory>
 		</None>
 	</ItemGroup>
 	<ItemGroup>

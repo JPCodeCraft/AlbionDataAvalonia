@@ -33,7 +33,14 @@ public partial class App : Application
 
     public override void Initialize()
     {
-        CheckAppAlreadyRunning();
+        try
+        {
+            CheckAppAlreadyRunning();
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to check whether app is already running.");
+        }
 
         AvaloniaXamlLoader.Load(this);
     }
