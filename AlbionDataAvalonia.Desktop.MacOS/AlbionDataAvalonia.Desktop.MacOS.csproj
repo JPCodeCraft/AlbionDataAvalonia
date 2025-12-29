@@ -34,4 +34,13 @@
     <Exec Command="chmod +x $(AppBundlePath)/Contents/MacOS/$(AssemblyName)"
       Condition=" '$(OS)' == 'Unix' and Exists('$(AppBundlePath)/Contents/MacOS/$(AssemblyName)') " />
   </Target>
+  <Target Name="SetWrapperAsEntryPoint" AfterTargets="Publish">
+    <PropertyGroup>
+      <AppBundlePath>$(PublishDir)$(AssemblyName).app</AppBundlePath>
+    </PropertyGroup>
+    <Copy SourceFiles="run.sh"
+      DestinationFiles="$(AppBundlePath)/Contents/MacOS/AlbionDataAvalonia" />
+    <Exec Command="chmod +x $(AppBundlePath)/Contents/MacOS/AlbionDataAvalonia"
+      Condition=" '$(OS)' == 'Unix' " />
+  </Target>
 </Project>

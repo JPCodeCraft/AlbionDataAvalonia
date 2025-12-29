@@ -13,7 +13,7 @@
     <key>CFBundleShortVersionString</key>
     <string>$(Version)</string>
     <key>CFBundleExecutable</key>
-    <string>AFMDataClient_MacOS</string>
+    <string>AlbionDataAvalonia</string>
     <key>CFBundlePackageType</key>
     <string>APPL</string>
     <key>CFBundleSignature</key>
