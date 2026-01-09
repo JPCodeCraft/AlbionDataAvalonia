@@ -84,6 +84,7 @@ public partial class App : Application
         var afmUploader = services.GetRequiredService<AFMUploader>();
         var localization = services.GetRequiredService<LocalizationService>();
         var itemsIdsService = services.GetRequiredService<ItemsIdsService>();
+        var achievementsService = services.GetRequiredService<AchievementsService>();
         var idleService = services.GetRequiredService<IdleService>();
         var authService = services.GetRequiredService<AuthService>();
 
@@ -145,6 +146,9 @@ public partial class App : Application
 
         //INITIALIZE ITEMS IDS
         await itemsIdsService.InitializeAsync();
+
+        //INITIALIZE ACHIEVEMENTS
+        await achievementsService.InitializeAsync();
 
         //INITIALIZE LOCATIONS
         await AlbionLocations.InitializeAsync();
@@ -231,6 +235,7 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<TradeService>();
         collection.AddSingleton<LocalizationService>();
         collection.AddSingleton<ItemsIdsService>();
+        collection.AddSingleton<AchievementsService>();
         collection.AddSingleton<AuthService>();
         collection.AddSingleton<CsvExportService>();
 

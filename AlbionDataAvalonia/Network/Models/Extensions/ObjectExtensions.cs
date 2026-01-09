@@ -91,6 +91,26 @@ public static class ObjectExtensions
         throw new InvalidCastException($"Cannot convert {obj?.GetType()} to long array.");
     }
 
+    public static short[] ToShortArray(this object obj)
+    {
+        if (obj is short[] arr) return arr;
+        if (obj is IEnumerable enumerable)
+        {
+            return enumerable.Cast<object>().Select(x => x.ToShort()).ToArray();
+        }
+        throw new InvalidCastException($"Cannot convert {obj?.GetType()} to short array.");
+    }
+
+    public static byte[] ToByteArray(this object obj)
+    {
+        if (obj is byte[] arr) return arr;
+        if (obj is IEnumerable enumerable)
+        {
+            return enumerable.Cast<object>().Select(x => x.ToByte()).ToArray();
+        }
+        throw new InvalidCastException($"Cannot convert {obj?.GetType()} to byte array.");
+    }
+
     public static bool[] ToBoolArray(this object obj)
     {
         if (obj is bool[] arr) return arr;
