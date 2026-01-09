@@ -40,7 +40,9 @@ public class FullAchievementInfoEventHandler : EventPacketHandler<FullAchievemen
         {
             for (int i = 0; i < level100Indices.Length; i++)
             {
-                levelByIndex[level100Indices[i]] = 100;
+                var index = level100Indices[i];
+                var info = achievementsService.GetAchievementInfoByIndex(index);
+                levelByIndex[index] = info.IsTemplate ? (byte)100 : (byte)1;
             }
         }
 
@@ -56,8 +58,8 @@ public class FullAchievementInfoEventHandler : EventPacketHandler<FullAchievemen
         var achievements = new List<AchievementInfo>(keys.Count);
         foreach (var index in keys)
         {
-            var id = achievementsService.GetAchievementIdByIndex(index);
-            achievements.Add(new AchievementInfo(id, levelByIndex[index]));
+            var info = achievementsService.GetAchievementInfoByIndex(index);
+            achievements.Add(new AchievementInfo(info.Id, levelByIndex[index]));
         }
 
         achievements.ForEach(a => Log.Information("Achievement {AchievementId} is at level {Level}.", a.Id, a.Level));

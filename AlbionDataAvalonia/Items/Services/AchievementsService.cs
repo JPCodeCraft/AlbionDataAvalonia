@@ -9,13 +9,13 @@ namespace AlbionDataAvalonia.Items.Services
 {
     public class AchievementsService
     {
-        public readonly record struct AchievementDefinition(int Index, string Id);
+        public readonly record struct AchievementInfo(string Id, bool IsTemplate);
 
         private const string XmlUrl = "https://cdn.albionfreemarket.com/ao-bin-dumps/achievements.xml";
-        private readonly Dictionary<int, string> achievementMappings = new();
-        private readonly List<AchievementDefinition> achievements = new();
+        private readonly Dictionary<int, AchievementInfo> achievementMappings = new();
+        private readonly List<AchievementInfo> achievements = new();
 
-        public IReadOnlyList<AchievementDefinition> Achievements => achievements;
+        public IReadOnlyList<AchievementInfo> Achievements => achievements;
 
         public async Task InitializeAsync()
         {
@@ -42,8 +42,9 @@ namespace AlbionDataAvalonia.Items.Services
                         foreach (var element in achievementsElement.Elements())
                         {
                             var name = element.Name.LocalName;
-                            if (!string.Equals(name, "achievement", StringComparison.OrdinalIgnoreCase) &&
-                                !string.Equals(name, "templateachievement", StringComparison.OrdinalIgnoreCase))
+                            var isAchievement = string.Equals(name, "achievement", StringComparison.OrdinalIgnoreCase);
+                            var isTemplateAchievement = string.Equals(name, "templateachievement", StringComparison.OrdinalIgnoreCase);
+                            if (!isAchievement && !isTemplateAchievement)
                             {
                                 continue;
                             }
@@ -54,8 +55,9 @@ namespace AlbionDataAvalonia.Items.Services
                                 continue;
                             }
 
-                            achievements.Add(new AchievementDefinition(index, id));
-                            achievementMappings[index] = id;
+                            var isTemplate = isTemplateAchievement;
+                            achievements.Add(new AchievementInfo(id, isTemplate));
+                            achievementMappings[index] = new AchievementInfo(id, isTemplate);
                             index++;
                         }
                     }
@@ -68,14 +70,14 @@ namespace AlbionDataAvalonia.Items.Services
             }
         }
 
-        public string GetAchievementIdByIndex(int index)
+        public AchievementInfo GetAchievementInfoByIndex(int index)
         {
-            if (achievementMappings.TryGetValue(index, out var id))
+            if (achievementMappings.TryGetValue(index, out var info))
             {
-                return id;
+                return info;
             }
 
-            return $"Unknown Achievement ({index})";
+            return new AchievementInfo($"Unknown Achievement ({index})", false);
         }
     }
 }
