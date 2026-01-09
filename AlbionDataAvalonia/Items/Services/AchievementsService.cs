@@ -2,45 +2,20 @@ using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
-using System.Text.Json;
-using System.Text.Json.Serialization;
 using System.Threading.Tasks;
+using System.Xml.Linq;
 
 namespace AlbionDataAvalonia.Items.Services
 {
     public class AchievementsService
     {
-        private sealed class AchievementsRoot
-        {
-            [JsonPropertyName("achievements")]
-            public AchievementsContainer? Achievements { get; set; }
-        }
-
-        private sealed class AchievementsContainer
-        {
-            [JsonPropertyName("achievement")]
-            public AchievementEntry[]? Achievement { get; set; }
-
-            [JsonPropertyName("templateachievement")]
-            public AchievementEntry[]? TemplateAchievement { get; set; }
-        }
-
-        private sealed class AchievementEntry
-        {
-            [JsonPropertyName("@id")]
-            public string? Id { get; set; }
-        }
-
         public readonly record struct AchievementDefinition(int Index, string Id);
 
-        private const string JsonUrl = "https://cdn.albionfreemarket.com/ao-bin-dumps/achievements.json";
+        private const string XmlUrl = "https://cdn.albionfreemarket.com/ao-bin-dumps/achievements.xml";
         private readonly Dictionary<int, string> achievementMappings = new();
-        private readonly Dictionary<int, string> templateAchievementMappings = new();
         private readonly List<AchievementDefinition> achievements = new();
-        private readonly List<AchievementDefinition> templateAchievements = new();
 
         public IReadOnlyList<AchievementDefinition> Achievements => achievements;
-        public IReadOnlyList<AchievementDefinition> TemplateAchievements => templateAchievements;
 
         public async Task InitializeAsync()
         {
@@ -49,45 +24,39 @@ namespace AlbionDataAvalonia.Items.Services
                 Log.Information("Initializing Achievements service...");
                 using (var httpClient = new HttpClient())
                 {
-                    var json = await httpClient.GetStringAsync(JsonUrl);
-                    if (!string.IsNullOrEmpty(json))
+                    var xml = await httpClient.GetStringAsync(XmlUrl);
+                    if (!string.IsNullOrEmpty(xml))
                     {
-                        var root = JsonSerializer.Deserialize<AchievementsRoot>(json);
-                        var achievementsRoot = root?.Achievements;
-
                         achievementMappings.Clear();
-                        templateAchievementMappings.Clear();
                         achievements.Clear();
-                        templateAchievements.Clear();
 
-                        if (achievementsRoot?.Achievement != null)
+                        var document = XDocument.Parse(xml);
+                        var achievementsElement = document.Root;
+                        if (achievementsElement == null)
                         {
-                            for (int i = 0; i < achievementsRoot.Achievement.Length; i++)
-                            {
-                                var id = achievementsRoot.Achievement[i].Id;
-                                if (string.IsNullOrWhiteSpace(id))
-                                {
-                                    continue;
-                                }
-
-                                achievements.Add(new AchievementDefinition(i, id));
-                                achievementMappings[i] = id;
-                            }
+                            Log.Warning("Achievements XML is missing root element.");
+                            return;
                         }
 
-                        if (achievementsRoot?.TemplateAchievement != null)
+                        int index = 0;
+                        foreach (var element in achievementsElement.Elements())
                         {
-                            for (int i = 0; i < achievementsRoot.TemplateAchievement.Length; i++)
+                            var name = element.Name.LocalName;
+                            if (!string.Equals(name, "achievement", StringComparison.OrdinalIgnoreCase) &&
+                                !string.Equals(name, "templateachievement", StringComparison.OrdinalIgnoreCase))
                             {
-                                var id = achievementsRoot.TemplateAchievement[i].Id;
-                                if (string.IsNullOrWhiteSpace(id))
-                                {
-                                    continue;
-                                }
-
-                                templateAchievements.Add(new AchievementDefinition(i, id));
-                                templateAchievementMappings[i] = id;
+                                continue;
                             }
+
+                            var id = element.Attribute("id")?.Value;
+                            if (string.IsNullOrWhiteSpace(id))
+                            {
+                                continue;
+                            }
+
+                            achievements.Add(new AchievementDefinition(index, id));
+                            achievementMappings[index] = id;
+                            index++;
                         }
                     }
                 }
@@ -99,14 +68,14 @@ namespace AlbionDataAvalonia.Items.Services
             }
         }
 
-        public string GetTemplateAchievementIdByIndex(int index)
+        public string GetAchievementIdByIndex(int index)
         {
-            if (templateAchievementMappings.TryGetValue(index, out var templateId))
+            if (achievementMappings.TryGetValue(index, out var id))
             {
-                return templateId;
+                return id;
             }
 
-            return $"Unknown Template Achievement ({index})";
+            return $"Unknown Achievement ({index})";
         }
     }
 }

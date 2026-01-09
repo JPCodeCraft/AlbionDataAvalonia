@@ -20,12 +20,12 @@ public class FullAchievementInfoEventHandler : EventPacketHandler<FullAchievemen
 
     protected override async Task OnActionAsync(FullAchievementInfoEvent value)
     {
-        var indices = value.AchievementIndices;
+        var indices = value.AchievementsIndex;
         var levels = value.AchievementLevels;
-        var level100Indices = value.AchievementLevel100Indices;
+        var level100Indices = value.AchievementsIndexLevel100;
         if (indices is null || levels is null)
         {
-            indices = Array.Empty<int>();
+            indices = Array.Empty<short>();
             levels = Array.Empty<byte>();
         }
 
@@ -56,12 +56,11 @@ public class FullAchievementInfoEventHandler : EventPacketHandler<FullAchievemen
         var achievements = new List<AchievementInfo>(keys.Count);
         foreach (var index in keys)
         {
-            var id = achievementsService.GetTemplateAchievementIdByIndex(index);
+            var id = achievementsService.GetAchievementIdByIndex(index);
             achievements.Add(new AchievementInfo(id, levelByIndex[index]));
-
         }
 
-        achievements.ForEach(a => Log.Information("Achievement {AchievementId} at level {AchievementLevel}", a.Id, a.Level));
+        achievements.ForEach(a => Log.Information("Achievement {AchievementId} is at level {Level}.", a.Id, a.Level));
 
         await Task.CompletedTask;
     }
