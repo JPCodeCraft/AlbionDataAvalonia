@@ -109,6 +109,21 @@ public class UserSettings : INotifyPropertyChanged
         }
     }
 
+    private bool uploadSpecsToAfm = true;
+    public bool UploadSpecsToAfm
+    {
+        get => uploadSpecsToAfm;
+        set
+        {
+            if (uploadSpecsToAfm != value)
+            {
+                uploadSpecsToAfm = value;
+                OnPropertyChanged(nameof(UploadSpecsToAfm));
+                Log.Information("Upload specs to AFM set to {UploadSpecsToAfm}", uploadSpecsToAfm);
+            }
+        }
+    }
+
     private double salesTax = 0.04;
     public double SalesTax
     {

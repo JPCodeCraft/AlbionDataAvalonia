@@ -3,6 +3,7 @@ using AlbionDataAvalonia.Items.Services;
 using AlbionDataAvalonia.Network.Events;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Services;
+using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.Shared;
 using AlbionDataAvalonia.State;
 using System.Collections.Generic;
@@ -17,16 +18,25 @@ public class FullAchievementInfoEventHandler : EventPacketHandler<FullAchievemen
     private readonly AchievementsService achievementsService;
     private readonly PlayerState playerState;
     private readonly AFMUploader afmUploader;
+    private readonly SettingsManager settingsManager;
 
-    public FullAchievementInfoEventHandler(AchievementsService achievementsService, PlayerState playerState, AFMUploader afmUploader) : base((int)EventCodes.FullAchievementInfo)
+    public FullAchievementInfoEventHandler(AchievementsService achievementsService, PlayerState playerState, AFMUploader afmUploader, SettingsManager settingsManager) : base((int)EventCodes.FullAchievementInfo)
     {
         this.achievementsService = achievementsService;
         this.playerState = playerState;
         this.afmUploader = afmUploader;
+        this.settingsManager = settingsManager;
     }
 
     protected override async Task OnActionAsync(FullAchievementInfoEvent value)
     {
+        if (!settingsManager.UserSettings.UploadSpecsToAfm)
+        {
+            await Task.CompletedTask;
+            Log.Debug("Not uploading achievements, upload to AFM is disabled in settings.");
+            return;
+        }
+
         if (playerState.AlbionServer is null || string.IsNullOrWhiteSpace(playerState.PlayerName))
         {
             await Task.CompletedTask;

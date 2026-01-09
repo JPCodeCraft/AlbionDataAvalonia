@@ -59,6 +59,9 @@ public partial class MainViewModel : ViewModelBase
     {
         _playerState.ContributeToPublic = value;
     }
+    
+    [ObservableProperty]
+    private UserSettings userSettings;
 
     [ObservableProperty]
     private bool showGetInGame = false;
@@ -163,6 +166,8 @@ public partial class MainViewModel : ViewModelBase
             FirebaseUser = user;
             UserLoggedIn = FirebaseUser is not null ? true : false;
         };
+        
+        userSettings = _settingsManager.UserSettings;
 
         if (NpCapInstallationChecker.IsNpCapInstalled())
         {

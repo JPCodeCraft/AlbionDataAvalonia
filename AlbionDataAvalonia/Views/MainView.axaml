@@ -150,6 +150,9 @@
 								IsEnabled="{Binding UploadToAfmOnly}"
 								ToolTip.Tip="If you mark this, the orders you upload will be used by everyone in AFM public flips. If you don't mark this, only you will see the orders you upload."
 								Margin="0,0,0,5" FontSize="11">Share with Other AFM Users</CheckBox>
+							<CheckBox IsChecked="{Binding UserSettings.UploadSpecsToAfm}"
+								ToolTip.Tip="If you mark this, your character specs will be uploaded to AFM."
+								Margin="0,0,0,5" FontSize="11">Upload Specs to AFM</CheckBox>
 						</StackPanel>
 
 						<!-- Logout button -->
