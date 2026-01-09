@@ -61,5 +61,4 @@ namespace AlbionDataAvalonia.Network.Events
         }
     }
 
-    public readonly record struct AchievementInfo(string Id, byte Level);
 }

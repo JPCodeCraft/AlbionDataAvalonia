@@ -189,6 +189,11 @@ namespace AlbionDataAvalonia.Network.Services
             _ = Upload(playerCount);
         }
 
+        public void UploadAchievements(AchievementUpload achievementUpload)
+        {
+            _ = Upload(achievementUpload);
+        }
+
         private async Task Upload(PlayerCount playerCount)
         {
             var requestUri = new Uri(httpClient.BaseAddress, "playercount");
@@ -201,6 +206,75 @@ namespace AlbionDataAvalonia.Network.Services
             }
 
             Log.Debug("Successfully sent player count to {0}.", requestUri);
+        }
+
+        private async Task Upload(AchievementUpload achievementUpload)
+        {
+            var hasValidToken = await _authService.EnsureValidTokenAsync();
+            if (!hasValidToken)
+            {
+                Log.Error("Cannot upload achievements without a valid Firebase session.");
+                return;
+            }
+
+            var firebaseUserId = _authService.FirebaseUserId;
+            if (firebaseUserId is null)
+            {
+                Log.Error("Cannot upload achievements without a Firebase user ID.");
+                return;
+            }
+
+            var requestUri = new Uri(httpClient.BaseAddress, "be/achievements");
+            var serializerOptions = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+            };
+
+            async Task<HttpResponseMessage> SendAsync()
+            {
+                return await httpClient.PostAsJsonAsync(requestUri, achievementUpload, serializerOptions);
+            }
+
+            HttpResponseMessage? response = null;
+
+            try
+            {
+                response = await SendAsync();
+
+                if (response.StatusCode == HttpStatusCode.Unauthorized)
+                {
+                    response.Dispose();
+                    response = null;
+
+                    var recovered = await _authService.TryRecoverFromUnauthorizedAsync();
+                    if (!recovered)
+                    {
+                        return;
+                    }
+
+                    response = await SendAsync();
+
+                    if (response.StatusCode == HttpStatusCode.Unauthorized)
+                    {
+                        var unauthorizedBody = await response.Content.ReadAsStringAsync();
+                        Log.Error("AFM achievements upload unauthorized after retry. Returned: {0} ({1}).", response.StatusCode, unauthorizedBody);
+                        return;
+                    }
+                }
+
+                if (response.StatusCode != HttpStatusCode.OK)
+                {
+                    Log.Error("HTTP Error while uploading achievements. Returned: {0} ({1}).", response.StatusCode, await response.Content.ReadAsStringAsync());
+                    return;
+                }
+
+                Log.Debug("Successfully sent achievements to {0}.", requestUri);
+            }
+            finally
+            {
+                response?.Dispose();
+            }
         }
 
         public void Dispose()
