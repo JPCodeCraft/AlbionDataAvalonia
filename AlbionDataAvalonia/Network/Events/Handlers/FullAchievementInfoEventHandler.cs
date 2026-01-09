@@ -1,7 +1,10 @@
 ﻿using Albion.Network;
 using AlbionDataAvalonia.Items.Services;
 using AlbionDataAvalonia.Network.Events;
+using AlbionDataAvalonia.Network.Models;
+using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Shared;
+using AlbionDataAvalonia.State;
 using System.Collections.Generic;
 using System;
 using System.Threading.Tasks;
@@ -12,14 +15,25 @@ namespace AlbionDataAvalonia.Network.Handlers;
 public class FullAchievementInfoEventHandler : EventPacketHandler<FullAchievementInfoEvent>
 {
     private readonly AchievementsService achievementsService;
+    private readonly PlayerState playerState;
+    private readonly AFMUploader afmUploader;
 
-    public FullAchievementInfoEventHandler(AchievementsService achievementsService) : base((int)EventCodes.FullAchievementInfo)
+    public FullAchievementInfoEventHandler(AchievementsService achievementsService, PlayerState playerState, AFMUploader afmUploader) : base((int)EventCodes.FullAchievementInfo)
     {
         this.achievementsService = achievementsService;
+        this.playerState = playerState;
+        this.afmUploader = afmUploader;
     }
 
     protected override async Task OnActionAsync(FullAchievementInfoEvent value)
     {
+        if (playerState.AlbionServer is null || string.IsNullOrWhiteSpace(playerState.PlayerName))
+        {
+            await Task.CompletedTask;
+            Log.Warning("Not uploading achievements, player state is not ready.");
+            return;
+        }
+
         var indices = value.AchievementsIndex;
         var levels = value.AchievementLevels;
         var level100Indices = value.AchievementsIndexLevel100;
@@ -49,20 +63,32 @@ public class FullAchievementInfoEventHandler : EventPacketHandler<FullAchievemen
         if (levelByIndex.Count == 0)
         {
             await Task.CompletedTask;
+            Log.Warning("Not uploading achievements, no achievements to upload.");
             return;
         }
 
         var keys = new List<int>(levelByIndex.Keys);
         keys.Sort();
 
-        var achievements = new List<AchievementInfo>(keys.Count);
+        var achievements = new List<AchievementUploadEntry>(keys.Count);
         foreach (var index in keys)
         {
             var info = achievementsService.GetAchievementInfoByIndex(index);
-            achievements.Add(new AchievementInfo(info.Id, levelByIndex[index]));
+            achievements.Add(new AchievementUploadEntry
+            {
+                Id = info.Id,
+                Level = levelByIndex[index]
+            });
         }
 
-        achievements.ForEach(a => Log.Information("Achievement {AchievementId} is at level {Level}.", a.Id, a.Level));
+        var upload = new AchievementUpload
+        {
+            CharacterName = playerState.PlayerName,
+            ServerId = playerState.AlbionServer.Id,
+            Achievements = achievements
+        };
+
+        afmUploader.UploadAchievements(upload);
 
         await Task.CompletedTask;
     }

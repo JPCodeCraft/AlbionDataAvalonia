@@ -5,7 +5,7 @@ namespace AlbionDataAvalonia.Network.Models;
 public class AchievementUpload
 {
     public string CharacterName { get; set; } = string.Empty;
-    public AlbionServer Server { get; set; } = null!;
+    public int ServerId { get; set; }
     public List<AchievementUploadEntry> Achievements { get; set; } = new();
 }
 
