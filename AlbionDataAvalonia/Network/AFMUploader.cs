@@ -269,7 +269,7 @@ namespace AlbionDataAvalonia.Network.Services
                     return;
                 }
 
-                Log.Debug("Successfully sent achievements to {0}.", requestUri);
+                Log.Information("Successfully sent {0} achievements for character {1} on server {2} to AFM.", achievementUpload.Achievements.Count, achievementUpload.CharacterName, _playerState.AlbionServer?.Name ?? "Unknown");
             }
             finally
             {

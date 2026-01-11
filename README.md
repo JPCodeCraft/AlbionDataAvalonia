@@ -31,6 +31,7 @@ An alternative client for [The Albion Online Data Project](https://www.albion-on
 | 📬 Market Mail Tracking   | Collects and displays your market mail data for price tracking                 |
 | 🪙 Trade History          | Stores instant buy/sell trades for later reference                             |
 | 📡 Enhanced Capture       | Captures data from loadout's quick buy screen, market screens, and gold screen |
+| 📊 Specs Capture          | Uploads character specs for use with AFM website                               |
 | 🚀 Launch on Startup      | Automatically starts with your system                                          |
 | 📌 System Tray            | Runs quietly in system tray for minimal interference                           |
 | 🔄 Auto-Updates           | Silent, automatic updates                                                      |
@@ -93,7 +94,7 @@ So in the Security section, click Open Anyway. You will need to type your passwo
 
 <img width="900" height="429" alt="Screenshot 2025-12-28 224836" src="https://github.com/user-attachments/assets/20192951-1cb5-4b21-90fc-4acaa2afe555" />
 
-Everytime you open the app, it'll ask for your password, since it needs elevated privileges to be able to listen to the network packets. 
+Everytime you open the app, it'll ask for your password, since it needs elevated privileges to be able to listen to the network packets.
 
 The app will stay minimized in the top right.
 
