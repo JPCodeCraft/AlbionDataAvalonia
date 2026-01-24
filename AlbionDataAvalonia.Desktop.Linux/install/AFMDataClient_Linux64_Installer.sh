@@ -12,18 +12,49 @@ echo "Welcome to the Albion Data Client installation / update script!"
 
 echo "Killing the current process if it's running..."
 for pid in $(pgrep -f $APP_NAME | grep -v $$); do
-    kill -9 $pid
+    kill -9 $pid 2>/dev/null || true
 done
 
 echo "Creating directory $TARGET_FOLDER..."
 mkdir -p "$TARGET_FOLDER"
 
 echo "Installing curl if it's not already installed..."
-sudo apt-get install curl
+if command -v apt-get &> /dev/null; then
+    sudo apt-get install -y curl
+elif command -v dnf &> /dev/null; then
+    sudo dnf install -y curl
+elif command -v yum &> /dev/null; then
+    sudo yum install -y curl
+elif command -v pacman &> /dev/null; then
+    sudo pacman -S --noconfirm curl
+fi
 
 echo "Downloading the latest version of the app..."
-DOWNLOAD_URL=$(curl -s $REPO_API_URL | grep "browser_download_url.*$FILE_NAME" | cut -d : -f 2,3 | tr -d \" )
-wget --show-progress $DOWNLOAD_URL -O "$FULL_PATH"
+if command -v jq &> /dev/null; then
+    DOWNLOAD_URL=$(curl -s $REPO_API_URL | jq -r ".assets[] | select(.name == \"$FILE_NAME\") | .browser_download_url")
+else
+    DOWNLOAD_URL=$(curl -s $REPO_API_URL | grep -o "\"browser_download_url\": \"[^\"]*$FILE_NAME[^\"]*\"" | head -1 | cut -d '"' -f 4)
+fi
+
+if [ -z "$DOWNLOAD_URL" ] || [ "$DOWNLOAD_URL" = "null" ]; then
+    echo "Error: Could not find download URL for $FILE_NAME"
+    exit 1
+fi
+
+TEMP_FILE="${FULL_PATH}.tmp"
+
+if command -v wget &> /dev/null; then
+    wget --show-progress -O "$TEMP_FILE" "$DOWNLOAD_URL"
+else
+    curl -L --progress-bar -o "$TEMP_FILE" "$DOWNLOAD_URL"
+fi
+
+if [ ! -f "$TEMP_FILE" ] || [ ! -s "$TEMP_FILE" ]; then
+    echo "Error: Download failed or file is empty"
+    exit 1
+fi
+
+mv "$TEMP_FILE" "$FULL_PATH"
 
 echo "Making the downloaded file executable..."
 chmod +x "$FULL_PATH"
@@ -47,6 +78,6 @@ echo "Moving the desktop (auto start) entry to $AUTO_START_FOLDER..."
 sudo mv $AUTO_START_FILE $AUTO_START_FOLDER
 
 echo "Starting the app..."
-$FULL_PATH
+nohup "$FULL_PATH" > /dev/null 2>&1 &
 
 read -p "Press any key to continue . . ."
