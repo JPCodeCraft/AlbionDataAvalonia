@@ -6,6 +6,7 @@ using Avalonia.Input;
 using Serilog;
 using System;
 using System.Diagnostics;
+using System.Linq;
 using System.Runtime.InteropServices;
 
 namespace AlbionDataAvalonia.Views
@@ -63,6 +64,39 @@ namespace AlbionDataAvalonia.Views
             }
 
             textBlock.Classes.Set("link", logEventWrapper.HasPublicUploadLink);
+        }
+
+        private void LogsGrid_CopyingRowClipboardContent(object? sender, DataGridRowClipboardEventArgs e)
+        {
+            if (e.IsColumnHeadersRow || e.Item is not LogEventWrapper logEventWrapper)
+            {
+                return;
+            }
+
+            if (sender is not DataGrid dataGrid)
+            {
+                return;
+            }
+
+            var messageColumn = dataGrid.Columns.FirstOrDefault(column =>
+                string.Equals(column.Header?.ToString(), "Message", StringComparison.Ordinal));
+
+            if (messageColumn is null)
+            {
+                return;
+            }
+
+            var rowContent = e.ClipboardRowContent;
+            for (int i = 0; i < rowContent.Count; i++)
+            {
+                if (rowContent[i].Column == messageColumn)
+                {
+                    rowContent[i] = new DataGridClipboardCellContent(e.Item, messageColumn, logEventWrapper.RenderedMessage);
+                    return;
+                }
+            }
+
+            rowContent.Add(new DataGridClipboardCellContent(e.Item, messageColumn, logEventWrapper.RenderedMessage));
         }
 
         private void OpenUrl(Uri uri)
