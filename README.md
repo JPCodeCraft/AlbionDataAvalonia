@@ -132,6 +132,41 @@ This application:
 - ✅ Does NOT display overlays on the game
 - 🛜 Does passively capture network packets to collect market data
 
+### How do I back up or migrate my local data (SQLite + settings)?
+
+All local data (SQLite database, settings, cached files) is stored under the app data folder.
+
+**Windows path**
+
+```
+C:\Users\<username>\AppData\Local\AFMDataClient
+```
+
+**Linux path (default)**
+
+```
+~/.local/share/AFMDataClient
+```
+
+If `$XDG_DATA_HOME` is set, use:
+
+```
+$XDG_DATA_HOME/AFMDataClient
+```
+
+**macOS path (default)**
+
+```
+~/Library/Application Support/AFMDataClient
+```
+
+**Steps**
+
+1. Close AFM (exit from the system tray).
+2. Copy the entire `AFMDataClient` folder from the path above.
+3. On the new machine, paste it to the same path.
+4. Start AFM.
+
 ### How do I make it work with ExitLag?
 
 Change the `Packets redirection method` to `Legacy - NDIS` in your ExitLag app under the `TOOLS` section:
