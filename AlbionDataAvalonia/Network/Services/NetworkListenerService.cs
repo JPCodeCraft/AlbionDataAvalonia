@@ -92,6 +92,7 @@ namespace AlbionDataAvalonia.Network.Services
                 // builder.AddEventHandler(new PlayerCountsEventHandler(_playerState, _afmUploader));
                 // builder.AddEventHandler(new CharacterStatsEventHandler());
                 builder.AddEventHandler(new FullAchievementInfoEventHandler(_achievementsService, _playerState, _afmUploader, _settingsManager));
+                builder.AddEventHandler(new RedZoneWorldEventHandler(_playerState, _uploader));
                 // builder.AddEventHandler(new AttachItemContainerEventHandler(_playerState));
                 // builder.AddEventHandler(new NewItemEventHandler(_playerState, _itemsIdsService));
                 // builder.AddEventHandler(new NewEquipmentItemLegendarySoulEventHandler(_playerState));

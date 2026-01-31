@@ -4,6 +4,7 @@
   "MarketOrdersIngestSubject": "marketorders.ingest",
   "MarketHistoriesIngestSubject": "markethistories.ingest",
   "GoldDataIngestSubject": "goldprices.ingest",
+  "BanditEventIngestSubject": "banditevent.ingest",
   "LatestVersionUrl": "https://cdn.albionfreemarket.com/AlbionDataAvalonia/AlbionDataAvalonia.Desktop/LatestVersion.json",
   "LatesVersionDownloadUrl": "https://github.com/JPCodeCraft/AlbionDataAvalonia/releases/latest/download/{fileName}",
   "FileNameFormat": "AFMDataClientSetup_v_{version}.exe",

@@ -9,6 +9,7 @@ public class AppSettings
     public string? MarketOrdersIngestSubject { get; set; }
     public string? MarketHistoriesIngestSubject { get; set; }
     public string? GoldDataIngestSubject { get; set; }
+    public string? BanditEventIngestSubject { get; set; }
     public string? LatestVersionUrl { get; set; }
     public string? LatesVersionDownloadUrl { get; set; }
     public string? FileNameFormat { get; set; }

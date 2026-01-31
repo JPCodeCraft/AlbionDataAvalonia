@@ -31,6 +31,7 @@ public class Uploader : IDisposable
     public event EventHandler<MarketUploadEventArgs> OnMarketUpload;
     public event EventHandler<GoldPriceUploadEventArgs> OnGoldPriceUpload;
     public event EventHandler<MarketHistoriesUploadEventArgs> OnMarketHistoryUpload;
+    public event EventHandler<BanditEventUploadEventArgs> OnBanditEventUpload;
 
     public event Action? OnChange;
 
@@ -47,6 +48,7 @@ public class Uploader : IDisposable
         OnGoldPriceUpload += _playerState.GoldPriceUploadHandler;
         OnMarketUpload += _playerState.MarketUploadHandler;
         OnMarketHistoryUpload += _playerState.MarketHistoryUploadHandler;
+        OnBanditEventUpload += _playerState.BanditEventUploadHandler;
     }
 
     // MARK: Upload MarketUpload
@@ -159,6 +161,41 @@ public class Uploader : IDisposable
         }
     }
 
+    // MARK: Upload BanditEventUpload
+    private async Task Upload(BanditEventUpload banditEventUpload)
+    {
+        if (_playerState.AlbionServer == null)
+        {
+            Log.Error("Albion server is not set.");
+            return;
+        }
+        try
+        {
+            var data = SerializeData(banditEventUpload);
+
+            Log.Debug("Starting upload of bandit event. {AdvanceNotice} {EventTime}. Identifier: {identifier}", banditEventUpload.AdvanceNotice ? "Start" : "End", banditEventUpload.EventTime, banditEventUpload.Identifier);
+
+            var uploadStatus = await UploadData(data, _playerState.AlbionServer, _settingsManager.AppSettings.BanditEventIngestSubject ?? "", banditEventUpload.Identifier);
+
+            OnBanditEventUpload?.Invoke(this, new BanditEventUploadEventArgs(banditEventUpload, _playerState.AlbionServer, uploadStatus));
+
+            if (uploadStatus == UploadStatus.Success)
+            {
+                var serverName = _playerState.AlbionServer?.Name ?? string.Empty;
+                var serverLogger = Log.ForContext("server", serverName);
+                serverLogger.Information("Bandit event upload complete. {AdvanceNotice} {EventTime}. Identifier: {identifier}", banditEventUpload.AdvanceNotice ? "Start" : "End", banditEventUpload.EventTime, banditEventUpload.Identifier);
+            }
+            else
+            {
+                Log.Error("Bandit event upload received status {Status}. {AdvanceNotice} {EventTime}. Identifier: {identifier}", uploadStatus, banditEventUpload.AdvanceNotice ? "Start" : "End", banditEventUpload.EventTime, banditEventUpload.Identifier);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Exception while uploading bandit event data. Identifier: {identifier}", banditEventUpload.Identifier);
+        }
+    }
+
     // MARK: Upload MarketHistoriesUpload
     private async Task Upload(MarketHistoriesUpload marketHistoriesUpload)
     {
@@ -236,6 +273,13 @@ public class Uploader : IDisposable
                 if (upload.MarketHistoriesUpload is not null)
                 {
                     var uploadTask = Upload(upload.MarketHistoriesUpload);
+                    runningTasks.Add(uploadTask);
+                    OnChange?.Invoke();
+                    _ = uploadTask.ContinueWith(t => RemoveCompletedTask(t), TaskScheduler.Default);
+                }
+                if (upload.BanditEventUpload is not null)
+                {
+                    var uploadTask = Upload(upload.BanditEventUpload);
                     runningTasks.Add(uploadTask);
                     OnChange?.Invoke();
                     _ = uploadTask.ContinueWith(t => RemoveCompletedTask(t), TaskScheduler.Default);
@@ -351,6 +395,7 @@ public class Uploader : IDisposable
         OnGoldPriceUpload -= _playerState.GoldPriceUploadHandler;
         OnMarketUpload -= _playerState.MarketUploadHandler;
         OnMarketHistoryUpload -= _playerState.MarketHistoryUploadHandler;
+        OnBanditEventUpload -= _playerState.BanditEventUploadHandler;
         Log.Information("Uploader disposed.");
     }
 }
