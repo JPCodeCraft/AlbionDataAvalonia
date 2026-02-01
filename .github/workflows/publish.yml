@@ -26,9 +26,13 @@ jobs:
           dotnet-version: "10.0.x"
           dotnet-quality: "preview"
 
-      - name: Publish macOS project
+      - name: Publish macOS project (x64)
         run: |
-          dotnet publish ./AlbionDataAvalonia.Desktop.MacOS/AlbionDataAvalonia.Desktop.MacOS.csproj -c Release -r osx-arm64
+          dotnet publish ./AlbionDataAvalonia.Desktop.MacOS/AlbionDataAvalonia.Desktop.MacOS.csproj --configuration Release -r osx-x64
+
+      - name: Publish macOS project (arm64)
+        run: |
+          dotnet publish ./AlbionDataAvalonia.Desktop.MacOS/AlbionDataAvalonia.Desktop.MacOS.csproj --configuration Release -r osx-arm64
 
       - name: Import Apple Developer ID certificate (temp keychain)
         env:
@@ -47,61 +51,71 @@ jobs:
           security list-keychains -d user -s build.keychain login.keychain
           security find-identity -p codesigning -v
 
-      - name: Codesign macOS app (.app)
+      - name: Codesign macOS app (x64)
         env:
           DEVELOPER_ID_IDENTITY: ${{ secrets.DEVELOPER_ID_IDENTITY }}
         run: |
-          APP_DIR="./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS64.app"
+          APP_DIR="./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-x64/publish/AFMDataClient_MacOS.app"
           codesign --force --deep --options runtime --entitlements packaging/macos/entitlements.plist --timestamp -s "$DEVELOPER_ID_IDENTITY" "$APP_DIR"
           codesign -dv --verbose=4 "$APP_DIR" || true
 
-      - name: Zip app for notarization
+      - name: Codesign macOS app (arm64)
+        env:
+          DEVELOPER_ID_IDENTITY: ${{ secrets.DEVELOPER_ID_IDENTITY }}
         run: |
-          APP_DIR="./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS64.app"
-          ZIP_PATH="./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS64.app.zip"
-          ditto -c -k --sequesterRsrc --keepParent "$APP_DIR" "$ZIP_PATH"
+          APP_DIR="./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS.app"
+          codesign --force --deep --options runtime --entitlements packaging/macos/entitlements.plist --timestamp -s "$DEVELOPER_ID_IDENTITY" "$APP_DIR"
+          codesign -dv --verbose=4 "$APP_DIR" || true
 
-      - name: Submit to notarization (non-blocking)
+      - name: Zip apps for notarization
+        run: |
+          APP_DIR_X64="./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-x64/publish/AFMDataClient_MacOS.app"
+          ZIP_PATH_X64="./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-x64/publish/AFMDataClient_MacOS_x64.app.zip"
+          ditto -c -k --sequesterRsrc --keepParent "$APP_DIR_X64" "$ZIP_PATH_X64"
+
+          APP_DIR_ARM64="./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS.app"
+          ZIP_PATH_ARM64="./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS_arm64.app.zip"
+          ditto -c -k --sequesterRsrc --keepParent "$APP_DIR_ARM64" "$ZIP_PATH_ARM64"
+
+      - name: Submit x64 to notarization
         env:
           AC_API_KEY_ID: ${{ secrets.AC_API_KEY_ID }}
           AC_API_ISSUER_ID: ${{ secrets.AC_API_ISSUER_ID }}
           AC_API_KEY_P8_BASE64: ${{ secrets.AC_API_KEY_P8_BASE64 }}
         run: |
           echo "$AC_API_KEY_P8_BASE64" | base64 --decode > AuthKey.p8
-          ZIP_PATH="./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS64.app.zip"
-          echo "Submitting to Apple notarization..."
-          xcrun notarytool submit "$ZIP_PATH" --key AuthKey.p8 --key-id "$AC_API_KEY_ID" --issuer "$AC_API_ISSUER_ID" 2>&1 | tee notarize_result.txt
-          echo "Notarization submission complete. Output saved."
-          cat notarize_result.txt
-      
-      - name: Check notarization submission
-        if: always()
-        run: |
-          if [ -f notarize_result.txt ]; then
-            echo "=== Notarization result ==="
-            cat notarize_result.txt
-            if grep -q "RequestUUID" notarize_result.txt; then
-              echo "✓ Submission successful (got RequestUUID)"
-            else
-              echo "✗ Submission may have failed or returned unexpected output"
-            fi
-          else
-            echo "✗ Notarization result file not found"
-          fi
+          ZIP_PATH="./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-x64/publish/AFMDataClient_MacOS_x64.app.zip"
+          echo "Submitting x64 to Apple notarization..."
+          xcrun notarytool submit "$ZIP_PATH" --key AuthKey.p8 --key-id "$AC_API_KEY_ID" --issuer "$AC_API_ISSUER_ID" 2>&1 | tee notarize_result_x64.txt
+          echo "Notarization submission complete for x64."
 
-      - name: Extract notarization Submission ID
+      - name: Submit arm64 to notarization
+        env:
+          AC_API_KEY_ID: ${{ secrets.AC_API_KEY_ID }}
+          AC_API_ISSUER_ID: ${{ secrets.AC_API_ISSUER_ID }}
         run: |
-          if [ ! -f notarize_result.txt ]; then
-            echo "notarize_result.txt not found"; exit 1;
-          fi
-          SUBMISSION_ID=$(sed -n 's/^[[:space:]]*id:[[:space:]]*\(.*\)$/\1/p' notarize_result.txt | head -n1)
-          if [ -z "$SUBMISSION_ID" ]; then
-            echo "Failed to parse Submission ID from output:"; cat notarize_result.txt; exit 1;
-          fi
-          echo "SUBMISSION_ID=$SUBMISSION_ID" >> "$GITHUB_ENV"
-          echo "Submission ID: $SUBMISSION_ID"
+          ZIP_PATH="./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS_arm64.app.zip"
+          echo "Submitting arm64 to Apple notarization..."
+          xcrun notarytool submit "$ZIP_PATH" --key AuthKey.p8 --key-id "$AC_API_KEY_ID" --issuer "$AC_API_ISSUER_ID" 2>&1 | tee notarize_result_arm64.txt
+          echo "Notarization submission complete for arm64."
 
-      - name: Wait for notarization result (poll)
+      - name: Extract notarization Submission IDs
+        run: |
+          SUBMISSION_ID_X64=$(sed -n 's/^[[:space:]]*id:[[:space:]]*\(.*\)$/\1/p' notarize_result_x64.txt | head -n1)
+          if [ -z "$SUBMISSION_ID_X64" ]; then
+            echo "Failed to parse x64 Submission ID"; cat notarize_result_x64.txt; exit 1;
+          fi
+          echo "SUBMISSION_ID_X64=$SUBMISSION_ID_X64" >> "$GITHUB_ENV"
+          echo "x64 Submission ID: $SUBMISSION_ID_X64"
+
+          SUBMISSION_ID_ARM64=$(sed -n 's/^[[:space:]]*id:[[:space:]]*\(.*\)$/\1/p' notarize_result_arm64.txt | head -n1)
+          if [ -z "$SUBMISSION_ID_ARM64" ]; then
+            echo "Failed to parse arm64 Submission ID"; cat notarize_result_arm64.txt; exit 1;
+          fi
+          echo "SUBMISSION_ID_ARM64=$SUBMISSION_ID_ARM64" >> "$GITHUB_ENV"
+          echo "arm64 Submission ID: $SUBMISSION_ID_ARM64"
+
+      - name: Wait for x64 notarization result
         env:
           AC_API_KEY_ID: ${{ secrets.AC_API_KEY_ID }}
           AC_API_ISSUER_ID: ${{ secrets.AC_API_ISSUER_ID }}
@@ -110,19 +124,19 @@ jobs:
           SLEEP_SECS=30
           STATUS=""
           MAX_WAIT=$((ATTEMPTS * SLEEP_SECS))
-          echo "Will wait up to $MAX_WAIT seconds for Apple notarization..."
+          echo "Will wait up to $MAX_WAIT seconds for x64 notarization..."
           for i in $(seq 1 $ATTEMPTS); do
             ELAPSED=$((i * SLEEP_SECS))
-            echo "[${ELAPSED}s/$MAX_WAIT] Polling notarization status (attempt $i/$ATTEMPTS)..."
-            xcrun notarytool info "$SUBMISSION_ID" --key AuthKey.p8 --key-id "$AC_API_KEY_ID" --issuer "$AC_API_ISSUER_ID" 2>&1 | tee notary_info.txt || true
-            STATUS=$(sed -n 's/^[[:space:]]*status:[[:space:]]*\(.*\)$/\1/p' notary_info.txt | tr 'A-Z' 'a-z' | head -n1)
+            echo "[${ELAPSED}s/$MAX_WAIT] Polling x64 notarization status (attempt $i/$ATTEMPTS)..."
+            xcrun notarytool info "$SUBMISSION_ID_X64" --key AuthKey.p8 --key-id "$AC_API_KEY_ID" --issuer "$AC_API_ISSUER_ID" 2>&1 | tee notary_info_x64.txt || true
+            STATUS=$(sed -n 's/^[[:space:]]*status:[[:space:]]*\(.*\)$/\1/p' notary_info_x64.txt | tr 'A-Z' 'a-z' | head -n1)
             echo "Status: ${STATUS:-unknown}"
             if echo "$STATUS" | grep -q '^accepted'; then
-              echo "✓ Accepted by Apple after $ELAPSED seconds"; break;
+              echo "✓ x64 Accepted by Apple after $ELAPSED seconds"; break;
             fi
             if echo "$STATUS" | grep -q '^invalid'; then
-              echo "✗ Invalid submission. Fetching detailed log..."
-              xcrun notarytool log "$SUBMISSION_ID" --key AuthKey.p8 --key-id "$AC_API_KEY_ID" --issuer "$AC_API_ISSUER_ID" | tee notary_log.txt
+              echo "✗ x64 Invalid submission. Fetching detailed log..."
+              xcrun notarytool log "$SUBMISSION_ID_X64" --key AuthKey.p8 --key-id "$AC_API_KEY_ID" --issuer "$AC_API_ISSUER_ID" | tee notary_log_x64.txt
               exit 1
             fi
             if [ $i -lt $ATTEMPTS ]; then
@@ -131,27 +145,75 @@ jobs:
             fi
           done
           if ! echo "$STATUS" | grep -q '^accepted'; then
-            echo "✗ Timed out after $MAX_WAIT seconds waiting for notarization approval"; exit 1;
+            echo "✗ Timed out waiting for x64 notarization approval"; exit 1;
           fi
 
-      - name: Staple and validate
+      - name: Wait for arm64 notarization result
+        env:
+          AC_API_KEY_ID: ${{ secrets.AC_API_KEY_ID }}
+          AC_API_ISSUER_ID: ${{ secrets.AC_API_ISSUER_ID }}
         run: |
-          APP_DIR="./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS64.app"
-          xcrun stapler staple "$APP_DIR"
-          spctl -a -vv "$APP_DIR" || true
+          ATTEMPTS=60
+          SLEEP_SECS=30
+          STATUS=""
+          MAX_WAIT=$((ATTEMPTS * SLEEP_SECS))
+          echo "Will wait up to $MAX_WAIT seconds for arm64 notarization..."
+          for i in $(seq 1 $ATTEMPTS); do
+            ELAPSED=$((i * SLEEP_SECS))
+            echo "[${ELAPSED}s/$MAX_WAIT] Polling arm64 notarization status (attempt $i/$ATTEMPTS)..."
+            xcrun notarytool info "$SUBMISSION_ID_ARM64" --key AuthKey.p8 --key-id "$AC_API_KEY_ID" --issuer "$AC_API_ISSUER_ID" 2>&1 | tee notary_info_arm64.txt || true
+            STATUS=$(sed -n 's/^[[:space:]]*status:[[:space:]]*\(.*\)$/\1/p' notary_info_arm64.txt | tr 'A-Z' 'a-z' | head -n1)
+            echo "Status: ${STATUS:-unknown}"
+            if echo "$STATUS" | grep -q '^accepted'; then
+              echo "✓ arm64 Accepted by Apple after $ELAPSED seconds"; break;
+            fi
+            if echo "$STATUS" | grep -q '^invalid'; then
+              echo "✗ arm64 Invalid submission. Fetching detailed log..."
+              xcrun notarytool log "$SUBMISSION_ID_ARM64" --key AuthKey.p8 --key-id "$AC_API_KEY_ID" --issuer "$AC_API_ISSUER_ID" | tee notary_log_arm64.txt
+              exit 1
+            fi
+            if [ $i -lt $ATTEMPTS ]; then
+              echo "Waiting ${SLEEP_SECS}s before next check..."
+              sleep $SLEEP_SECS
+            fi
+          done
+          if ! echo "$STATUS" | grep -q '^accepted'; then
+            echo "✗ Timed out waiting for arm64 notarization approval"; exit 1;
+          fi
 
-      - name: Re-zip stapled app for distribution
+      - name: Staple and validate apps
         run: |
-          APP_DIR="./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS64.app"
-          ZIP_PATH="./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS64.app.zip"
-          rm -f "$ZIP_PATH"
-          ditto -c -k --sequesterRsrc --keepParent "$APP_DIR" "$ZIP_PATH"
+          APP_DIR_X64="./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-x64/publish/AFMDataClient_MacOS.app"
+          xcrun stapler staple "$APP_DIR_X64"
+          spctl -a -vv "$APP_DIR_X64" || true
 
-      - name: Upload macOS artifact (signed+notarized)
+          APP_DIR_ARM64="./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS.app"
+          xcrun stapler staple "$APP_DIR_ARM64"
+          spctl -a -vv "$APP_DIR_ARM64" || true
+
+      - name: Re-zip stapled apps for distribution
+        run: |
+          APP_DIR_X64="./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-x64/publish/AFMDataClient_MacOS.app"
+          ZIP_PATH_X64="./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-x64/publish/AFMDataClient_MacOS_x64.app.zip"
+          rm -f "$ZIP_PATH_X64"
+          ditto -c -k --sequesterRsrc --keepParent "$APP_DIR_X64" "$ZIP_PATH_X64"
+
+          APP_DIR_ARM64="./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS.app"
+          ZIP_PATH_ARM64="./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS_arm64.app.zip"
+          rm -f "$ZIP_PATH_ARM64"
+          ditto -c -k --sequesterRsrc --keepParent "$APP_DIR_ARM64" "$ZIP_PATH_ARM64"
+
+      - name: Upload macOS artifact (x64)
         uses: actions/upload-artifact@v4
         with:
-          name: macos-app
-          path: ./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS64.app.zip
+          name: macos-app-x64
+          path: ./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-x64/publish/AFMDataClient_MacOS_x64.app.zip
+
+      - name: Upload macOS artifact (arm64)
+        uses: actions/upload-artifact@v4
+        with:
+          name: macos-app-arm64
+          path: ./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS_arm64.app.zip
 
   build:
     runs-on: windows-latest
@@ -215,10 +277,16 @@ jobs:
           dotnet publish ./AlbionDataAvalonia.Desktop/AlbionDataAvalonia.Desktop.csproj --configuration Release
           dotnet publish ./AlbionDataAvalonia.Desktop.Linux/AlbionDataAvalonia.Desktop.Linux.csproj --configuration Release
 
-      - name: Download macOS artifact
+      - name: Download macOS artifact (x64)
         uses: actions/download-artifact@v4
         with:
-          name: macos-app
+          name: macos-app-x64
+          path: AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-x64/publish
+
+      - name: Download macOS artifact (arm64)
+        uses: actions/download-artifact@v4
+        with:
+          name: macos-app-arm64
           path: AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish
 
       - name: Compile .ISS to .EXE Installer
@@ -245,7 +313,8 @@ jobs:
             "./AlbionDataAvalonia.Desktop.Linux/bin/Release/net10.0/linux-x64/publish/AFMDataClient_Linux64#AFMDataClient_Linux64" \
             "./AlbionDataAvalonia.Desktop.Linux/bin/Release/net10.0/linux-x64/publish/AFMDataClient_Linux64_Installer.sh#AFMDataClient_Linux64_Installer.sh" \
             "./AlbionDataAvalonia.Desktop.Linux/bin/Release/net10.0/linux-x64/publish/AFMDataClient_Linux64_Uninstaller.sh#AFMDataClient_Linux64_Uninstaller.sh" \
-            "./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS64.app.zip#AFMDataClient_MacOS64.app.zip" \
+            "./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-x64/publish/AFMDataClient_MacOS_x64.app.zip#AFMDataClient_MacOS_x64.app.zip" \
+            "./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/AFMDataClient_MacOS_arm64.app.zip#AFMDataClient_MacOS_arm64.app.zip" \
             --title "Albion Free Market Data Client v.${{ env.VERSION }}" \
             --notes "$NOTES"
         shell: bash

@@ -109,6 +109,21 @@ public class UserSettings : INotifyPropertyChanged
         }
     }
 
+    private bool uploadSpecsToAfm = true;
+    public bool UploadSpecsToAfm
+    {
+        get => uploadSpecsToAfm;
+        set
+        {
+            if (uploadSpecsToAfm != value)
+            {
+                uploadSpecsToAfm = value;
+                OnPropertyChanged(nameof(UploadSpecsToAfm));
+                Log.Information("Upload specs to AFM set to {UploadSpecsToAfm}", uploadSpecsToAfm);
+            }
+        }
+    }
+
     private double salesTax = 0.04;
     public double SalesTax
     {
@@ -144,6 +159,21 @@ public class UserSettings : INotifyPropertyChanged
                     Log.Information("Log level set to {LogLevel}", logLevel);
                 }
                 OnPropertyChanged(nameof(LogLevel));
+                OnPropertyChanged(nameof(LogLevelIndex));
+            }
+        }
+    }
+
+    public int LogLevelIndex
+    {
+        get => (int)logLevel;
+        set
+        {
+            var clamped = Math.Clamp(value, 0, 5);
+            var nextLevel = (LogEventLevel)clamped;
+            if (logLevel != nextLevel)
+            {
+                LogLevel = nextLevel;
             }
         }
     }

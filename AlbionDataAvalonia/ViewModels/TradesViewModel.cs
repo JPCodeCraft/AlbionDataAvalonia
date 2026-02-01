@@ -32,6 +32,18 @@ public partial class TradesViewModel : ViewModelBase
     [ObservableProperty]
     private int exportProgress;
 
+    [ObservableProperty]
+    private bool hasSelectedRows;
+
+    [ObservableProperty]
+    private long selectedAmountTotal;
+
+    [ObservableProperty]
+    private decimal selectedTotalSilver;
+
+    [ObservableProperty]
+    private decimal selectedAverageSilver;
+
     private ObservableCollection<Trade> trades = new();
     public ObservableCollection<Trade> Trades
     {
@@ -144,6 +156,32 @@ public partial class TradesViewModel : ViewModelBase
             filteredList = UnfilteredTrades;
         }
         Trades = new ObservableCollection<Trade>(filteredList.OrderByDescending(x => x.DateTime).Take(_settingsManager.UserSettings.TradesToShow));
+    }
+
+    public void UpdateSelectedTrades(IEnumerable<Trade> selected)
+    {
+        var selectedTrades = selected?.ToList() ?? new List<Trade>();
+        if (selectedTrades.Count == 0)
+        {
+            HasSelectedRows = false;
+            SelectedAmountTotal = 0;
+            SelectedTotalSilver = 0;
+            SelectedAverageSilver = 0;
+            return;
+        }
+
+        long amountTotal = 0;
+        decimal totalSilver = 0;
+        foreach (var trade in selectedTrades)
+        {
+            amountTotal += trade.Amount;
+            totalSilver += trade.TotalSilver;
+        }
+
+        HasSelectedRows = true;
+        SelectedAmountTotal = amountTotal;
+        SelectedTotalSilver = totalSilver;
+        SelectedAverageSilver = amountTotal == 0 ? 0 : totalSilver / amountTotal;
     }
 
     public async Task ExportToCsvAsync(Stream stream, CancellationToken cancellationToken = default)

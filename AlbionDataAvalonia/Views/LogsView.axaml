@@ -11,7 +11,8 @@
 	<DataGrid Margin="0" ItemsSource="{Binding Events}" 
 			  AutoGenerateColumns="False" IsReadOnly="True"
 			  GridLinesVisibility="None"
-			  BorderThickness="0" BorderBrush="Gray">
+			  BorderThickness="0" BorderBrush="Gray"
+			  CopyingRowClipboardContent="LogsGrid_CopyingRowClipboardContent">
 		<DataGrid.Styles>
 			<Style Selector="DataGridColumnHeader /template/ Grid#PART_ColumnHeaderRoot">
 				<Setter Property="Background" Value="rgba(255, 255, 255, 0.2)" />

@@ -29,6 +29,7 @@ namespace AlbionDataAvalonia.Network.Services
         private readonly TradeService _tradeService;
         private readonly IdleService _idleService;
         private readonly ItemsIdsService _itemsIdsService;
+        private readonly AchievementsService _achievementsService;
 
         private bool hasCleanedUpDevices = false;
         private bool hasFinishedStartingDevices = false;
@@ -37,7 +38,7 @@ namespace AlbionDataAvalonia.Network.Services
         private IPhotonReceiver? receiver;
         private CaptureDeviceList? devices;
 
-        public NetworkListenerService(Uploader uploader, PlayerState playerState, SettingsManager settingsManager, MailService mailService, IdleService idleService, TradeService tradeService, AFMUploader afmUploader, ItemsIdsService itemsIdsService)
+        public NetworkListenerService(Uploader uploader, PlayerState playerState, SettingsManager settingsManager, MailService mailService, IdleService idleService, TradeService tradeService, AFMUploader afmUploader, ItemsIdsService itemsIdsService, AchievementsService achievementsService)
         {
             _uploader = uploader;
             _playerState = playerState;
@@ -45,6 +46,7 @@ namespace AlbionDataAvalonia.Network.Services
             _mailService = mailService;
             _idleService = idleService;
             _itemsIdsService = itemsIdsService;
+            _achievementsService = achievementsService;
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
@@ -99,6 +101,9 @@ namespace AlbionDataAvalonia.Network.Services
                 // EVENTS
                 // builder.AddEventHandler(new LeaveEventHandler(_playerState));
                 // builder.AddEventHandler(new PlayerCountsEventHandler(_playerState, _afmUploader));
+                // builder.AddEventHandler(new CharacterStatsEventHandler());
+                builder.AddEventHandler(new FullAchievementInfoEventHandler(_achievementsService, _playerState, _afmUploader, _settingsManager));
+                builder.AddEventHandler(new RedZoneWorldEventHandler(_playerState, _uploader));
                 // builder.AddEventHandler(new AttachItemContainerEventHandler(_playerState));
                 // builder.AddEventHandler(new NewItemEventHandler(_playerState, _itemsIdsService));
                 // builder.AddEventHandler(new NewEquipmentItemLegendarySoulEventHandler(_playerState));

@@ -26,6 +26,13 @@
             <Setter Property="Foreground" Value="#888"/>
             <Setter Property="Margin" Value="0,0,0,2"/>
         </Style>
+        <Style Selector="TextBlock.SelectedSummaryLabel">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="#888"/>
+        </Style>
+        <Style Selector="TextBlock.SelectedSummaryValue">
+            <Setter Property="FontSize" Value="11"/>
+        </Style>
 	</UserControl.Styles>
 
 	<Grid ColumnDefinitions="*" RowDefinitions="Auto, *">
@@ -82,10 +89,30 @@
                 </ComboBox>
             </StackPanel>
 
+            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Center" IsVisible="{Binding HasSelectedRows}">
+                <TextBlock Classes="FilterLabel" Text="Selected Totals"/>
+                <StackPanel Orientation="Vertical" Spacing="2" VerticalAlignment="Center">
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <TextBlock Classes="SelectedSummaryLabel" Text="Amount:" VerticalAlignment="Center" />
+                        <TextBlock Classes="SelectedSummaryValue" Text="{Binding SelectedAmountTotal, StringFormat='{}{0:N0}'}" Tag="{Binding SelectedAmountTotal}" VerticalAlignment="Center" Cursor="Hand" PointerPressed="CopyValuePointerPressed" ToolTip.Tip="Click to copy" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <TextBlock Classes="SelectedSummaryLabel" Text="Total Silver:" VerticalAlignment="Center" />
+                        <TextBlock Classes="SelectedSummaryValue" Text="{Binding SelectedTotalSilver, StringFormat='{}{0:N0}'}" Tag="{Binding SelectedTotalSilver}" VerticalAlignment="Center" Cursor="Hand" PointerPressed="CopyValuePointerPressed" ToolTip.Tip="Click to copy" />
+                    </StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="4">
+                        <TextBlock Classes="SelectedSummaryLabel" Text="Avg Silver:" VerticalAlignment="Center" />
+                        <TextBlock Classes="SelectedSummaryValue" Text="{Binding SelectedAverageSilver, StringFormat='{}{0:N2}'}" Tag="{Binding SelectedAverageSilver}" VerticalAlignment="Center" Cursor="Hand" PointerPressed="CopyValuePointerPressed" ToolTip.Tip="Click to copy" />
+                    </StackPanel>
+                </StackPanel>
+            </StackPanel>
+
         </StackPanel>
 
 		<DataGrid Grid.Row="1" Margin="0" ItemsSource="{Binding Mails}"
 				  AutoGenerateColumns="False" IsReadOnly="True"
+                  SelectionMode="Extended"
+                  SelectionChanged="MailsGrid_SelectionChanged"
 				  GridLinesVisibility="None"
 				  BorderThickness="0" BorderBrush="Gray">
 

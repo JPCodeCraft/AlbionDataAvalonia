@@ -9,7 +9,6 @@ After instalation, the Data Client will be minimized in system tray!
 
 ![image](https://github.com/user-attachments/assets/7093690e-5735-4636-bc69-7d00e57f7d57)
 
-
 ## 💻 Data Client
 
 An alternative client for [The Albion Online Data Project](https://www.albion-online-data.com/) that provides the same functionality as the official client, but with a user-friendly graphical interface and easy-to-use settings.
@@ -24,7 +23,6 @@ An alternative client for [The Albion Online Data Project](https://www.albion-on
 
 ![Main Interface](https://github.com/user-attachments/assets/ba7d2d33-9e80-49b2-aeae-6173892de15e)
 
-
 ## 🚀 Features
 
 | Feature                   | Description                                                                    |
@@ -33,6 +31,7 @@ An alternative client for [The Albion Online Data Project](https://www.albion-on
 | 📬 Market Mail Tracking   | Collects and displays your market mail data for price tracking                 |
 | 🪙 Trade History          | Stores instant buy/sell trades for later reference                             |
 | 📡 Enhanced Capture       | Captures data from loadout's quick buy screen, market screens, and gold screen |
+| 📊 Specs Capture          | Uploads character specs for use with AFM website                               |
 | 🚀 Launch on Startup      | Automatically starts with your system                                          |
 | 📌 System Tray            | Runs quietly in system tray for minimal interference                           |
 | 🔄 Auto-Updates           | Silent, automatic updates                                                      |
@@ -80,8 +79,28 @@ curl -s https://api.github.com/repos/JPCodeCraft/AlbionDataAvalonia/releases/lat
 
 ### MacOS
 
-AFM Data Client should be able to run on MacOS, but users have reported issues. Feel free to contribute to the repository if you can.
-Attention: at the moment there's no MacOS release available to download. To try it you'd need to build it yourself.
+AFM Data Client should be able to run on MacOS, but it's not very developed. Feel free to contribute to the repository if you can.
+If you are on Apple Silicon, download `AFMDataClient_MacOS_arm64.app.zip`. Intel users should download `AFMDataClient_MacOS_x64.app.zip`.
+
+Since the app is not signed, you'll get a warning like this when you try to run it:
+
+<img width="384" height="365" alt="Screenshot 2025-12-28 224658" src="https://github.com/user-attachments/assets/9855fd14-59c4-49aa-a7f9-7e392236e853" />
+
+If you click the ? button, this is the explanation and instructions shown on how to allow the app to run:
+
+<img width="924" height="779" alt="Screenshot 2025-12-28 224734" src="https://github.com/user-attachments/assets/05d0f10e-ec03-4fc9-b277-36fab9732066" />
+
+So in the Security section, click Open Anyway. You will need to type your password to allow it.
+
+<img width="900" height="429" alt="Screenshot 2025-12-28 224836" src="https://github.com/user-attachments/assets/20192951-1cb5-4b21-90fc-4acaa2afe555" />
+
+Everytime you open the app, it'll ask for your password, since it needs elevated privileges to be able to listen to the network packets.
+
+The app will stay minimized in the top right.
+
+<img width="411" height="110" alt="Screenshot 2025-12-28 225223" src="https://github.com/user-attachments/assets/36249bfa-f19e-40e4-aad1-5e4d50f1fddc" />
+
+There's no automatic update feature for MacOS, so you should manually download new versions.
 
 ## 💻 System Requirements
 
@@ -112,6 +131,41 @@ This application:
 - ✅ Does NOT track player positions
 - ✅ Does NOT display overlays on the game
 - 🛜 Does passively capture network packets to collect market data
+
+### How do I back up or migrate my local data (SQLite + settings)?
+
+All local data (SQLite database, settings, cached files) is stored under the app data folder.
+
+**Windows path**
+
+```
+C:\Users\<username>\AppData\Local\AFMDataClient
+```
+
+**Linux path (default)**
+
+```
+~/.local/share/AFMDataClient
+```
+
+If `$XDG_DATA_HOME` is set, use:
+
+```
+$XDG_DATA_HOME/AFMDataClient
+```
+
+**macOS path (default)**
+
+```
+~/Library/Application Support/AFMDataClient
+```
+
+**Steps**
+
+1. Close AFM (exit from the system tray).
+2. Copy the entire `AFMDataClient` folder from the path above.
+3. On the new machine, paste it to the same path.
+4. Start AFM.
 
 ### How do I make it work with ExitLag?
 

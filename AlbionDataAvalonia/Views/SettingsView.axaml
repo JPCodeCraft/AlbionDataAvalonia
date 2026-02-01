@@ -121,7 +121,7 @@
 					<Label Content="{Binding UserSettings.LogLevel, Mode=OneWay} " />
 				</StackPanel>
 
-				<Slider Minimum="0" Maximum="5" Value="{Binding UserSettings.LogLevel}" TickFrequency="1" IsSnapToTickEnabled="True" />
+				<Slider Minimum="0" Maximum="5" Value="{Binding UserSettings.LogLevelIndex}" TickFrequency="1" IsSnapToTickEnabled="True" />
 			</StackPanel>
 
 		</StackPanel>

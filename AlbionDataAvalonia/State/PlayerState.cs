@@ -24,6 +24,9 @@ namespace AlbionDataAvalonia.State
 
         private bool uploadToAfmOnly = false;
         private bool contributeToPublic = false;
+        private readonly object banditEventLock = new();
+        private DateTime banditEventLastTimeSubmitted = DateTime.MinValue;
+        private static readonly TimeSpan BanditEventMinimumInterval = TimeSpan.FromSeconds(60);
 
         public MarketHistoryInfo?[] MarketHistoryIDLookup { get; init; }
         public ulong CacheSize => 8192;
@@ -279,6 +282,31 @@ namespace AlbionDataAvalonia.State
 
             UploadedGoldHistoriesCount += goldHistoriesCount;
             OnUploadedGoldHistoriesCountChanged?.Invoke(UploadedGoldHistoriesCount);
+        }
+
+        public void BanditEventUploadHandler(object? sender, BanditEventUploadEventArgs e)
+        {
+            ProcessUploadStatus(e.UploadStatus, e.BanditEventUpload.Identifier);
+        }
+
+        public bool TryMarkBanditEventSubmission()
+        {
+            var now = DateTime.UtcNow;
+            lock (banditEventLock)
+            {
+                if (banditEventLastTimeSubmitted == DateTime.MinValue || (now - banditEventLastTimeSubmitted) >= BanditEventMinimumInterval)
+                {
+                    banditEventLastTimeSubmitted = now;
+                    Log.Debug("Bandit event submission accepted at {Timestamp}.", now);
+                    return true;
+                }
+            }
+
+            var nextAllowedAt = banditEventLastTimeSubmitted == DateTime.MinValue
+                ? now
+                : banditEventLastTimeSubmitted.Add(BanditEventMinimumInterval);
+            Log.Debug("Bandit event submission throttled. Last={LastTimestamp} NextAllowed={NextAllowedTimestamp}.", banditEventLastTimeSubmitted, nextAllowedAt);
+            return false;
         }
 
         private void ProcessUploadStatus(UploadStatus status, Guid identifier)

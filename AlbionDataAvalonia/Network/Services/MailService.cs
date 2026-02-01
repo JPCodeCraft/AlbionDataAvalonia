@@ -124,6 +124,13 @@ public class MailService
 
                 if (mail == null) return;
 
+                if (mail.IsSet)
+                {
+                    SetMailProperties(new List<AlbionMail>([mail]));
+                    Log.Debug("Mail data already set for mail {MailId}", mailId);
+                    return;
+                }
+
                 mail.SetData(mailString);
 
                 await db.SaveChangesAsync();
