@@ -1,7 +1,7 @@
 ﻿<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<TargetFramework>net10.0</TargetFramework>
-		<Version>0.21.0.0</Version>
+		<Version>0.21.1.0</Version>
 		<Nullable>enable</Nullable>
 		<LangVersion>latest</LangVersion>
 		<AvaloniaUseCompiledBindingsByDefault>true</AvaloniaUseCompiledBindingsByDefault>
@@ -21,8 +21,12 @@
 		<PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Avalonia.Diagnostics"
 			Version="11.3.10" />
 		<PackageReference Include="Google.Apis.Auth" Version="1.73.0" />
+		<PackageReference Include="Microsoft.CodeAnalysis.Common" Version="5.0.0" />
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
 		<PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="5.0.0" />
+		<PackageReference Include="Microsoft.CodeAnalysis.CSharp.Workspaces" Version="5.0.0" />
+		<PackageReference Include="Microsoft.CodeAnalysis.Workspaces.Common" Version="5.0.0" />
+		<PackageReference Include="Microsoft.CodeAnalysis.Workspaces.MSBuild" Version="5.0.0" />
 		<PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.1">
 			<PrivateAssets>all</PrivateAssets>
 			<IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>

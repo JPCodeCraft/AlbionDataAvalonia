@@ -1,4 +1,4 @@
-﻿using AlbionDataAvalonia.Auth.Models;
+using AlbionDataAvalonia.Auth.Models;
 using AlbionDataAvalonia.DB;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Win32;
 using Serilog;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
@@ -234,10 +235,14 @@ namespace AlbionDataAvalonia.Auth.Services
         private async Task<FirebaseAuthResponse?> GetFirebaseUserAsync(string code, CancellationToken cancellationToken = default)
         {
             var url = $"{_settingsManager.AppSettings.AfmAuthApiUrl}/tokenFromCode";
-            var query = $"?code={Uri.EscapeDataString(code)}";
+            Log.Debug($"Posting to URL: {url}");
 
             using var client = new HttpClient();
-            var response = await client.GetAsync(url + query, cancellationToken);
+            var content = new FormUrlEncodedContent(new[]
+            {
+                new KeyValuePair<string, string>("code", code)
+            });
+            var response = await client.PostAsync(url, content, cancellationToken);
 
             if (response.IsSuccessStatusCode)
             {
@@ -254,10 +259,13 @@ namespace AlbionDataAvalonia.Auth.Services
         private async Task RefreshFirebaseTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
         {
             var url = $"{_settingsManager.AppSettings.AfmAuthApiUrl}/refreshToken";
-            var query = $"?refreshToken={Uri.EscapeDataString(refreshToken)}";
 
             using var client = new HttpClient();
-            var response = await client.GetAsync(url + query, cancellationToken);
+            var content = new FormUrlEncodedContent(new[]
+            {
+                new KeyValuePair<string, string>("refreshToken", refreshToken)
+            });
+            var response = await client.PostAsync(url, content, cancellationToken);
 
             if (response.IsSuccessStatusCode)
             {
