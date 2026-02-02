@@ -1,0 +1,5 @@
+#!/bin/bash
+set -euo pipefail
+if ! dscl . -read "/Groups/access_bpf" >/dev/null 2>&1; then
+  dseditgroup -o create -r "BPF access" access_bpf
+fi

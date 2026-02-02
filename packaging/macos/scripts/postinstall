@@ -1,0 +1,10 @@
+#!/bin/bash
+set -euo pipefail
+CONSOLE_USER=$(stat -f%Su /dev/console)
+if [ -n "$CONSOLE_USER" ]; then
+  dseditgroup -o edit -a "$CONSOLE_USER" -t user access_bpf || true
+fi
+launchctl unload /Library/LaunchDaemons/org.afmdata.chmodbpf.plist >/dev/null 2>&1 || true
+launchctl load -w /Library/LaunchDaemons/org.afmdata.chmodbpf.plist || true
+chgrp access_bpf /dev/bpf* && chmod g+rw /dev/bpf* || true
+exit 0

@@ -91,6 +91,10 @@ public partial class TradesViewModel : ViewModelBase
 
     public TradesViewModel()
     {
+        _settingsManager = null!;
+        _playerState = null!;
+        _tradeService = null!;
+        _csvExportService = null!;
     }
 
     public TradesViewModel(SettingsManager settingsManager, PlayerState playerState, TradeService tradeService, CsvExportService csvExportService)

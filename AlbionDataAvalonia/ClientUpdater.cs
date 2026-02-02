@@ -88,9 +88,9 @@ public static class ClientUpdater
                 // Stop the current application
                 Environment.Exit(0);
             }
-            else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            else if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                Log.Warning("There's a new version available, but updating on Linux is not supported yet. Please update manually.");
+                Log.Information("Updater is disabled on this OS. Please update manually when releases are available.");
             }
         }
         catch (Exception ex)

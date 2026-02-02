@@ -82,7 +82,32 @@ public static class NpCapInstallationChecker
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
-            return true; // Always true for macOS
+            try
+            {
+                // Try opening a pcap device to verify /dev/bpf* permissions
+                var devices = SharpPcap.CaptureDeviceList.New();
+                if (devices == null || devices.Count == 0)
+                {
+                    return false;
+                }
+                using var dev = devices[0];
+                dev.Open(new SharpPcap.DeviceConfiguration
+                {
+                    Mode = SharpPcap.DeviceModes.None,
+                    ReadTimeout = 1000
+                });
+                dev.Close();
+                return true;
+            }
+            catch (UnauthorizedAccessException)
+            {
+                return false; // Missing BPF permissions
+            }
+            catch
+            {
+                // Conservative: if anything else fails, report not installed so UI can guide user
+                return false;
+            }
         }
 
         return false;

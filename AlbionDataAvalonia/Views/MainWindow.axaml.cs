@@ -17,6 +17,12 @@ public partial class MainWindow : Window
 
     private void OnClosing(object? sender, CancelEventArgs e)
     {
+        // On macOS, close the window to quit (standard behavior)
+        if (System.Runtime.InteropServices.RuntimeInformation.IsOSPlatform(System.Runtime.InteropServices.OSPlatform.OSX))
+        {
+            return; // allow close
+        }
+        // On other OSes, hide to tray
         e.Cancel = true;
         IsVisible = false;
     }
