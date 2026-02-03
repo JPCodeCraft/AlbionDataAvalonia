@@ -81,6 +81,9 @@ namespace AlbionDataAvalonia.Network.Services
         public void Initialize()
         {
             httpClient.BaseAddress = new Uri(_settingsManager.AppSettings.AfmTopItemsApiBase);
+            httpClient.DefaultRequestHeaders.UserAgent.Clear();
+            var version = AlbionDataAvalonia.ClientUpdater.GetVersion() ?? "unknown";
+            httpClient.DefaultRequestHeaders.UserAgent.ParseAdd($"afmDataClient-v.{version}");
             httpClient.DefaultRequestHeaders.Referrer = new Uri("https://github.com/JPCodeCraft/AlbionDataAvalonia");
 
             // Ensure we apply headers immediately if a session already exists.

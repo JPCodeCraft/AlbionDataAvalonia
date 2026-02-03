@@ -34,7 +34,9 @@ public class ConnectionService : IDisposable
 
     protected void InitialSetup()
     {
-        httpClient.DefaultRequestHeaders.UserAgent.ParseAdd("albion-data-sharp");
+        httpClient.DefaultRequestHeaders.UserAgent.Clear();
+        var version = AlbionDataAvalonia.ClientUpdater.GetVersion() ?? "unknown";
+        httpClient.DefaultRequestHeaders.UserAgent.ParseAdd($"afmDataClient-v.{version}");
         httpClient.DefaultRequestHeaders.Referrer = new Uri("https://github.com/JPCodeCraft/AlbionDataAvalonia");
         if (_playerState.AlbionServer != null)
         {
