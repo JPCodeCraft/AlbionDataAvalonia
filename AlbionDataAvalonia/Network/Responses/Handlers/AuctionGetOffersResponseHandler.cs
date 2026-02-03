@@ -32,9 +32,8 @@ public class AuctionGetOffersResponseHandler : ResponsePacketHandler<AuctionGetO
 
         value.marketOrders.ForEach(x =>
         {
-            if (x.LocationId == null) x.LocationId = playerState.Location.Id;
-        }
-        );
+            if (string.IsNullOrEmpty(x.LocationId)) x.LocationId = playerState.Location.Id;
+        });
 
         marketUpload.Orders.AddRange(value.marketOrders);
 
