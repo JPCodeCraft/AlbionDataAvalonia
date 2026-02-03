@@ -19,6 +19,7 @@ public class MarketOrder
     public uint Amount { get; set; }
     public AuctionType AuctionType { get; set; }
     public DateTime Expires { get; set; }
+    [JsonIgnore]
     public ulong DistanceFee { get; set; }
     [JsonIgnore]
     public AlbionLocation Location
