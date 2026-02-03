@@ -18,7 +18,7 @@ public class MarketOrder
     public ulong UnitPriceSilver { get; set; }
     public uint Amount { get; set; }
     public AuctionType AuctionType { get; set; }
-    public DateTime Expires { get; set; }
+    public string Expires { get; set; } = string.Empty;
     [JsonIgnore]
     public ulong DistanceFee { get; set; }
     [JsonIgnore]
