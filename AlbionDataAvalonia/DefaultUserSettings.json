@@ -1,5 +1,6 @@
 {
   "StartHidden": false,
+  "ShutDownOnClose": false,
   "DesiredThreadCount": 1,
   "MaxHashQueueSize": 30,
   "MaxLogCount": 200,

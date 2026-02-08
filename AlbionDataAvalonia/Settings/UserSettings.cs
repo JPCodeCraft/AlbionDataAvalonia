@@ -24,6 +24,21 @@ public class UserSettings : INotifyPropertyChanged
         }
     }
 
+    private bool shutDownOnClose = false;
+    public bool ShutDownOnClose
+    {
+        get => shutDownOnClose;
+        set
+        {
+            if (shutDownOnClose != value)
+            {
+                shutDownOnClose = value;
+                OnPropertyChanged(nameof(ShutDownOnClose));
+                Log.Information("Shut down on close set to {ShutDownOnClose}", shutDownOnClose);
+            }
+        }
+    }
+
     private int _desiredThreadCount = 1;
     public int DesiredThreadCount
     {

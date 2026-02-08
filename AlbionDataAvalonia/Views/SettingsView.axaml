@@ -13,6 +13,9 @@
 			<!--START HIDDEN-->
 			<CheckBox Content="Start Hidden" IsChecked="{Binding UserSettings.StartHidden}" Margin="0 0 0 10"/>
 
+			<!--SHUT DOWN ON CLOSE-->
+			<CheckBox Content="Shut Down on Window Close" IsChecked="{Binding UserSettings.ShutDownOnClose}" Margin="0 0 0 10"/>
+
 			<!--THREAD COUNT-->
 			<StackPanel Margin="0 0 0 10" Spacing="12">
 				<Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
