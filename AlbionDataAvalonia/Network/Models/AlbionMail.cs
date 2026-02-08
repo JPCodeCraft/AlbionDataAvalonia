@@ -61,13 +61,15 @@ public class AlbionMail
 
     public AlbionMail(long id, int locationId, string playerName, AlbionMailInfoType type, DateTime received, int albionServerId, double taxes)
     {
+        _ = taxes;
+
         Id = id;
         LocationId = locationId;
         PlayerName = playerName;
         Type = type;
         Received = received;
         AlbionServerId = albionServerId;
-        TaxesPercent = taxes;
+        TaxesPercent = 0;
 
         switch (Type)
         {
@@ -94,7 +96,7 @@ public class AlbionMail
 
     public void SetData(string mailString)
     {
-        var data = GetData(TaxesPercent, mailString);
+        var data = GetData(mailString);
         PartialAmount = data.partialAmount;
         TotalAmount = data.totalAmount;
         ItemId = data.itemId;
@@ -110,7 +112,7 @@ public class AlbionMail
     //MARKETPLACE_BUYORDER_EXPIRED_SUMMARY "23|100|65450000000|T5_ALCHEMY_RARE_PANTHER|" BOUGHT_AMOUNT|TOTAL_AMOUNT|TOTAL_REFUND|ITEM_ID
     //MARKETPLACE_SELLORDER_EXPIRED_SUMMARY "0|39|0|T7_JOURNAL_HUNTER_FULL|" SOLD_AMOUNT|TOTAL_AMOUNT|TOTAL_SILVER|ITEM_ID
     //BLACKMARKET_SELLORDER_EXPIRED_SUMMARY "6|53|4420680000|T6_OFF_HORN_KEEPER@1|" SOLD_AMOUNT|TOTAL_AMOUNT|TOTAL_SILVER|ITEM_ID
-    private (int partialAmount, int totalAmount, string itemId, long totalSilver, double unitSilver, long totalTaxes) GetData(double taxes, string mailString)
+    private (int partialAmount, int totalAmount, string itemId, long totalSilver, double unitSilver, long totalTaxes) GetData(string mailString)
     {
         var parts = mailString.Split('|');
 
@@ -128,45 +130,48 @@ public class AlbionMail
                     partialAmountData = int.Parse(parts[0]);
                     totalAmountData = partialAmountData;
                     itemIdData = parts[1];
-                    totalSilverData = (long)(long.Parse(parts[2]) * (1 - taxes)) / 10000;
-                    unitSilverData = totalSilverData / (double)totalAmountData;
-                    totalTaxesData = (long)(long.Parse(parts[2]) * (taxes)) / 10000;
+                    totalSilverData = long.Parse(parts[2]) / 10000;
+                    unitSilverData = NormalizeUnitSilver(long.Parse(parts[3]) / 10000.0);
+                    totalTaxesData = 0;
                     break;
                 case AlbionMailInfoType.MARKETPLACE_BUYORDER_FINISHED_SUMMARY:
                     partialAmountData = int.Parse(parts[0]);
                     totalAmountData = partialAmountData;
                     itemIdData = parts[1];
                     totalSilverData = long.Parse(parts[2]) / 10000;
-                    unitSilverData = totalSilverData / (double)totalAmountData;
-                    totalTaxesData = (long)(totalSilverData * taxes);
+                    unitSilverData = NormalizeUnitSilver(long.Parse(parts[3]) / 10000.0);
+                    totalTaxesData = 0;
                     break;
                 case AlbionMailInfoType.MARKETPLACE_BUYORDER_EXPIRED_SUMMARY:
                     partialAmountData = int.Parse(parts[0]);
                     totalAmountData = int.Parse(parts[1]);
-                    long totalRefund = long.Parse(parts[2]) / 10000;
+                    var totalRefund = long.Parse(parts[2]) / 10000.0;
                     itemIdData = parts[3];
-                    unitSilverData = (long)((float)totalRefund / (double)((totalAmountData - partialAmountData) == 0 ? 1 : (float)(totalAmountData - partialAmountData)));
-                    totalSilverData = (long)(unitSilverData * partialAmountData);
+                    var remainingAmount = totalAmountData - partialAmountData;
+                    unitSilverData = NormalizeUnitSilver(remainingAmount > 0 ? totalRefund / (double)remainingAmount : 0);
+                    totalSilverData = (long)Math.Round(unitSilverData * partialAmountData, MidpointRounding.AwayFromZero);
+                    totalTaxesData = 0;
                     break;
                 case AlbionMailInfoType.MARKETPLACE_SELLORDER_EXPIRED_SUMMARY:
                     partialAmountData = int.Parse(parts[0]);
                     totalAmountData = int.Parse(parts[1]);
                     itemIdData = parts[3];
-                    totalSilverData = (long)(long.Parse(parts[2]) * (1 - taxes)) / 10000;
-                    unitSilverData = (long)((float)totalSilverData / (double)((float)partialAmountData == 0 ? 1 : (float)partialAmountData));
-                    totalTaxesData = (long)(long.Parse(parts[2]) * taxes) / 10000;
+                    totalSilverData = long.Parse(parts[2]) / 10000;
+                    unitSilverData = NormalizeUnitSilver(partialAmountData == 0 ? 0 : totalSilverData / (double)partialAmountData);
+                    totalTaxesData = 0;
                     break;
                 case AlbionMailInfoType.BLACKMARKET_SELLORDER_EXPIRED_SUMMARY:
                     partialAmountData = int.Parse(parts[0]);
                     totalAmountData = int.Parse(parts[1]);
                     itemIdData = parts[3];
-                    totalSilverData = (long)(long.Parse(parts[2]) * (1 - taxes)) / 10000;
-                    unitSilverData = (long)((float)totalSilverData / (double)((float)partialAmountData == 0 ? 1 : (float)partialAmountData));
-                    totalTaxesData = (long)(long.Parse(parts[2]) * taxes) / 10000;
+                    totalSilverData = long.Parse(parts[2]) / 10000;
+                    unitSilverData = NormalizeUnitSilver(partialAmountData == 0 ? 0 : totalSilverData / (double)partialAmountData);
+                    totalTaxesData = 0;
                     break;
                 default:
                     break;
-            };
+            }
+            ;
 
             return (partialAmountData, totalAmountData, itemIdData, totalSilverData, unitSilverData, totalTaxesData);
         }
@@ -184,24 +189,30 @@ public class AlbionMail
             switch (Type)
             {
                 case AlbionMailInfoType.MARKETPLACE_SELLORDER_FINISHED_SUMMARY:
-                    return $"Sold {TotalAmount:N0} {ItemId} earning {UnitSilver:N0} for each. A total of {TotalSilver:N0} was earned. Taxes cost: {TotalTaxes:N0}";
+                    return $"Sold {TotalAmount:N0} {ItemId} earning {UnitSilver:N0} for each. A total of {TotalSilver:N0} was earned.";
                 case AlbionMailInfoType.MARKETPLACE_BUYORDER_FINISHED_SUMMARY:
                     return $"Bought {TotalAmount:N0} {ItemId} for {UnitSilver:N0} each. A total of {TotalSilver:N0} was spent.";
                 case AlbionMailInfoType.MARKETPLACE_BUYORDER_EXPIRED_SUMMARY:
                     return $"Bought {PartialAmount:N0} of {TotalAmount:N0} {ItemId} for {TotalSilver:N0} total silver. A total of {TotalSilver:N0} was spent.";
                 case AlbionMailInfoType.MARKETPLACE_SELLORDER_EXPIRED_SUMMARY:
-                    return $"Sold {PartialAmount:N0} of {TotalAmount:N0} {ItemId} for {UnitSilver:N0} each. A total of {TotalSilver:N0} was earned. Taxes cost: {TotalTaxes:N0}";
+                    return $"Sold {PartialAmount:N0} of {TotalAmount:N0} {ItemId} for {UnitSilver:N0} each. A total of {TotalSilver:N0} was earned.";
                 case AlbionMailInfoType.BLACKMARKET_SELLORDER_EXPIRED_SUMMARY:
-                    return $"Sold {PartialAmount:N0} of {TotalAmount:N0} {ItemId} for {UnitSilver:N0} each. A total of {TotalSilver:N0} was earned. Taxes cost: {TotalTaxes:N0}";
+                    return $"Sold {PartialAmount:N0} of {TotalAmount:N0} {ItemId} for {UnitSilver:N0} each. A total of {TotalSilver:N0} was earned.";
                 default:
                     return "Unknown mail info type";
-            };
+            }
+            ;
         }
         catch (Exception e)
         {
             Log.Error(e, e.Message);
             return "Error parsing mail info";
         }
+    }
+
+    private static double NormalizeUnitSilver(double value)
+    {
+        return Math.Round(value, 2, MidpointRounding.AwayFromZero);
     }
 
 }

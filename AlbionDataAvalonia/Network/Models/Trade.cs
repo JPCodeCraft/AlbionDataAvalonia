@@ -88,6 +88,8 @@ public class Trade
 
     public Trade(MarketOrder order, int amount, int? albionServerId, string playerName, double salesTax)
     {
+        _ = salesTax;
+
         if (order.LocationId == null)
         {
             throw new ArgumentNullException("LocationId is null");
@@ -101,7 +103,7 @@ public class Trade
                 break;
             case AuctionType.request:
                 Operation = TradeOperation.Sell;
-                SalesTaxesPercent = salesTax;
+                SalesTaxesPercent = 0;
                 break;
         }
         Amount = amount;
@@ -111,17 +113,24 @@ public class Trade
         QualityLevel = order.QualityLevel;
         ItemId = order.ItemTypeId;
         PlayerName = playerName;
-        UnitSilver = order.AuctionType == AuctionType.offer ? Math.Round(order.UnitPriceSilver / 10000.0) + Math.Round(order.DistanceFee / 10000.0) : Math.Round(order.UnitPriceSilver / 10000.0) - Math.Round(order.DistanceFee / 10000.0);
+        var baseUnitSilver = order.UnitPriceSilver / 10000.0;
+        var distanceFeeSilver = order.DistanceFee / 10000.0;
+        var unitSilverWithDistanceFee = order.AuctionType == AuctionType.offer
+            ? baseUnitSilver + distanceFeeSilver
+            : baseUnitSilver - distanceFeeSilver;
+        UnitSilver = NormalizeUnitSilver(unitSilverWithDistanceFee);
         Type = TradeType.Instant;
     }
 
     public Trade(AlbionMail mail, double salesTax)
     {
+        _ = salesTax;
+
         switch (mail.AuctionType)
         {
             case AuctionType.offer:
                 Operation = TradeOperation.Sell;
-                SalesTaxesPercent = salesTax;
+                SalesTaxesPercent = 0;
                 break;
             case AuctionType.request:
                 Operation = TradeOperation.Buy;
@@ -135,9 +144,14 @@ public class Trade
         QualityLevel = 0;
         ItemId = mail.ItemId;
         PlayerName = mail.PlayerName;
-        UnitSilver = mail.UnitSilver;
+        UnitSilver = NormalizeUnitSilver(mail.UnitSilver);
         Type = TradeType.Order;
 
+    }
+
+    private static double NormalizeUnitSilver(double value)
+    {
+        return Math.Round(value, 2, MidpointRounding.AwayFromZero);
     }
 
 }
