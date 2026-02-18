@@ -226,14 +226,14 @@ namespace AlbionDataAvalonia.Network.Services
             var hasValidToken = await _authService.EnsureValidTokenAsync();
             if (!hasValidToken)
             {
-                Log.Error("Cannot upload achievements without a valid Firebase session.");
+                Log.Warning("Please login to upload achievements.");
                 return;
             }
 
             var firebaseUserId = _authService.FirebaseUserId;
             if (firebaseUserId is null)
             {
-                Log.Error("Cannot upload achievements without a Firebase user ID.");
+                Log.Warning("Please login to upload achievements.");
                 return;
             }
 
@@ -295,14 +295,14 @@ namespace AlbionDataAvalonia.Network.Services
             var hasValidToken = await _authService.EnsureValidTokenAsync();
             if (!hasValidToken)
             {
-                Log.Error("Cannot upload global multiplier without a valid Firebase session.");
+                Log.Warning("Please login to upload global multiplier.");
                 return;
             }
 
             var firebaseUserId = _authService.FirebaseUserId;
             if (firebaseUserId is null)
             {
-                Log.Error("Cannot upload global multiplier without a Firebase user ID.");
+                Log.Warning("Please login to upload global multiplier.");
                 return;
             }
 
