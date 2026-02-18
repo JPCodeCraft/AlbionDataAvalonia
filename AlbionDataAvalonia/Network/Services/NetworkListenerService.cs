@@ -97,6 +97,9 @@ namespace AlbionDataAvalonia.Network.Services
                 // builder.AddEventHandler(new NewItemEventHandler(_playerState, _itemsIdsService));
                 // builder.AddEventHandler(new NewEquipmentItemLegendarySoulEventHandler(_playerState));
                 // builder.AddEventHandler(new BankVaultInfoEventHandler(_playerState));
+#if DEBUG
+                builder.AddEventHandler(new DebugEventProbeEventHandler());
+#endif
                 // RESPONSE
                 builder.AddResponseHandler(new AuctionGetLoadoutOffersResponseHandler(_uploader, _playerState));
                 builder.AddResponseHandler(new AuctionGetOffersResponseHandler(_uploader, _playerState, _tradeService));
@@ -108,6 +111,9 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddResponseHandler(new ReadMailResponseHandler(_playerState, _mailService));
                 builder.AddResponseHandler(new AuctionBuyOfferResponseHandler(_playerState, _tradeService));
                 builder.AddResponseHandler(new AuctionSellSpecificItemRequestResponseHandler(_playerState, _tradeService));
+#if DEBUG
+                builder.AddHandler(new DebugResponseProbeResponseHandler());
+#endif
                 // builder.AddResponseHandler(new AssetOverviewResponseHandler(_playerState));
                 // builder.AddResponseHandler(new AssetOverviewUnfreezeCacheResponseHandler(_playerState));
                 // builder.AddResponseHandler(new AssetOverviewTabsResponseHandler(_playerState));
@@ -116,6 +122,9 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddRequestHandler(new AuctionGetItemAverageStatsRequestHandler(_playerState));
                 builder.AddRequestHandler(new AuctionBuyOfferRequestHandler(_playerState, _tradeService, _settingsManager));
                 builder.AddRequestHandler(new AuctionSellSpecificItemRequestRequestHandler(_playerState, _tradeService, _settingsManager));
+#if DEBUG
+                builder.AddRequestHandler(new DebugRequestProbeRequestHandler());
+#endif
 
                 receiver = builder.Build();
 

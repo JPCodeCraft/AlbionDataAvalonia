@@ -24,6 +24,7 @@
 	</PropertyGroup>
 
 	<ItemGroup>
+		<PackageReference Condition="'$(Configuration)' == 'Debug'" Include="Serilog" Version="4.3.0" />
 		<ProjectReference Include="..\AlbionDataAvalonia.Shared\AlbionDataAvalonia.Shared.csproj" />
 		<ProjectReference Include="..\PhotonPackageParser\PhotonPackageParser.csproj" />
 	</ItemGroup>
