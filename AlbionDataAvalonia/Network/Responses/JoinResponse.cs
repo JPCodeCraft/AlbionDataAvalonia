@@ -12,6 +12,8 @@ public class JoinResponse : BaseOperation
     public readonly AlbionLocation playerLocation;
     public readonly string playerName;
     public readonly int userObjectId;
+    public readonly double? globalMultiplier;
+
     public JoinResponse(Dictionary<byte, object> parameters) : base(parameters)
     {
         Log.Verbose("Got {PacketType} packet.", GetType());
@@ -57,6 +59,18 @@ public class JoinResponse : BaseOperation
                 else
                 {
                     playerLocation = AlbionLocations.Unknown;
+                }
+            }
+
+            if (parameters.TryGetValue(83, out object globalMultiplierData))
+            {
+                try
+                {
+                    globalMultiplier = globalMultiplierData.ToLong() / 10000d;
+                }
+                catch (InvalidCastException)
+                {
+                    Log.Warning("Join response param 83 was present but could not be parsed into a global multiplier. Type: {Type}", globalMultiplierData?.GetType());
                 }
             }
         }

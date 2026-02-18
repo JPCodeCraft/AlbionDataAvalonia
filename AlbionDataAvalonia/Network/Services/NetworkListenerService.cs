@@ -105,7 +105,7 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddResponseHandler(new AuctionGetOffersResponseHandler(_uploader, _playerState, _tradeService));
                 builder.AddResponseHandler(new AuctionGetRequestsResponseHandler(_uploader, _playerState, _tradeService));
                 builder.AddResponseHandler(new AuctionGetItemAverageStatsResponseHandler(_uploader, _playerState));
-                builder.AddResponseHandler(new JoinResponseHandler(_playerState));
+                builder.AddResponseHandler(new JoinResponseHandler(_playerState, _afmUploader));
                 builder.AddResponseHandler(new AuctionGetGoldAverageStatsResponseHandler(_uploader));
                 builder.AddResponseHandler(new GetMailInfosResponseHandler(_playerState, _mailService, _settingsManager));
                 builder.AddResponseHandler(new ReadMailResponseHandler(_playerState, _mailService));

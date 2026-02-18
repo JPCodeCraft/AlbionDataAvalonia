@@ -18,6 +18,11 @@ namespace AlbionDataAvalonia.Network.Services
 {
     public class AFMUploader : IDisposable
     {
+        private const string FlipperOrdersPath = "flipperOrders";
+        private const string PlayerCountPath = "playercount";
+        private const string AchievementsPath = "be/achievements";
+        private const string GlobalMultiplierPath = "be/globalMultiplier";
+
         private readonly PlayerState _playerState;
         private readonly SettingsManager _settingsManager;
         private readonly AuthService _authService;
@@ -135,7 +140,7 @@ namespace AlbionDataAvalonia.Network.Services
                 }
             }
 
-            var requestUri = new Uri(httpClient.BaseAddress, "flipperOrders?contributeToPublic=" + _playerState.ContributeToPublic);
+            var requestUri = new Uri(httpClient.BaseAddress, $"{FlipperOrdersPath}?contributeToPublic={_playerState.ContributeToPublic}");
             var payload = jsonNode?.ToJsonString(serializerOptions) ?? "{}";
 
             async Task<HttpResponseMessage> SendAsync()
@@ -197,9 +202,14 @@ namespace AlbionDataAvalonia.Network.Services
             _ = Upload(achievementUpload);
         }
 
+        public void UploadGlobalMultiplier(GlobalMultiplierUpload globalMultiplierUpload)
+        {
+            _ = Upload(globalMultiplierUpload);
+        }
+
         private async Task Upload(PlayerCount playerCount)
         {
-            var requestUri = new Uri(httpClient.BaseAddress, "playercount");
+            var requestUri = new Uri(httpClient.BaseAddress, PlayerCountPath);
             HttpResponseMessage response = await httpClient.PostAsJsonAsync(requestUri, playerCount);
 
             if (response.StatusCode != HttpStatusCode.OK)
@@ -227,7 +237,7 @@ namespace AlbionDataAvalonia.Network.Services
                 return;
             }
 
-            var requestUri = new Uri(httpClient.BaseAddress, "be/achievements");
+            var requestUri = new Uri(httpClient.BaseAddress, AchievementsPath);
             var serializerOptions = new JsonSerializerOptions
             {
                 PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
@@ -273,6 +283,78 @@ namespace AlbionDataAvalonia.Network.Services
                 }
 
                 Log.Information("Successfully sent {0} achievements for character {1} on server {2} to AFM.", achievementUpload.Achievements.Count, achievementUpload.CharacterName, _playerState.AlbionServer?.Name ?? "Unknown");
+            }
+            finally
+            {
+                response?.Dispose();
+            }
+        }
+
+        private async Task Upload(GlobalMultiplierUpload globalMultiplierUpload)
+        {
+            var hasValidToken = await _authService.EnsureValidTokenAsync();
+            if (!hasValidToken)
+            {
+                Log.Error("Cannot upload global multiplier without a valid Firebase session.");
+                return;
+            }
+
+            var firebaseUserId = _authService.FirebaseUserId;
+            if (firebaseUserId is null)
+            {
+                Log.Error("Cannot upload global multiplier without a Firebase user ID.");
+                return;
+            }
+
+            var requestUri = new Uri(httpClient.BaseAddress, GlobalMultiplierPath);
+            var serializerOptions = new JsonSerializerOptions
+            {
+                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+            };
+
+            async Task<HttpResponseMessage> SendAsync()
+            {
+                return await httpClient.PostAsJsonAsync(requestUri, globalMultiplierUpload, serializerOptions);
+            }
+
+            HttpResponseMessage? response = null;
+
+            try
+            {
+                response = await SendAsync();
+
+                if (response.StatusCode == HttpStatusCode.Unauthorized)
+                {
+                    response.Dispose();
+                    response = null;
+
+                    var recovered = await _authService.TryRecoverFromUnauthorizedAsync();
+                    if (!recovered)
+                    {
+                        return;
+                    }
+
+                    response = await SendAsync();
+
+                    if (response.StatusCode == HttpStatusCode.Unauthorized)
+                    {
+                        var unauthorizedBody = await response.Content.ReadAsStringAsync();
+                        Log.Error("AFM global multiplier upload unauthorized after retry. Returned: {0} ({1}).", response.StatusCode, unauthorizedBody);
+                        return;
+                    }
+                }
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    Log.Error("HTTP Error while uploading global multiplier. Returned: {0} ({1}).", response.StatusCode, await response.Content.ReadAsStringAsync());
+                    return;
+                }
+
+                Log.Information(
+                    "Successfully sent global multiplier {GlobalMultiplier} for server {ServerId}.",
+                    globalMultiplierUpload.GlobalMultiplier,
+                    globalMultiplierUpload.ServerId);
             }
             finally
             {
