@@ -1,7 +1,6 @@
 ﻿using AlbionDataAvalonia.Auth.Models;
 using AlbionDataAvalonia.Auth.Services;
 using AlbionDataAvalonia.Locations;
-using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
@@ -13,7 +12,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Serilog;
 using System;
-using System.Collections.Concurrent;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -96,21 +94,34 @@ public partial class MainViewModel : ViewModelBase
     private int runningTasksCount;
 
     [ObservableProperty]
-    private int uploadedMarketOffersCount;
+    private int publicUploadSuccessCount;
     [ObservableProperty]
-    private int uploadedMarketRequestsCount;
+    private int publicUploadFailedCount;
     [ObservableProperty]
-    private int uploadedMonthlyHistoriesCount;
+    private int publicUploadedMarketOffersCount;
     [ObservableProperty]
-    private int uploadedWeeklyHistoriesCount;
+    private int publicUploadedMarketRequestsCount;
     [ObservableProperty]
-    private int uploadedDailyHistoriesCount;
+    private int publicUploadedGoldHistoriesCount;
     [ObservableProperty]
-    private int uploadedGoldHistoriesCount;
+    private int publicUploadedMonthlyHistoriesCount;
     [ObservableProperty]
-    private int uploadSuccessCount;
+    private int publicUploadedWeeklyHistoriesCount;
     [ObservableProperty]
-    private int uploadFailedCount;
+    private int publicUploadedDailyHistoriesCount;
+
+    [ObservableProperty]
+    private int privateUploadSuccessCount;
+    [ObservableProperty]
+    private int privateUploadFailedCount;
+    [ObservableProperty]
+    private int privateUploadedMarketOffersCount;
+    [ObservableProperty]
+    private int privateUploadedMarketRequestsCount;
+    [ObservableProperty]
+    private int privateUploadedAchievementsCount;
+    [ObservableProperty]
+    private int privateUploadedGlobalMultipliersCount;
 
     [ObservableProperty]
     private bool redBlinking = false;
@@ -157,18 +168,10 @@ public partial class MainViewModel : ViewModelBase
         _uploader.OnChange += UpdateUploadStats;
 
         _playerState.OnPlayerStateChanged += UpdateState;
-
-        _playerState.OnUploadedMarketRequestsCountChanged += count => UploadedMarketRequestsCount = count;
-        _playerState.OnUploadedMarketOffersCountChanged += count => UploadedMarketOffersCount = count;
-        _playerState.OnUploadedHistoriesCountDicChanged += dic =>
-        {
-            UploadedMonthlyHistoriesCount = dic.ContainsKey(Timescale.Month) ? dic[Timescale.Month] : 0;
-            UploadedWeeklyHistoriesCount = dic.ContainsKey(Timescale.Week) ? dic[Timescale.Week] : 0;
-            UploadedDailyHistoriesCount = dic.ContainsKey(Timescale.Day) ? dic[Timescale.Day] : 0;
-        };
-        _playerState.OnUploadedGoldHistoriesCountChanged += count => UploadedGoldHistoriesCount = count;
-
-        _playerState.OnUploadStatusCountDicChanged += UpdateUploadStatusCount;
+        _playerState.OnPublicUploadStatsChanged += ApplyPublicUploadStats;
+        _playerState.OnPrivateUploadStatsChanged += ApplyPrivateUploadStats;
+        ApplyPublicUploadStats(_playerState.PublicUploadStats);
+        ApplyPrivateUploadStats(_playerState.PrivateUploadStats);
 
         _authService.FirebaseUserChanged += user =>
         {
@@ -227,10 +230,26 @@ public partial class MainViewModel : ViewModelBase
         }
     }
 
-    private void UpdateUploadStatusCount(ConcurrentDictionary<UploadStatus, int> dic)
+    private void ApplyPublicUploadStats(PublicUploadStatsSnapshot stats)
     {
-        UploadSuccessCount = dic.TryGetValue(UploadStatus.Success, out int value) ? value : 0;
-        UploadFailedCount = dic.TryGetValue(UploadStatus.Failed, out value) ? value : 0;
+        PublicUploadSuccessCount = stats.SuccessCount;
+        PublicUploadFailedCount = stats.FailedCount;
+        PublicUploadedMarketOffersCount = stats.MarketOffersCount;
+        PublicUploadedMarketRequestsCount = stats.MarketRequestsCount;
+        PublicUploadedGoldHistoriesCount = stats.GoldHistoriesCount;
+        PublicUploadedMonthlyHistoriesCount = stats.MonthlyHistoriesCount;
+        PublicUploadedWeeklyHistoriesCount = stats.WeeklyHistoriesCount;
+        PublicUploadedDailyHistoriesCount = stats.DailyHistoriesCount;
+    }
+
+    private void ApplyPrivateUploadStats(PrivateUploadStatsSnapshot stats)
+    {
+        PrivateUploadSuccessCount = stats.SuccessCount;
+        PrivateUploadFailedCount = stats.FailedCount;
+        PrivateUploadedMarketOffersCount = stats.MarketOffersCount;
+        PrivateUploadedMarketRequestsCount = stats.MarketRequestsCount;
+        PrivateUploadedAchievementsCount = stats.AchievementsCount;
+        PrivateUploadedGlobalMultipliersCount = stats.GlobalMultipliersCount;
     }
 
     private void UpdateState(object? sender, PlayerStateEventArgs e)

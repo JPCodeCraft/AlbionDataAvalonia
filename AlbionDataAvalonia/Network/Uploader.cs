@@ -63,7 +63,7 @@ public class Uploader : IDisposable
             if (_playerState.UploadToAfmOnly)
             {
                 var afmUploadStatus = await _afmUploader.UploadMarketOrder(marketUpload);
-                OnMarketUpload?.Invoke(this, new MarketUploadEventArgs(marketUpload, _playerState.AlbionServer, afmUploadStatus));
+                OnMarketUpload?.Invoke(this, new MarketUploadEventArgs(marketUpload, _playerState.AlbionServer, afmUploadStatus, UploadScope.Private));
 
                 if (afmUploadStatus == UploadStatus.Success)
                 {
@@ -104,7 +104,7 @@ public class Uploader : IDisposable
 
                 var uploadStatus = await UploadData(data, _playerState.AlbionServer, _settingsManager.AppSettings.MarketOrdersIngestSubject ?? "", publicMarketUpload.Identifier);
 
-                OnMarketUpload?.Invoke(this, new MarketUploadEventArgs(publicMarketUpload, _playerState.AlbionServer, uploadStatus));
+                OnMarketUpload?.Invoke(this, new MarketUploadEventArgs(publicMarketUpload, _playerState.AlbionServer, uploadStatus, UploadScope.Public));
 
                 if (uploadStatus == UploadStatus.Success)
                 {
@@ -141,7 +141,7 @@ public class Uploader : IDisposable
 
             var uploadStatus = await UploadData(data, _playerState.AlbionServer, _settingsManager.AppSettings.GoldDataIngestSubject ?? "", goldHistoryUpload.Identifier);
 
-            OnGoldPriceUpload?.Invoke(this, new GoldPriceUploadEventArgs(goldHistoryUpload, _playerState.AlbionServer, uploadStatus));
+            OnGoldPriceUpload?.Invoke(this, new GoldPriceUploadEventArgs(goldHistoryUpload, _playerState.AlbionServer, uploadStatus, UploadScope.Public));
 
             if (uploadStatus == UploadStatus.Success)
             {
@@ -176,7 +176,7 @@ public class Uploader : IDisposable
 
             var uploadStatus = await UploadData(data, _playerState.AlbionServer, _settingsManager.AppSettings.BanditEventIngestSubject ?? "", banditEventUpload.Identifier);
 
-            OnBanditEventUpload?.Invoke(this, new BanditEventUploadEventArgs(banditEventUpload, _playerState.AlbionServer, uploadStatus));
+            OnBanditEventUpload?.Invoke(this, new BanditEventUploadEventArgs(banditEventUpload, _playerState.AlbionServer, uploadStatus, UploadScope.Public));
 
             if (uploadStatus == UploadStatus.Success)
             {
@@ -213,7 +213,7 @@ public class Uploader : IDisposable
 
             var uploadStatus = await UploadData(data, _playerState.AlbionServer, _settingsManager.AppSettings.MarketHistoriesIngestSubject ?? "", marketHistoriesUpload.Identifier);
 
-            OnMarketHistoryUpload?.Invoke(this, new MarketHistoriesUploadEventArgs(marketHistoriesUpload, _playerState.AlbionServer, uploadStatus));
+            OnMarketHistoryUpload?.Invoke(this, new MarketHistoriesUploadEventArgs(marketHistoriesUpload, _playerState.AlbionServer, uploadStatus, UploadScope.Public));
 
             if (uploadStatus == UploadStatus.Success)
             {

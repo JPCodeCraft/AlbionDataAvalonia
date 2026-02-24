@@ -29,23 +29,11 @@ namespace AlbionDataAvalonia.State
         public ulong CacheSize => 8192;
 
         public event EventHandler<PlayerStateEventArgs>? OnPlayerStateChanged;
+        public event Action<PublicUploadStatsSnapshot>? OnPublicUploadStatsChanged;
+        public event Action<PrivateUploadStatsSnapshot>? OnPrivateUploadStatsChanged;
 
-        public event Action<int>? OnUploadedMarketOffersCountChanged;
-        public event Action<int>? OnUploadedMarketRequestsCountChanged;
-        public event Action<ConcurrentDictionary<Timescale, int>>? OnUploadedHistoriesCountDicChanged;
-        public event Action<int>? OnUploadedGoldHistoriesCountChanged;
-        public event Action<ConcurrentDictionary<UploadStatus, int>>? OnUploadStatusCountDicChanged;
-
-        public int UploadedMarketOffersCount { get; set; }
-        public int UploadedMarketRequestsCount { get; set; }
-        public ConcurrentDictionary<Timescale, int> UploadedHistoriesCountDic { get; set; } = new();
-        public int UploadedGoldHistoriesCount { get; set; }
-
-        private ConcurrentDictionary<UploadStatus, int> UploadStatusCountDic { get; set; } = new()
-        {
-            [UploadStatus.Success] = 0,
-            [UploadStatus.Failed] = 0
-        };
+        public PublicUploadStatsSnapshot PublicUploadStats { get; } = new();
+        public PrivateUploadStatsSnapshot PrivateUploadStats { get; } = new();
 
         public int UserObjectId { get; set; }
 
@@ -233,54 +221,106 @@ namespace AlbionDataAvalonia.State
 
         public void MarketUploadHandler(object? sender, MarketUploadEventArgs e)
         {
-            ProcessUploadStatus(e.UploadStatus, e.MarketUpload.Identifier);
+            ProcessUploadStatus(e.Scope, e.UploadStatus, e.MarketUpload.Identifier);
             if (e.UploadStatus != UploadStatus.Success) return;
 
-            int offersCount = e.MarketUpload.Orders.Count(o => o.AuctionType == AuctionType.offer);
-            int requestsCount = e.MarketUpload.Orders.Count(o => o.AuctionType == AuctionType.request);
+            var offersCount = e.MarketUpload.Orders.Count(o => o.AuctionType == AuctionType.offer);
+            var requestsCount = e.MarketUpload.Orders.Count(o => o.AuctionType == AuctionType.request);
+
+            if (e.Scope == UploadScope.Public)
+            {
+                if (offersCount > 0)
+                {
+                    PublicUploadStats.MarketOffersCount += offersCount;
+                }
+
+                if (requestsCount > 0)
+                {
+                    PublicUploadStats.MarketRequestsCount += requestsCount;
+                }
+
+                NotifyPublicUploadStatsChanged();
+                return;
+            }
 
             if (offersCount > 0)
             {
-                UploadedMarketOffersCount += offersCount;
-                OnUploadedMarketOffersCountChanged?.Invoke(UploadedMarketOffersCount);
+                PrivateUploadStats.MarketOffersCount += offersCount;
             }
+
             if (requestsCount > 0)
             {
-                UploadedMarketRequestsCount += requestsCount;
-                OnUploadedMarketRequestsCountChanged?.Invoke(UploadedMarketRequestsCount);
+                PrivateUploadStats.MarketRequestsCount += requestsCount;
             }
+
+            NotifyPrivateUploadStatsChanged();
         }
 
         public void MarketHistoryUploadHandler(object? sender, MarketHistoriesUploadEventArgs e)
         {
-            ProcessUploadStatus(e.UploadStatus, e.MarketHistoriesUpload.Identifier);
+            ProcessUploadStatus(e.Scope, e.UploadStatus, e.MarketHistoriesUpload.Identifier);
             if (e.UploadStatus != UploadStatus.Success) return;
 
-            if (!UploadedHistoriesCountDic.ContainsKey(e.MarketHistoriesUpload.Timescale))
+            var historyCount = e.MarketHistoriesUpload.MarketHistories.Count;
+
+            if (e.Scope == UploadScope.Public)
             {
-                UploadedHistoriesCountDic[e.MarketHistoriesUpload.Timescale] = 0;
+                switch (e.MarketHistoriesUpload.Timescale)
+                {
+                    case Timescale.Month:
+                        PublicUploadStats.MonthlyHistoriesCount += historyCount;
+                        break;
+                    case Timescale.Week:
+                        PublicUploadStats.WeeklyHistoriesCount += historyCount;
+                        break;
+                    case Timescale.Day:
+                        PublicUploadStats.DailyHistoriesCount += historyCount;
+                        break;
+                }
+
+                NotifyPublicUploadStatsChanged();
             }
-
-            int historyCount = e.MarketHistoriesUpload.MarketHistories.Count;
-
-            UploadedHistoriesCountDic[e.MarketHistoriesUpload.Timescale] += historyCount;
-            OnUploadedHistoriesCountDicChanged?.Invoke(UploadedHistoriesCountDic);
         }
 
         public void GoldPriceUploadHandler(object? sender, GoldPriceUploadEventArgs e)
         {
-            ProcessUploadStatus(e.UploadStatus, e.GoldPriceUpload.Identifier);
+            ProcessUploadStatus(e.Scope, e.UploadStatus, e.GoldPriceUpload.Identifier);
             if (e.UploadStatus != UploadStatus.Success) return;
 
-            int goldHistoriesCount = e.GoldPriceUpload.Prices.Length;
-
-            UploadedGoldHistoriesCount += goldHistoriesCount;
-            OnUploadedGoldHistoriesCountChanged?.Invoke(UploadedGoldHistoriesCount);
+            if (e.Scope == UploadScope.Public)
+            {
+                PublicUploadStats.GoldHistoriesCount += e.GoldPriceUpload.Prices.Length;
+                NotifyPublicUploadStatsChanged();
+            }
         }
 
         public void BanditEventUploadHandler(object? sender, BanditEventUploadEventArgs e)
         {
-            ProcessUploadStatus(e.UploadStatus, e.BanditEventUpload.Identifier);
+            ProcessUploadStatus(e.Scope, e.UploadStatus, e.BanditEventUpload.Identifier);
+        }
+
+        public void AchievementsUploadHandler(object? sender, AchievementsUploadEventArgs e)
+        {
+            ProcessUploadStatus(e.Scope, e.UploadStatus, e.Identifier);
+            if (e.UploadStatus != UploadStatus.Success || e.Scope != UploadScope.Private)
+            {
+                return;
+            }
+
+            PrivateUploadStats.AchievementsCount += e.AchievementsCount;
+            NotifyPrivateUploadStatsChanged();
+        }
+
+        public void GlobalMultiplierUploadHandler(object? sender, GlobalMultiplierUploadEventArgs e)
+        {
+            ProcessUploadStatus(e.Scope, e.UploadStatus, e.Identifier);
+            if (e.UploadStatus != UploadStatus.Success || e.Scope != UploadScope.Private)
+            {
+                return;
+            }
+
+            PrivateUploadStats.GlobalMultipliersCount++;
+            NotifyPrivateUploadStatsChanged();
         }
 
         public bool TryMarkBanditEventSubmission()
@@ -303,11 +343,74 @@ namespace AlbionDataAvalonia.State
             return false;
         }
 
-        private void ProcessUploadStatus(UploadStatus status, Guid identifier)
+        private void ProcessUploadStatus(UploadScope scope, UploadStatus status, Guid identifier)
         {
-            UploadStatusCountDic[status]++;
-            OnUploadStatusCountDicChanged?.Invoke(UploadStatusCountDic);
-            Log.Verbose("Upload status: {status} => accounted for. Identifier: {identifier}", status, identifier);
+            if (scope == UploadScope.Public)
+            {
+                if (status == UploadStatus.Success)
+                {
+                    PublicUploadStats.SuccessCount++;
+                }
+                else
+                {
+                    PublicUploadStats.FailedCount++;
+                }
+
+                NotifyPublicUploadStatsChanged();
+            }
+            else
+            {
+                if (status == UploadStatus.Success)
+                {
+                    PrivateUploadStats.SuccessCount++;
+                }
+                else
+                {
+                    PrivateUploadStats.FailedCount++;
+                }
+
+                NotifyPrivateUploadStatsChanged();
+            }
+
+            Log.Verbose("Upload status: {status} ({scope}) => accounted for. Identifier: {identifier}", status, scope, identifier);
+        }
+
+        private void NotifyPublicUploadStatsChanged()
+        {
+            OnPublicUploadStatsChanged?.Invoke(ClonePublicStats(PublicUploadStats));
+        }
+
+        private void NotifyPrivateUploadStatsChanged()
+        {
+            OnPrivateUploadStatsChanged?.Invoke(ClonePrivateStats(PrivateUploadStats));
+        }
+
+        private static PublicUploadStatsSnapshot ClonePublicStats(PublicUploadStatsSnapshot source)
+        {
+            return new PublicUploadStatsSnapshot
+            {
+                SuccessCount = source.SuccessCount,
+                FailedCount = source.FailedCount,
+                MarketOffersCount = source.MarketOffersCount,
+                MarketRequestsCount = source.MarketRequestsCount,
+                MonthlyHistoriesCount = source.MonthlyHistoriesCount,
+                WeeklyHistoriesCount = source.WeeklyHistoriesCount,
+                DailyHistoriesCount = source.DailyHistoriesCount,
+                GoldHistoriesCount = source.GoldHistoriesCount
+            };
+        }
+
+        private static PrivateUploadStatsSnapshot ClonePrivateStats(PrivateUploadStatsSnapshot source)
+        {
+            return new PrivateUploadStatsSnapshot
+            {
+                SuccessCount = source.SuccessCount,
+                FailedCount = source.FailedCount,
+                MarketOffersCount = source.MarketOffersCount,
+                MarketRequestsCount = source.MarketRequestsCount,
+                AchievementsCount = source.AchievementsCount,
+                GlobalMultipliersCount = source.GlobalMultipliersCount
+            };
         }
 
         public bool CheckLocationIsSet()

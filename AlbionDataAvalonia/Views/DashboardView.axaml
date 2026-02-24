@@ -40,6 +40,52 @@
 		<Style Selector="Label.Orange">
 			<Setter Property="Foreground" Value="{StaticResource AFMOrange}" />
 		</Style>
+		<Style Selector="Border.SectionCard">
+			<Setter Property="Padding" Value="12" />
+			<Setter Property="CornerRadius" Value="8" />
+			<Setter Property="BorderThickness" Value="1" />
+			<Setter Property="Background" Value="rgba(255,255,255,0.03)" />
+			<Setter Property="BorderBrush" Value="rgba(255,255,255,0.15)" />
+		</Style>
+		<Style Selector="Border.StatCard">
+			<Setter Property="Padding" Value="10" />
+			<Setter Property="Margin" Value="4" />
+			<Setter Property="CornerRadius" Value="6" />
+			<Setter Property="BorderThickness" Value="1" />
+			<Setter Property="BorderBrush" Value="rgba(255,255,255,0.15)" />
+			<Setter Property="Background" Value="rgba(255,255,255,0.02)" />
+			<Setter Property="MinWidth" Value="220" />
+		</Style>
+		<Style Selector="Label.SectionTitle">
+			<Setter Property="FontSize" Value="16" />
+			<Setter Property="FontWeight" Value="Bold" />
+			<Setter Property="HorizontalAlignment" Value="Center" />
+		</Style>
+		<Style Selector="TextBlock.StatLabel">
+			<Setter Property="FontWeight" Value="DemiBold" />
+			<Setter Property="HorizontalAlignment" Value="Center" />
+			<Setter Property="TextAlignment" Value="Center" />
+			<Setter Property="TextWrapping" Value="Wrap" />
+		</Style>
+		<Style Selector="TextBlock.StatValue">
+			<Setter Property="FontSize" Value="17" />
+			<Setter Property="FontWeight" Value="Bold" />
+			<Setter Property="HorizontalAlignment" Value="Center" />
+			<Setter Property="TextAlignment" Value="Center" />
+		</Style>
+		<Style Selector="Border.PrivateOrdersCard">
+			<Setter Property="Margin" Value="4" />
+		</Style>
+		<Style Selector="Border.PrivateOrdersCard.PrivateFlipsGlow">
+			<Setter Property="BorderBrush" Value="{StaticResource AFMOrange}" />
+			<Setter Property="Background" Value="rgba(255,167,38,0.12)" />
+			<Setter Property="BoxShadow" Value="0 0 10 1 #8CFFA726" />
+		</Style>
+		<Style Selector="Border.DimmedUploadCard">
+			<Setter Property="Background" Value="rgba(0,0,0,0.22)" />
+			<Setter Property="BorderBrush" Value="rgba(255,255,255,0.07)" />
+			<Setter Property="Opacity" Value="0.6" />
+		</Style>
 
 	</UserControl.Styles>
 
@@ -108,41 +154,6 @@
 						RadiusY="1" />
 				</Border>
 
-				<!--  UPLOAD STATS SUB-LINE  -->
-					<Grid
-						Grid.Row="2"
-						Grid.Column="1"
-						Grid.ColumnSpan="2"
-						Margin="0,15,0,5"
-						HorizontalAlignment="Center"
-						VerticalAlignment="Center"
-						ColumnDefinitions="75, 75"
-						RowDefinitions="Auto, Auto">
-						<Label
-							Grid.Row="0"
-							Grid.Column="0"
-							HorizontalAlignment="Center"
-							VerticalAlignment="Center"
-							Content="Success" />
-						<Label
-							Grid.Row="0"
-							Grid.Column="1"
-							HorizontalAlignment="Center"
-							VerticalAlignment="Center"
-							Content="Failed" />
-						<Label
-							Grid.Row="1"
-							Grid.Column="0"
-							HorizontalAlignment="Center"
-							VerticalAlignment="Center"
-							Content="{Binding UploadSuccessCount, StringFormat=N0}" />
-						<Label
-							Grid.Row="1"
-							Grid.Column="1"
-							HorizontalAlignment="Center"
-							VerticalAlignment="Center"
-							Content="{Binding UploadFailedCount, StringFormat=N0}" />
-					</Grid>
 			</Grid>
 
 			<!--  LOCATION AND WARNINGS LINE  -->
@@ -293,105 +304,139 @@
 				</Border>
 			</Grid>
 
-			<!--  PRICES AND GOLD LINE  -->
-			<Grid
+			<!--  PUBLIC DATA LINE  -->
+			<Border
 				Grid.Row="2"
 				Margin="0,10,0,10"
-				ColumnDefinitions="*, *, *"
-				IsVisible="{Binding ShowDataUi}"
-				RowDefinitions="30, 30">
-				<Label
-					Grid.Row="0"
-					Grid.Column="0"
-					HorizontalAlignment="Center"
-					VerticalAlignment="Center"
-					Content="Uploaded Market Offers"
-					FontWeight="Bold" />
-				<Label
-					Grid.Row="1"
-					Grid.Column="0"
-					HorizontalAlignment="Center"
-					VerticalAlignment="Center"
-					Content="{Binding UploadedMarketOffersCount, StringFormat=N0}" />
+				Classes="SectionCard"
+				IsVisible="{Binding ShowDataUi}">
+				<StackPanel Spacing="8" HorizontalAlignment="Center">
+					<Label Classes="SectionTitle" Content="Public Data (AODP)" />
 
-				<Label
-					Grid.Row="0"
-					Grid.Column="1"
-					HorizontalAlignment="Center"
-					VerticalAlignment="Center"
-					Content="Uploaded Market Requests"
-					FontWeight="Bold" />
-				<Label
-					Grid.Row="1"
-					Grid.Column="1"
-					HorizontalAlignment="Center"
-					VerticalAlignment="Center"
-					Content="{Binding UploadedMarketRequestsCount, StringFormat=N0}" />
+					<WrapPanel HorizontalAlignment="Center">
+						<Border Classes="StatCard">
+							<StackPanel Spacing="4">
+								<TextBlock Classes="StatLabel" Text="Success" />
+								<TextBlock Classes="StatValue" Text="{Binding PublicUploadSuccessCount, StringFormat=N0}" />
+							</StackPanel>
+						</Border>
+						<Border Classes="StatCard">
+							<StackPanel Spacing="4">
+								<TextBlock Classes="StatLabel" Text="Failed" />
+								<TextBlock Classes="StatValue" Text="{Binding PublicUploadFailedCount, StringFormat=N0}" />
+							</StackPanel>
+						</Border>
+					</WrapPanel>
 
-				<Label
-					Grid.Row="0"
-					Grid.Column="2"
-					HorizontalAlignment="Center"
-					VerticalAlignment="Center"
-					Content="Uploaded Gold Histories"
-					FontWeight="Bold" />
-				<Label
-					Grid.Row="1"
-					Grid.Column="2"
-					HorizontalAlignment="Center"
-					VerticalAlignment="Center"
-					Content="{Binding UploadedGoldHistoriesCount, StringFormat=N0}" />
-			</Grid>
+					<WrapPanel HorizontalAlignment="Center">
+						<Border
+							Classes="StatCard"
+							Classes.DimmedUploadCard="{Binding UploadToAfmOnly}">
+							<StackPanel Spacing="4">
+								<TextBlock Classes="StatLabel" Text="Uploaded Market Offers" />
+								<TextBlock Classes="StatValue" Text="{Binding PublicUploadedMarketOffersCount, StringFormat=N0}" />
+							</StackPanel>
+						</Border>
+						<Border
+							Classes="StatCard"
+							Classes.DimmedUploadCard="{Binding UploadToAfmOnly}">
+							<StackPanel Spacing="4">
+								<TextBlock Classes="StatLabel" Text="Uploaded Market Requests" />
+								<TextBlock Classes="StatValue" Text="{Binding PublicUploadedMarketRequestsCount, StringFormat=N0}" />
+							</StackPanel>
+						</Border>
+						<Border Classes="StatCard">
+							<StackPanel Spacing="4">
+								<TextBlock Classes="StatLabel" Text="Uploaded Gold Histories" />
+								<TextBlock Classes="StatValue" Text="{Binding PublicUploadedGoldHistoriesCount, StringFormat=N0}" />
+							</StackPanel>
+						</Border>
+					</WrapPanel>
 
-			<!--  HISTORIES LINE  -->
-			<Grid
+					<WrapPanel HorizontalAlignment="Center">
+						<Border Classes="StatCard">
+							<StackPanel Spacing="4">
+								<TextBlock Classes="StatLabel" Text="Uploaded Monthly Histories" />
+								<TextBlock Classes="StatValue" Text="{Binding PublicUploadedMonthlyHistoriesCount, StringFormat=N0}" />
+							</StackPanel>
+						</Border>
+						<Border Classes="StatCard">
+							<StackPanel Spacing="4">
+								<TextBlock Classes="StatLabel" Text="Uploaded Weekly Histories" />
+								<TextBlock Classes="StatValue" Text="{Binding PublicUploadedWeeklyHistoriesCount, StringFormat=N0}" />
+							</StackPanel>
+						</Border>
+						<Border Classes="StatCard">
+							<StackPanel Spacing="4">
+								<TextBlock Classes="StatLabel" Text="Uploaded Daily Histories" />
+								<TextBlock Classes="StatValue" Text="{Binding PublicUploadedDailyHistoriesCount, StringFormat=N0}" />
+							</StackPanel>
+						</Border>
+					</WrapPanel>
+				</StackPanel>
+			</Border>
+
+			<!--  PRIVATE DATA LINE  -->
+			<Border
 				Grid.Row="3"
 				Margin="0,10,0,10"
-				ColumnDefinitions="*, *, *"
-				IsVisible="{Binding ShowDataUi}"
-				RowDefinitions="30, 30">
-				<Label
-					Grid.Row="0"
-					Grid.Column="0"
-					HorizontalAlignment="Center"
-					VerticalAlignment="Center"
-					Content="Uploaded Monthly Histories"
-					FontWeight="Bold" />
-				<Label
-					Grid.Row="1"
-					Grid.Column="0"
-					HorizontalAlignment="Center"
-					VerticalAlignment="Center"
-					Content="{Binding UploadedMonthlyHistoriesCount, StringFormat=N0}" />
+				Classes="SectionCard"
+				IsVisible="{Binding ShowDataUi}">
+				<StackPanel Spacing="8" HorizontalAlignment="Center">
+					<Label Classes="SectionTitle" Content="Private Data (AFM)" />
 
-				<Label
-					Grid.Row="0"
-					Grid.Column="1"
-					HorizontalAlignment="Center"
-					VerticalAlignment="Center"
-					Content="Uploaded Weekly Histories"
-					FontWeight="Bold" />
-				<Label
-					Grid.Row="1"
-					Grid.Column="1"
-					HorizontalAlignment="Center"
-					VerticalAlignment="Center"
-					Content="{Binding UploadedWeeklyHistoriesCount, StringFormat=N0}" />
+					<WrapPanel HorizontalAlignment="Center">
+						<Border Classes="StatCard">
+							<StackPanel Spacing="4">
+								<TextBlock Classes="StatLabel" Text="Success" />
+								<TextBlock Classes="StatValue" Text="{Binding PrivateUploadSuccessCount, StringFormat=N0}" />
+							</StackPanel>
+						</Border>
+						<Border Classes="StatCard">
+							<StackPanel Spacing="4">
+								<TextBlock Classes="StatLabel" Text="Failed" />
+								<TextBlock Classes="StatValue" Text="{Binding PrivateUploadFailedCount, StringFormat=N0}" />
+							</StackPanel>
+						</Border>
+					</WrapPanel>
 
-				<Label
-					Grid.Row="0"
-					Grid.Column="2"
-					HorizontalAlignment="Center"
-					VerticalAlignment="Center"
-					Content="Uploaded Daily Histories"
-					FontWeight="Bold" />
-				<Label
-					Grid.Row="1"
-					Grid.Column="2"
-					HorizontalAlignment="Center"
-					VerticalAlignment="Center"
-					Content="{Binding UploadedDailyHistoriesCount, StringFormat=N0}" />
-			</Grid>
+					<WrapPanel HorizontalAlignment="Center">
+						<Border
+							Classes="StatCard PrivateOrdersCard"
+							Classes.PrivateFlipsGlow="{Binding UploadToAfmOnly}"
+							Classes.DimmedUploadCard="{Binding !UploadToAfmOnly}">
+							<StackPanel Spacing="4">
+								<TextBlock Classes="StatLabel" Text="Uploaded Market Offers" />
+								<TextBlock Classes="StatValue" Text="{Binding PrivateUploadedMarketOffersCount, StringFormat=N0}" />
+							</StackPanel>
+						</Border>
+						<Border
+							Classes="StatCard PrivateOrdersCard"
+							Classes.PrivateFlipsGlow="{Binding UploadToAfmOnly}"
+							Classes.DimmedUploadCard="{Binding !UploadToAfmOnly}">
+							<StackPanel Spacing="4">
+								<TextBlock Classes="StatLabel" Text="Uploaded Market Requests" />
+								<TextBlock Classes="StatValue" Text="{Binding PrivateUploadedMarketRequestsCount, StringFormat=N0}" />
+							</StackPanel>
+						</Border>
+					</WrapPanel>
+
+					<WrapPanel HorizontalAlignment="Center">
+						<Border Classes="StatCard">
+							<StackPanel Spacing="4">
+								<TextBlock Classes="StatLabel" Text="Uploaded Specs" />
+								<TextBlock Classes="StatValue" Text="{Binding PrivateUploadedAchievementsCount, StringFormat=N0}" />
+							</StackPanel>
+						</Border>
+						<Border Classes="StatCard">
+							<StackPanel Spacing="4">
+								<TextBlock Classes="StatLabel" Text="Uploaded Global Multipliers" />
+								<TextBlock Classes="StatValue" Text="{Binding PrivateUploadedGlobalMultipliersCount, StringFormat=N0}" />
+							</StackPanel>
+						</Border>
+					</WrapPanel>
+				</StackPanel>
+			</Border>
 
 			<!--  ENCRYPTION LINE  -->
 			<Grid

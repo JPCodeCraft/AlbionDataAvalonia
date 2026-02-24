@@ -1,5 +1,6 @@
 ﻿using AlbionDataAvalonia.Auth.Models;
 using AlbionDataAvalonia.Auth.Services;
+using AlbionDataAvalonia.Network.Events;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
@@ -30,6 +31,8 @@ namespace AlbionDataAvalonia.Network.Services
         private readonly HttpClient httpClient = new HttpClient();
 
         private readonly object _headersLock = new();
+        public event EventHandler<AchievementsUploadEventArgs>? OnAchievementsUpload;
+        public event EventHandler<GlobalMultiplierUploadEventArgs>? OnGlobalMultiplierUpload;
 
         public AFMUploader(PlayerState playerState, SettingsManager settingsManager, AuthService authService)
         {
@@ -37,6 +40,8 @@ namespace AlbionDataAvalonia.Network.Services
             _settingsManager = settingsManager;
             _authService = authService;
 
+            OnAchievementsUpload += _playerState.AchievementsUploadHandler;
+            OnGlobalMultiplierUpload += _playerState.GlobalMultiplierUploadHandler;
             _authService.FirebaseUserChanged += (user) => UpdateAuthHeader(user);
         }
 
@@ -221,20 +226,28 @@ namespace AlbionDataAvalonia.Network.Services
             Log.Debug("Successfully sent player count to {0}.", requestUri);
         }
 
-        private async Task Upload(AchievementUpload achievementUpload)
+        private async Task<UploadStatus> Upload(AchievementUpload achievementUpload)
         {
+            var identifier = Guid.NewGuid();
+
+            UploadStatus ReportStatus(UploadStatus status)
+            {
+                OnAchievementsUpload?.Invoke(this, new AchievementsUploadEventArgs(achievementUpload, status, UploadScope.Private, identifier));
+                return status;
+            }
+
             var hasValidToken = await _authService.EnsureValidTokenAsync();
             if (!hasValidToken)
             {
                 Log.Warning("Please login to upload achievements.");
-                return;
+                return ReportStatus(UploadStatus.Failed);
             }
 
             var firebaseUserId = _authService.FirebaseUserId;
             if (firebaseUserId is null)
             {
                 Log.Warning("Please login to upload achievements.");
-                return;
+                return ReportStatus(UploadStatus.Failed);
             }
 
             var requestUri = new Uri(httpClient.BaseAddress, AchievementsPath);
@@ -263,7 +276,7 @@ namespace AlbionDataAvalonia.Network.Services
                     var recovered = await _authService.TryRecoverFromUnauthorizedAsync();
                     if (!recovered)
                     {
-                        return;
+                        return ReportStatus(UploadStatus.Failed);
                     }
 
                     response = await SendAsync();
@@ -272,17 +285,18 @@ namespace AlbionDataAvalonia.Network.Services
                     {
                         var unauthorizedBody = await response.Content.ReadAsStringAsync();
                         Log.Error("AFM achievements upload unauthorized after retry. Returned: {0} ({1}).", response.StatusCode, unauthorizedBody);
-                        return;
+                        return ReportStatus(UploadStatus.Failed);
                     }
                 }
 
                 if (response.StatusCode != HttpStatusCode.OK)
                 {
                     Log.Error("HTTP Error while uploading achievements. Returned: {0} ({1}).", response.StatusCode, await response.Content.ReadAsStringAsync());
-                    return;
+                    return ReportStatus(UploadStatus.Failed);
                 }
 
                 Log.Information("Successfully sent {0} achievements for character {1} on server {2} to AFM.", achievementUpload.Achievements.Count, achievementUpload.CharacterName, _playerState.AlbionServer?.Name ?? "Unknown");
+                return ReportStatus(UploadStatus.Success);
             }
             finally
             {
@@ -290,20 +304,28 @@ namespace AlbionDataAvalonia.Network.Services
             }
         }
 
-        private async Task Upload(GlobalMultiplierUpload globalMultiplierUpload)
+        private async Task<UploadStatus> Upload(GlobalMultiplierUpload globalMultiplierUpload)
         {
+            var identifier = Guid.NewGuid();
+
+            UploadStatus ReportStatus(UploadStatus status)
+            {
+                OnGlobalMultiplierUpload?.Invoke(this, new GlobalMultiplierUploadEventArgs(globalMultiplierUpload, status, UploadScope.Private, identifier));
+                return status;
+            }
+
             var hasValidToken = await _authService.EnsureValidTokenAsync();
             if (!hasValidToken)
             {
                 Log.Warning("Please login to upload global multiplier.");
-                return;
+                return ReportStatus(UploadStatus.Failed);
             }
 
             var firebaseUserId = _authService.FirebaseUserId;
             if (firebaseUserId is null)
             {
                 Log.Warning("Please login to upload global multiplier.");
-                return;
+                return ReportStatus(UploadStatus.Failed);
             }
 
             var requestUri = new Uri(httpClient.BaseAddress, GlobalMultiplierPath);
@@ -332,7 +354,7 @@ namespace AlbionDataAvalonia.Network.Services
                     var recovered = await _authService.TryRecoverFromUnauthorizedAsync();
                     if (!recovered)
                     {
-                        return;
+                        return ReportStatus(UploadStatus.Failed);
                     }
 
                     response = await SendAsync();
@@ -341,20 +363,21 @@ namespace AlbionDataAvalonia.Network.Services
                     {
                         var unauthorizedBody = await response.Content.ReadAsStringAsync();
                         Log.Error("AFM global multiplier upload unauthorized after retry. Returned: {0} ({1}).", response.StatusCode, unauthorizedBody);
-                        return;
+                        return ReportStatus(UploadStatus.Failed);
                     }
                 }
 
                 if (!response.IsSuccessStatusCode)
                 {
                     Log.Error("HTTP Error while uploading global multiplier. Returned: {0} ({1}).", response.StatusCode, await response.Content.ReadAsStringAsync());
-                    return;
+                    return ReportStatus(UploadStatus.Failed);
                 }
 
                 Log.Information(
                     "Successfully sent global multiplier {GlobalMultiplier} for server {ServerId}.",
                     globalMultiplierUpload.GlobalMultiplier,
                     globalMultiplierUpload.ServerId);
+                return ReportStatus(UploadStatus.Success);
             }
             finally
             {
