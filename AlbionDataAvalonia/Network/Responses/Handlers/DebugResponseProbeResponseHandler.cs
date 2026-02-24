@@ -19,7 +19,7 @@ public class DebugResponseProbeResponseHandler : PacketHandler<ResponsePacket>
         }
 
         var response = new DebugResponseProbeResponse(packet.Parameters);
-        Log.Information(
+        Log.Debug(
             "Debug probe captured response {OperationCode} ({OperationName}) with {ParameterCount} parameter(s).",
             (int)ProbeOperationCode,
             ProbeOperationCode,
@@ -27,7 +27,7 @@ public class DebugResponseProbeResponseHandler : PacketHandler<ResponsePacket>
 
         foreach (var parameter in response.Parameters)
         {
-            Log.Information(
+            Log.Debug(
                 "Debug probe response param key={Key} type={Type} value={@Value}",
                 parameter.Key,
                 parameter.Value?.GetType().FullName ?? "null",

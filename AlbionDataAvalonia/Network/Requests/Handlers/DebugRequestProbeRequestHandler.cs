@@ -18,7 +18,7 @@ public class DebugRequestProbeRequestHandler : RequestPacketHandler<DebugRequest
 
     protected override Task OnActionAsync(DebugRequestProbeRequest value)
     {
-        Log.Information(
+        Log.Debug(
             "Debug probe captured request {OperationCode} ({OperationName}) with {ParameterCount} parameter(s).",
             (int)ProbeOperationCode,
             ProbeOperationCode,
@@ -26,7 +26,7 @@ public class DebugRequestProbeRequestHandler : RequestPacketHandler<DebugRequest
 
         foreach (var parameter in value.Parameters.OrderBy(x => x.Key))
         {
-            Log.Information(
+            Log.Debug(
                 "Debug probe request param key={Key} type={Type} value={@Value}",
                 parameter.Key,
                 parameter.Value?.GetType().FullName ?? "null",

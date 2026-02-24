@@ -18,7 +18,7 @@ public class DebugEventProbeEventHandler : EventPacketHandler<DebugEventProbeEve
 
     protected override Task OnActionAsync(DebugEventProbeEvent value)
     {
-        Log.Information(
+        Log.Debug(
             "Debug probe captured event {EventCode} ({EventName}) with {ParameterCount} parameter(s).",
             (int)ProbeEventCode,
             ProbeEventCode,
@@ -26,7 +26,7 @@ public class DebugEventProbeEventHandler : EventPacketHandler<DebugEventProbeEve
 
         foreach (var parameter in value.Parameters.OrderBy(x => x.Key))
         {
-            Log.Information(
+            Log.Debug(
                 "Debug probe param key={Key} type={Type} value={@Value}",
                 parameter.Key,
                 parameter.Value?.GetType().FullName ?? "null",

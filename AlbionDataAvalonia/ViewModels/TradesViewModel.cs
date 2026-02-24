@@ -26,16 +26,7 @@ public partial class TradesViewModel : ViewModelBase
     private readonly CsvExportService _csvExportService;
     private readonly TimeSpan _filterDebounceInterval = TimeSpan.FromMilliseconds(250);
     private IDisposable? _pendingFilterRefreshRegistration;
-    private static readonly IReadOnlyList<NumericOption> _tradesToLoadOptions =
-    [
-        new NumericOption(500, "500"),
-        new NumericOption(1000, "1,000"),
-        new NumericOption(2000, "2,000"),
-        new NumericOption(3000, "3,000"),
-        new NumericOption(5000, "5,000"),
-        new NumericOption(7500, "7,500"),
-        new NumericOption(10000, "10,000")
-    ];
+    private static readonly IReadOnlyList<NumericOption> _tradesToLoadOptions = NumericOptions.MailAndTradeLoadOptions;
 
     [ObservableProperty]
     private string filterText = string.Empty;
