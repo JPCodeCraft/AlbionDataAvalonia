@@ -109,52 +109,40 @@
 				</Border>
 
 				<!--  UPLOAD STATS SUB-LINE  -->
-				<Grid
-					Grid.Row="2"
-					Grid.Column="1"
-					Grid.ColumnSpan="2"
-					Margin="0,15,0,5"
-					HorizontalAlignment="Center"
-					VerticalAlignment="Center"
-					ColumnDefinitions="75, 75, 75"
-					RowDefinitions="Auto, Auto">
-					<Label
-						Grid.Row="0"
-						Grid.Column="0"
-						HorizontalAlignment="Center"
-						VerticalAlignment="Center"
-						Content="Success" />
-					<Label
-						Grid.Row="0"
+					<Grid
+						Grid.Row="2"
 						Grid.Column="1"
+						Grid.ColumnSpan="2"
+						Margin="0,15,0,5"
 						HorizontalAlignment="Center"
 						VerticalAlignment="Center"
-						Content="Skipped" />
-					<Label
-						Grid.Row="0"
-						Grid.Column="2"
-						HorizontalAlignment="Center"
-						VerticalAlignment="Center"
-						Content="Failed" />
-					<Label
-						Grid.Row="1"
-						Grid.Column="0"
-						HorizontalAlignment="Center"
-						VerticalAlignment="Center"
-						Content="{Binding UploadSuccessCount, StringFormat=N0}" />
-					<Label
-						Grid.Row="1"
-						Grid.Column="1"
-						HorizontalAlignment="Center"
-						VerticalAlignment="Center"
-						Content="{Binding UploadSkippedCount, StringFormat=N0}" />
-					<Label
-						Grid.Row="1"
-						Grid.Column="2"
-						HorizontalAlignment="Center"
-						VerticalAlignment="Center"
-						Content="{Binding UploadFailedCount, StringFormat=N0}" />
-				</Grid>
+						ColumnDefinitions="75, 75"
+						RowDefinitions="Auto, Auto">
+						<Label
+							Grid.Row="0"
+							Grid.Column="0"
+							HorizontalAlignment="Center"
+							VerticalAlignment="Center"
+							Content="Success" />
+						<Label
+							Grid.Row="0"
+							Grid.Column="1"
+							HorizontalAlignment="Center"
+							VerticalAlignment="Center"
+							Content="Failed" />
+						<Label
+							Grid.Row="1"
+							Grid.Column="0"
+							HorizontalAlignment="Center"
+							VerticalAlignment="Center"
+							Content="{Binding UploadSuccessCount, StringFormat=N0}" />
+						<Label
+							Grid.Row="1"
+							Grid.Column="1"
+							HorizontalAlignment="Center"
+							VerticalAlignment="Center"
+							Content="{Binding UploadFailedCount, StringFormat=N0}" />
+					</Grid>
 			</Grid>
 
 			<!--  LOCATION AND WARNINGS LINE  -->

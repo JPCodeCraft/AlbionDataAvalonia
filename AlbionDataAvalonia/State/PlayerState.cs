@@ -2,7 +2,6 @@
 using AlbionDataAvalonia.Locations.Models;
 using AlbionDataAvalonia.Network.Events;
 using AlbionDataAvalonia.Network.Models;
-using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State.Events;
 using Serilog;
 using System;
@@ -14,8 +13,6 @@ namespace AlbionDataAvalonia.State
 {
     public class PlayerState
     {
-        private readonly SettingsManager _settingsManager;
-
         private AlbionLocation location = AlbionLocations.Unset;
         private string playerName = string.Empty;
         private AlbionServer? albionServer = null;
@@ -30,7 +27,6 @@ namespace AlbionDataAvalonia.State
 
         public MarketHistoryInfo?[] MarketHistoryIDLookup { get; init; }
         public ulong CacheSize => 8192;
-        private Queue<string> SentDataHashs = new Queue<string>();
 
         public event EventHandler<PlayerStateEventArgs>? OnPlayerStateChanged;
 
@@ -48,8 +44,7 @@ namespace AlbionDataAvalonia.State
         private ConcurrentDictionary<UploadStatus, int> UploadStatusCountDic { get; set; } = new()
         {
             [UploadStatus.Success] = 0,
-            [UploadStatus.Failed] = 0,
-            [UploadStatus.Skipped] = 0
+            [UploadStatus.Failed] = 0
         };
 
         public int UserObjectId { get; set; }
@@ -166,10 +161,9 @@ namespace AlbionDataAvalonia.State
             OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, IsInGame, HasEncryptedData, UploadToAfmOnly, ContributeToPublic));
         }
 
-        public PlayerState(SettingsManager settingsManager)
+        public PlayerState()
         {
             MarketHistoryIDLookup = new MarketHistoryInfo[CacheSize];
-            _settingsManager = settingsManager;
 
             var timer = new System.Timers.Timer(1000);
             timer.Elapsed += OnTimerElapsed;
@@ -324,36 +318,6 @@ namespace AlbionDataAvalonia.State
                 return false;
             }
             return true;
-        }
-
-        public void AddSentDataHash(string hash)
-        {
-            try
-            {
-                if (hash == null || hash.Length == 0 || SentDataHashs.Contains(hash)) return;
-
-                if (_settingsManager.UserSettings.MaxHashQueueSize == 0)
-                {
-                    SentDataHashs.Clear();
-                    return;
-                }
-
-                while (SentDataHashs.Count >= _settingsManager.UserSettings.MaxHashQueueSize)
-                {
-                    SentDataHashs.Dequeue();
-                }
-                SentDataHashs.Enqueue(hash);
-            }
-            catch (Exception ex)
-            {
-                Log.Error(ex, "Error adding hash to queue: {ex}", ex.Message);
-            }
-        }
-
-        public bool CheckHashInQueue(string hash)
-        {
-            bool result = SentDataHashs.Contains(hash);
-            return result;
         }
 
         public bool CheckOkToUpload()

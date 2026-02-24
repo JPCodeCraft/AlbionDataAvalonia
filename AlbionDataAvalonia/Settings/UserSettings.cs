@@ -64,21 +64,6 @@ public class UserSettings : INotifyPropertyChanged
 
     public int MaxThreadCount => Environment.ProcessorCount;
 
-    private int maxHashQueueSize = 30;
-    public int MaxHashQueueSize
-    {
-        get => maxHashQueueSize;
-        set
-        {
-            if (maxHashQueueSize != value)
-            {
-                maxHashQueueSize = value;
-                OnPropertyChanged(nameof(MaxHashQueueSize));
-                Log.Information("Max hash queue size set to {MaxHashQueueSize}", maxHashQueueSize);
-            }
-        }
-    }
-
     private int maxLogCount = 200;
     public int MaxLogCount
     {

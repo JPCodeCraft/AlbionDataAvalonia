@@ -77,16 +77,6 @@
 				</Border>
 			</StackPanel>
 
-			<!--MAX HASH QUEUE SIZE-->
-			<StackPanel Margin="0 0 0 10">
-				<StackPanel Orientation="Horizontal">
-					<Label Content="Number of uploads to store to avoid duplicates:" />
-					<Label Content="{Binding UserSettings.MaxHashQueueSize, Mode=OneWay} " />
-				</StackPanel>
-
-				<Slider Minimum="0" Maximum="50" Value="{Binding UserSettings.MaxHashQueueSize}" TickFrequency="1" IsSnapToTickEnabled="True" />
-			</StackPanel>
-
 			<!--MAX LOG COUNT-->
 			<StackPanel Margin="0 0 0 10">
 				<StackPanel Orientation="Horizontal">

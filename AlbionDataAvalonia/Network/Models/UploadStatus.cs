@@ -3,6 +3,5 @@
 public enum UploadStatus
 {
     Success,
-    Failed,
-    Skipped
+    Failed
 }

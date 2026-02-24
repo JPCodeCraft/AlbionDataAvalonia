@@ -100,8 +100,6 @@ public partial class MainViewModel : ViewModelBase
     private int uploadSuccessCount;
     [ObservableProperty]
     private int uploadFailedCount;
-    [ObservableProperty]
-    private int uploadSkippedCount;
 
     [ObservableProperty]
     private bool redBlinking = false;
@@ -200,7 +198,6 @@ public partial class MainViewModel : ViewModelBase
     {
         UploadSuccessCount = dic.TryGetValue(UploadStatus.Success, out int value) ? value : 0;
         UploadFailedCount = dic.TryGetValue(UploadStatus.Failed, out value) ? value : 0;
-        UploadSkippedCount = dic.TryGetValue(UploadStatus.Skipped, out value) ? value : 0;
     }
 
     private void UpdateState(object? sender, PlayerStateEventArgs e)

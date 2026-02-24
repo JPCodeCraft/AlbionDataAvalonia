@@ -10,7 +10,6 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
-using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -290,32 +289,10 @@ public class Uploader : IDisposable
         }
     }
 
-    private string GetHash(byte[] data, AlbionServer server)
-    {
-        var serverBytes = SerializeData(server);
-        var combinedBytes = new byte[data.Length + serverBytes.Length];
-        Buffer.BlockCopy(data, 0, combinedBytes, 0, data.Length);
-        Buffer.BlockCopy(serverBytes, 0, combinedBytes, data.Length, serverBytes.Length);
-
-        using (var sha256 = SHA256.Create())
-        {
-            var hashBytes = sha256.ComputeHash(combinedBytes);
-            var hash = BitConverter.ToString(hashBytes).Replace("-", "").ToLower();
-            return hash;
-        }
-    }
     private async Task<UploadStatus> UploadData(byte[] data, AlbionServer server, string topic, Guid identifier)
     {
         try
         {
-            string dataHash = GetHash(data, server);
-            if (_playerState.CheckHashInQueue(dataHash))
-            {
-                Log.Debug("Data hash is already in queue, skipping upload. Identifier: {identifier}", identifier);
-                return UploadStatus.Skipped;
-            }
-            _playerState.AddSentDataHash(dataHash);
-
             var _powSolver = new PowSolver();
             var powRequest = await _powSolver.GetPowRequest(server, _connectionService.httpClient);
             if (powRequest is not null)
