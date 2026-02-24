@@ -3,5 +3,5 @@
 public class BanditEventUpload : BaseUpload
 {
     public long EventTime { get; set; }
-    public bool AdvanceNotice { get; set; }
+    public int Phase { get; set; }
 }

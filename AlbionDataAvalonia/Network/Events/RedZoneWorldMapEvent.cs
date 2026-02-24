@@ -5,12 +5,12 @@ using System.Collections.Generic;
 
 namespace AlbionDataAvalonia.Network.Events;
 
-public class RedZoneWorldEvent : BaseEvent
+public class RedZoneWorldMapEvent : BaseEvent
 {
     public long EventTime { get; }
-    public bool AdvanceNotice { get; }
+    public int Phase { get; }
 
-    public RedZoneWorldEvent(Dictionary<byte, object> parameters) : base(parameters)
+    public RedZoneWorldMapEvent(Dictionary<byte, object> parameters) : base(parameters)
     {
         Log.Verbose("Got {PacketType} packet.", GetType());
         try
@@ -20,9 +20,9 @@ public class RedZoneWorldEvent : BaseEvent
                 EventTime = eventTime.ToLong();
             }
 
-            if (parameters.TryGetValue(1, out object? advanceNotice))
+            if (parameters.TryGetValue(1, out object? phase))
             {
-                AdvanceNotice = advanceNotice.ToBool();
+                Phase = phase.ToInt();
             }
         }
         catch (Exception e)

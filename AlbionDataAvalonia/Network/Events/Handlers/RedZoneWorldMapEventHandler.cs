@@ -9,18 +9,18 @@ using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.Network.Handlers;
 
-public class RedZoneWorldEventHandler : EventPacketHandler<RedZoneWorldEvent>
+public class RedZoneWorldMapEventHandler : EventPacketHandler<RedZoneWorldMapEvent>
 {
     private readonly PlayerState playerState;
     private readonly Uploader uploader;
 
-    public RedZoneWorldEventHandler(PlayerState playerState, Uploader uploader) : base((int)EventCodes.RedZoneWorldEvent)
+    public RedZoneWorldMapEventHandler(PlayerState playerState, Uploader uploader) : base((int)EventCodes.RedZoneWorldMapEvent)
     {
         this.playerState = playerState;
         this.uploader = uploader;
     }
 
-    protected override Task OnActionAsync(RedZoneWorldEvent value)
+    protected override Task OnActionAsync(RedZoneWorldMapEvent value)
     {
         if (!playerState.IsInGame || playerState.AlbionServer is null)
         {
@@ -32,19 +32,12 @@ public class RedZoneWorldEventHandler : EventPacketHandler<RedZoneWorldEvent>
             return Task.CompletedTask;
         }
 
-        if (value.AdvanceNotice)
-        {
-            Log.Information("Bandit event detected starting at {EventTime}", value.EventTime);
-        }
-        else
-        {
-            Log.Information("Bandit event detected ending at {EventTime}", value.EventTime);
-        }
+        Log.Information("Bandit event detected (Phase: {Phase}) ending at {EventTime}", value.Phase, value.EventTime);
 
         var upload = new BanditEventUpload
         {
             EventTime = value.EventTime,
-            AdvanceNotice = value.AdvanceNotice
+            Phase = value.Phase
         };
 
         uploader.EnqueueUpload(new Upload(null, null, null, upload));

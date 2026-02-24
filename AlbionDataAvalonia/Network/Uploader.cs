@@ -173,7 +173,7 @@ public class Uploader : IDisposable
         {
             var data = SerializeData(banditEventUpload);
 
-            Log.Debug("Starting upload of bandit event. {AdvanceNotice} {EventTime}. Identifier: {identifier}", banditEventUpload.AdvanceNotice ? "Start" : "End", banditEventUpload.EventTime, banditEventUpload.Identifier);
+            Log.Debug("Starting upload of bandit event. Phase {Phase} {EventTime}. Identifier: {identifier}", banditEventUpload.Phase, banditEventUpload.EventTime, banditEventUpload.Identifier);
 
             var uploadStatus = await UploadData(data, _playerState.AlbionServer, _settingsManager.AppSettings.BanditEventIngestSubject ?? "", banditEventUpload.Identifier);
 
@@ -183,11 +183,11 @@ public class Uploader : IDisposable
             {
                 var serverName = _playerState.AlbionServer?.Name ?? string.Empty;
                 var serverLogger = Log.ForContext("server", serverName);
-                serverLogger.Information("Bandit event upload complete. {AdvanceNotice} {EventTime}. Identifier: {identifier}", banditEventUpload.AdvanceNotice ? "Start" : "End", banditEventUpload.EventTime, banditEventUpload.Identifier);
+                serverLogger.Information("Bandit event upload complete. Phase {Phase} {EventTime}. Identifier: {identifier}", banditEventUpload.Phase, banditEventUpload.EventTime, banditEventUpload.Identifier);
             }
             else
             {
-                Log.Error("Bandit event upload received status {Status}. {AdvanceNotice} {EventTime}. Identifier: {identifier}", uploadStatus, banditEventUpload.AdvanceNotice ? "Start" : "End", banditEventUpload.EventTime, banditEventUpload.Identifier);
+                Log.Error("Bandit event upload received status {Status}. Phase {Phase} {EventTime}. Identifier: {identifier}", uploadStatus, banditEventUpload.Phase, banditEventUpload.EventTime, banditEventUpload.Identifier);
             }
         }
         catch (Exception ex)
