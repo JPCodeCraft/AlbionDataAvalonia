@@ -297,6 +297,14 @@ namespace AlbionDataAvalonia.State
         public void BanditEventUploadHandler(object? sender, BanditEventUploadEventArgs e)
         {
             ProcessUploadStatus(e.Scope, e.UploadStatus, e.BanditEventUpload.Identifier);
+
+            if (e.UploadStatus != UploadStatus.Success || e.Scope != UploadScope.Public)
+            {
+                return;
+            }
+
+            PublicUploadStats.BanditEventsCount++;
+            NotifyPublicUploadStatsChanged();
         }
 
         public void AchievementsUploadHandler(object? sender, AchievementsUploadEventArgs e)
@@ -396,7 +404,8 @@ namespace AlbionDataAvalonia.State
                 MonthlyHistoriesCount = source.MonthlyHistoriesCount,
                 WeeklyHistoriesCount = source.WeeklyHistoriesCount,
                 DailyHistoriesCount = source.DailyHistoriesCount,
-                GoldHistoriesCount = source.GoldHistoriesCount
+                GoldHistoriesCount = source.GoldHistoriesCount,
+                BanditEventsCount = source.BanditEventsCount
             };
         }
 

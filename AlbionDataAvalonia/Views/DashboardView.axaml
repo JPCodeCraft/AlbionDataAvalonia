@@ -372,6 +372,12 @@
 								<TextBlock Classes="StatValue" Text="{Binding PublicUploadedDailyHistoriesCount, StringFormat=N0}" />
 							</StackPanel>
 						</Border>
+						<Border Classes="StatCard">
+							<StackPanel Spacing="4">
+								<TextBlock Classes="StatLabel" Text="Uploaded Bandit Events" />
+								<TextBlock Classes="StatValue" Text="{Binding PublicUploadedBanditEventsCount, StringFormat=N0}" />
+							</StackPanel>
+						</Border>
 					</WrapPanel>
 				</StackPanel>
 			</Border>

@@ -109,6 +109,8 @@ public partial class MainViewModel : ViewModelBase
     private int publicUploadedWeeklyHistoriesCount;
     [ObservableProperty]
     private int publicUploadedDailyHistoriesCount;
+    [ObservableProperty]
+    private int publicUploadedBanditEventsCount;
 
     [ObservableProperty]
     private int privateUploadSuccessCount;
@@ -240,6 +242,7 @@ public partial class MainViewModel : ViewModelBase
         PublicUploadedMonthlyHistoriesCount = stats.MonthlyHistoriesCount;
         PublicUploadedWeeklyHistoriesCount = stats.WeeklyHistoriesCount;
         PublicUploadedDailyHistoriesCount = stats.DailyHistoriesCount;
+        PublicUploadedBanditEventsCount = stats.BanditEventsCount;
     }
 
     private void ApplyPrivateUploadStats(PrivateUploadStatsSnapshot stats)

@@ -10,6 +10,7 @@ public class PublicUploadStatsSnapshot
     public int WeeklyHistoriesCount { get; set; }
     public int DailyHistoriesCount { get; set; }
     public int GoldHistoriesCount { get; set; }
+    public int BanditEventsCount { get; set; }
 }
 
 public class PrivateUploadStatsSnapshot
