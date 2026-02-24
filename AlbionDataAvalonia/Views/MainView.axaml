@@ -18,6 +18,17 @@
 			<Setter Property="Padding" Value="10" />
 			<Setter Property="Margin" Value="10" />
 			<Setter Property="HorizontalAlignment" Value="Stretch" />
+			<Setter Property="BorderThickness" Value="1" />
+			<Setter Property="BorderBrush" Value="Transparent" />
+		</Style>
+
+		<Style Selector="Button.menu:pointerover">
+			<Setter Property="Background" Value="rgba(255,255,255,0.08)" />
+		</Style>
+
+		<Style Selector="Button.menu.active">
+			<Setter Property="Background" Value="rgba(255,255,255,0.16)" />
+			<Setter Property="BorderBrush" Value="rgba(255,255,255,0.32)" />
 		</Style>
 
 		<Style Selector="Label.title">
@@ -60,6 +71,7 @@
 
 				<!-- Main Button with Icon -->
 				<Button Classes="menu" Margin="10" HorizontalAlignment="Stretch"
+					Classes.active="{Binding IsDashboardSelected}"
 					Command="{Binding ShowDashboardCommand}">
 					<StackPanel Orientation="Horizontal">
 						<PathIcon
@@ -71,6 +83,7 @@
 
 				<!-- Trades Button with Icon -->
 				<Button Classes="menu" Margin="10" HorizontalAlignment="Stretch"
+					Classes.active="{Binding IsTradesSelected}"
 					Command="{Binding ShowTradesCommand}">
 					<StackPanel Orientation="Horizontal">
 						<PathIcon
@@ -82,6 +95,7 @@
 
 				<!-- Mails Button with Icon -->
 				<Button Classes="menu" Margin="10" HorizontalAlignment="Stretch"
+					Classes.active="{Binding IsMailsSelected}"
 					Command="{Binding ShowMailsCommand}">
 					<StackPanel Orientation="Horizontal">
 						<PathIcon
@@ -93,6 +107,7 @@
 
 				<!-- Settings Button with Icon -->
 				<Button Classes="menu" Margin="10" HorizontalAlignment="Stretch"
+					Classes.active="{Binding IsSettingsSelected}"
 					Command="{Binding ShowSettingsCommand}">
 					<StackPanel Orientation="Horizontal">
 						<PathIcon
@@ -104,6 +119,7 @@
 
 				<!-- Logs Button with Icon -->
 				<Button Classes="menu" Margin="10" HorizontalAlignment="Stretch"
+					Classes.active="{Binding IsLogsSelected}"
 					Command="{Binding ShowLogsCommand}">
 					<StackPanel Orientation="Horizontal">
 						<PathIcon

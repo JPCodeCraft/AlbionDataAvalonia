@@ -22,6 +22,15 @@ namespace AlbionDataAvalonia.ViewModels;
 
 public partial class MainViewModel : ViewModelBase
 {
+    private enum MainPage
+    {
+        Dashboard,
+        Trades,
+        Mails,
+        Settings,
+        Logs
+    }
+
     private readonly PlayerState _playerState;
     private readonly NetworkListenerService _networkListener;
     private readonly SettingsManager _settingsManager;
@@ -78,6 +87,8 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private object currentView;
+
+    private MainPage _selectedPage = MainPage.Dashboard;
 
     [ObservableProperty]
     private int uploadQueueSize;
@@ -167,14 +178,36 @@ public partial class MainViewModel : ViewModelBase
         
         userSettings = _settingsManager.UserSettings;
 
-        if (NpCapInstallationChecker.IsNpCapInstalled())
+        NavigateTo(MainPage.Dashboard);
+    }
+
+    public bool IsDashboardSelected => _selectedPage == MainPage.Dashboard;
+    public bool IsTradesSelected => _selectedPage == MainPage.Trades;
+    public bool IsMailsSelected => _selectedPage == MainPage.Mails;
+    public bool IsSettingsSelected => _selectedPage == MainPage.Settings;
+    public bool IsLogsSelected => _selectedPage == MainPage.Logs;
+
+    private void NavigateTo(MainPage page)
+    {
+        if (_selectedPage != page)
         {
-            CurrentView = new DashboardView();
+            _selectedPage = page;
+            OnPropertyChanged(nameof(IsDashboardSelected));
+            OnPropertyChanged(nameof(IsTradesSelected));
+            OnPropertyChanged(nameof(IsMailsSelected));
+            OnPropertyChanged(nameof(IsSettingsSelected));
+            OnPropertyChanged(nameof(IsLogsSelected));
         }
-        else
+
+        CurrentView = page switch
         {
-            CurrentView = new PCapView();
-        }
+            MainPage.Dashboard => NpCapInstallationChecker.IsNpCapInstalled() ? new DashboardView() : new PCapView(),
+            MainPage.Trades => new TradesView(_tradesViewModel),
+            MainPage.Mails => new MailsView(_mailsViewModel),
+            MainPage.Settings => new SettingsView(_settingsViewModel),
+            MainPage.Logs => new LogsView(_logsViewModel),
+            _ => NpCapInstallationChecker.IsNpCapInstalled() ? new DashboardView() : new PCapView()
+        };
     }
 
     private void UpdateVisibilities()
@@ -280,38 +313,31 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private void ShowDashboard()
     {
-        if (NpCapInstallationChecker.IsNpCapInstalled())
-        {
-            CurrentView = new DashboardView();
-        }
-        else
-        {
-            CurrentView = new PCapView();
-        }
+        NavigateTo(MainPage.Dashboard);
     }
 
     [RelayCommand]
     private void ShowSettings()
     {
-        CurrentView = new SettingsView(_settingsViewModel);
+        NavigateTo(MainPage.Settings);
     }
 
     [RelayCommand]
     private void ShowLogs()
     {
-        CurrentView = new LogsView(_logsViewModel);
+        NavigateTo(MainPage.Logs);
     }
 
     [RelayCommand]
     private void ShowMails()
     {
-        CurrentView = new MailsView(_mailsViewModel);
+        NavigateTo(MainPage.Mails);
     }
 
     [RelayCommand]
     private void ShowTrades()
     {
-        CurrentView = new TradesView(_tradesViewModel);
+        NavigateTo(MainPage.Trades);
     }
 
     [RelayCommand]
