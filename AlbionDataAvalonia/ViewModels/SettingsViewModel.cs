@@ -45,6 +45,7 @@ public partial class SettingsViewModel : ViewModelBase
 
     public SettingsViewModel()
     {
+        UserSettings = new UserSettings();
     }
 
     public SettingsViewModel(SettingsManager settingsManager, PlayerState playerState)
@@ -52,7 +53,7 @@ public partial class SettingsViewModel : ViewModelBase
         _settingsManager = settingsManager;
         _playerState = playerState;
 
-        userSettings = _settingsManager.UserSettings;
+        UserSettings = _settingsManager.UserSettings;
 
         UpdatePowSolveStatistics();
         lastPowSolveStatsRefresh = DateTimeOffset.UtcNow;

@@ -59,10 +59,8 @@ public class AlbionMail
 
     }
 
-    public AlbionMail(long id, int locationId, string playerName, AlbionMailInfoType type, DateTime received, int albionServerId, double taxes)
+    public AlbionMail(long id, int locationId, string playerName, AlbionMailInfoType type, DateTime received, int albionServerId)
     {
-        _ = taxes;
-
         Id = id;
         LocationId = locationId;
         PlayerName = playerName;

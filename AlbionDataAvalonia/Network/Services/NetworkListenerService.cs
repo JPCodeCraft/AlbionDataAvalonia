@@ -107,7 +107,7 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddResponseHandler(new AuctionGetItemAverageStatsResponseHandler(_uploader, _playerState));
                 builder.AddResponseHandler(new JoinResponseHandler(_playerState, _afmUploader));
                 builder.AddResponseHandler(new AuctionGetGoldAverageStatsResponseHandler(_uploader));
-                builder.AddResponseHandler(new GetMailInfosResponseHandler(_playerState, _mailService, _settingsManager));
+                builder.AddResponseHandler(new GetMailInfosResponseHandler(_playerState, _mailService));
                 builder.AddResponseHandler(new ReadMailResponseHandler(_playerState, _mailService));
                 builder.AddResponseHandler(new AuctionBuyOfferResponseHandler(_playerState, _tradeService));
                 builder.AddResponseHandler(new AuctionSellSpecificItemRequestResponseHandler(_playerState, _tradeService));
@@ -120,8 +120,8 @@ namespace AlbionDataAvalonia.Network.Services
                 // builder.AddResponseHandler(new AssetOverviewTabContentResponseHandler(_playerState));
                 // REQUEST
                 builder.AddRequestHandler(new AuctionGetItemAverageStatsRequestHandler(_playerState));
-                builder.AddRequestHandler(new AuctionBuyOfferRequestHandler(_playerState, _tradeService, _settingsManager));
-                builder.AddRequestHandler(new AuctionSellSpecificItemRequestRequestHandler(_playerState, _tradeService, _settingsManager));
+                builder.AddRequestHandler(new AuctionBuyOfferRequestHandler(_playerState, _tradeService));
+                builder.AddRequestHandler(new AuctionSellSpecificItemRequestRequestHandler(_playerState, _tradeService));
 #if DEBUG
                 builder.AddRequestHandler(new DebugRequestProbeRequestHandler());
 #endif

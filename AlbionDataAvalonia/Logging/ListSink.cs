@@ -1,5 +1,4 @@
-﻿using AlbionDataAvalonia.Settings;
-using Serilog.Core;
+﻿using Serilog.Core;
 using Serilog.Events;
 using System;
 using System.Collections.Concurrent;
@@ -8,11 +7,7 @@ namespace AlbionDataAvalonia.Logging;
 
 public class ListSink : ILogEventSink
 {
-    private readonly SettingsManager _settingsManager;
-    public ListSink(SettingsManager settingsManager)
-    {
-        _settingsManager = settingsManager;
-    }
+    public const int MemoryRetentionLimit = 100_000;
 
     public ConcurrentQueue<LogEventWrapper> Events { get; } = new ConcurrentQueue<LogEventWrapper>();
 
@@ -22,7 +17,7 @@ public class ListSink : ILogEventSink
     {
         var logEventWrapper = new LogEventWrapper(logEvent);
         Events.Enqueue(logEventWrapper);
-        while (Events.Count > (_settingsManager.UserSettings.MaxLogCount))
+        while (Events.Count > MemoryRetentionLimit)
         {
             Events.TryDequeue(out _);
         }

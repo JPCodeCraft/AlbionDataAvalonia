@@ -189,13 +189,8 @@ public partial class App : Application
     {
         string logFilePath = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "AFMDataClient", "logs", "log-.txt");
 
-        var listSinkLevelSwitch = new Serilog.Core.LoggingLevelSwitch();
-        listSinkLevelSwitch.MinimumLevel = LogEventLevel.Information;
-
-        AppData.ListSinkLevelSwitch = listSinkLevelSwitch;
-
         Log.Logger = new LoggerConfiguration()
-            .WriteTo.Sink(listSink, levelSwitch: listSinkLevelSwitch, restrictedToMinimumLevel: LogEventLevel.Verbose)
+            .WriteTo.Sink(listSink, restrictedToMinimumLevel: LogEventLevel.Verbose)
             .WriteTo.Console()
             .WriteTo.Debug()
             .WriteTo.File(logFilePath, LogEventLevel.Debug, rollingInterval: RollingInterval.Day, retainedFileCountLimit: 7)

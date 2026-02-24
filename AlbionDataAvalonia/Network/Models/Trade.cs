@@ -86,10 +86,8 @@ public class Trade
     {
     }
 
-    public Trade(MarketOrder order, int amount, int? albionServerId, string playerName, double salesTax)
+    public Trade(MarketOrder order, int amount, int? albionServerId, string playerName)
     {
-        _ = salesTax;
-
         if (order.LocationId == null)
         {
             throw new ArgumentNullException("LocationId is null");
@@ -122,10 +120,8 @@ public class Trade
         Type = TradeType.Instant;
     }
 
-    public Trade(AlbionMail mail, double salesTax)
+    public Trade(AlbionMail mail)
     {
-        _ = salesTax;
-
         switch (mail.AuctionType)
         {
             case AuctionType.offer:

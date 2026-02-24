@@ -77,46 +77,6 @@
 				</Border>
 			</StackPanel>
 
-			<!--MAX LOG COUNT-->
-			<StackPanel Margin="0 0 0 10">
-				<StackPanel Orientation="Horizontal">
-					<Label Content="Maximum log entries:" />
-					<Label Content="{Binding UserSettings.MaxLogCount, Mode=OneWay} " />
-				</StackPanel>
-
-				<Slider Minimum="50" Maximum="5000" Value="{Binding UserSettings.MaxLogCount}" TickFrequency="10" IsSnapToTickEnabled="True" />
-			</StackPanel>
-
-			<!--MAILS PER PAGE-->
-			<StackPanel Margin="0 0 0 10">
-				<StackPanel Orientation="Horizontal">
-					<Label Content="Number of mails to load:" />
-					<Label Content="{Binding UserSettings.MailsPerPage, Mode=OneWay} " />
-				</StackPanel>
-
-				<Slider Minimum="100" Maximum="10000" Value="{Binding UserSettings.MailsPerPage}" TickFrequency="100" IsSnapToTickEnabled="True" />
-			</StackPanel>
-
-			<!--TRADES SHOWN-->
-			<StackPanel Margin="0 0 0 10">
-				<StackPanel Orientation="Horizontal">
-					<Label Content="Number of trades to load:" />
-					<Label Content="{Binding UserSettings.TradesToShow, Mode=OneWay} " />
-				</StackPanel>
-
-				<Slider Minimum="100" Maximum="10000" Value="{Binding UserSettings.TradesToShow}" TickFrequency="100" IsSnapToTickEnabled="True" />
-			</StackPanel>
-
-			<!--LOG VERBOSITY-->
-			<StackPanel Margin="0 0 0 10">
-				<StackPanel Orientation="Horizontal">
-					<Label Content="Log verbosity:" />
-					<Label Content="{Binding UserSettings.LogLevel, Mode=OneWay} " />
-				</StackPanel>
-
-				<Slider Minimum="0" Maximum="5" Value="{Binding UserSettings.LogLevelIndex}" TickFrequency="1" IsSnapToTickEnabled="True" />
-			</StackPanel>
-
 		</StackPanel>
 
 	</ScrollViewer>

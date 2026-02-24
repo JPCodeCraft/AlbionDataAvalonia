@@ -2,10 +2,9 @@
   "StartHidden": false,
   "ShutDownOnClose": false,
   "DesiredThreadCount": 1,
-  "MaxLogCount": 200,
-  "SalesTax": 0.04,
-  "MailsPerPage": 200,
-  "TradesToShow": 2000,
+  "MaxLogCount": 1000,
+  "MailsPerPage": 1000,
+  "TradesToShow": 1000,
   "UploadSpecsToAfm": true,
   "LogLevel": 2
 }

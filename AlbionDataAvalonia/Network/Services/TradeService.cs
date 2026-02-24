@@ -2,7 +2,6 @@
 using AlbionDataAvalonia.Items.Services;
 using AlbionDataAvalonia.Locations;
 using AlbionDataAvalonia.Network.Models;
-using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
@@ -16,7 +15,6 @@ namespace AlbionDataAvalonia.Network.Services;
 public class TradeService
 {
     private readonly PlayerState _playerState;
-    private readonly SettingsManager _settingsManager;
     private readonly LocalizationService _localizationService;
     private readonly MailService _mailService;
     private List<Trade> Trades { get; set; } = new();
@@ -26,10 +24,9 @@ public class TradeService
 
     public Action<Trade>? OnTradeAdded;
 
-    public TradeService(PlayerState playerState, SettingsManager settingsManager, LocalizationService localizationService, MailService mailService)
+    public TradeService(PlayerState playerState, LocalizationService localizationService, MailService mailService)
     {
         _playerState = playerState;
-        _settingsManager = settingsManager;
         _localizationService = localizationService;
         _mailService = mailService;
 
@@ -190,7 +187,7 @@ public class TradeService
 
     private async Task HandleOnMailDataAdded(AlbionMail mail)
     {
-        var trade = new Trade(mail, _settingsManager.UserSettings.SalesTax);
+        var trade = new Trade(mail);
         await AddTradeToDb(trade);
         Log.Debug("Added trade from mail: {TradeId}", trade.Id);
     }

@@ -3,7 +3,6 @@ using AlbionDataAvalonia.Locations;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Responses;
 using AlbionDataAvalonia.Network.Services;
-using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.Shared;
 using AlbionDataAvalonia.State;
 using System;
@@ -16,12 +15,10 @@ public class GetMailInfosResponseHandler : ResponsePacketHandler<GetMailInfosRes
 {
     private readonly PlayerState playerState;
     private readonly MailService mailService;
-    private readonly SettingsManager settingsManager;
-    public GetMailInfosResponseHandler(PlayerState playerState, MailService mailService, SettingsManager settingsManager) : base((int)OperationCodes.GetMailInfos)
+    public GetMailInfosResponseHandler(PlayerState playerState, MailService mailService) : base((int)OperationCodes.GetMailInfos)
     {
         this.playerState = playerState;
         this.mailService = mailService;
-        this.settingsManager = settingsManager;
     }
 
     protected override async Task OnActionAsync(GetMailInfosResponse value)
@@ -49,7 +46,7 @@ public class GetMailInfosResponseHandler : ResponsePacketHandler<GetMailInfosRes
             }
             var location = AlbionLocations.Get(query) ?? AlbionLocations.Unknown;
             var type = Enum.TryParse(typeof(AlbionMailInfoType), value.Types[i], true, out object? parsedType) ? (AlbionMailInfoType)parsedType : AlbionMailInfoType.UNKNOWN;
-            AlbionMail mail = new(value.MailIds[i], location.MarketLocation?.IdInt ?? -2, playerState.PlayerName, type, new DateTime(value.Received[i]), playerState.AlbionServer.Id, settingsManager.UserSettings.SalesTax);
+            AlbionMail mail = new(value.MailIds[i], location.MarketLocation?.IdInt ?? -2, playerState.PlayerName, type, new DateTime(value.Received[i]), playerState.AlbionServer.Id);
 
             if (mail.Type != AlbionMailInfoType.UNKNOWN)
             {

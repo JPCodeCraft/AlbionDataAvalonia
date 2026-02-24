@@ -50,14 +50,19 @@
                 <ProgressBar Minimum="0" Maximum="100" Value="{Binding ExportProgress}" Width="150" Height="20" />
             </StackPanel>
 
-            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Bottom">
-                <TextBlock Classes="FilterLabel" Text="Search an Item..."/>
-                <TextBox Classes="Filter" Text="{Binding FilterText}" Name="FilterBox" Width="250"/>
-            </StackPanel>
+	            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+	                <TextBlock Classes="FilterLabel" Text="Search an Item..."/>
+	                <TextBox Classes="Filter" Text="{Binding FilterText}" Name="FilterBox" Width="250"/>
+	            </StackPanel>
 
-            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Bottom">
-                <TextBlock Classes="FilterLabel" Text="Server"/>
-                <ComboBox Classes="Filter" ItemsSource="{Binding Servers}" SelectedItem="{Binding SelectedServer}" Width="150">
+	            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+	                <TextBlock Classes="FilterLabel" Text="Trades to load"/>
+	                <ComboBox Classes="Filter" ItemsSource="{Binding TradesToLoadOptions}" SelectedItem="{Binding SelectedTradesToLoad}" Width="120"/>
+	            </StackPanel>
+
+	            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+	                <TextBlock Classes="FilterLabel" Text="Server"/>
+	                <ComboBox Classes="Filter" ItemsSource="{Binding Servers}" SelectedItem="{Binding SelectedServer}" Width="150">
                     <ComboBox.ItemTemplate>
                         <DataTemplate>
                             <TextBlock Text="{Binding}"/>

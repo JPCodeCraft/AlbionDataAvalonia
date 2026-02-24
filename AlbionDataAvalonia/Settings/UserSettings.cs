@@ -64,7 +64,7 @@ public class UserSettings : INotifyPropertyChanged
 
     public int MaxThreadCount => Environment.ProcessorCount;
 
-    private int maxLogCount = 200;
+    private int maxLogCount = 1000;
     public int MaxLogCount
     {
         get => maxLogCount;
@@ -79,7 +79,7 @@ public class UserSettings : INotifyPropertyChanged
         }
     }
 
-    private int mailsPerPage = 200;
+    private int mailsPerPage = 1000;
     public int MailsPerPage
     {
         get => mailsPerPage;
@@ -94,7 +94,7 @@ public class UserSettings : INotifyPropertyChanged
         }
     }
 
-    private int tradesToShow = 2000;
+    private int tradesToShow = 1000;
     public int TradesToShow
     {
         get => tradesToShow;
@@ -124,26 +124,6 @@ public class UserSettings : INotifyPropertyChanged
         }
     }
 
-    private double salesTax = 0.04;
-    public double SalesTax
-    {
-        get => salesTax;
-        set
-        {
-            if (value != 0.04 && value != 0.08)
-            {
-                Log.Error("Sales tax must be 0.04 or 0.08. Defaulting to 0.04");
-                value = 0.04;
-            }
-            if (salesTax != value)
-            {
-                salesTax = value;
-                OnPropertyChanged(nameof(SalesTax));
-                Log.Information("Sales tax set to {SalesTax}", salesTax);
-            }
-        }
-    }
-
     private LogEventLevel logLevel = LogEventLevel.Information;
     public LogEventLevel LogLevel
     {
@@ -153,11 +133,7 @@ public class UserSettings : INotifyPropertyChanged
             if (logLevel != value)
             {
                 logLevel = value;
-                if (AppData.ListSinkLevelSwitch != null)
-                {
-                    AppData.ListSinkLevelSwitch.MinimumLevel = logLevel;
-                    Log.Information("Log level set to {LogLevel}", logLevel);
-                }
+                Log.Information("Log level set to {LogLevel}", logLevel);
                 OnPropertyChanged(nameof(LogLevel));
                 OnPropertyChanged(nameof(LogLevelIndex));
             }
