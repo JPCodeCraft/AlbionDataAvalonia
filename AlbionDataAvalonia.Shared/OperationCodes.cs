@@ -536,5 +536,6 @@
         EvaluatePlatformPerks,
         LinkAccountToXbox,
         TravelFactionWarfarePortal,
+        RequestRedZoneEventStandings,
     }
 }

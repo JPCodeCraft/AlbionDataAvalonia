@@ -475,9 +475,10 @@
         XignCodeEvent,
         BatchUseItemStart,
         BatchUseItemEnd,
-        RedZoneEventClusterStatus,
         RedZonePlayerNotification,
-        RedZoneWorldEvent,
+        RedZoneEventCheatCleanup,
+        RedZoneFortressEventChestOpened,
+        RedZoneWorldMapEvent,
         FactionWarfareStats,
         UpdateFactionBalanceFactors,
         FactionEnlistmentChanged,
@@ -665,5 +666,8 @@
         FactionDuchySupplyWarDefensiveVictoryEvent,
         FactionDuchyReconnectedFromCutoffEvent,
         FactionFortressCutoffFightCancelledByClusterOwnerChangeEvent,
+        FactionDuchyEnteredCutoffStateEvent,
+        RedZoneEventStandings,
+        NewFactionBattleStandardDeliveryStation,
     }
 }
