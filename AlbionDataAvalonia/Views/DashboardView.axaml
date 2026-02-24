@@ -313,7 +313,7 @@
 				<StackPanel Spacing="8" HorizontalAlignment="Center">
 					<Label Classes="SectionTitle" Content="Public Data (AODP)" />
 
-					<WrapPanel HorizontalAlignment="Center">
+					<WrapPanel HorizontalAlignment="Center" ItemsAlignment="Center">
 						<Border Classes="StatCard">
 							<StackPanel Spacing="4">
 								<TextBlock Classes="StatLabel" Text="Success" />
@@ -328,7 +328,7 @@
 						</Border>
 					</WrapPanel>
 
-					<WrapPanel HorizontalAlignment="Center">
+					<WrapPanel HorizontalAlignment="Center" ItemsAlignment="Center">
 						<Border
 							Classes="StatCard"
 							Classes.DimmedUploadCard="{Binding UploadToAfmOnly}">
@@ -353,7 +353,7 @@
 						</Border>
 					</WrapPanel>
 
-					<WrapPanel HorizontalAlignment="Center">
+					<WrapPanel HorizontalAlignment="Center" ItemsAlignment="Center">
 						<Border Classes="StatCard">
 							<StackPanel Spacing="4">
 								<TextBlock Classes="StatLabel" Text="Uploaded Monthly Histories" />
@@ -391,7 +391,7 @@
 				<StackPanel Spacing="8" HorizontalAlignment="Center">
 					<Label Classes="SectionTitle" Content="Private Data (AFM)" />
 
-					<WrapPanel HorizontalAlignment="Center">
+					<WrapPanel HorizontalAlignment="Center" ItemsAlignment="Center">
 						<Border Classes="StatCard">
 							<StackPanel Spacing="4">
 								<TextBlock Classes="StatLabel" Text="Success" />
@@ -406,7 +406,7 @@
 						</Border>
 					</WrapPanel>
 
-					<WrapPanel HorizontalAlignment="Center">
+					<WrapPanel HorizontalAlignment="Center" ItemsAlignment="Center">
 						<Border
 							Classes="StatCard PrivateOrdersCard"
 							Classes.PrivateFlipsGlow="{Binding UploadToAfmOnly}"
@@ -427,7 +427,7 @@
 						</Border>
 					</WrapPanel>
 
-					<WrapPanel HorizontalAlignment="Center">
+					<WrapPanel HorizontalAlignment="Center" ItemsAlignment="Center">
 						<Border Classes="StatCard">
 							<StackPanel Spacing="4">
 								<TextBlock Classes="StatLabel" Text="Uploaded Specs" />
