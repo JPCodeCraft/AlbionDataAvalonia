@@ -7,28 +7,36 @@
              x:Class="AlbionDataAvalonia.Views.LogsView"
 			 x:DataType="vm:LogsViewModel">
 
+	<UserControl.Styles>
+		<Style Selector="ComboBox.Filter">
+			<Setter Property="Padding" Value="10" />
+			<Setter Property="Margin" Value="10" />
+		</Style>
+		<Style Selector="TextBlock.FilterLabel">
+			<Setter Property="FontSize" Value="12" />
+			<Setter Property="Foreground" Value="#888" />
+			<Setter Property="Margin" Value="0,0,0,2" />
+		</Style>
+	</UserControl.Styles>
+
 	<Grid RowDefinitions="Auto,*" RowSpacing="10">
-		<Grid Grid.Row="0" ColumnDefinitions="Auto,20,Auto">
-			<StackPanel Grid.Column="0">
-				<StackPanel Orientation="Horizontal">
-					<Label Content="Amount shown:" />
-				</StackPanel>
-				<ComboBox ItemsSource="{Binding AmountShownOptions}"
+		<StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Bottom" Margin="0,8,0,8">
+			<StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+				<TextBlock Classes="FilterLabel" Text="Amount shown" />
+				<ComboBox Classes="Filter"
+						  ItemsSource="{Binding AmountShownOptions}"
 						  SelectedItem="{Binding SelectedAmountShown}"
-						  HorizontalAlignment="Left"
 						  Width="180" />
 			</StackPanel>
 
-			<StackPanel Grid.Column="2">
-				<StackPanel Orientation="Horizontal">
-					<Label Content="Log verbosity:" />
-				</StackPanel>
-				<ComboBox ItemsSource="{Binding LogVerbosityOptions}"
+			<StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+				<TextBlock Classes="FilterLabel" Text="Log verbosity" />
+				<ComboBox Classes="Filter"
+						  ItemsSource="{Binding LogVerbosityOptions}"
 						  SelectedItem="{Binding SelectedLogVerbosity}"
-						  HorizontalAlignment="Left"
 						  Width="180" />
 			</StackPanel>
-		</Grid>
+		</StackPanel>
 
 		<DataGrid Grid.Row="1" Margin="0" ItemsSource="{Binding Events}"
 				  AutoGenerateColumns="False" IsReadOnly="True"
