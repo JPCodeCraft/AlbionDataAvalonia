@@ -8,20 +8,32 @@
 			 x:DataType="vm:LogsViewModel">
 
 	<UserControl.Styles>
+		<Style Selector="TextBox.Filter">
+			<Setter Property="Padding" Value="10" />
+			<Setter Property="Margin" Value="0,0,10,6" />
+		</Style>
 		<Style Selector="ComboBox.Filter">
 			<Setter Property="Padding" Value="10" />
-			<Setter Property="Margin" Value="10" />
+			<Setter Property="Margin" Value="0,0,10,6" />
 		</Style>
 		<Style Selector="TextBlock.FilterLabel">
 			<Setter Property="FontSize" Value="12" />
 			<Setter Property="Foreground" Value="#888" />
-			<Setter Property="Margin" Value="0,0,0,2" />
+			<Setter Property="Margin" Value="0,0,0,1" />
 		</Style>
 	</UserControl.Styles>
 
-	<Grid RowDefinitions="Auto,*" RowSpacing="10">
-		<StackPanel Grid.Row="0" Orientation="Horizontal" VerticalAlignment="Bottom" Margin="0,8,0,8">
-			<StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+	<Grid RowDefinitions="Auto,*">
+		<WrapPanel Grid.Row="0" VerticalAlignment="Top" Margin="0,8,0,8">
+			<StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
+				<TextBlock Classes="FilterLabel" Text="Search logs..." />
+				<TextBox Classes="Filter"
+						 Text="{Binding FilterText}"
+						 Name="FilterBox"
+						 Width="250" />
+			</StackPanel>
+
+			<StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
 				<TextBlock Classes="FilterLabel" Text="Amount shown" />
 				<ComboBox Classes="Filter"
 						  ItemsSource="{Binding AmountShownOptions}"
@@ -29,14 +41,14 @@
 						  Width="180" />
 			</StackPanel>
 
-			<StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+			<StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
 				<TextBlock Classes="FilterLabel" Text="Log verbosity" />
 				<ComboBox Classes="Filter"
 						  ItemsSource="{Binding LogVerbosityOptions}"
 						  SelectedItem="{Binding SelectedLogVerbosity}"
 						  Width="180" />
 			</StackPanel>
-		</StackPanel>
+		</WrapPanel>
 
 		<DataGrid Grid.Row="1" Margin="0" ItemsSource="{Binding Events}"
 				  AutoGenerateColumns="False" IsReadOnly="True"

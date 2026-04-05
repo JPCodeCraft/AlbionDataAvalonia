@@ -1,6 +1,7 @@
 ﻿using AlbionDataAvalonia.Logging;
 using AlbionDataAvalonia.Settings;
 using Avalonia.Threading;
+using CommunityToolkit.Mvvm.ComponentModel;
 using Serilog.Events;
 using System;
 using System.Collections.Generic;
@@ -12,6 +13,7 @@ namespace AlbionDataAvalonia.ViewModels
 {
     public partial class LogsViewModel : ViewModelBase
     {
+        private readonly TimeSpan _filterDebounceInterval = TimeSpan.FromMilliseconds(250);
         public sealed class AmountShownOption
         {
             public int Value { get; }
@@ -33,6 +35,8 @@ namespace AlbionDataAvalonia.ViewModels
         private readonly SettingsManager _settingsManager;
         private readonly List<LogEventWrapper> _allEventsNewestFirst = new();
         private readonly object _sync = new();
+        private IDisposable? _pendingFilterRefreshRegistration;
+        private string _appliedFilterText = string.Empty;
         private static readonly IReadOnlyList<AmountShownOption> _amountShownOptions =
         [
             new AmountShownOption(100, "100"),
@@ -48,11 +52,16 @@ namespace AlbionDataAvalonia.ViewModels
             .Cast<LogEventLevel>()
             .ToArray();
 
+        [ObservableProperty]
+        private string filterText = string.Empty;
+
         public ObservableCollection<LogEventWrapper> Events { get; } = new();
 
         public UserSettings UserSettings => _settingsManager.UserSettings;
         public IReadOnlyList<AmountShownOption> AmountShownOptions => _amountShownOptions;
         public IReadOnlyList<LogEventLevel> LogVerbosityOptions => _logVerbosityOptions;
+
+        partial void OnFilterTextChanged(string? oldValue, string newValue) => ScheduleFilterEvents();
 
         public AmountShownOption SelectedAmountShown
         {
@@ -106,21 +115,20 @@ namespace AlbionDataAvalonia.ViewModels
 
         private void OnLogEventReceived(LogEventWrapper logEventWrapper)
         {
+            LogEventWrapper? removedBufferedEvent = null;
             lock (_sync)
             {
                 _allEventsNewestFirst.Insert(0, logEventWrapper);
-                TrimBufferedEvents();
+                if (_allEventsNewestFirst.Count > ListSink.MemoryRetentionLimit)
+                {
+                    removedBufferedEvent = _allEventsNewestFirst[^1];
+                    _allEventsNewestFirst.RemoveAt(_allEventsNewestFirst.Count - 1);
+                }
             }
 
             Dispatcher.UIThread.Post(() =>
             {
-                if (!PassesCurrentFilter(logEventWrapper))
-                {
-                    return;
-                }
-
-                Events.Insert(0, logEventWrapper);
-                TrimVisibleEvents();
+                ApplyIncomingEvent(logEventWrapper, removedBufferedEvent);
             });
         }
 
@@ -152,7 +160,7 @@ namespace AlbionDataAvalonia.ViewModels
             lock (_sync)
             {
                 visibleEvents = _allEventsNewestFirst
-                    .Where(PassesCurrentFilter)
+                    .Where(PassesActiveFilters)
                     .Take(GetVisibleLimit())
                     .ToList();
             }
@@ -162,6 +170,39 @@ namespace AlbionDataAvalonia.ViewModels
             {
                 Events.Add(logEvent);
             }
+        }
+
+        private void ApplyIncomingEvent(LogEventWrapper logEventWrapper, LogEventWrapper? removedBufferedEvent)
+        {
+            if (removedBufferedEvent is not null)
+            {
+                Events.Remove(removedBufferedEvent);
+            }
+
+            if (!PassesActiveFilters(logEventWrapper))
+            {
+                return;
+            }
+
+            Events.Insert(0, logEventWrapper);
+            TrimVisibleEvents();
+        }
+
+        private bool PassesActiveFilters(LogEventWrapper logEventWrapper)
+        {
+            return PassesCurrentFilter(logEventWrapper) && PassesTextFilter(logEventWrapper);
+        }
+
+        private bool PassesTextFilter(LogEventWrapper logEventWrapper)
+        {
+            var normalizedFilterText = NormalizeFilterText(_appliedFilterText);
+            if (string.IsNullOrEmpty(normalizedFilterText))
+            {
+                return true;
+            }
+
+            return NormalizeFilterText(logEventWrapper.RenderedMessage)
+                .Contains(normalizedFilterText, StringComparison.OrdinalIgnoreCase);
         }
 
         private bool PassesCurrentFilter(LogEventWrapper logEventWrapper)
@@ -212,6 +253,35 @@ namespace AlbionDataAvalonia.ViewModels
                 .First();
 
             return nearest.Value;
+        }
+
+        private void ScheduleFilterEvents()
+        {
+            if (!Dispatcher.UIThread.CheckAccess())
+            {
+                Dispatcher.UIThread.Post(ScheduleFilterEvents);
+                return;
+            }
+
+            CancelPendingFilterRefresh();
+            _pendingFilterRefreshRegistration = DispatcherTimer.RunOnce(() =>
+            {
+                _pendingFilterRefreshRegistration = null;
+                _appliedFilterText = FilterText;
+                RebuildVisibleEvents();
+            }, _filterDebounceInterval);
+        }
+
+        private void CancelPendingFilterRefresh()
+        {
+            _pendingFilterRefreshRegistration?.Dispose();
+            _pendingFilterRefreshRegistration = null;
+        }
+
+        private static string NormalizeFilterText(string? value)
+        {
+            // Keep logs search aligned with the existing mails/trades space-insensitive matching.
+            return (value ?? string.Empty).Replace(" ", string.Empty);
         }
     }
 }
