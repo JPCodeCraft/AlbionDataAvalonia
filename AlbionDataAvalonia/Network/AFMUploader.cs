@@ -9,6 +9,7 @@ using System;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
+using System.Linq;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -102,98 +103,146 @@ namespace AlbionDataAvalonia.Network.Services
 
         public async Task<UploadStatus> UploadMarketOrder(MarketUpload marketUpload)
         {
-            if (_playerState.AlbionServer is null)
-            {
-                Log.Error("Cannot upload market order without a server.");
-                return UploadStatus.Failed;
-            }
-
-            var hasValidToken = await _authService.EnsureValidTokenAsync();
-            if (!hasValidToken)
-            {
-                Log.Error("Cannot upload market order without a valid Firebase session.");
-                return UploadStatus.Failed;
-            }
-
-            var firebaseUserId = _authService.FirebaseUserId;
-            if (firebaseUserId is null)
-            {
-                Log.Error("Cannot upload market order without a Firebase user ID.");
-                return UploadStatus.Failed;
-            }
-
-            var afmMarketUpload = new AfmMarketUpload(marketUpload, _playerState.AlbionServer.Id, firebaseUserId);
-
-            var serializerOptions = new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-            };
-
-            JsonNode? jsonNode = JsonSerializer.SerializeToNode(afmMarketUpload, serializerOptions);
-
-            if (jsonNode is JsonObject jsonObject && jsonObject["orders"] is JsonArray ordersArray)
-            {
-                for (int i = 0; i < ordersArray.Count; i++)
-                {
-                    var originalOrder = afmMarketUpload.Orders[i];
-                    var orderNode = ordersArray[i]?.AsObject();
-                    if (orderNode != null)
-                    {
-                        orderNode["locationId"] = originalOrder.Location.MarketLocation?.IdInt?.ToString() ?? "0";
-                    }
-                }
-            }
-
-            var requestUri = new Uri(httpClient.BaseAddress, $"{FlipperOrdersPath}?contributeToPublic={_playerState.ContributeToPublic}");
-            var payload = jsonNode?.ToJsonString(serializerOptions) ?? "{}";
-
-            async Task<HttpResponseMessage> SendAsync()
-            {
-                using var content = new StringContent(payload, Encoding.UTF8, "application/json");
-                return await httpClient.PostAsync(requestUri, content);
-            }
-
-            HttpResponseMessage? response = null;
+            var identifier = marketUpload.Identifier;
+            var requestUri = httpClient.BaseAddress is null
+                ? null
+                : new Uri(httpClient.BaseAddress, $"{FlipperOrdersPath}?contributeToPublic={_playerState.ContributeToPublic}");
 
             try
             {
-                response = await SendAsync();
-
-                if (response.StatusCode == HttpStatusCode.Unauthorized)
+                if (_playerState.AlbionServer is null)
                 {
-                    response.Dispose();
-                    response = null;
+                    Log.Error("Cannot upload market order without a server. Identifier: {Identifier}. Offers: {Offers}. Requests: {Requests}.", identifier, marketUpload.Orders.Count(x => x.AuctionType == AuctionType.offer), marketUpload.Orders.Count(x => x.AuctionType == AuctionType.request));
+                    return UploadStatus.Failed;
+                }
 
-                    var recovered = await _authService.TryRecoverFromUnauthorizedAsync();
-                    if (!recovered)
+                var hasValidToken = await _authService.EnsureValidTokenAsync();
+                if (!hasValidToken)
+                {
+                    Log.Error("Cannot upload market order without a valid Firebase session. Identifier: {Identifier}. ServerId: {ServerId}. Offers: {Offers}. Requests: {Requests}.", identifier, _playerState.AlbionServer.Id, marketUpload.Orders.Count(x => x.AuctionType == AuctionType.offer), marketUpload.Orders.Count(x => x.AuctionType == AuctionType.request));
+                    return UploadStatus.Failed;
+                }
+
+                var firebaseUserId = _authService.FirebaseUserId;
+                if (firebaseUserId is null)
+                {
+                    Log.Error("Cannot upload market order without a Firebase user ID. Identifier: {Identifier}. ServerId: {ServerId}. Offers: {Offers}. Requests: {Requests}.", identifier, _playerState.AlbionServer.Id, marketUpload.Orders.Count(x => x.AuctionType == AuctionType.offer), marketUpload.Orders.Count(x => x.AuctionType == AuctionType.request));
+                    return UploadStatus.Failed;
+                }
+
+                var afmMarketUpload = new AfmMarketUpload(marketUpload, _playerState.AlbionServer.Id, firebaseUserId);
+
+                var serializerOptions = new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                };
+
+                JsonNode? jsonNode = JsonSerializer.SerializeToNode(afmMarketUpload, serializerOptions);
+
+                if (jsonNode is JsonObject jsonObject && jsonObject["orders"] is JsonArray ordersArray)
+                {
+                    for (int i = 0; i < ordersArray.Count; i++)
                     {
-                        return UploadStatus.Failed;
+                        var originalOrder = afmMarketUpload.Orders[i];
+                        var orderNode = ordersArray[i]?.AsObject();
+                        if (orderNode != null)
+                        {
+                            orderNode["locationId"] = originalOrder.Location.MarketLocation?.IdInt?.ToString() ?? "0";
+                        }
                     }
+                }
 
+                if (requestUri is null)
+                {
+                    Log.Error("Cannot upload market order because AFM base address is not initialized. Identifier: {Identifier}. ServerId: {ServerId}. Offers: {Offers}. Requests: {Requests}.", identifier, _playerState.AlbionServer.Id, marketUpload.Orders.Count(x => x.AuctionType == AuctionType.offer), marketUpload.Orders.Count(x => x.AuctionType == AuctionType.request));
+                    return UploadStatus.Failed;
+                }
+
+                var payload = jsonNode?.ToJsonString(serializerOptions) ?? "{}";
+
+                async Task<HttpResponseMessage> SendAsync()
+                {
+                    using var content = new StringContent(payload, Encoding.UTF8, "application/json");
+                    return await httpClient.PostAsync(requestUri, content);
+                }
+
+                HttpResponseMessage? response = null;
+
+                try
+                {
                     response = await SendAsync();
 
                     if (response.StatusCode == HttpStatusCode.Unauthorized)
                     {
-                        var unauthorizedBody = await response.Content.ReadAsStringAsync();
-                        Log.Error("AFM upload unauthorized after retry. Returned: {0} ({1}).", response.StatusCode, unauthorizedBody);
+                        await LogHttpFailure(
+                            "market order",
+                            requestUri,
+                            identifier,
+                            response,
+                            "AFM market order upload returned unauthorized. Attempting token refresh.",
+                            marketUploadSummary: GetMarketUploadSummary(marketUpload),
+                            serverId: _playerState.AlbionServer.Id);
+
+                        response.Dispose();
+                        response = null;
+
+                        var recovered = await _authService.TryRecoverFromUnauthorizedAsync();
+                        if (!recovered)
+                        {
+                            Log.Error("AFM market order upload could not recover from unauthorized response. Identifier: {Identifier}. ServerId: {ServerId}. {MarketUploadSummary}", identifier, _playerState.AlbionServer.Id, GetMarketUploadSummary(marketUpload));
+                            return UploadStatus.Failed;
+                        }
+
+                        response = await SendAsync();
+
+                        if (response.StatusCode == HttpStatusCode.Unauthorized)
+                        {
+                            await LogHttpFailure(
+                                "market order",
+                                requestUri,
+                                identifier,
+                                response,
+                                "AFM market order upload unauthorized after retry.",
+                                marketUploadSummary: GetMarketUploadSummary(marketUpload),
+                                serverId: _playerState.AlbionServer.Id);
+
+                            return UploadStatus.Failed;
+                        }
+                    }
+
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        await LogHttpFailure(
+                            "market order",
+                            requestUri,
+                            identifier,
+                            response,
+                            "HTTP error while uploading market order to AFM.",
+                            marketUploadSummary: GetMarketUploadSummary(marketUpload),
+                            serverId: _playerState.AlbionServer.Id);
+
                         return UploadStatus.Failed;
                     }
-                }
 
-                if (response.StatusCode != HttpStatusCode.OK)
+                    Log.Debug("Successfully sent AfmMarketUpload to {RequestUri}. Identifier: {Identifier}. ServerId: {ServerId}. {MarketUploadSummary}", requestUri, identifier, _playerState.AlbionServer.Id, GetMarketUploadSummary(marketUpload));
+                    return UploadStatus.Success;
+                }
+                finally
                 {
-                    var errorContent = await response.Content.ReadAsStringAsync();
-                    Log.Error("HTTP Error while uploading AfmMarketUpload to Url {0}. Returned: {1} ({2}).", requestUri.ToString(), response.StatusCode, errorContent);
-                    return UploadStatus.Failed;
+                    response?.Dispose();
                 }
-
-                Log.Debug("Successfully sent AfmMarketUpload to {0}.", requestUri);
-                return UploadStatus.Success;
             }
-            finally
+            catch (Exception ex)
             {
-                response?.Dispose();
+                LogAfmException(
+                    ex,
+                    "market order",
+                    requestUri,
+                    identifier,
+                    marketUploadSummary: GetMarketUploadSummary(marketUpload),
+                    serverId: _playerState.AlbionServer?.Id);
+                return UploadStatus.Failed;
             }
         }
 
@@ -214,21 +263,107 @@ namespace AlbionDataAvalonia.Network.Services
 
         private async Task Upload(PlayerCount playerCount)
         {
-            var requestUri = new Uri(httpClient.BaseAddress, PlayerCountPath);
-            HttpResponseMessage response = await httpClient.PostAsJsonAsync(requestUri, playerCount);
+            var requestUri = httpClient.BaseAddress is null ? null : new Uri(httpClient.BaseAddress, PlayerCountPath);
 
-            if (response.StatusCode != HttpStatusCode.OK)
+            try
             {
-                Log.Error("HTTP Error while uploading player count. Returned: {0} ({1}).", response.StatusCode, await response.Content.ReadAsStringAsync());
-                return;
-            }
+                if (requestUri is null)
+                {
+                    Log.Error("Cannot upload player count because AFM base address is not initialized. {PlayerCountSummary}", GetPlayerCountSummary(playerCount));
+                    return;
+                }
 
-            Log.Debug("Successfully sent player count to {0}.", requestUri);
+                var serializerOptions = new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                };
+
+                async Task<HttpResponseMessage> SendAsync()
+                {
+                    return await httpClient.PostAsJsonAsync(requestUri, playerCount, serializerOptions);
+                }
+
+                HttpResponseMessage? response = null;
+
+                try
+                {
+                    response = await SendAsync();
+
+                    if (response.StatusCode == HttpStatusCode.Unauthorized)
+                    {
+                        await LogHttpFailure(
+                            "player count",
+                            requestUri,
+                            Guid.Empty,
+                            response,
+                            "AFM player count upload returned unauthorized. Attempting token refresh.",
+                            playerCountSummary: GetPlayerCountSummary(playerCount),
+                            serverId: playerCount.Server?.Id);
+
+                        response.Dispose();
+                        response = null;
+
+                        var recovered = await _authService.TryRecoverFromUnauthorizedAsync();
+                        if (!recovered)
+                        {
+                            Log.Error("AFM player count upload could not recover from unauthorized response. {PlayerCountSummary}", GetPlayerCountSummary(playerCount));
+                            return;
+                        }
+
+                        response = await SendAsync();
+
+                        if (response.StatusCode == HttpStatusCode.Unauthorized)
+                        {
+                            await LogHttpFailure(
+                                "player count",
+                                requestUri,
+                                Guid.Empty,
+                                response,
+                                "AFM player count upload unauthorized after retry.",
+                                playerCountSummary: GetPlayerCountSummary(playerCount),
+                                serverId: playerCount.Server?.Id);
+
+                            return;
+                        }
+                    }
+
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        await LogHttpFailure(
+                            "player count",
+                            requestUri,
+                            Guid.Empty,
+                            response,
+                            "HTTP error while uploading player count to AFM.",
+                            playerCountSummary: GetPlayerCountSummary(playerCount),
+                            serverId: playerCount.Server?.Id);
+                        return;
+                    }
+
+                    Log.Debug("Successfully sent player count to {RequestUri}. {PlayerCountSummary}", requestUri, GetPlayerCountSummary(playerCount));
+                }
+                finally
+                {
+                    response?.Dispose();
+                }
+            }
+            catch (Exception ex)
+            {
+                LogAfmException(
+                    ex,
+                    "player count",
+                    requestUri,
+                    Guid.Empty,
+                    playerCountSummary: GetPlayerCountSummary(playerCount),
+                    serverId: playerCount.Server?.Id);
+            }
         }
 
         private async Task<UploadStatus> Upload(AchievementUpload achievementUpload)
         {
             var identifier = Guid.NewGuid();
+            var requestUri = httpClient.BaseAddress is null ? null : new Uri(httpClient.BaseAddress, AchievementsPath);
 
             UploadStatus ReportStatus(UploadStatus status)
             {
@@ -236,77 +371,126 @@ namespace AlbionDataAvalonia.Network.Services
                 return status;
             }
 
-            var hasValidToken = await _authService.EnsureValidTokenAsync();
-            if (!hasValidToken)
-            {
-                Log.Warning("Please login to upload achievements.");
-                return ReportStatus(UploadStatus.Failed);
-            }
-
-            var firebaseUserId = _authService.FirebaseUserId;
-            if (firebaseUserId is null)
-            {
-                Log.Warning("Please login to upload achievements.");
-                return ReportStatus(UploadStatus.Failed);
-            }
-
-            var requestUri = new Uri(httpClient.BaseAddress, AchievementsPath);
-            var serializerOptions = new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-            };
-
-            async Task<HttpResponseMessage> SendAsync()
-            {
-                return await httpClient.PostAsJsonAsync(requestUri, achievementUpload, serializerOptions);
-            }
-
-            HttpResponseMessage? response = null;
-
             try
             {
-                response = await SendAsync();
-
-                if (response.StatusCode == HttpStatusCode.Unauthorized)
+                var hasValidToken = await _authService.EnsureValidTokenAsync();
+                if (!hasValidToken)
                 {
-                    response.Dispose();
-                    response = null;
+                    Log.Error("Cannot upload achievements without a valid Firebase session. Identifier: {Identifier}. ServerId: {ServerId}. Character: {CharacterName}. AchievementsCount: {AchievementsCount}.", identifier, achievementUpload.ServerId, achievementUpload.CharacterName, achievementUpload.Achievements.Count);
+                    return ReportStatus(UploadStatus.Failed);
+                }
 
-                    var recovered = await _authService.TryRecoverFromUnauthorizedAsync();
-                    if (!recovered)
-                    {
-                        return ReportStatus(UploadStatus.Failed);
-                    }
+                var firebaseUserId = _authService.FirebaseUserId;
+                if (firebaseUserId is null)
+                {
+                    Log.Error("Cannot upload achievements without a Firebase user ID. Identifier: {Identifier}. ServerId: {ServerId}. Character: {CharacterName}. AchievementsCount: {AchievementsCount}.", identifier, achievementUpload.ServerId, achievementUpload.CharacterName, achievementUpload.Achievements.Count);
+                    return ReportStatus(UploadStatus.Failed);
+                }
 
+                if (requestUri is null)
+                {
+                    Log.Error("Cannot upload achievements because AFM base address is not initialized. Identifier: {Identifier}. ServerId: {ServerId}. Character: {CharacterName}. AchievementsCount: {AchievementsCount}.", identifier, achievementUpload.ServerId, achievementUpload.CharacterName, achievementUpload.Achievements.Count);
+                    return ReportStatus(UploadStatus.Failed);
+                }
+
+                var serializerOptions = new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                };
+
+                async Task<HttpResponseMessage> SendAsync()
+                {
+                    return await httpClient.PostAsJsonAsync(requestUri, achievementUpload, serializerOptions);
+                }
+
+                HttpResponseMessage? response = null;
+
+                try
+                {
                     response = await SendAsync();
 
                     if (response.StatusCode == HttpStatusCode.Unauthorized)
                     {
-                        var unauthorizedBody = await response.Content.ReadAsStringAsync();
-                        Log.Error("AFM achievements upload unauthorized after retry. Returned: {0} ({1}).", response.StatusCode, unauthorizedBody);
+                        await LogHttpFailure(
+                            "achievements",
+                            requestUri,
+                            identifier,
+                            response,
+                            "AFM achievements upload returned unauthorized. Attempting token refresh.",
+                            characterName: achievementUpload.CharacterName,
+                            achievementsCount: achievementUpload.Achievements.Count,
+                            serverId: achievementUpload.ServerId);
+
+                        response.Dispose();
+                        response = null;
+
+                        var recovered = await _authService.TryRecoverFromUnauthorizedAsync();
+                        if (!recovered)
+                        {
+                            Log.Error("AFM achievements upload could not recover from unauthorized response. Identifier: {Identifier}. ServerId: {ServerId}. Character: {CharacterName}. AchievementsCount: {AchievementsCount}.", identifier, achievementUpload.ServerId, achievementUpload.CharacterName, achievementUpload.Achievements.Count);
+                            return ReportStatus(UploadStatus.Failed);
+                        }
+
+                        response = await SendAsync();
+
+                        if (response.StatusCode == HttpStatusCode.Unauthorized)
+                        {
+                            await LogHttpFailure(
+                                "achievements",
+                                requestUri,
+                                identifier,
+                                response,
+                                "AFM achievements upload unauthorized after retry.",
+                                characterName: achievementUpload.CharacterName,
+                                achievementsCount: achievementUpload.Achievements.Count,
+                                serverId: achievementUpload.ServerId);
+
+                            return ReportStatus(UploadStatus.Failed);
+                        }
+                    }
+
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        await LogHttpFailure(
+                            "achievements",
+                            requestUri,
+                            identifier,
+                            response,
+                            "HTTP error while uploading achievements to AFM.",
+                            characterName: achievementUpload.CharacterName,
+                            achievementsCount: achievementUpload.Achievements.Count,
+                            serverId: achievementUpload.ServerId);
+
                         return ReportStatus(UploadStatus.Failed);
                     }
-                }
 
-                if (response.StatusCode != HttpStatusCode.OK)
+                    Log.Information("Successfully sent {AchievementsCount} achievements for character {CharacterName} on server {ServerId} to AFM. Identifier: {Identifier}.", achievementUpload.Achievements.Count, achievementUpload.CharacterName, achievementUpload.ServerId, identifier);
+                    return ReportStatus(UploadStatus.Success);
+                }
+                finally
                 {
-                    Log.Error("HTTP Error while uploading achievements. Returned: {0} ({1}).", response.StatusCode, await response.Content.ReadAsStringAsync());
-                    return ReportStatus(UploadStatus.Failed);
+                    response?.Dispose();
                 }
-
-                Log.Information("Successfully sent {0} achievements for character {1} on server {2} to AFM.", achievementUpload.Achievements.Count, achievementUpload.CharacterName, _playerState.AlbionServer?.Name ?? "Unknown");
-                return ReportStatus(UploadStatus.Success);
             }
-            finally
+            catch (Exception ex)
             {
-                response?.Dispose();
+                LogAfmException(
+                    ex,
+                    "achievements",
+                    requestUri,
+                    identifier,
+                    characterName: achievementUpload.CharacterName,
+                    achievementsCount: achievementUpload.Achievements.Count,
+                    serverId: achievementUpload.ServerId);
+                return ReportStatus(UploadStatus.Failed);
             }
         }
 
         private async Task<UploadStatus> Upload(GlobalMultiplierUpload globalMultiplierUpload)
         {
             var identifier = Guid.NewGuid();
+            var requestUri = httpClient.BaseAddress is null ? null : new Uri(httpClient.BaseAddress, GlobalMultiplierPath);
 
             UploadStatus ReportStatus(UploadStatus status)
             {
@@ -314,75 +498,201 @@ namespace AlbionDataAvalonia.Network.Services
                 return status;
             }
 
-            var hasValidToken = await _authService.EnsureValidTokenAsync();
-            if (!hasValidToken)
-            {
-                Log.Warning("Please login to upload global multiplier.");
-                return ReportStatus(UploadStatus.Failed);
-            }
-
-            var firebaseUserId = _authService.FirebaseUserId;
-            if (firebaseUserId is null)
-            {
-                Log.Warning("Please login to upload global multiplier.");
-                return ReportStatus(UploadStatus.Failed);
-            }
-
-            var requestUri = new Uri(httpClient.BaseAddress, GlobalMultiplierPath);
-            var serializerOptions = new JsonSerializerOptions
-            {
-                PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
-                DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
-            };
-
-            async Task<HttpResponseMessage> SendAsync()
-            {
-                return await httpClient.PostAsJsonAsync(requestUri, globalMultiplierUpload, serializerOptions);
-            }
-
-            HttpResponseMessage? response = null;
-
             try
             {
-                response = await SendAsync();
-
-                if (response.StatusCode == HttpStatusCode.Unauthorized)
+                var hasValidToken = await _authService.EnsureValidTokenAsync();
+                if (!hasValidToken)
                 {
-                    response.Dispose();
-                    response = null;
+                    Log.Error("Cannot upload global multiplier without a valid Firebase session. Identifier: {Identifier}. ServerId: {ServerId}. GlobalMultiplier: {GlobalMultiplier}.", identifier, globalMultiplierUpload.ServerId, globalMultiplierUpload.GlobalMultiplier);
+                    return ReportStatus(UploadStatus.Failed);
+                }
 
-                    var recovered = await _authService.TryRecoverFromUnauthorizedAsync();
-                    if (!recovered)
-                    {
-                        return ReportStatus(UploadStatus.Failed);
-                    }
+                var firebaseUserId = _authService.FirebaseUserId;
+                if (firebaseUserId is null)
+                {
+                    Log.Error("Cannot upload global multiplier without a Firebase user ID. Identifier: {Identifier}. ServerId: {ServerId}. GlobalMultiplier: {GlobalMultiplier}.", identifier, globalMultiplierUpload.ServerId, globalMultiplierUpload.GlobalMultiplier);
+                    return ReportStatus(UploadStatus.Failed);
+                }
 
+                if (requestUri is null)
+                {
+                    Log.Error("Cannot upload global multiplier because AFM base address is not initialized. Identifier: {Identifier}. ServerId: {ServerId}. GlobalMultiplier: {GlobalMultiplier}.", identifier, globalMultiplierUpload.ServerId, globalMultiplierUpload.GlobalMultiplier);
+                    return ReportStatus(UploadStatus.Failed);
+                }
+
+                var serializerOptions = new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                };
+
+                async Task<HttpResponseMessage> SendAsync()
+                {
+                    return await httpClient.PostAsJsonAsync(requestUri, globalMultiplierUpload, serializerOptions);
+                }
+
+                HttpResponseMessage? response = null;
+
+                try
+                {
                     response = await SendAsync();
 
                     if (response.StatusCode == HttpStatusCode.Unauthorized)
                     {
-                        var unauthorizedBody = await response.Content.ReadAsStringAsync();
-                        Log.Error("AFM global multiplier upload unauthorized after retry. Returned: {0} ({1}).", response.StatusCode, unauthorizedBody);
+                        await LogHttpFailure(
+                            "global multiplier",
+                            requestUri,
+                            identifier,
+                            response,
+                            "AFM global multiplier upload returned unauthorized. Attempting token refresh.",
+                            serverId: globalMultiplierUpload.ServerId,
+                            globalMultiplier: globalMultiplierUpload.GlobalMultiplier);
+
+                        response.Dispose();
+                        response = null;
+
+                        var recovered = await _authService.TryRecoverFromUnauthorizedAsync();
+                        if (!recovered)
+                        {
+                            Log.Error("AFM global multiplier upload could not recover from unauthorized response. Identifier: {Identifier}. ServerId: {ServerId}. GlobalMultiplier: {GlobalMultiplier}.", identifier, globalMultiplierUpload.ServerId, globalMultiplierUpload.GlobalMultiplier);
+                            return ReportStatus(UploadStatus.Failed);
+                        }
+
+                        response = await SendAsync();
+
+                        if (response.StatusCode == HttpStatusCode.Unauthorized)
+                        {
+                            await LogHttpFailure(
+                                "global multiplier",
+                                requestUri,
+                                identifier,
+                                response,
+                                "AFM global multiplier upload unauthorized after retry.",
+                                serverId: globalMultiplierUpload.ServerId,
+                                globalMultiplier: globalMultiplierUpload.GlobalMultiplier);
+
+                            return ReportStatus(UploadStatus.Failed);
+                        }
+                    }
+
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        await LogHttpFailure(
+                            "global multiplier",
+                            requestUri,
+                            identifier,
+                            response,
+                            "HTTP error while uploading global multiplier to AFM.",
+                            serverId: globalMultiplierUpload.ServerId,
+                            globalMultiplier: globalMultiplierUpload.GlobalMultiplier);
+
                         return ReportStatus(UploadStatus.Failed);
                     }
-                }
 
-                if (!response.IsSuccessStatusCode)
+                    Log.Information(
+                        "Successfully sent global multiplier {GlobalMultiplier} for server {ServerId}. Identifier: {Identifier}.",
+                        globalMultiplierUpload.GlobalMultiplier,
+                        globalMultiplierUpload.ServerId,
+                        identifier);
+                    return ReportStatus(UploadStatus.Success);
+                }
+                finally
                 {
-                    Log.Error("HTTP Error while uploading global multiplier. Returned: {0} ({1}).", response.StatusCode, await response.Content.ReadAsStringAsync());
-                    return ReportStatus(UploadStatus.Failed);
+                    response?.Dispose();
                 }
-
-                Log.Information(
-                    "Successfully sent global multiplier {GlobalMultiplier} for server {ServerId}.",
-                    globalMultiplierUpload.GlobalMultiplier,
-                    globalMultiplierUpload.ServerId);
-                return ReportStatus(UploadStatus.Success);
             }
-            finally
+            catch (Exception ex)
             {
-                response?.Dispose();
+                LogAfmException(
+                    ex,
+                    "global multiplier",
+                    requestUri,
+                    identifier,
+                    serverId: globalMultiplierUpload.ServerId,
+                    globalMultiplier: globalMultiplierUpload.GlobalMultiplier);
+                return ReportStatus(UploadStatus.Failed);
             }
+        }
+
+        private static async Task<string> SafeReadResponseBodyAsync(HttpResponseMessage response)
+        {
+            try
+            {
+                return await response.Content.ReadAsStringAsync();
+            }
+            catch (Exception ex)
+            {
+                return $"<failed to read response body: {ex.Message}>";
+            }
+        }
+
+        private async Task LogHttpFailure(
+            string uploadType,
+            Uri requestUri,
+            Guid identifier,
+            HttpResponseMessage response,
+            string message,
+            string? marketUploadSummary = null,
+            string? playerCountSummary = null,
+            string? characterName = null,
+            int? achievementsCount = null,
+            int? serverId = null,
+            double? globalMultiplier = null)
+        {
+            var responseBody = await SafeReadResponseBodyAsync(response);
+            Log.Error(
+                "{Message} UploadType: {UploadType}. RequestUri: {RequestUri}. Identifier: {Identifier}. StatusCode: {StatusCode}. ResponseBody: {ResponseBody}. ServerId: {ServerId}. CharacterName: {CharacterName}. AchievementsCount: {AchievementsCount}. GlobalMultiplier: {GlobalMultiplier}. MarketUploadSummary: {MarketUploadSummary}. PlayerCountSummary: {PlayerCountSummary}",
+                message,
+                uploadType,
+                requestUri,
+                identifier,
+                response.StatusCode,
+                responseBody,
+                serverId,
+                characterName,
+                achievementsCount,
+                globalMultiplier,
+                marketUploadSummary,
+                playerCountSummary);
+        }
+
+        private void LogAfmException(
+            Exception ex,
+            string uploadType,
+            Uri? requestUri,
+            Guid identifier,
+            string? marketUploadSummary = null,
+            string? playerCountSummary = null,
+            string? characterName = null,
+            int? achievementsCount = null,
+            int? serverId = null,
+            double? globalMultiplier = null)
+        {
+            Log.Error(
+                ex,
+                "Exception while uploading to AFM. UploadType: {UploadType}. RequestUri: {RequestUri}. Identifier: {Identifier}. ServerId: {ServerId}. CharacterName: {CharacterName}. AchievementsCount: {AchievementsCount}. GlobalMultiplier: {GlobalMultiplier}. MarketUploadSummary: {MarketUploadSummary}. PlayerCountSummary: {PlayerCountSummary}",
+                uploadType,
+                requestUri,
+                identifier,
+                serverId,
+                characterName,
+                achievementsCount,
+                globalMultiplier,
+                marketUploadSummary,
+                playerCountSummary);
+        }
+
+        private static string GetMarketUploadSummary(MarketUpload marketUpload)
+        {
+            var offers = marketUpload.Orders.Count(x => x.AuctionType == AuctionType.offer);
+            var requests = marketUpload.Orders.Count(x => x.AuctionType == AuctionType.request);
+            var locations = string.Join(",", marketUpload.Orders.Select(x => x.Location.MarketLocation?.FriendlyName ?? "Unknown").Distinct());
+            return $"Offers={offers}; Requests={requests}; Locations={locations}";
+        }
+
+        private static string GetPlayerCountSummary(PlayerCount playerCount)
+        {
+            return $"Server={playerCount.Server?.Name ?? "Unknown"}; ServerId={playerCount.Server?.Id}; Location={playerCount.Location?.FriendlyName ?? "Unknown"}; DateTime={playerCount.DateTime:O}; NonFlaggedCount={playerCount.NonFlaggedCount}; FlaggedCount={playerCount.FlaggedCount}; IsBz={playerCount.IsBz}";
         }
 
         public void Dispose()
