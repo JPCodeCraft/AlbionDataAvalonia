@@ -22,10 +22,12 @@ namespace AlbionDataAvalonia.Views
         {
             if (DataContext is not TradesViewModel vm) return;
 
-            var topLevel = TopLevel.GetTopLevel(this);
-            if (topLevel == null) return;
+            if (TopLevel.GetTopLevel(this) is not Window owner) return;
 
-            var file = await topLevel.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            var exportOptions = await CsvExportOptionsWindow.ShowAsync(owner);
+            if (exportOptions == null) return;
+
+            var file = await owner.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
                 Title = "Export Trades to CSV",
                 SuggestedFileName = $"trades_{DateTime.Now:yyyyMMdd_HHmmss}.csv",
@@ -38,7 +40,7 @@ namespace AlbionDataAvalonia.Views
             if (file == null) return;
 
             await using var stream = await file.OpenWriteAsync();
-            await vm.ExportToCsvAsync(stream);
+            await vm.ExportToCsvAsync(stream, exportOptions);
         }
 
         private void TradesGrid_SelectionChanged(object? sender, SelectionChangedEventArgs e)

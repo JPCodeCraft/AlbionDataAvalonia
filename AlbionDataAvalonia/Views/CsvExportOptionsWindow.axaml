@@ -1,0 +1,65 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        x:Class="AlbionDataAvalonia.Views.CsvExportOptionsWindow"
+        Width="420"
+        SizeToContent="Height"
+        CanResize="False"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Title="CSV Export Options"
+        Icon="/Assets/logo.ico">
+
+    <Window.Styles>
+        <Style Selector="TextBlock.Label">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Margin" Value="0,0,0,4" />
+        </Style>
+        <Style Selector="TextBox.Input">
+            <Setter Property="MinWidth" Value="120" />
+        </Style>
+    </Window.Styles>
+
+    <StackPanel Margin="20" Spacing="12">
+        <TextBlock Text="Choose the CSV separator and decimal symbol for this export." TextWrapping="Wrap" />
+
+        <Border Background="#22111111" CornerRadius="6" Padding="12">
+            <StackPanel Spacing="6">
+                <TextBlock x:Name="DefaultsTextBlock" TextWrapping="Wrap" />
+                <TextBlock x:Name="PreviewTextBlock" TextWrapping="Wrap" />
+            </StackPanel>
+        </Border>
+
+        <Grid ColumnDefinitions="*,*" ColumnSpacing="12">
+            <StackPanel Grid.Column="0" Spacing="4">
+                <TextBlock Classes="Label" Text="Separator" />
+                <TextBox x:Name="SeparatorTextBox"
+                         Classes="Input"
+                         MaxLength="4"
+                         Watermark="," 
+                         TextChanged="Input_TextChanged" />
+            </StackPanel>
+
+            <StackPanel Grid.Column="1" Spacing="4">
+                <TextBlock Classes="Label" Text="Decimal Symbol" />
+                <TextBox x:Name="DecimalSymbolTextBox"
+                         Classes="Input"
+                         MaxLength="4"
+                         Watermark="."
+                         TextChanged="Input_TextChanged" />
+            </StackPanel>
+        </Grid>
+
+        <TextBlock x:Name="ValidationTextBlock"
+                   IsVisible="False"
+                   Foreground="{DynamicResource AFMRed}"
+                   TextWrapping="Wrap" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button Content="Cancel" Click="CancelButton_Click" />
+            <Button Content="Continue" Click="ContinueButton_Click" />
+        </StackPanel>
+    </StackPanel>
+</Window>

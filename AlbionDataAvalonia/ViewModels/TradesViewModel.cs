@@ -215,14 +215,14 @@ public partial class TradesViewModel : ViewModelBase
         SelectedAverageSilver = amountTotal == 0 ? 0 : totalSilver / amountTotal;
     }
 
-    public async Task ExportToCsvAsync(Stream stream, CancellationToken cancellationToken = default)
+    public async Task ExportToCsvAsync(Stream stream, CsvExportOptions options, CancellationToken cancellationToken = default)
     {
         IsExporting = true;
         ExportProgress = 0;
         try
         {
             var progress = new Progress<int>(p => ExportProgress = p);
-            await _csvExportService.ExportTradesToCsvAsync(stream, progress, cancellationToken);
+            await _csvExportService.ExportTradesToCsvAsync(stream, options, progress, cancellationToken);
         }
         finally
         {

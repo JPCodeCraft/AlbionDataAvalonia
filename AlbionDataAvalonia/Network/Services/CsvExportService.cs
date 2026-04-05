@@ -23,10 +23,11 @@ public class CsvExportService
         _localizationService = localizationService;
     }
 
-    public async Task ExportTradesToCsvAsync(Stream stream, IProgress<int>? progress = null, CancellationToken cancellationToken = default)
+    public async Task ExportTradesToCsvAsync(Stream stream, CsvExportOptions? options = null, IProgress<int>? progress = null, CancellationToken cancellationToken = default)
     {
-        var culture = CultureInfo.CurrentCulture;
-        var delimiter = culture.TextInfo.ListSeparator;
+        options ??= CsvExportOptions.FromCurrentCulture();
+        var culture = options.CreateFormattingCulture();
+        var delimiter = options.Delimiter;
 
         using var writer = new StreamWriter(stream, Encoding.UTF8);
 
@@ -98,10 +99,11 @@ public class CsvExportService
         Log.Information("Exported {Count} trades to CSV", processed);
     }
 
-    public async Task ExportMailsToCsvAsync(Stream stream, IProgress<int>? progress = null, CancellationToken cancellationToken = default)
+    public async Task ExportMailsToCsvAsync(Stream stream, CsvExportOptions? options = null, IProgress<int>? progress = null, CancellationToken cancellationToken = default)
     {
-        var culture = CultureInfo.CurrentCulture;
-        var delimiter = culture.TextInfo.ListSeparator;
+        options ??= CsvExportOptions.FromCurrentCulture();
+        var culture = options.CreateFormattingCulture();
+        var delimiter = options.Delimiter;
 
         using var writer = new StreamWriter(stream, Encoding.UTF8);
 
