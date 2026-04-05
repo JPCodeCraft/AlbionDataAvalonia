@@ -13,18 +13,24 @@
 			<Setter Property="Padding" Value="10" />
 			<Setter Property="Margin" Value="10" />
 		</Style>
+		<Style Selector="Button.ActionButton">
+			<Setter Property="Padding" Value="6,4" />
+			<Setter Property="Margin" Value="0,0,10,6" />
+			<Setter Property="HorizontalContentAlignment" Value="Center" />
+			<Setter Property="VerticalContentAlignment" Value="Center" />
+		</Style>
 		<Style Selector="TextBox.Filter">
 			<Setter Property="Padding" Value="10" />
-			<Setter Property="Margin" Value="10" />
+			<Setter Property="Margin" Value="0,0,10,6" />
 		</Style>
 		<Style Selector="ComboBox.Filter">
 			<Setter Property="Padding" Value="10" />
-			<Setter Property="Margin" Value="10" />
+			<Setter Property="Margin" Value="0,0,10,6" />
 		</Style>
         <Style Selector="TextBlock.FilterLabel">
             <Setter Property="FontSize" Value="12"/>
             <Setter Property="Foreground" Value="#888"/>
-            <Setter Property="Margin" Value="0,0,0,2"/>
+            <Setter Property="Margin" Value="0,0,0,1"/>
         </Style>
         <Style Selector="TextBlock.SelectedSummaryLabel">
             <Setter Property="FontSize" Value="11"/>
@@ -37,30 +43,27 @@
 
 	<Grid ColumnDefinitions="*" RowDefinitions="Auto, *">
 
-        <StackPanel Orientation="Horizontal" VerticalAlignment="Bottom" Margin="0,8,0,8">
-            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Bottom">
-                <Button Classes="Filter" Content="Load" Command="{Binding LoadTradesCommand}" />
+        <WrapPanel VerticalAlignment="Top" Margin="0,8,0,8">
+            <StackPanel Orientation="Vertical" Spacing="0" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
+                <Button Classes="Filter ActionButton" Width="100" Content="Load" Command="{Binding LoadTradesCommand}" />
+                <Button Classes="Filter ActionButton" Width="100" Content="Export CSV" Name="ExportCsvButton" Click="ExportCsvButton_Click" IsEnabled="{Binding !IsExporting}" />
             </StackPanel>
 
-            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Bottom">
-                <Button Classes="Filter" Content="Export CSV" Name="ExportCsvButton" Click="ExportCsvButton_Click" IsEnabled="{Binding !IsExporting}" />
-            </StackPanel>
-
-            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Center" IsVisible="{Binding IsExporting}">
+            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top" IsVisible="{Binding IsExporting}">
                 <ProgressBar Minimum="0" Maximum="100" Value="{Binding ExportProgress}" Width="150" Height="20" />
             </StackPanel>
 
-	            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+	            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
 	                <TextBlock Classes="FilterLabel" Text="Search an Item..."/>
 	                <TextBox Classes="Filter" Text="{Binding FilterText}" Name="FilterBox" Width="250"/>
 	            </StackPanel>
 
-	            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+	            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
 	                <TextBlock Classes="FilterLabel" Text="Trades to load"/>
 	                <ComboBox Classes="Filter" ItemsSource="{Binding TradesToLoadOptions}" SelectedItem="{Binding SelectedTradesToLoad}" Width="120"/>
 	            </StackPanel>
 
-	            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+	            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
 	                <TextBlock Classes="FilterLabel" Text="Server"/>
 	                <ComboBox Classes="Filter" ItemsSource="{Binding Servers}" SelectedItem="{Binding SelectedServer}" Width="150">
                     <ComboBox.ItemTemplate>
@@ -71,7 +74,7 @@
                 </ComboBox>
             </StackPanel>
 
-            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
                 <TextBlock Classes="FilterLabel" Text="Trade Type"/>
                 <ComboBox Classes="Filter" ItemsSource="{Binding TradeTypes}" SelectedItem="{Binding SelectedTradeType}" Width="100">
                     <ComboBox.ItemTemplate>
@@ -82,7 +85,7 @@
                 </ComboBox>
             </StackPanel>
 
-            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
                 <TextBlock Classes="FilterLabel" Text="Operation"/>
                 <ComboBox Classes="Filter" ItemsSource="{Binding TradeOperations}" SelectedItem="{Binding SelectedOperation}" Width="100">
                     <ComboBox.ItemTemplate>
@@ -93,7 +96,7 @@
                 </ComboBox>
             </StackPanel>
 
-            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Bottom">
+            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
                 <TextBlock Classes="FilterLabel" Text="Location"/>
                 <ComboBox Classes="Filter" ItemsSource="{Binding Locations}" SelectedItem="{Binding SelectedLocation}" Width="150">
                     <ComboBox.ItemTemplate>
@@ -104,9 +107,9 @@
                 </ComboBox>
             </StackPanel>
 
-            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Center" IsVisible="{Binding HasSelectedRows}">
+            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top" IsVisible="{Binding HasSelectedRows}">
                 <TextBlock Classes="FilterLabel" Text="Selected Totals"/>
-                <StackPanel Orientation="Vertical" Spacing="2" VerticalAlignment="Center">
+                <StackPanel Orientation="Vertical" Spacing="2" VerticalAlignment="Top">
                     <StackPanel Orientation="Horizontal" Spacing="4">
                         <TextBlock Classes="SelectedSummaryLabel" Text="Amount:" VerticalAlignment="Center" />
                         <TextBlock Classes="SelectedSummaryValue" Text="{Binding SelectedAmountTotal, StringFormat='{}{0:N0}'}" Tag="{Binding SelectedAmountTotal}" VerticalAlignment="Center" Cursor="Hand" PointerPressed="CopyValuePointerPressed" ToolTip.Tip="Click to copy" />
@@ -121,7 +124,7 @@
                     </StackPanel>
                 </StackPanel>
             </StackPanel>
-        </StackPanel>
+        </WrapPanel>
 
 		<DataGrid Grid.Row="1" Margin="0" ItemsSource="{Binding Trades}"
 				  AutoGenerateColumns="False" IsReadOnly="True"
