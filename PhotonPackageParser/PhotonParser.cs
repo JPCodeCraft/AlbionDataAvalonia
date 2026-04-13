@@ -161,9 +161,7 @@ namespace PhotonPackageParser
 
             int operationLength = commandLength;
             int payloadOffset = offset;
-            var payload = new PhotonPacketStream(operationLength);
-            payload.Write(source, offset, operationLength);
-            payload.Seek(0L, SeekOrigin.Begin);
+            var payload = new MemoryStream(source, offset, operationLength, writable: false);
 
             offset += operationLength;
             string payloadPreview = GetHexPreview(source, payloadOffset, operationLength);

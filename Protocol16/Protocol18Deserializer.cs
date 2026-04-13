@@ -1,6 +1,7 @@
 using System;
 using System.Collections;
 using System.Collections.Generic;
+using System.IO;
 using System.Text;
 using Protocol16.Photon;
 
@@ -47,7 +48,7 @@ namespace Protocol16
 
     public static class Protocol18Deserializer
     {
-        public static OperationRequest DeserializeOperationRequest(PhotonPacketStream input)
+        public static OperationRequest DeserializeOperationRequest(Stream input)
         {
             byte operationCode = ReadByte(input);
             Dictionary<byte, object> parameters = DeserializeParameterTable(input);
@@ -55,7 +56,7 @@ namespace Protocol16
             return new OperationRequest(operationCode, parameters);
         }
 
-        public static OperationResponse DeserializeOperationResponse(PhotonPacketStream input)
+        public static OperationResponse DeserializeOperationResponse(Stream input)
         {
             byte operationCode = ReadByte(input);
             short returnCode = ReadInt16(input);
@@ -72,7 +73,7 @@ namespace Protocol16
             return new OperationResponse(operationCode, returnCode, debugMessage, parameters);
         }
 
-        public static EventData DeserializeEventData(PhotonPacketStream input)
+        public static EventData DeserializeEventData(Stream input)
         {
             byte code = ReadByte(input);
             Dictionary<byte, object> parameters = DeserializeParameterTable(input);
@@ -80,12 +81,12 @@ namespace Protocol16
             return new EventData(code, parameters);
         }
 
-        public static object Deserialize(PhotonPacketStream input)
+        public static object Deserialize(Stream input)
         {
             return Deserialize(input, ReadByte(input));
         }
 
-        public static object Deserialize(PhotonPacketStream input, byte typeCode)
+        public static object Deserialize(Stream input, byte typeCode)
         {
             if (typeCode >= (byte)Protocol18Type.CustomTypeSlim)
             {
@@ -171,7 +172,7 @@ namespace Protocol16
             }
         }
 
-        private static Dictionary<byte, object> DeserializeParameterTable(PhotonPacketStream input)
+        private static Dictionary<byte, object> DeserializeParameterTable(Stream input)
         {
             int dictionarySize = ReadCount(input);
             var dictionary = new Dictionary<byte, object>(dictionarySize);
@@ -198,7 +199,7 @@ namespace Protocol16
             return dictionary;
         }
 
-        private static IDictionary DeserializeDictionary(PhotonPacketStream input)
+        private static IDictionary DeserializeDictionary(Stream input)
         {
             byte keyTypeCode = ReadByte(input);
             byte valueTypeCode = ReadByte(input);
@@ -215,7 +216,7 @@ namespace Protocol16
             return output;
         }
 
-        private static Hashtable DeserializeHashtable(PhotonPacketStream input)
+        private static Hashtable DeserializeHashtable(Stream input)
         {
             byte keyTypeCode = ReadByte(input);
             byte valueTypeCode = ReadByte(input);
@@ -232,7 +233,7 @@ namespace Protocol16
             return output;
         }
 
-        private static object[] DeserializeObjectArray(PhotonPacketStream input)
+        private static object[] DeserializeObjectArray(Stream input)
         {
             int size = ReadCount(input);
             var result = new object[size];
@@ -245,7 +246,7 @@ namespace Protocol16
             return result;
         }
 
-        private static Array DeserializeNestedArray(PhotonPacketStream input)
+        private static Array DeserializeNestedArray(Stream input)
         {
             int size = ReadCount(input);
             byte typeCode = ReadByte(input);
@@ -277,7 +278,7 @@ namespace Protocol16
             return result;
         }
 
-        private static Array DeserializeTypedArray(PhotonPacketStream input, byte elementTypeCode)
+        private static Array DeserializeTypedArray(Stream input, byte elementTypeCode)
         {
             int size = ReadCount(input);
             try
@@ -401,7 +402,7 @@ namespace Protocol16
             }
         }
 
-        private static bool TryDeserializeNestedItemWithRepeatedTypeCode(PhotonPacketStream input, byte typeCode, out object value)
+        private static bool TryDeserializeNestedItemWithRepeatedTypeCode(Stream input, byte typeCode, out object value)
         {
             long start = input.Position;
 
@@ -431,7 +432,7 @@ namespace Protocol16
                 || typeCode == ((byte)Protocol18Type.Array | (byte)Protocol18Type.CompressedLong);
         }
 
-        private static object DeserializeCustom(PhotonPacketStream input, byte gpType)
+        private static object DeserializeCustom(Stream input, byte gpType)
         {
             byte customType = gpType >= (byte)Protocol18Type.CustomTypeSlim
                 ? (byte)(gpType & 0x7F)
@@ -440,7 +441,7 @@ namespace Protocol16
             return DeserializeCustomPayload(input, customType, isSlimCustomType);
         }
 
-        private static byte[] DeserializeCustomPayload(PhotonPacketStream input, byte customType, bool isSlimCustomType = false)
+        private static byte[] DeserializeCustomPayload(Stream input, byte customType, bool isSlimCustomType = false)
         {
             long start = input.Position;
             int size = ReadCount(input);
@@ -459,7 +460,7 @@ namespace Protocol16
             return ReadBytes(input, size);
         }
 
-        private static string ReadString(PhotonPacketStream input)
+        private static string ReadString(Stream input)
         {
             long start = input.Position;
 
@@ -497,7 +498,7 @@ namespace Protocol16
             return Encoding.UTF8.GetString(ReadBytes(input, length), 0, length);
         }
 
-        private static bool TryReadCompressedLength(PhotonPacketStream input, out int value)
+        private static bool TryReadCompressedLength(Stream input, out int value)
         {
             long start = input.Position;
 
@@ -522,9 +523,9 @@ namespace Protocol16
             }
         }
 
-        private static int ReadCount(PhotonPacketStream input)
+        private static int ReadCount(Stream input)
         {
-            if (TryReadCompressedLength(input, out int count) && count <= Remaining(input) + 1024)
+            if (TryReadCompressedLength(input, out int count))
             {
                 return count;
             }
@@ -532,7 +533,7 @@ namespace Protocol16
             throw new ArgumentException("Failed to read compressed Protocol18 count.");
         }
 
-        private static byte[] ReadBytes(PhotonPacketStream input, int count)
+        private static byte[] ReadBytes(Stream input, int count)
         {
             if (count == 0)
             {
@@ -549,7 +550,7 @@ namespace Protocol16
             return buffer;
         }
 
-        private static byte ReadByte(PhotonPacketStream input)
+        private static byte ReadByte(Stream input)
         {
             int value = input.ReadByte();
             if (value < 0)
@@ -560,25 +561,25 @@ namespace Protocol16
             return (byte)value;
         }
 
-        private static short ReadInt16(PhotonPacketStream input)
+        private static short ReadInt16(Stream input)
         {
             byte[] buffer = ReadBytes(input, sizeof(short));
             return (short)(buffer[0] | (buffer[1] << 8));
         }
 
-        private static int ReadUInt16(PhotonPacketStream input)
+        private static int ReadUInt16(Stream input)
         {
             byte[] buffer = ReadBytes(input, sizeof(short));
             return buffer[0] | (buffer[1] << 8);
         }
 
-        private static int ReadInt32(PhotonPacketStream input)
+        private static int ReadInt32(Stream input)
         {
             byte[] buffer = ReadBytes(input, sizeof(int));
             return buffer[0] << 24 | buffer[1] << 16 | buffer[2] << 8 | buffer[3];
         }
 
-        private static float ReadSingle(PhotonPacketStream input)
+        private static float ReadSingle(Stream input)
         {
             byte[] buffer = ReadBytes(input, sizeof(float));
             if (BitConverter.IsLittleEndian)
@@ -589,7 +590,7 @@ namespace Protocol16
             return BitConverter.ToSingle(buffer, 0);
         }
 
-        private static double ReadDouble(PhotonPacketStream input)
+        private static double ReadDouble(Stream input)
         {
             byte[] buffer = ReadBytes(input, sizeof(double));
             if (BitConverter.IsLittleEndian)
@@ -600,7 +601,7 @@ namespace Protocol16
             return BitConverter.ToDouble(buffer, 0);
         }
 
-        private static uint ReadCompressedUInt32(PhotonPacketStream input)
+        private static uint ReadCompressedUInt32(Stream input)
         {
             uint value = 0;
             int shift = 0;
@@ -620,7 +621,7 @@ namespace Protocol16
             throw new ArgumentException("Compressed UInt32 is too large.");
         }
 
-        private static ulong ReadCompressedUInt64(PhotonPacketStream input)
+        private static ulong ReadCompressedUInt64(Stream input)
         {
             ulong value = 0;
             int shift = 0;
@@ -640,19 +641,19 @@ namespace Protocol16
             throw new ArgumentException("Compressed UInt64 is too large.");
         }
 
-        private static int ReadCompressedInt32(PhotonPacketStream input)
+        private static int ReadCompressedInt32(Stream input)
         {
             uint value = ReadCompressedUInt32(input);
             return (int)((value >> 1) ^ (uint)-(int)(value & 1));
         }
 
-        private static long ReadCompressedInt64(PhotonPacketStream input)
+        private static long ReadCompressedInt64(Stream input)
         {
             ulong value = ReadCompressedUInt64(input);
             return (long)((value >> 1) ^ (ulong)-(long)(value & 1));
         }
 
-        private static int Remaining(PhotonPacketStream input)
+        private static int Remaining(Stream input)
         {
             return (int)(input.Length - input.Position);
         }
