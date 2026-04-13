@@ -3,7 +3,7 @@ using System.IO;
 
 namespace Protocol16
 {
-    public class Protocol16Stream : Stream
+    public class PhotonPacketStream : Stream
     {
         private byte[] _buffer;
         private int _position;
@@ -14,12 +14,12 @@ namespace Protocol16
         public override bool CanWrite => true;
         public override long Length => _length;
 
-        public Protocol16Stream(int size = 0)
+        public PhotonPacketStream(int size = 0)
         {
             _buffer = new byte[size];
         }
 
-        public Protocol16Stream(byte[] buffer)
+        public PhotonPacketStream(byte[] buffer)
         {
             _buffer = buffer;
             _length = buffer.Length;
@@ -145,4 +145,5 @@ namespace Protocol16
             return true;
         }
     }
+
 }

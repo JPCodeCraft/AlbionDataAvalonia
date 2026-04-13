@@ -161,7 +161,7 @@ namespace PhotonPackageParser
 
             int operationLength = commandLength;
             int payloadOffset = offset;
-            var payload = new Protocol16Stream(operationLength);
+            var payload = new PhotonPacketStream(operationLength);
             payload.Write(source, offset, operationLength);
             payload.Seek(0L, SeekOrigin.Begin);
 
