@@ -15,8 +15,8 @@ namespace Albion.Network
         private readonly HandlersCollection handlers;
 #if DEBUG
         // Debug packet logging settings.
-        private const bool EnableParserDebugPacketLogging = true;
-        private const bool EnableProtocol18CodeDebugLogging = true;
+        private const bool EnableParserDebugPacketLogging = false;
+        private const bool EnableProtocol18CodeDebugLogging = false;
         // Toggle this deep scan on/off as needed. It is expensive on busy streams.
         private const bool EnableDeepParameterValueFilter = false;
         private const bool EnableNoiseCodeFilter = true;
@@ -88,15 +88,6 @@ namespace Albion.Network
                 DescribePrimaryParameter(parameters));
         }
 
-        protected override void OnIgnoredEventDecodeFailure(byte signalByte, byte messageType, string payloadPreview, Exception exception)
-        {
-            Log.Debug(
-                "Ignoring known Protocol18 event decode failure. signal=0x{SignalByte:X2} messageType={MessageType} payloadPreview={PayloadPreview} reason={Reason}",
-                signalByte,
-                messageType,
-                payloadPreview,
-                exception.Message);
-        }
 #endif
 
         protected override void OnEvent(byte Code, Dictionary<byte, object> Parameters)

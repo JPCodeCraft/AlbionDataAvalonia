@@ -18,22 +18,19 @@ public class DebugRequestProbeRequestHandler : RequestPacketHandler<DebugRequest
 
     protected override Task OnActionAsync(DebugRequestProbeRequest value)
     {
-        if (false)
+        Log.Debug(
+                "Debug probe captured request {OperationCode} ({OperationName}) with {ParameterCount} parameter(s).",
+                (int)ProbeOperationCode,
+                ProbeOperationCode,
+                value.Parameters.Count);
+
+        foreach (var parameter in value.Parameters.OrderBy(x => x.Key))
         {
             Log.Debug(
-                    "Debug probe captured request {OperationCode} ({OperationName}) with {ParameterCount} parameter(s).",
-                    (int)ProbeOperationCode,
-                    ProbeOperationCode,
-                    value.Parameters.Count);
-
-            foreach (var parameter in value.Parameters.OrderBy(x => x.Key))
-            {
-                Log.Debug(
-                    "Debug probe request param key={Key} type={Type} value={@Value}",
-                    parameter.Key,
-                    parameter.Value?.GetType().FullName ?? "null",
-                    parameter.Value);
-            }
+                "Debug probe request param key={Key} type={Type} value={@Value}",
+                parameter.Key,
+                parameter.Value?.GetType().FullName ?? "null",
+                parameter.Value);
         }
 
         return Task.CompletedTask;

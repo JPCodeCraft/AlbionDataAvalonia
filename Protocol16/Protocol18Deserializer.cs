@@ -256,12 +256,21 @@ namespace Protocol16
             {
                 for (int i = 0; i < size; i++)
                 {
+                    long itemStart = input.Position;
                     try
                     {
                         result[i] = Deserialize(input, typeCode);
                     }
                     catch (Exception ex)
                     {
+                        input.Position = itemStart;
+                        if (i > 0 && TryDeserializeNestedItemWithRepeatedTypeCode(input, typeCode, out object repeatedTypeValue))
+                        {
+                            result[i] = repeatedTypeValue;
+                            continue;
+                        }
+
+                        input.Position = itemStart;
                         throw new ArgumentException(
                             $"Failed to deserialize nested array item index={i} type=0x{typeCode:X2} size={size} remaining={Remaining(input)}.",
                             ex);
@@ -273,7 +282,19 @@ namespace Protocol16
             catch when (TryIsFlattenedNestedCompressedArrayType(typeCode))
             {
                 input.Position = itemsStart;
-                return DeserializeFlattenedNestedTypedArray(input, size, typeCode);
+                if (TryDeserializeLengthPrefixedNestedTypedArray(input, size, typeCode, out Array lengthPrefixedResult))
+                {
+                    return lengthPrefixedResult;
+                }
+
+                input.Position = itemsStart;
+                if (TryDeserializeFlattenedNestedTypedArray(input, size, typeCode, out Array flattenedResult))
+                {
+                    return flattenedResult;
+                }
+
+                input.Position = itemsStart;
+                throw;
             }
         }
 
@@ -407,6 +428,47 @@ namespace Protocol16
                 || typeCode == ((byte)Protocol18Type.Array | (byte)Protocol18Type.CompressedLong);
         }
 
+        private static bool TryDeserializeNestedItemWithRepeatedTypeCode(Protocol16Stream input, byte typeCode, out object value)
+        {
+            long start = input.Position;
+
+            try
+            {
+                if (!TryIsFlattenedNestedCompressedArrayType(typeCode) || ReadByte(input) != typeCode)
+                {
+                    input.Position = start;
+                    value = null!;
+                    return false;
+                }
+
+                value = Deserialize(input, typeCode);
+                return true;
+            }
+            catch
+            {
+                input.Position = start;
+                value = null!;
+                return false;
+            }
+        }
+
+        private static bool TryDeserializeFlattenedNestedTypedArray(Protocol16Stream input, int outerSize, byte nestedTypeCode, out Array result)
+        {
+            long start = input.Position;
+
+            try
+            {
+                result = DeserializeFlattenedNestedTypedArray(input, outerSize, nestedTypeCode);
+                return true;
+            }
+            catch
+            {
+                input.Position = start;
+                result = Array.Empty<object>();
+                return false;
+            }
+        }
+
         private static Array DeserializeFlattenedNestedTypedArray(Protocol16Stream input, int outerSize, byte nestedTypeCode)
         {
             int innerSize = ReadCount(input);
@@ -443,6 +505,83 @@ namespace Protocol16
                 default:
                     throw new ArgumentException($"Unsupported flattened nested array type: 0x{nestedTypeCode:X2}.");
             }
+        }
+
+        private static bool TryDeserializeLengthPrefixedNestedTypedArray(Protocol16Stream input, int outerSize, byte nestedTypeCode, out Array result)
+        {
+            long start = input.Position;
+
+            try
+            {
+                var values = new object[outerSize];
+                for (int i = 0; i < outerSize; i++)
+                {
+                    int payloadLength = ReadCount(input);
+                    if (payloadLength < 0 || payloadLength > Remaining(input))
+                    {
+                        input.Position = start;
+                        result = Array.Empty<object>();
+                        return false;
+                    }
+
+                    byte[] payload = ReadBytes(input, payloadLength);
+                    Protocol16Stream payloadStream = CreateSubStream(payload);
+                    values[i] = DeserializeLengthPrefixedNestedTypedArrayItem(payloadStream, nestedTypeCode);
+
+                    if (Remaining(payloadStream) != 0)
+                    {
+                        input.Position = start;
+                        result = Array.Empty<object>();
+                        return false;
+                    }
+                }
+
+                result = values;
+                return true;
+            }
+            catch
+            {
+                input.Position = start;
+                result = Array.Empty<object>();
+                return false;
+            }
+        }
+
+        private static object DeserializeLengthPrefixedNestedTypedArrayItem(Protocol16Stream input, byte nestedTypeCode)
+        {
+            switch ((Protocol18Type)(nestedTypeCode & ~(byte)Protocol18Type.Array))
+            {
+                case Protocol18Type.CompressedInt:
+                    {
+                        var values = new List<int>();
+                        while (Remaining(input) > 0)
+                        {
+                            values.Add(ReadCompressedInt32(input));
+                        }
+
+                        return values.ToArray();
+                    }
+                case Protocol18Type.CompressedLong:
+                    {
+                        var values = new List<long>();
+                        while (Remaining(input) > 0)
+                        {
+                            values.Add(ReadCompressedInt64(input));
+                        }
+
+                        return values.ToArray();
+                    }
+                default:
+                    throw new ArgumentException($"Unsupported length-prefixed nested array type: 0x{nestedTypeCode:X2}.");
+            }
+        }
+
+        private static Protocol16Stream CreateSubStream(byte[] payload)
+        {
+            var payloadStream = new Protocol16Stream(payload.Length);
+            payloadStream.Write(payload, 0, payload.Length);
+            payloadStream.Position = 0;
+            return payloadStream;
         }
 
         private static object DeserializeCustom(Protocol16Stream input, byte gpType)

@@ -10,7 +10,7 @@ namespace AlbionDataAvalonia.Network.Handlers;
 public class DebugEventProbeEventHandler : EventPacketHandler<DebugEventProbeEvent>
 {
     // Change this single constant to probe a different event.
-    public const EventCodes ProbeEventCode = EventCodes.FullAchievementInfo;
+    public const EventCodes ProbeEventCode = EventCodes.UpdateChatSettings;
 
     public DebugEventProbeEventHandler() : base((int)ProbeEventCode)
     {
