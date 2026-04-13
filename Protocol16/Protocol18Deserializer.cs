@@ -483,16 +483,6 @@ namespace Protocol16
             }
 
             input.Position = start;
-            if (Remaining(input) >= 2)
-            {
-                int legacyLength = ReadUInt16(input);
-                if (legacyLength <= Remaining(input))
-                {
-                    return Encoding.UTF8.GetString(ReadBytes(input, legacyLength), 0, legacyLength);
-                }
-            }
-
-            input.Position = start;
             byte lengthType = ReadByte(input);
             int length;
 
@@ -548,20 +538,12 @@ namespace Protocol16
 
         private static int ReadCount(Protocol16Stream input)
         {
-            long start = input.Position;
-
             if (TryReadCompressedLength(input, out int count) && count <= Remaining(input) + 1024)
             {
                 return count;
             }
 
-            input.Position = start;
-            if (Remaining(input) >= 2)
-            {
-                return ReadUInt16(input);
-            }
-
-            return 0;
+            throw new ArgumentException("Failed to read compressed Protocol18 count.");
         }
 
         private static byte[] ReadBytes(Protocol16Stream input, int count)

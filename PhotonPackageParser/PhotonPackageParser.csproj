@@ -2,7 +2,7 @@
 
 	<PropertyGroup>
 		<TargetFramework>netstandard2.0</TargetFramework>
-		<Description>A parser for Photon's Protocol16</Description>
+		<Description>A parser for Photon's Protocol18</Description>
 		<Company>0blu</Company>
 		<Copyright>Copyright ©  2020</Copyright>
 		<AssemblyVersion>4.1.0.0</AssemblyVersion>
