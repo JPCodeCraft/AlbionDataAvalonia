@@ -13,25 +13,28 @@ public class DebugResponseProbeResponseHandler : PacketHandler<ResponsePacket>
 
     protected override Task OnHandleAsync(ResponsePacket packet)
     {
-        if (packet.OperationCode != (int)ProbeOperationCode)
+        if (false)
         {
-            return NextAsync(packet);
-        }
+            if (packet.OperationCode != (int)ProbeOperationCode)
+            {
+                return NextAsync(packet);
+            }
 
-        var response = new DebugResponseProbeResponse(packet.Parameters);
-        Log.Debug(
-            "Debug probe captured response {OperationCode} ({OperationName}) with {ParameterCount} parameter(s).",
-            (int)ProbeOperationCode,
-            ProbeOperationCode,
-            response.Parameters.Count);
-
-        foreach (var parameter in response.Parameters)
-        {
+            var response = new DebugResponseProbeResponse(packet.Parameters);
             Log.Debug(
-                "Debug probe response param key={Key} type={Type} value={@Value}",
-                parameter.Key,
-                parameter.Value?.GetType().FullName ?? "null",
-                parameter.Value);
+                "Debug probe captured response {OperationCode} ({OperationName}) with {ParameterCount} parameter(s).",
+                (int)ProbeOperationCode,
+                ProbeOperationCode,
+                response.Parameters.Count);
+
+            foreach (var parameter in response.Parameters)
+            {
+                Log.Debug(
+                    "Debug probe response param key={Key} type={Type} value={@Value}",
+                    parameter.Key,
+                    parameter.Value?.GetType().FullName ?? "null",
+                    parameter.Value);
+            }
         }
 
         // Keep normal response handlers running (e.g., JoinResponseHandler).

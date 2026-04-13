@@ -23,6 +23,9 @@ public class JoinResponse : BaseOperation
             {
                 switch (objectId)
                 {
+                    case long longValue:
+                        userObjectId = unchecked((int)longValue);
+                        break;
                     case int intValue:
                         userObjectId = intValue;
                         break;

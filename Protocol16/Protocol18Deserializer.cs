@@ -257,9 +257,14 @@ namespace Protocol16
                 case Protocol18Type.Boolean:
                     {
                         var result = new bool[size];
+                        int packedByteCount = (size + 7) / 8;
+                        byte[] packed = ReadBytes(input, packedByteCount);
+
                         for (int i = 0; i < size; i++)
                         {
-                            result[i] = ReadByte(input) != 0;
+                            int byteIndex = i / 8;
+                            int bitIndex = i % 8;
+                            result[i] = (packed[byteIndex] & (1 << bitIndex)) != 0;
                         }
                         return result;
                     }
@@ -502,13 +507,13 @@ namespace Protocol16
         private static short ReadInt16(Protocol16Stream input)
         {
             byte[] buffer = ReadBytes(input, sizeof(short));
-            return (short)((buffer[0] << 8) | buffer[1]);
+            return (short)(buffer[0] | (buffer[1] << 8));
         }
 
         private static int ReadUInt16(Protocol16Stream input)
         {
             byte[] buffer = ReadBytes(input, sizeof(short));
-            return (buffer[0] << 8) | buffer[1];
+            return buffer[0] | (buffer[1] << 8);
         }
 
         private static int ReadInt32(Protocol16Stream input)

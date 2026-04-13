@@ -10,14 +10,20 @@ namespace AlbionDataAvalonia.Network.Handlers;
 public class DebugEventProbeEventHandler : EventPacketHandler<DebugEventProbeEvent>
 {
     // Change this single constant to probe a different event.
-    public const EventCodes ProbeEventCode = EventCodes.LaborerGotUpgraded;
+    public const EventCodes ProbeEventCode = EventCodes.FullAchievementInfo;
 
     public DebugEventProbeEventHandler() : base((int)ProbeEventCode)
     {
     }
 
-    protected override Task OnActionAsync(DebugEventProbeEvent value)
+    protected override Task OnHandleAsync(EventPacket packet)
     {
+        if (packet.EventCode != (int)ProbeEventCode)
+        {
+            return NextAsync(packet);
+        }
+
+        var value = new DebugEventProbeEvent(packet.Parameters);
         Log.Debug(
             "Debug probe captured event {EventCode} ({EventName}) with {ParameterCount} parameter(s).",
             (int)ProbeEventCode,
@@ -33,6 +39,11 @@ public class DebugEventProbeEventHandler : EventPacketHandler<DebugEventProbeEve
                 parameter.Value);
         }
 
+        return NextAsync(packet);
+    }
+
+    protected override Task OnActionAsync(DebugEventProbeEvent value)
+    {
         return Task.CompletedTask;
     }
 }
