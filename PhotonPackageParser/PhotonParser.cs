@@ -112,8 +112,7 @@ namespace PhotonPackageParser
 
         private PacketStatus HandleSendReliable(byte[] source, ref int offset, ref int commandLength)
         {
-            // Skip 1 byte
-            offset++;
+            ReadByte(out byte signalByte, source, ref offset);
             commandLength--;
             ReadByte(out byte messageType, source, ref offset);
             commandLength--;
@@ -125,8 +124,10 @@ namespace PhotonPackageParser
 
             offset += operationLength;
 
+            bool preferProtocol18 = signalByte == 0xF0;
+
             // Encrypted message for market data?
-            if (messageType == 131)
+            if (messageType > 128)
             {
                 return PacketStatus.Encrypted;
             }
@@ -134,25 +135,141 @@ namespace PhotonPackageParser
             switch ((MessageType)messageType)
             {
                 case MessageType.OperationRequest:
+                case MessageType.InternalOperationRequest:
                     {
-                        OperationRequest requestData = Protocol16Deserializer.DeserializeOperationRequest(payload);
+                        OperationRequest requestData = DeserializeOperationRequest(payload, preferProtocol18);
                         OnRequest(requestData.OperationCode, requestData.Parameters);
                         break;
                     }
                 case MessageType.OperationResponse:
+                case MessageType.InternalOperationResponse:
                     {
-                        OperationResponse responseData = Protocol16Deserializer.DeserializeOperationResponse(payload);
+                        OperationResponse responseData = DeserializeOperationResponse(payload, preferProtocol18);
                         OnResponse(responseData.OperationCode, responseData.ReturnCode, responseData.DebugMessage, responseData.Parameters);
                         break;
                     }
                 case MessageType.Event:
                     {
-                        EventData eventData = Protocol16Deserializer.DeserializeEventData(payload);
+                        EventData eventData = DeserializeEventData(payload, preferProtocol18);
                         OnEvent(eventData.Code, eventData.Parameters);
                         break;
                     }
             }
             return PacketStatus.Success;
+        }
+
+        private static OperationRequest DeserializeOperationRequest(Protocol16Stream payload, bool preferProtocol18)
+        {
+            Exception firstError = new ArgumentException("Unable to deserialize operation request.");
+
+            if (preferProtocol18)
+            {
+                if (TryDeserialize(payload, Protocol18Deserializer.DeserializeOperationRequest, out OperationRequest protocol18Request, out firstError))
+                {
+                    return protocol18Request;
+                }
+
+                if (TryDeserialize(payload, Protocol16Deserializer.DeserializeOperationRequest, out OperationRequest protocol16Fallback, out _))
+                {
+                    return protocol16Fallback;
+                }
+            }
+            else
+            {
+                if (TryDeserialize(payload, Protocol16Deserializer.DeserializeOperationRequest, out OperationRequest protocol16Request, out firstError))
+                {
+                    return protocol16Request;
+                }
+
+                if (TryDeserialize(payload, Protocol18Deserializer.DeserializeOperationRequest, out OperationRequest protocol18Fallback, out _))
+                {
+                    return protocol18Fallback;
+                }
+            }
+
+            throw firstError;
+        }
+
+        private static OperationResponse DeserializeOperationResponse(Protocol16Stream payload, bool preferProtocol18)
+        {
+            Exception firstError = new ArgumentException("Unable to deserialize operation response.");
+
+            if (preferProtocol18)
+            {
+                if (TryDeserialize(payload, Protocol18Deserializer.DeserializeOperationResponse, out OperationResponse protocol18Response, out firstError))
+                {
+                    return protocol18Response;
+                }
+
+                if (TryDeserialize(payload, Protocol16Deserializer.DeserializeOperationResponse, out OperationResponse protocol16Fallback, out _))
+                {
+                    return protocol16Fallback;
+                }
+            }
+            else
+            {
+                if (TryDeserialize(payload, Protocol16Deserializer.DeserializeOperationResponse, out OperationResponse protocol16Response, out firstError))
+                {
+                    return protocol16Response;
+                }
+
+                if (TryDeserialize(payload, Protocol18Deserializer.DeserializeOperationResponse, out OperationResponse protocol18Fallback, out _))
+                {
+                    return protocol18Fallback;
+                }
+            }
+
+            throw firstError;
+        }
+
+        private static EventData DeserializeEventData(Protocol16Stream payload, bool preferProtocol18)
+        {
+            Exception firstError = new ArgumentException("Unable to deserialize event data.");
+
+            if (preferProtocol18)
+            {
+                if (TryDeserialize(payload, Protocol18Deserializer.DeserializeEventData, out EventData protocol18Event, out firstError))
+                {
+                    return protocol18Event;
+                }
+
+                if (TryDeserialize(payload, Protocol16Deserializer.DeserializeEventData, out EventData protocol16Fallback, out _))
+                {
+                    return protocol16Fallback;
+                }
+            }
+            else
+            {
+                if (TryDeserialize(payload, Protocol16Deserializer.DeserializeEventData, out EventData protocol16Event, out firstError))
+                {
+                    return protocol16Event;
+                }
+
+                if (TryDeserialize(payload, Protocol18Deserializer.DeserializeEventData, out EventData protocol18Fallback, out _))
+                {
+                    return protocol18Fallback;
+                }
+            }
+
+            throw firstError;
+        }
+
+        private static bool TryDeserialize<T>(Protocol16Stream payload, Func<Protocol16Stream, T> deserializer, out T result, out Exception error)
+        {
+            long start = payload.Position;
+            try
+            {
+                result = deserializer(payload);
+                error = new InvalidOperationException("No deserialization error.");
+                return true;
+            }
+            catch (Exception ex)
+            {
+                payload.Seek(start, SeekOrigin.Begin);
+                result = default!;
+                error = ex;
+                return false;
+            }
         }
 
         private PacketStatus HandleSendFragment(byte[] source, ref int offset, ref int commandLength)
