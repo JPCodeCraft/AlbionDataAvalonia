@@ -173,7 +173,7 @@ namespace PhotonPackageParser
             string payloadPreview = GetHexPreview(source, payloadOffset, operationLength);
 
             // Encrypted message for market data?
-            if (messageType > 128)
+            if (messageType == 131)
             {
                 return PacketStatus.Encrypted;
             }
