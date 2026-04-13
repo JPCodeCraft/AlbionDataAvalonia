@@ -65,7 +65,7 @@ public class JoinResponse : BaseOperation
                 }
             }
 
-            if (parameters.TryGetValue(83, out object globalMultiplierData))
+            if (parameters.TryGetValue(84, out object globalMultiplierData))
             {
                 try
                 {

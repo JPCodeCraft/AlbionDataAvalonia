@@ -180,7 +180,18 @@ namespace Protocol16
             {
                 byte key = ReadByte(input);
                 byte valueTypeCode = ReadByte(input);
-                object value = Deserialize(input, valueTypeCode);
+                object value;
+                try
+                {
+                    value = Deserialize(input, valueTypeCode);
+                }
+                catch (Exception ex)
+                {
+                    throw new ArgumentException(
+                        $"Failed to deserialize parameter key={key} valueType=0x{valueTypeCode:X2} remaining={Remaining(input)}.",
+                        ex);
+                }
+
                 dictionary[key] = value;
             }
 
@@ -238,129 +249,199 @@ namespace Protocol16
         {
             int size = ReadCount(input);
             byte typeCode = ReadByte(input);
+            long itemsStart = input.Position;
             var result = new object[size];
 
-            for (int i = 0; i < size; i++)
+            try
             {
-                result[i] = Deserialize(input, typeCode);
-            }
+                for (int i = 0; i < size; i++)
+                {
+                    try
+                    {
+                        result[i] = Deserialize(input, typeCode);
+                    }
+                    catch (Exception ex)
+                    {
+                        throw new ArgumentException(
+                            $"Failed to deserialize nested array item index={i} type=0x{typeCode:X2} size={size} remaining={Remaining(input)}.",
+                            ex);
+                    }
+                }
 
-            return result;
+                return result;
+            }
+            catch when (TryIsFlattenedNestedCompressedArrayType(typeCode))
+            {
+                input.Position = itemsStart;
+                return DeserializeFlattenedNestedTypedArray(input, size, typeCode);
+            }
         }
 
         private static Array DeserializeTypedArray(Protocol16Stream input, byte elementTypeCode)
         {
             int size = ReadCount(input);
-
-            switch ((Protocol18Type)elementTypeCode)
+            try
             {
-                case Protocol18Type.Boolean:
-                    {
-                        var result = new bool[size];
-                        int packedByteCount = (size + 7) / 8;
-                        byte[] packed = ReadBytes(input, packedByteCount);
+                switch ((Protocol18Type)elementTypeCode)
+                {
+                    case Protocol18Type.Boolean:
+                        {
+                            var result = new bool[size];
+                            int packedByteCount = (size + 7) / 8;
+                            byte[] packed = ReadBytes(input, packedByteCount);
 
-                        for (int i = 0; i < size; i++)
-                        {
-                            int byteIndex = i / 8;
-                            int bitIndex = i % 8;
-                            result[i] = (packed[byteIndex] & (1 << bitIndex)) != 0;
+                            for (int i = 0; i < size; i++)
+                            {
+                                int byteIndex = i / 8;
+                                int bitIndex = i % 8;
+                                result[i] = (packed[byteIndex] & (1 << bitIndex)) != 0;
+                            }
+                            return result;
                         }
-                        return result;
-                    }
-                case Protocol18Type.Byte:
-                    return ReadBytes(input, size);
-                case Protocol18Type.Short:
-                    {
-                        var result = new short[size];
-                        for (int i = 0; i < size; i++)
+                    case Protocol18Type.Byte:
+                        return ReadBytes(input, size);
+                    case Protocol18Type.Short:
                         {
-                            result[i] = ReadInt16(input);
+                            var result = new short[size];
+                            for (int i = 0; i < size; i++)
+                            {
+                                result[i] = ReadInt16(input);
+                            }
+                            return result;
                         }
-                        return result;
-                    }
-                case Protocol18Type.Float:
-                    {
-                        var result = new float[size];
-                        for (int i = 0; i < size; i++)
+                    case Protocol18Type.Float:
                         {
-                            result[i] = ReadSingle(input);
+                            var result = new float[size];
+                            for (int i = 0; i < size; i++)
+                            {
+                                result[i] = ReadSingle(input);
+                            }
+                            return result;
                         }
-                        return result;
-                    }
-                case Protocol18Type.Double:
-                    {
-                        var result = new double[size];
-                        for (int i = 0; i < size; i++)
+                    case Protocol18Type.Double:
                         {
-                            result[i] = ReadDouble(input);
+                            var result = new double[size];
+                            for (int i = 0; i < size; i++)
+                            {
+                                result[i] = ReadDouble(input);
+                            }
+                            return result;
                         }
-                        return result;
-                    }
-                case Protocol18Type.String:
-                    {
-                        var result = new string[size];
-                        for (int i = 0; i < size; i++)
+                    case Protocol18Type.String:
                         {
-                            result[i] = ReadString(input);
+                            var result = new string[size];
+                            for (int i = 0; i < size; i++)
+                            {
+                                result[i] = ReadString(input);
+                            }
+                            return result;
                         }
-                        return result;
-                    }
-                case Protocol18Type.Custom:
-                    {
-                        byte customType = ReadByte(input);
-                        var result = new object[size];
-                        for (int i = 0; i < size; i++)
+                    case Protocol18Type.Custom:
                         {
-                            result[i] = DeserializeCustomPayload(input, customType);
+                            byte customType = ReadByte(input);
+                            var result = new object[size];
+                            for (int i = 0; i < size; i++)
+                            {
+                                result[i] = DeserializeCustomPayload(input, customType);
+                            }
+                            return result;
                         }
-                        return result;
-                    }
-                case Protocol18Type.Dictionary:
-                    {
-                        var result = new object[size];
-                        for (int i = 0; i < size; i++)
+                    case Protocol18Type.Dictionary:
                         {
-                            result[i] = DeserializeDictionary(input);
+                            var result = new object[size];
+                            for (int i = 0; i < size; i++)
+                            {
+                                result[i] = DeserializeDictionary(input);
+                            }
+                            return result;
                         }
-                        return result;
-                    }
-                case Protocol18Type.Hashtable:
-                    {
-                        var result = new object[size];
-                        for (int i = 0; i < size; i++)
+                    case Protocol18Type.Hashtable:
                         {
-                            result[i] = DeserializeHashtable(input);
+                            var result = new object[size];
+                            for (int i = 0; i < size; i++)
+                            {
+                                result[i] = DeserializeHashtable(input);
+                            }
+                            return result;
                         }
-                        return result;
-                    }
+                    case Protocol18Type.CompressedInt:
+                        {
+                            var result = new int[size];
+                            for (int i = 0; i < size; i++)
+                            {
+                                result[i] = ReadCompressedInt32(input);
+                            }
+                            return result;
+                        }
+                    case Protocol18Type.CompressedLong:
+                        {
+                            var result = new long[size];
+                            for (int i = 0; i < size; i++)
+                            {
+                                result[i] = ReadCompressedInt64(input);
+                            }
+                            return result;
+                        }
+                    default:
+                        {
+                            var result = new object[size];
+                            for (int i = 0; i < size; i++)
+                            {
+                                result[i] = Deserialize(input, elementTypeCode);
+                            }
+                            return result;
+                        }
+                }
+            }
+            catch (Exception ex)
+            {
+                throw new ArgumentException(
+                    $"Failed to deserialize typed array elementType=0x{elementTypeCode:X2} size={size} remaining={Remaining(input)}.",
+                    ex);
+            }
+        }
+
+        private static bool TryIsFlattenedNestedCompressedArrayType(byte typeCode)
+        {
+            return typeCode == ((byte)Protocol18Type.Array | (byte)Protocol18Type.CompressedInt)
+                || typeCode == ((byte)Protocol18Type.Array | (byte)Protocol18Type.CompressedLong);
+        }
+
+        private static Array DeserializeFlattenedNestedTypedArray(Protocol16Stream input, int outerSize, byte nestedTypeCode)
+        {
+            int innerSize = ReadCount(input);
+            var result = new object[outerSize];
+
+            switch ((Protocol18Type)(nestedTypeCode & ~(byte)Protocol18Type.Array))
+            {
                 case Protocol18Type.CompressedInt:
+                    for (int outerIndex = 0; outerIndex < outerSize; outerIndex++)
                     {
-                        var result = new int[size];
-                        for (int i = 0; i < size; i++)
+                        var values = new int[innerSize];
+                        for (int innerIndex = 0; innerIndex < innerSize; innerIndex++)
                         {
-                            result[i] = ReadCompressedInt32(input);
+                            values[innerIndex] = ReadCompressedInt32(input);
                         }
-                        return result;
+
+                        result[outerIndex] = values;
                     }
+
+                    return result;
                 case Protocol18Type.CompressedLong:
+                    for (int outerIndex = 0; outerIndex < outerSize; outerIndex++)
                     {
-                        var result = new long[size];
-                        for (int i = 0; i < size; i++)
+                        var values = new long[innerSize];
+                        for (int innerIndex = 0; innerIndex < innerSize; innerIndex++)
                         {
-                            result[i] = ReadCompressedInt64(input);
+                            values[innerIndex] = ReadCompressedInt64(input);
                         }
-                        return result;
+
+                        result[outerIndex] = values;
                     }
+
+                    return result;
                 default:
-                    {
-                        var result = new object[size];
-                        for (int i = 0; i < size; i++)
-                        {
-                            result[i] = Deserialize(input, elementTypeCode);
-                        }
-                        return result;
-                    }
+                    throw new ArgumentException($"Unsupported flattened nested array type: 0x{nestedTypeCode:X2}.");
             }
         }
 
@@ -369,16 +450,23 @@ namespace Protocol16
             byte customType = gpType >= (byte)Protocol18Type.CustomTypeSlim
                 ? (byte)(gpType & 0x7F)
                 : ReadByte(input);
-
-            return DeserializeCustomPayload(input, customType);
+            bool isSlimCustomType = gpType >= (byte)Protocol18Type.CustomTypeSlim;
+            return DeserializeCustomPayload(input, customType, isSlimCustomType);
         }
 
-        private static byte[] DeserializeCustomPayload(Protocol16Stream input, byte customType)
+        private static byte[] DeserializeCustomPayload(Protocol16Stream input, byte customType, bool isSlimCustomType = false)
         {
+            long start = input.Position;
             int size = ReadCount(input);
 
             if (size < 0 || size > Remaining(input))
             {
+                if (isSlimCustomType)
+                {
+                    input.Position = start;
+                    return ReadBytes(input, Remaining(input));
+                }
+
                 throw new ArgumentException($"Custom type {customType} reported invalid size {size}.");
             }
 

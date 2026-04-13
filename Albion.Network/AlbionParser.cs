@@ -16,7 +16,7 @@ namespace Albion.Network
 #if DEBUG
         // Debug packet logging settings.
         private const bool EnableParserDebugPacketLogging = true;
-        private const bool EnableProtocol18CodeDebugLogging = false;
+        private const bool EnableProtocol18CodeDebugLogging = true;
         // Toggle this deep scan on/off as needed. It is expensive on busy streams.
         private const bool EnableDeepParameterValueFilter = false;
         private const bool EnableNoiseCodeFilter = true;
@@ -96,7 +96,20 @@ namespace Albion.Network
                 Parameters[252] = (short)EventCodes.Move;
             }
 
-            short eventCode = ParseEventCode(Parameters);
+            if (!TryParseEventCode(Parameters, out short eventCode))
+            {
+#if DEBUG
+                if (EnableProtocol18CodeDebugLogging)
+                {
+                    Log.Warning(
+                        "Skipping unroutable event packet. keys=[{ParameterKeys}] param252={Param252} primary={Primary}",
+                        DescribeParameterKeys(Parameters),
+                        DescribeCodeParameter(Parameters, 252),
+                        DescribePrimaryParameter(Parameters));
+                }
+#endif
+                return;
+            }
 #if DEBUG
             if (EnableParserDebugPacketLogging && TryGetEventLogMatch(eventCode, Parameters, out string eventMatchPath, out object? eventMatchValue, out string? eventMatchedText))
             {
@@ -483,6 +496,20 @@ namespace Albion.Network
             }
 
             throw new InvalidOperationException("Event code parameter 252 is missing.");
+        }
+
+        private bool TryParseEventCode(Dictionary<byte, object> parameters, out short eventCode)
+        {
+            try
+            {
+                eventCode = ParseEventCode(parameters);
+                return true;
+            }
+            catch (InvalidOperationException)
+            {
+                eventCode = default;
+                return false;
+            }
         }
 
         private static bool TryNormalizePackedEventCode(short packedEventCode, out short normalizedEventCode)

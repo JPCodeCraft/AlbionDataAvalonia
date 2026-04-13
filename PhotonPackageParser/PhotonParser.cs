@@ -54,7 +54,16 @@ namespace PhotonPackageParser
 
             for (int commandIdx = 0; commandIdx < commandCount; commandIdx++)
             {
+                if (!HasAvailable(payload, offset, CommandHeaderLength))
+                {
+                    return PacketStatus.InvalidHeader;
+                }
+
                 response = HandleCommand(payload, ref offset);
+                if (response == PacketStatus.InvalidHeader)
+                {
+                    return response;
+                }
             }
 
             return response;
@@ -81,6 +90,11 @@ namespace PhotonPackageParser
 
         private PacketStatus HandleCommand(byte[] source, ref int offset)
         {
+            if (!HasAvailable(source, offset, CommandHeaderLength))
+            {
+                return PacketStatus.InvalidHeader;
+            }
+
             ReadByte(out byte commandType, source, ref offset);
             ReadByte(out byte channelId, source, ref offset);
             ReadByte(out byte commandFlags, source, ref offset);
@@ -89,6 +103,11 @@ namespace PhotonPackageParser
             NumberDeserializer.Deserialize(out int commandLength, source, ref offset);
             NumberDeserializer.Deserialize(out int sequenceNumber, source, ref offset);
             commandLength -= CommandHeaderLength;
+
+            if (commandLength < 0 || !HasAvailable(source, offset, commandLength))
+            {
+                return PacketStatus.InvalidHeader;
+            }
 
             PacketStatus response = PacketStatus.Undefined;
 
@@ -100,6 +119,11 @@ namespace PhotonPackageParser
                     }
                 case CommandType.SendUnreliable:
                     {
+                        if (commandLength < 4 || !HasAvailable(source, offset, 4))
+                        {
+                            return PacketStatus.InvalidHeader;
+                        }
+
                         offset += 4;
                         commandLength -= 4;
                         goto case CommandType.SendReliable;
@@ -125,6 +149,11 @@ namespace PhotonPackageParser
 
         private PacketStatus HandleSendReliable(byte[] source, ref int offset, ref int commandLength)
         {
+            if (commandLength < 2 || !HasAvailable(source, offset, commandLength))
+            {
+                return PacketStatus.InvalidHeader;
+            }
+
             ReadByte(out byte signalByte, source, ref offset);
             commandLength--;
             ReadByte(out byte messageType, source, ref offset);
@@ -195,6 +224,12 @@ namespace PhotonPackageParser
 
         private PacketStatus HandleSendFragment(byte[] source, ref int offset, ref int commandLength)
         {
+            const int fragmentHeaderLength = 20;
+            if (commandLength < fragmentHeaderLength || !HasAvailable(source, offset, fragmentHeaderLength))
+            {
+                return PacketStatus.InvalidHeader;
+            }
+
             NumberDeserializer.Deserialize(out int startSequenceNumber, source, ref offset);
             commandLength -= 4;
             NumberDeserializer.Deserialize(out int fragmentCount, source, ref offset);
@@ -207,6 +242,11 @@ namespace PhotonPackageParser
             commandLength -= 4;
 
             int fragmentLength = commandLength;
+            if (fragmentLength < 0 || !HasAvailable(source, offset, fragmentLength))
+            {
+                return PacketStatus.InvalidHeader;
+            }
+
             return HandleSegmentedPayload(startSequenceNumber, totalLength, fragmentLength, fragmentOffset, source, ref offset);
         }
 
@@ -253,7 +293,17 @@ namespace PhotonPackageParser
 
         private static void ReadByte(out byte value, byte[] source, ref int offset)
         {
+            if (!HasAvailable(source, offset, 1))
+            {
+                throw new ArgumentException("Unexpected end of packet while reading byte.");
+            }
+
             value = source[offset++];
+        }
+
+        private static bool HasAvailable(byte[] source, int offset, int count)
+        {
+            return count >= 0 && offset >= 0 && source.Length - offset >= count;
         }
 
         private static string GetHexPreview(byte[] source, int offset, int count, int maxBytes = 24)
