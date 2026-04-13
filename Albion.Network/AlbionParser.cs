@@ -87,6 +87,16 @@ namespace Albion.Network
                 DescribeCodeParameter(parameters, 252),
                 DescribePrimaryParameter(parameters));
         }
+
+        protected override void OnIgnoredEventDecodeFailure(byte signalByte, byte messageType, string payloadPreview, Exception exception)
+        {
+            Log.Debug(
+                "Ignoring known Protocol18 event decode failure. signal=0x{SignalByte:X2} messageType={MessageType} payloadPreview={PayloadPreview} reason={Reason}",
+                signalByte,
+                messageType,
+                payloadPreview,
+                exception.Message);
+        }
 #endif
 
         protected override void OnEvent(byte Code, Dictionary<byte, object> Parameters)
@@ -101,7 +111,7 @@ namespace Albion.Network
 #if DEBUG
                 if (EnableProtocol18CodeDebugLogging)
                 {
-                    Log.Warning(
+                    Log.Debug(
                         "Skipping unroutable event packet. keys=[{ParameterKeys}] param252={Param252} primary={Primary}",
                         DescribeParameterKeys(Parameters),
                         DescribeCodeParameter(Parameters, 252),

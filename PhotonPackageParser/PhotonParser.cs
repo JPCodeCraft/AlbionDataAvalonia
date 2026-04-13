@@ -88,6 +88,10 @@ namespace PhotonPackageParser
         {
         }
 
+        protected virtual void OnIgnoredEventDecodeFailure(byte signalByte, byte messageType, string payloadPreview, Exception exception)
+        {
+        }
+
         private PacketStatus HandleCommand(byte[] source, ref int offset)
         {
             if (!HasAvailable(source, offset, CommandHeaderLength))
@@ -214,6 +218,12 @@ namespace PhotonPackageParser
                         }
                         catch (Exception ex)
                         {
+                            if (ShouldIgnoreKnownEventDecodeFailure(payloadPreview, ex))
+                            {
+                                OnIgnoredEventDecodeFailure(signalByte, messageType, payloadPreview, ex);
+                                break;
+                            }
+
                             throw new InvalidOperationException($"Protocol18 event decode failed. signal=0x{signalByte:X2} messageType={messageType} payloadPreview=\"{payloadPreview}\"", ex);
                         }
                         break;
@@ -304,6 +314,12 @@ namespace PhotonPackageParser
         private static bool HasAvailable(byte[] source, int offset, int count)
         {
             return count >= 0 && offset >= 0 && source.Length - offset >= count;
+        }
+
+        private static bool ShouldIgnoreKnownEventDecodeFailure(string payloadPreview, Exception exception)
+        {
+            return payloadPreview.StartsWith("01 06 00 47 08 1F 40 43 48 41 54 5F 53 45 54 54 49 4E 47 53 5F 54 41 42", StringComparison.Ordinal)
+                && exception.ToString().IndexOf("Failed to deserialize parameter key=1 valueType=0x40", StringComparison.Ordinal) >= 0;
         }
 
         private static string GetHexPreview(byte[] source, int offset, int count, int maxBytes = 24)
