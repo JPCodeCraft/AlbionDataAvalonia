@@ -2,6 +2,7 @@
 {
 
     public enum OperationCodes
+
     {
         Unused,
         Ping,
@@ -10,6 +11,7 @@
         CreateAccount,
         Login,
         CreateGuestAccount,
+        CreatePlatformOnlyAccount,
         SendCrashLog,
         SendTraceRoute,
         SendVfxStats,
@@ -37,6 +39,11 @@
         InventoryRecoverAllItems,
         InventorySplitStack,
         InventorySplitStackInto,
+        InventoryStack,
+        InventoryReorder,
+        InventoryDropAll,
+        InventoryAddToStacks,
+        InventoryMoveGivenItems,
         GetClusterData,
         ChangeCluster,
         ConsoleCommand,
@@ -267,10 +274,6 @@
         FriendAnswerInvitation,
         FriendCancelnvitation,
         FriendRemove,
-        InventoryStack,
-        InventoryReorder,
-        InventoryDropAll,
-        InventoryAddToStacks,
         EquipmentItemChangeSpell,
         ExpeditionRegister,
         ExpeditionRegisterCancel,
@@ -537,5 +540,9 @@
         LinkAccountToXbox,
         TravelFactionWarfarePortal,
         RequestRedZoneEventStandings,
+        GetZergDebuffInfo,
+        RequestLoreSnippetStates,
+        RetrieveCarriableObjectStart,
+        RetrieveCarriableObjectCancel,
     }
 }

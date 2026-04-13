@@ -3,671 +3,687 @@
 
     public enum EventCodes
     {
-        Unused,
-        Leave,
-        JoinFinished,
-        Move,
-        Teleport,
-        ChangeEquipment,
-        HealthUpdate,
-        HealthUpdates,
-        EnergyUpdate,
-        DamageShieldUpdate,
-        CraftingFocusUpdate,
-        ActiveSpellEffectsUpdate,
-        ResetCooldowns,
-        Attack,
-        CastStart,
-        ChannelingUpdate,
-        CastCancel,
-        CastTimeUpdate,
-        CastFinished,
-        CastSpell,
-        CastSpells,
-        CastHit,
-        CastHits,
-        StoredTargetsUpdate,
-        ChannelingEnded,
-        AttackBuilding,
-        InventoryPutItem,
-        InventoryDeleteItem,
-        InventoryState,
-        NewCharacter,
-        NewEquipmentItem,
-        NewSiegeBannerItem,
-        NewSimpleItem,
-        NewFurnitureItem,
-        NewKillTrophyItem,
-        NewJournalItem,
-        NewLaborerItem,
-        NewEquipmentItemLegendarySoul,
-        NewSimpleHarvestableObject,
-        NewSimpleHarvestableObjectList,
-        NewHarvestableObject,
-        NewTreasureDestinationObject,
-        TreasureDestinationObjectStatus,
-        CloseTreasureDestinationObject,
-        NewSilverObject,
-        NewBuilding,
-        HarvestableChangeState,
-        MobChangeState,
-        FactionBuildingInfo,
-        CraftBuildingInfo,
-        RepairBuildingInfo,
-        MeldBuildingInfo,
-        ConstructionSiteInfo,
-        PlayerBuildingInfo,
-        FarmBuildingInfo,
-        TutorialBuildingInfo,
-        LaborerObjectInfo,
-        LaborerObjectJobInfo,
-        MarketPlaceBuildingInfo,
-        HarvestStart,
-        HarvestCancel,
-        HarvestFinished,
-        TakeSilver,
-        RemoveSilver,
-        ActionOnBuildingStart,
-        ActionOnBuildingCancel,
-        ActionOnBuildingFinished,
-        ItemRerollQualityFinished,
-        InstallResourceStart,
-        InstallResourceCancel,
-        InstallResourceFinished,
-        CraftItemFinished,
-        LogoutCancel,
-        ChatMessage,
-        ChatSay,
-        ChatWhisper,
-        ChatMuted,
-        PlayEmote,
-        StopEmote,
-        SystemMessage,
-        UtilityTextMessage,
-        UpdateMoney,
-        UpdateFame,
-        UpdateLearningPoints,
-        UpdateReSpecPoints,
-        UpdateCurrency,
-        UpdateFactionStanding,
-        UpdateStanding,
-        Respawn,
-        ServerDebugLog,
-        CharacterEquipmentChanged,
-        RegenerationHealthChanged,
-        RegenerationEnergyChanged,
-        RegenerationMountHealthChanged,
-        RegenerationCraftingChanged,
-        RegenerationHealthEnergyComboChanged,
-        RegenerationPlayerComboChanged,
-        DurabilityChanged,
-        NewLoot,
-        AttachItemContainer,
-        DetachItemContainer,
-        InvalidateItemContainer,
-        LockItemContainer,
-        GuildUpdate,
-        GuildPlayerUpdated,
-        InvitedToGuild,
-        GuildMemberWorldUpdate,
-        UpdateMatchDetails,
-        ObjectEvent,
-        NewMonolithObject,
-        MonolithHasBannersPlacedUpdate,
-        NewOrbObject,
-        NewCastleObject,
-        NewSpellEffectArea,
-        UpdateSpellEffectArea,
-        NewChainSpell,
-        UpdateChainSpell,
-        NewTreasureChest,
-        StartMatch,
-        StartArenaMatchInfos,
-        EndArenaMatch,
-        MatchUpdate,
-        ActiveMatchUpdate,
-        NewMob,
-        DebugMobInfo,
-        DebugVariablesInfo,
-        DebugReputationInfo,
-        DebugDiminishingReturnInfo,
-        DebugSmartClusterQueueInfo,
-        ClaimOrbStart,
-        ClaimOrbFinished,
-        ClaimOrbCancel,
-        OrbUpdate,
-        OrbClaimed,
-        OrbReset,
-        NewWarCampObject,
-        NewMatchLootChestObject,
-        NewArenaExit,
-        GuildMemberTerritoryUpdate,
-        InvitedMercenaryToMatch,
-        ClusterInfoUpdate,
-        ForcedMovement,
-        ForcedMovementCancel,
-        CharacterStats,
-        CharacterStatsKillHistory,
-        CharacterStatsDeathHistory,
-        CharacterStatsKnockDownHistory,
-        CharacterStatsKnockedDownHistory,
-        GuildStats,
-        KillHistoryDetails,
-        ItemKillHistoryDetails,
-        FullAchievementInfo,
-        FinishedAchievement,
-        AchievementProgressInfo,
-        FullAchievementProgressInfo,
-        FullTrackedAchievementInfo,
-        FullAutoLearnAchievementInfo,
-        QuestGiverQuestOffered,
-        QuestGiverDebugInfo,
-        ConsoleEvent,
-        TimeSync,
-        ChangeAvatar,
-        ChangeMountSkin,
-        GameEvent,
-        KilledPlayer,
-        Died,
-        KnockedDown,
-        Unconcious,
-        MatchPlayerJoinedEvent,
-        MatchPlayerStatsEvent,
-        MatchPlayerStatsCompleteEvent,
-        MatchTimeLineEventEvent,
-        MatchPlayerMainGearStatsEvent,
-        MatchPlayerChangedAvatarEvent,
-        InvitationPlayerTrade,
-        PlayerTradeStart,
-        PlayerTradeCancel,
-        PlayerTradeUpdate,
-        PlayerTradeFinished,
-        PlayerTradeAcceptChange,
-        MiniMapPing,
-        MarketPlaceNotification,
-        DuellingChallengePlayer,
-        NewDuellingPost,
-        DuelStarted,
-        DuelEnded,
-        DuelDenied,
-        DuelRequestCanceled,
-        DuelLeftArea,
-        DuelReEnteredArea,
-        NewRealEstate,
-        MiniMapOwnedBuildingsPositions,
-        RealEstateListUpdate,
-        GuildLogoUpdate,
-        GuildLogoChanged,
-        PlaceableObjectPlace,
-        PlaceableObjectPlaceCancel,
-        FurnitureObjectBuffProviderInfo,
-        FurnitureObjectCheatProviderInfo,
-        FarmableObjectInfo,
-        NewUnreadMails,
-        MailOperationPossible,
-        GuildLogoObjectUpdate,
-        StartLogout,
-        NewChatChannels,
-        JoinedChatChannel,
-        LeftChatChannel,
-        RemovedChatChannel,
-        AccessStatus,
-        Mounted,
-        MountStart,
-        MountCancel,
-        NewTravelpoint,
-        NewIslandAccessPoint,
-        NewExit,
-        UpdateHome,
-        UpdateChatSettings,
-        ResurrectionOffer,
-        ResurrectionReply,
-        LootEquipmentChanged,
-        UpdateUnlockedGuildLogos,
-        UpdateUnlockedAvatars,
-        UpdateUnlockedAvatarRings,
-        UpdateUnlockedBuildings,
-        NewIslandManagement,
-        NewTeleportStone,
-        Cloak,
-        PartyInvitation,
-        PartyJoinRequest,
-        PartyJoined,
-        PartyDisbanded,
-        PartyPlayerJoined,
-        PartyChangedOrder,
-        PartyPlayerLeft,
-        PartyLeaderChanged,
-        PartyLootSettingChangedPlayer,
-        PartySilverGained,
-        PartyPlayerUpdated,
-        PartyInvitationAnswer,
-        PartyJoinRequestAnswer,
-        PartyMarkedObjectsUpdated,
-        PartyOnClusterPartyJoined,
-        PartySetRoleFlag,
-        PartyInviteOrJoinPlayerEquipmentInfo,
-        PartyReadyCheckUpdate,
-        PartyFactionWarfareReinforcementSettingChangedPlayer,
-        SpellCooldownUpdate,
-        NewHellgateExitPortal,
-        NewExpeditionExit,
-        NewExpeditionNarrator,
-        ExitEnterStart,
-        ExitEnterCancel,
-        ExitEnterFinished,
-        NewQuestGiverObject,
-        FullQuestInfo,
-        QuestProgressInfo,
-        QuestGiverInfoForPlayer,
-        FullExpeditionInfo,
-        ExpeditionQuestProgressInfo,
-        InvitedToExpedition,
-        ExpeditionRegistrationInfo,
-        EnteringExpeditionStart,
-        EnteringExpeditionCancel,
-        RewardGranted,
-        ArenaRegistrationInfo,
-        EnteringArenaStart,
-        EnteringArenaCancel,
-        EnteringArenaLockStart,
-        EnteringArenaLockCancel,
-        InvitedToArenaMatch,
-        UsingHellgateShrine,
-        EnteringHellgateLockStart,
-        EnteringHellgateLockCancel,
-        PlayerCounts,
-        InCombatStateUpdate,
-        OtherGrabbedLoot,
-        TreasureChestUsingStart,
-        TreasureChestUsingFinished,
-        TreasureChestUsingCancel,
-        TreasureChestUsingOpeningComplete,
-        TreasureChestForceCloseInventory,
-        LocalTreasuresUpdate,
-        LootChestSpawnpointsUpdate,
-        PremiumChanged,
-        PremiumExtended,
-        PremiumLifeTimeRewardGained,
-        GoldPurchased,
-        LaborerGotUpgraded,
-        JournalGotFull,
-        JournalFillError,
-        FriendRequest,
-        FriendRequestInfos,
-        FriendInfos,
-        FriendRequestAnswered,
-        FriendOnlineStatus,
-        FriendRequestCanceled,
-        FriendRemoved,
-        FriendUpdated,
-        PartyLootItems,
-        PartyLootItemsRemoved,
-        PartyLootItemTypesRemoved,
-        ReputationUpdate,
-        DefenseUnitAttackBegin,
-        DefenseUnitAttackEnd,
-        DefenseUnitAttackDamage,
-        UnrestrictedPvpZoneUpdate,
-        UnrestrictedPvpZoneStatus,
-        ReputationImplicationUpdate,
-        NewMountObject,
-        MountHealthUpdate,
-        MountCooldownUpdate,
-        NewExpeditionAgent,
-        NewExpeditionCheckPoint,
-        ExpeditionStartEvent,
-        VoteEvent,
-        RatingEvent,
-        NewArenaAgent,
-        BoostFarmable,
-        UseFunction,
-        NewPortalEntrance,
-        NewPortalExit,
-        NewRandomDungeonExit,
-        WaitingQueueUpdate,
-        PlayerMovementRateUpdate,
-        ObserveStart,
-        MinimapZergs,
-        MinimapSmartClusterZergs,
-        PaymentTransactions,
-        PerformanceStatsUpdate,
-        OverloadModeUpdate,
-        DebugDrawEvent,
-        RecordCameraMove,
-        RecordStart,
-        DeliverCarriableObjectStart,
-        DeliverCarriableObjectCancel,
-        DeliverCarriableObjectReset,
-        DeliverCarriableObjectFinished,
-        TerritoryClaimStart,
-        TerritoryClaimCancel,
-        TerritoryClaimFinished,
-        TerritoryScheduleResult,
-        TerritoryUpgradeWithPowerCrystalResult,
-        ReceiveCarriableObjectStart,
-        ReceiveCarriableObjectFinished,
-        UpdateAccountState,
-        StartDeterministicRoam,
-        GuildFullAccessTagsUpdated,
-        GuildAccessTagUpdated,
-        GvgSeasonUpdate,
-        GvgSeasonCheatCommand,
-        SeasonPointsByKillingBooster,
-        FishingStart,
-        FishingCast,
-        FishingCatch,
-        FishingFinished,
-        FishingCancel,
-        NewFloatObject,
-        NewFishingZoneObject,
-        FishingMiniGame,
-        AlbionJournalAchievementCompleted,
-        UpdatePuppet,
-        ChangeFlaggingFinished,
-        NewOutpostObject,
-        OutpostUpdate,
-        OutpostClaimed,
-        OverChargeEnd,
-        OverChargeStatus,
-        PartyFinderFullUpdate,
-        PartyFinderUpdate,
-        PartyFinderApplicantsUpdate,
-        PartyFinderEquipmentSnapshot,
-        PartyFinderJoinRequestDeclined,
-        NewUnlockedPersonalSeasonRewards,
-        PersonalSeasonPointsGained,
-        PersonalSeasonPastSeasonDataEvent,
-        MatchLootChestOpeningStart,
-        MatchLootChestOpeningFinished,
-        MatchLootChestOpeningCancel,
-        NotifyCrystalMatchReward,
-        CrystalRealmFeedback,
-        NewLocationMarker,
-        NewTutorialBlocker,
-        NewTileSwitch,
-        NewInformationProvider,
-        NewDynamicGuildLogo,
-        NewDecoration,
-        TutorialUpdate,
-        TriggerHintBox,
-        RandomDungeonPositionInfo,
-        NewLootChest,
-        UpdateLootChest,
-        LootChestOpened,
-        UpdateLootProtectedByMobsWithMinimapDisplay,
-        NewShrine,
-        UpdateShrine,
-        UpdateRoom,
-        NewMobSoul,
-        NewHellgateShrine,
-        UpdateHellgateShrine,
-        ActivateHellgateExit,
-        MutePlayerUpdate,
-        ShopTileUpdate,
-        ShopUpdate,
-        AntiCheatKick,
-        BattlEyeServerMessage,
-        UnlockVanityUnlock,
-        AvatarUnlocked,
-        CustomizationChanged,
-        BaseVaultInfo,
-        GuildVaultInfo,
-        BankVaultInfo,
-        RecoveryVaultPlayerInfo,
-        RecoveryVaultGuildInfo,
-        UpdateWardrobe,
-        CastlePhaseChanged,
-        GuildAccountLogEvent,
-        NewHideoutObject,
-        NewHideoutManagement,
-        NewHideoutExit,
-        InitHideoutAttackStart,
-        InitHideoutAttackCancel,
-        InitHideoutAttackFinished,
-        HideoutManagementUpdate,
-        HideoutUpgradeWithPowerCrystalResult,
-        IpChanged,
-        SmartClusterQueueUpdateInfo,
-        SmartClusterQueueActiveInfo,
-        SmartClusterQueueKickWarning,
-        SmartClusterQueueInvite,
-        ReceivedGvgSeasonPoints,
-        TowerPowerPointUpdate,
-        OpenWorldAttackScheduleStart,
-        OpenWorldAttackScheduleFinished,
-        OpenWorldAttackScheduleCancel,
-        OpenWorldAttackConquerStart,
-        OpenWorldAttackConquerFinished,
-        OpenWorldAttackConquerCancel,
-        OpenWorldAttackConquerStatus,
-        OpenWorldAttackStart,
-        OpenWorldAttackEnd,
-        NewRandomResourceBlocker,
-        NewHomeObject,
-        HideoutObjectUpdate,
-        UpdateInfamy,
-        MinimapPositionMarkers,
-        NewTunnelExit,
-        CorruptedDungeonUpdate,
-        CorruptedDungeonStatus,
-        CorruptedDungeonInfamy,
-        HellgateRestrictedAreaUpdate,
-        HellgateInfamy,
-        HellgateStatus,
-        HellgateStatusUpdate,
-        HellgateSuspense,
-        ReplaceSpellSlotWithMultiSpell,
-        NewCorruptedShrine,
-        UpdateCorruptedShrine,
-        CorruptedShrineUsageStart,
-        CorruptedShrineUsageCancel,
-        ExitUsed,
-        LinkedToObject,
-        LinkToObjectBroken,
-        EstimatedMarketValueUpdate,
-        StuckCancel,
-        DungonEscapeReady,
-        FactionWarfareClusterState,
-        FactionWarfareHasUnclaimedWeeklyReportsEvent,
-        SimpleFeedback,
-        SmartClusterQueueSkipClusterError,
-        XignCodeEvent,
-        BatchUseItemStart,
-        BatchUseItemEnd,
-        RedZonePlayerNotification,
-        RedZoneEventCheatCleanup,
-        RedZoneFortressEventChestOpened,
-        RedZoneWorldMapEvent,
-        FactionWarfareStats,
-        UpdateFactionBalanceFactors,
-        FactionEnlistmentChanged,
-        UpdateFactionRank,
-        FactionWarfareCampaignRewardsUnlocked,
-        FeaturedFeatureUpdate,
-        NewCarriableObject,
-        MinimapCrystalPositionMarker,
-        CarriedObjectUpdate,
-        PickupCarriableObjectStart,
-        PickupCarriableObjectCancel,
-        PickupCarriableObjectFinished,
-        DoSimpleActionStart,
-        DoSimpleActionCancel,
-        DoSimpleActionFinished,
-        NotifyGuestAccountVerified,
-        MightAndFavorReceivedEvent,
-        WeeklyPvpChallengeRewardStateUpdate,
-        NewUnlockedPvpSeasonChallengeRewards,
-        StaticDungeonEntrancesDungeonEventStatusUpdates,
-        StaticDungeonDungeonValueUpdate,
-        StaticDungeonEntranceDungeonEventsAborted,
-        InAppPurchaseConfirmedGooglePlay,
-        FeatureSwitchInfo,
-        PartyJoinRequestAborted,
-        PartyInviteAborted,
-        PartyStartHuntRequest,
-        PartyStartHuntRequested,
-        PartyStartHuntRequestAnswer,
-        PartyPlayerLeaveScheduled,
-        GuildInviteDeclined,
-        CancelMultiSpellSlots,
-        NewVisualEventObject,
-        CastleClaimProgress,
-        CastleClaimProgressLogo,
-        TownPortalUpdateState,
-        TownPortalFailed,
-        ConsumableVanityChargesAdded,
-        FestivitiesUpdate,
-        NewBannerObject,
-        NewMistsImmediateReturnExit,
-        MistsPlayerJoinedInfo,
-        NewMistsStaticEntrance,
-        NewMistsOpenWorldExit,
-        NewTunnelExitTemp,
-        NewMistsWispSpawn,
-        MistsWispSpawnStateChange,
-        NewMistsCityEntrance,
-        NewMistsCityRoadsEntrance,
-        MistsCityRoadsEntrancePartyStateUpdate,
-        MistsCityRoadsEntranceClearStateForParty,
-        MistsEntranceDataChanged,
-        NewCagedObject,
-        CagedObjectStateUpdated,
-        EntrancePartyBindingCreated,
-        EntrancePartyBindingCleared,
-        EntrancePartyBindingInfos,
-        NewMistsBorderExit,
-        NewMistsDungeonExit,
-        LocalQuestInfos,
-        LocalQuestStarted,
-        LocalQuestActive,
-        LocalQuestInactive,
-        LocalQuestProgressUpdate,
-        NewUnrestrictedPvpZone,
-        TemporaryFlaggingStatusUpdate,
-        SpellTestPerformanceUpdate,
-        Transformation,
-        TransformationEnd,
-        UpdateTrustlevel,
-        RevealHiddenTimeStamps,
-        ModifyItemTraitFinished,
-        RerollItemTraitValueFinished,
-        HuntQuestProgressInfo,
-        HuntStarted,
-        HuntFinished,
-        HuntAborted,
-        HuntMissionStepStateUpdate,
-        NewHuntTrack,
-        HuntMissionUpdate,
-        HuntQuestMissionProgressUpdate,
-        HuntTrackUsed,
-        HuntTrackUseableAgain,
-        MinimapHuntTrackMarkers,
-        NoTracksFound,
-        HuntQuestAborted,
-        InteractWithTrackStart,
-        InteractWithTrackCancel,
-        InteractWithTrackFinished,
-        NewDynamicCompound,
-        LegendaryItemDestroyed,
-        AttunementInfo,
-        TerritoryClaimRaidedRawEnergyCrystalResult,
-        CarriedObjectExpiryWarning,
-        CarriedObjectExpired,
-        TerritoryRaidStart,
-        TerritoryRaidCancel,
-        TerritoryRaidFinished,
-        TerritoryRaidResult,
-        TerritoryMonolithActiveRaidStatus,
-        TerritoryMonolithActiveRaidCancelled,
-        MonolithEnergyStorageUpdate,
-        MonolithNextScheduledOpenWorldAttackUpdate,
-        MonolithProtectedBuildingsDamageReductionUpdate,
-        NewBuildingBaseEvent,
-        NewFortificationBuilding,
-        NewCastleGateBuilding,
-        BuildingDurabilityUpdate,
-        MonolithFortificationPointsUpdate,
-        FortificationBuildingUpgradeInfo,
-        FortificationBuildingsDamageStateUpdate,
-        SiegeNotificationEvent,
-        UpdateEnemyWarBannerActive,
-        TerritoryAnnouncePlayerEjection,
-        CastleGateSwitchUseStarted,
-        CastleGateSwitchUseFinished,
-        FortificationBuildingWillDowngrade,
-        BotCommand,
-        JournalAchievementProgressUpdate,
-        JournalClaimableRewardUpdate,
-        KeySync,
-        LocalQuestAreaGone,
-        DynamicTemplate,
-        DynamicTemplateForcedStateChange,
-        NewOutlandsTeleportationPortal,
-        NewOutlandsTeleportationReturnPortal,
-        OutlandsTeleportationBindingCleared,
-        OutlandsTeleportationReturnPortalUpdateEvent,
-        PlayerUsedOutlandsTeleportationPortal,
-        EncumberedRestricted,
-        NewPiledObject,
-        PiledObjectStateChanged,
-        NewSmugglerCrateDeliveryStation,
-        KillRewardedNoFame,
-        PickupFromPiledObjectStart,
-        PickupFromPiledObjectCancel,
-        PickupFromPiledObjectReset,
-        PickupFromPiledObjectFinished,
-        ArmoryActivityChange,
-        NewKillTrophyFurnitureBuilding,
-        HellDungeonsPlayerJoinedInfo,
-        NewTileSwitchTrigger,
-        NewMultiRewardObject,
-        NewHellDungeonSoulShrineObject,
-        HellDungeonSoulShrineStateUpdate,
-        NewResurrectionShrine,
-        UpdateResurrectionShrine,
-        StandTimeFinished,
-        EpicAchievementAndStatsUpdate,
-        SpectateTargetAfterDeathUpdate,
-        SpectateTargetAfterDeathEnded,
-        NewHellDungeonUpwardExit,
-        NewHellDungeonSoulExit,
-        NewHellDungeonDownwardExit,
-        NewHellDungeonChestExit,
-        NewCorruptedStaticEntrance,
-        NewHellDungeonStaticEntrance,
-        UpdateHellDungeonStaticEntranceState,
-        DebugTriggerHellDungeonShutdownStart,
-        FullJournalQuestInfo,
-        JournalQuestProgressInfo,
-        NewHellDungeonRoomShrineObject,
-        HellDungeonRoomShrineStateUpdate,
-        SimpleBehaviourBuildingStateUpdate,
-        SetTimeScaling,
-        StopTimeScaling,
-        KeyValidation,
-        PlayerJoinMapMarkerTimerStates,
-        NewMapMarkerTimer,
-        RemoveMapMarkerTimer,
-        NewFactionFortressObject,
-        FactionFortressAnnouncePlayerEjection,
-        RewardFactionWarfareSupply,
-        FactionCaptureAreaProgressUpdate,
-        FactionFortressClaimed,
-        FactionFortressWeaponCachesSpawned,
-        FactionFortressWeaponCacheClaimed,
-        FactionFortressFightStateUpdate,
-        FactionFortressCutoffFightStateUpdate,
-        FactionFortressFightEnded,
-        NewFactionWarfarePortal,
-        FactionPortalTargetUpdate,
-        FactionFortressFightStartedInRemoteClusterEvent,
-        FactionFortressFightFinishedInRemoteClusterEvent,
-        FactionDuchySupplyWarDefensiveVictoryEvent,
-        FactionDuchyReconnectedFromCutoffEvent,
-        FactionFortressCutoffFightCancelledByClusterOwnerChangeEvent,
-        FactionDuchyEnteredCutoffStateEvent,
-        RedZoneEventStandings,
-        NewFactionBattleStandardDeliveryStation,
+        Leave = 1,
+        JoinFinished = 2,
+        Move = 3,
+        Teleport = 4,
+        ChangeEquipment = 5,
+        HealthUpdate = 6,
+        HealthUpdates = 7,
+        EnergyUpdate = 8,
+        DamageShieldUpdate = 9,
+        CraftingFocusUpdate = 10, // 0x000A
+        ActiveSpellEffectsUpdate = 11, // 0x000B
+        ResetCooldowns = 12, // 0x000C
+        Attack = 13, // 0x000D
+        CastStart = 14, // 0x000E
+        ChannelingUpdate = 15, // 0x000F
+        CastCancel = 16, // 0x0010
+        CastTimeUpdate = 17, // 0x0011
+        CastFinished = 18, // 0x0012
+        CastSpell = 19, // 0x0013
+        CastSpells = 20, // 0x0014
+        CastHit = 21, // 0x0015
+        CastHits = 22, // 0x0016
+        StoredTargetsUpdate = 23, // 0x0017
+        ChannelingEnded = 24, // 0x0018
+        AttackBuilding = 25, // 0x0019
+        InventoryPutItem = 26, // 0x001A
+        InventoryDeleteItem = 27, // 0x001B
+        InventoryState = 28, // 0x001C
+        NewCharacter = 29, // 0x001D
+        NewEquipmentItem = 30, // 0x001E
+        NewSiegeBannerItem = 31, // 0x001F
+        NewSimpleItem = 32, // 0x0020
+        NewFurnitureItem = 33, // 0x0021
+        NewKillTrophyItem = 34, // 0x0022
+        NewJournalItem = 35, // 0x0023
+        NewLaborerItem = 36, // 0x0024
+        NewEquipmentItemLegendarySoul = 37, // 0x0025
+        NewSimpleHarvestableObject = 38, // 0x0026
+        NewSimpleHarvestableObjectList = 39, // 0x0027
+        NewHarvestableObject = 40, // 0x0028
+        NewTreasureDestinationObject = 41, // 0x0029
+        TreasureDestinationObjectStatus = 42, // 0x002A
+        CloseTreasureDestinationObject = 43, // 0x002B
+        NewSilverObject = 44, // 0x002C
+        NewBuilding = 45, // 0x002D
+        HarvestableChangeState = 46, // 0x002E
+        MobChangeState = 47, // 0x002F
+        FactionBuildingInfo = 48, // 0x0030
+        CraftBuildingInfo = 49, // 0x0031
+        RepairBuildingInfo = 50, // 0x0032
+        MeldBuildingInfo = 51, // 0x0033
+        ConstructionSiteInfo = 52, // 0x0034
+        PlayerBuildingInfo = 53, // 0x0035
+        FarmBuildingInfo = 54, // 0x0036
+        TutorialBuildingInfo = 55, // 0x0037
+        LaborerObjectInfo = 56, // 0x0038
+        LaborerObjectJobInfo = 57, // 0x0039
+        MarketPlaceBuildingInfo = 58, // 0x003A
+        HarvestStart = 59, // 0x003B
+        HarvestCancel = 60, // 0x003C
+        HarvestFinished = 61, // 0x003D
+        TakeSilver = 62, // 0x003E
+        RemoveSilver = 63, // 0x003F
+        ActionOnBuildingStart = 64, // 0x0040
+        ActionOnBuildingCancel = 65, // 0x0041
+        ActionOnBuildingFinished = 66, // 0x0042
+        ItemRerollQualityFinished = 67, // 0x0043
+        InstallResourceStart = 68, // 0x0044
+        InstallResourceCancel = 69, // 0x0045
+        InstallResourceFinished = 70, // 0x0046
+        CraftItemFinished = 71, // 0x0047
+        LogoutCancel = 72, // 0x0048
+        ChatMessage = 73, // 0x0049
+        ChatSay = 74, // 0x004A
+        ChatWhisper = 75, // 0x004B
+        ChatMuted = 76, // 0x004C
+        PlayEmote = 77, // 0x004D
+        StopEmote = 78, // 0x004E
+        SystemMessage = 79, // 0x004F
+        UtilityTextMessage = 80, // 0x0050
+        UpdateMoney = 81, // 0x0051
+        UpdateFame = 82, // 0x0052
+        UpdateLearningPoints = 83, // 0x0053
+        UpdateReSpecPoints = 84, // 0x0054
+        UpdateCurrency = 85, // 0x0055
+        UpdateFactionStanding = 86, // 0x0056
+        UpdateStanding = 87, // 0x0057
+        Respawn = 88, // 0x0058
+        ServerDebugLog = 89, // 0x0059
+        CharacterEquipmentChanged = 90, // 0x005A
+        RegenerationHealthChanged = 91, // 0x005B
+        RegenerationEnergyChanged = 92, // 0x005C
+        RegenerationMountHealthChanged = 93, // 0x005D
+        RegenerationCraftingChanged = 94, // 0x005E
+        RegenerationHealthEnergyComboChanged = 95, // 0x005F
+        RegenerationPlayerComboChanged = 96, // 0x0060
+        DurabilityChanged = 97, // 0x0061
+        NewLoot = 98, // 0x0062
+        AttachItemContainer = 99, // 0x0063
+        DetachItemContainer = 100, // 0x0064
+        InvalidateItemContainer = 101, // 0x0065
+        LockItemContainer = 102, // 0x0066
+        GuildUpdate = 103, // 0x0067
+        GuildPlayerUpdated = 104, // 0x0068
+        InvitedToGuild = 105, // 0x0069
+        GuildMemberWorldUpdate = 106, // 0x006A
+        UpdateMatchDetails = 107, // 0x006B
+        ObjectEvent = 108, // 0x006C
+        NewMonolithObject = 109, // 0x006D
+        MonolithHasBannersPlacedUpdate = 110, // 0x006E
+        NewOrbObject = 111, // 0x006F
+        NewCastleObject = 112, // 0x0070
+        NewSpellEffectArea = 113, // 0x0071
+        UpdateSpellEffectArea = 114, // 0x0072
+        NewChainSpell = 115, // 0x0073
+        UpdateChainSpell = 116, // 0x0074
+        NewTreasureChest = 117, // 0x0075
+        StartMatch = 118, // 0x0076
+        StartArenaMatchInfos = 119, // 0x0077
+        EndArenaMatch = 120, // 0x0078
+        MatchUpdate = 121, // 0x0079
+        ActiveMatchUpdate = 122, // 0x007A
+        NewMob = 123, // 0x007B
+        DebugMobInfo = 124, // 0x007C
+        DebugVariablesInfo = 125, // 0x007D
+        DebugReputationInfo = 126, // 0x007E
+        DebugDiminishingReturnInfo = 127, // 0x007F
+        DebugSmartClusterQueueInfo = 128, // 0x0080
+        ClaimOrbStart = 129, // 0x0081
+        ClaimOrbFinished = 130, // 0x0082
+        ClaimOrbCancel = 131, // 0x0083
+        OrbUpdate = 132, // 0x0084
+        OrbClaimed = 133, // 0x0085
+        OrbReset = 134, // 0x0086
+        NewWarCampObject = 135, // 0x0087
+        NewMatchLootChestObject = 136, // 0x0088
+        NewArenaExit = 137, // 0x0089
+        GuildMemberTerritoryUpdate = 138, // 0x008A
+        InvitedMercenaryToMatch = 139, // 0x008B
+        ClusterInfoUpdate = 140, // 0x008C
+        ForcedMovement = 141, // 0x008D
+        ForcedMovementCancel = 142, // 0x008E
+        CharacterStats = 143, // 0x008F
+        CharacterStatsKillHistory = 144, // 0x0090
+        CharacterStatsDeathHistory = 145, // 0x0091
+        CharacterStatsKnockDownHistory = 146, // 0x0092
+        CharacterStatsKnockedDownHistory = 147, // 0x0093
+        GuildStats = 148, // 0x0094
+        KillHistoryDetails = 149, // 0x0095
+        ItemKillHistoryDetails = 150, // 0x0096
+        FullAchievementInfo = 151, // 0x0097
+        FinishedAchievement = 152, // 0x0098
+        AchievementProgressInfo = 153, // 0x0099
+        FullAchievementProgressInfo = 154, // 0x009A
+        FullTrackedAchievementInfo = 155, // 0x009B
+        FullAutoLearnAchievementInfo = 156, // 0x009C
+        QuestGiverQuestOffered = 157, // 0x009D
+        QuestGiverDebugInfo = 158, // 0x009E
+        ConsoleEvent = 159, // 0x009F
+        TimeSync = 160, // 0x00A0
+        ChangeAvatar = 161, // 0x00A1
+        ChangeMountSkin = 162, // 0x00A2
+        GameEvent = 163, // 0x00A3
+        KilledPlayer = 164, // 0x00A4
+        Died = 165, // 0x00A5
+        KnockedDown = 166, // 0x00A6
+        Unconcious = 167, // 0x00A7
+        MatchPlayerJoinedEvent = 168, // 0x00A8
+        MatchPlayerStatsEvent = 169, // 0x00A9
+        MatchPlayerStatsCompleteEvent = 170, // 0x00AA
+        MatchTimeLineEventEvent = 171, // 0x00AB
+        MatchNewCombatRound = 172, // 0x00AC
+        MatchEndCombatRound = 173, // 0x00AD
+        MatchPlayerMainGearStatsEvent = 174, // 0x00AE
+        MatchPlayerChangedAvatarEvent = 175, // 0x00AF
+        InvitationPlayerTrade = 176, // 0x00B0
+        PlayerTradeStart = 177, // 0x00B1
+        PlayerTradeCancel = 178, // 0x00B2
+        PlayerTradeUpdate = 179, // 0x00B3
+        PlayerTradeFinished = 180, // 0x00B4
+        PlayerTradeAcceptChange = 181, // 0x00B5
+        MiniMapPing = 182, // 0x00B6
+        MarketPlaceNotification = 183, // 0x00B7
+        DuellingChallengePlayer = 184, // 0x00B8
+        NewDuellingPost = 185, // 0x00B9
+        DuelStarted = 186, // 0x00BA
+        DuelEnded = 187, // 0x00BB
+        DuelDenied = 188, // 0x00BC
+        DuelRequestCanceled = 189, // 0x00BD
+        DuelLeftArea = 190, // 0x00BE
+        DuelReEnteredArea = 191, // 0x00BF
+        NewRealEstate = 192, // 0x00C0
+        MiniMapOwnedBuildingsPositions = 193, // 0x00C1
+        RealEstateListUpdate = 194, // 0x00C2
+        GuildLogoUpdate = 195, // 0x00C3
+        GuildLogoChanged = 196, // 0x00C4
+        PlaceableObjectPlace = 197, // 0x00C5
+        PlaceableObjectPlaceCancel = 198, // 0x00C6
+        FurnitureObjectBuffProviderInfo = 199, // 0x00C7
+        FurnitureObjectCheatProviderInfo = 200, // 0x00C8
+        FarmableObjectInfo = 201, // 0x00C9
+        NewUnreadMails = 202, // 0x00CA
+        MailOperationPossible = 203, // 0x00CB
+        GuildLogoObjectUpdate = 204, // 0x00CC
+        StartLogout = 205, // 0x00CD
+        NewChatChannels = 206, // 0x00CE
+        JoinedChatChannel = 207, // 0x00CF
+        LeftChatChannel = 208, // 0x00D0
+        RemovedChatChannel = 209, // 0x00D1
+        AccessStatus = 210, // 0x00D2
+        Mounted = 211, // 0x00D3
+        MountStart = 212, // 0x00D4
+        MountCancel = 213, // 0x00D5
+        NewTravelpoint = 214, // 0x00D6
+        NewIslandAccessPoint = 215, // 0x00D7
+        NewExit = 216, // 0x00D8
+        UpdateHome = 217, // 0x00D9
+        UpdateChatSettings = 218, // 0x00DA
+        ResurrectionOffer = 219, // 0x00DB
+        ResurrectionReply = 220, // 0x00DC
+        LootEquipmentChanged = 221, // 0x00DD
+        UpdateUnlockedGuildLogos = 222, // 0x00DE
+        UpdateUnlockedAvatars = 223, // 0x00DF
+        UpdateUnlockedAvatarRings = 224, // 0x00E0
+        UpdateUnlockedBuildings = 225, // 0x00E1
+        NewIslandManagement = 226, // 0x00E2
+        NewTeleportStone = 227, // 0x00E3
+        Cloak = 228, // 0x00E4
+        PartyInvitation = 229, // 0x00E5
+        PartyJoinRequest = 230, // 0x00E6
+        PartyJoined = 231, // 0x00E7
+        PartyDisbanded = 232, // 0x00E8
+        PartyPlayerJoined = 233, // 0x00E9
+        PartyChangedOrder = 234, // 0x00EA
+        PartyPlayerLeft = 235, // 0x00EB
+        PartyLeaderChanged = 236, // 0x00EC
+        PartyLootSettingChangedPlayer = 237, // 0x00ED
+        PartySilverGained = 238, // 0x00EE
+        PartyPlayerUpdated = 239, // 0x00EF
+        PartyInvitationAnswer = 240, // 0x00F0
+        PartyJoinRequestAnswer = 241, // 0x00F1
+        PartyMarkedObjectsUpdated = 242, // 0x00F2
+        PartyOnClusterPartyJoined = 243, // 0x00F3
+        PartySetRoleFlag = 244, // 0x00F4
+        PartyInviteOrJoinPlayerEquipmentInfo = 245, // 0x00F5
+        PartyReadyCheckUpdate = 246, // 0x00F6
+        PartyFactionWarfareReinforcementSettingChangedPlayer = 247, // 0x00F7
+        SpellCooldownUpdate = 248, // 0x00F8
+        NewHellgateExitPortal = 249, // 0x00F9
+        NewExpeditionExit = 250, // 0x00FA
+        NewExpeditionNarrator = 251, // 0x00FB
+        ExitEnterStart = 252, // 0x00FC
+        ExitEnterCancel = 253, // 0x00FD
+        ExitEnterFinished = 254, // 0x00FE
+        NewQuestGiverObject = 255, // 0x00FF
+        FullQuestInfo = 256, // 0x0100
+        QuestProgressInfo = 257, // 0x0101
+        QuestGiverInfoForPlayer = 258, // 0x0102
+        FullExpeditionInfo = 259, // 0x0103
+        ExpeditionQuestProgressInfo = 260, // 0x0104
+        InvitedToExpedition = 261, // 0x0105
+        ExpeditionRegistrationInfo = 262, // 0x0106
+        EnteringExpeditionStart = 263, // 0x0107
+        EnteringExpeditionCancel = 264, // 0x0108
+        RewardGranted = 265, // 0x0109
+        ArenaRegistrationInfo = 266, // 0x010A
+        EnteringArenaStart = 267, // 0x010B
+        EnteringArenaCancel = 268, // 0x010C
+        EnteringArenaLockStart = 269, // 0x010D
+        EnteringArenaLockCancel = 270, // 0x010E
+        InvitedToArenaMatch = 271, // 0x010F
+        UsingHellgateShrine = 272, // 0x0110
+        EnteringHellgateLockStart = 273, // 0x0111
+        EnteringHellgateLockCancel = 274, // 0x0112
+        PlayerCounts = 275, // 0x0113
+        InCombatStateUpdate = 276, // 0x0114
+        OtherGrabbedLoot = 277, // 0x0115
+        TreasureChestUsingStart = 278, // 0x0116
+        TreasureChestUsingFinished = 279, // 0x0117
+        TreasureChestUsingCancel = 280, // 0x0118
+        TreasureChestUsingOpeningComplete = 281, // 0x0119
+        TreasureChestForceCloseInventory = 282, // 0x011A
+        LocalTreasuresUpdate = 283, // 0x011B
+        LootChestSpawnpointsUpdate = 284, // 0x011C
+        PremiumChanged = 285, // 0x011D
+        PremiumExtended = 286, // 0x011E
+        PremiumLifeTimeRewardGained = 287, // 0x011F
+        GoldPurchased = 288, // 0x0120
+        LaborerGotUpgraded = 289, // 0x0121
+        JournalGotFull = 290, // 0x0122
+        JournalFillError = 291, // 0x0123
+        FriendRequest = 292, // 0x0124
+        FriendRequestInfos = 293, // 0x0125
+        FriendInfos = 294, // 0x0126
+        FriendRequestAnswered = 295, // 0x0127
+        FriendOnlineStatus = 296, // 0x0128
+        FriendRequestCanceled = 297, // 0x0129
+        FriendRemoved = 298, // 0x012A
+        FriendUpdated = 299, // 0x012B
+        PartyLootItems = 300, // 0x012C
+        PartyLootItemsRemoved = 301, // 0x012D
+        PartyLootItemTypesRemoved = 302, // 0x012E
+        ReputationUpdate = 303, // 0x012F
+        DefenseUnitAttackBegin = 304, // 0x0130
+        DefenseUnitAttackEnd = 305, // 0x0131
+        DefenseUnitAttackDamage = 306, // 0x0132
+        UnrestrictedPvpZoneUpdate = 307, // 0x0133
+        UnrestrictedPvpZoneStatus = 308, // 0x0134
+        ReputationImplicationUpdate = 309, // 0x0135
+        NewMountObject = 310, // 0x0136
+        MountHealthUpdate = 311, // 0x0137
+        MountCooldownUpdate = 312, // 0x0138
+        NewExpeditionAgent = 313, // 0x0139
+        NewExpeditionCheckPoint = 314, // 0x013A
+        ExpeditionStartEvent = 315, // 0x013B
+        VoteEvent = 316, // 0x013C
+        RatingEvent = 317, // 0x013D
+        NewArenaAgent = 318, // 0x013E
+        BoostFarmable = 319, // 0x013F
+        UseFunction = 320, // 0x0140
+        NewPortalEntrance = 321, // 0x0141
+        NewPortalExit = 322, // 0x0142
+        NewRandomDungeonExit = 323, // 0x0143
+        WaitingQueueUpdate = 324, // 0x0144
+        PlayerMovementRateUpdate = 325, // 0x0145
+        ObserveStart = 326, // 0x0146
+        MinimapZergs = 327, // 0x0147
+        MinimapSmartClusterZergs = 328, // 0x0148
+        PaymentTransactions = 329, // 0x0149
+        PerformanceStatsUpdate = 330, // 0x014A
+        OverloadModeUpdate = 331, // 0x014B
+        DebugDrawEvent = 332, // 0x014C
+        RecordCameraMove = 333, // 0x014D
+        RecordStart = 334, // 0x014E
+        DeliverCarriableObjectStart = 335, // 0x014F
+        DeliverCarriableObjectCancel = 336, // 0x0150
+        DeliverCarriableObjectReset = 337, // 0x0151
+        DeliverCarriableObjectFinished = 338, // 0x0152
+        TerritoryClaimStart = 339, // 0x0153
+        TerritoryClaimCancel = 340, // 0x0154
+        TerritoryClaimFinished = 341, // 0x0155
+        TerritoryScheduleResult = 342, // 0x0156
+        TerritoryUpgradeWithPowerCrystalResult = 343, // 0x0157
+        ReceiveCarriableObjectStart = 344, // 0x0158
+        ReceiveCarriableObjectFinished = 345, // 0x0159
+        UpdateAccountState = 346, // 0x015A
+        StartDeterministicRoam = 347, // 0x015B
+        GuildFullAccessTagsUpdated = 348, // 0x015C
+        GuildAccessTagUpdated = 349, // 0x015D
+        GvgSeasonUpdate = 350, // 0x015E
+        GvgSeasonCheatCommand = 351, // 0x015F
+        SeasonPointsByKillingBooster = 352, // 0x0160
+        FishingStart = 353, // 0x0161
+        FishingCast = 354, // 0x0162
+        FishingCatch = 355, // 0x0163
+        FishingFinished = 356, // 0x0164
+        FishingCancel = 357, // 0x0165
+        NewFloatObject = 358, // 0x0166
+        NewFishingZoneObject = 359, // 0x0167
+        FishingMiniGame = 360, // 0x0168
+        AlbionJournalAchievementCompleted = 361, // 0x0169
+        UpdatePuppet = 362, // 0x016A
+        ChangeFlaggingFinished = 363, // 0x016B
+        NewOutpostObject = 364, // 0x016C
+        OutpostUpdate = 365, // 0x016D
+        OutpostClaimed = 366, // 0x016E
+        OverChargeEnd = 367, // 0x016F
+        OverChargeStatus = 368, // 0x0170
+        PartyFinderFullUpdate = 369, // 0x0171
+        PartyFinderUpdate = 370, // 0x0172
+        PartyFinderApplicantsUpdate = 371, // 0x0173
+        PartyFinderEquipmentSnapshot = 372, // 0x0174
+        PartyFinderJoinRequestDeclined = 373, // 0x0175
+        NewUnlockedPersonalSeasonRewards = 374, // 0x0176
+        PersonalSeasonPointsGained = 375, // 0x0177
+        PersonalSeasonPastSeasonDataEvent = 376, // 0x0178
+        MatchLootChestOpeningStart = 377, // 0x0179
+        MatchLootChestOpeningFinished = 378, // 0x017A
+        MatchLootChestOpeningCancel = 379, // 0x017B
+        NotifyCrystalMatchReward = 380, // 0x017C
+        CrystalRealmFeedback = 381, // 0x017D
+        NewLocationMarker = 382, // 0x017E
+        NewTutorialBlocker = 383, // 0x017F
+        NewTileSwitch = 384, // 0x0180
+        NewInformationProvider = 385, // 0x0181
+        NewDynamicGuildLogo = 386, // 0x0182
+        NewDecoration = 387, // 0x0183
+        TutorialUpdate = 388, // 0x0184
+        TriggerHintBox = 389, // 0x0185
+        RandomDungeonPositionInfo = 390, // 0x0186
+        NewLootChest = 391, // 0x0187
+        UpdateLootChest = 392, // 0x0188
+        LootChestOpened = 393, // 0x0189
+        UpdateLootProtectedByMobsWithMinimapDisplay = 394, // 0x018A
+        NewShrine = 395, // 0x018B
+        UpdateShrine = 396, // 0x018C
+        UpdateRoom = 397, // 0x018D
+        NewMobSoul = 398, // 0x018E
+        NewHellgateShrine = 399, // 0x018F
+        UpdateHellgateShrine = 400, // 0x0190
+        ActivateHellgateExit = 401, // 0x0191
+        MutePlayerUpdate = 402, // 0x0192
+        ShopTileUpdate = 403, // 0x0193
+        ShopUpdate = 404, // 0x0194
+        AntiCheatKick = 405, // 0x0195
+        BattlEyeServerMessage = 406, // 0x0196
+        UnlockVanityUnlock = 407, // 0x0197
+        AvatarUnlocked = 408, // 0x0198
+        CustomizationChanged = 409, // 0x0199
+        BaseVaultInfo = 410, // 0x019A
+        GuildVaultInfo = 411, // 0x019B
+        BankVaultInfo = 412, // 0x019C
+        RecoveryVaultPlayerInfo = 413, // 0x019D
+        RecoveryVaultGuildInfo = 414, // 0x019E
+        UpdateWardrobe = 415, // 0x019F
+        CastlePhaseChanged = 416, // 0x01A0
+        GuildAccountLogEvent = 417, // 0x01A1
+        NewHideoutObject = 418, // 0x01A2
+        NewHideoutManagement = 419, // 0x01A3
+        NewHideoutExit = 420, // 0x01A4
+        InitHideoutAttackStart = 421, // 0x01A5
+        InitHideoutAttackCancel = 422, // 0x01A6
+        InitHideoutAttackFinished = 423, // 0x01A7
+        HideoutManagementUpdate = 424, // 0x01A8
+        HideoutUpgradeWithPowerCrystalResult = 425, // 0x01A9
+        IpChanged = 426, // 0x01AA
+        SmartClusterQueueUpdateInfo = 427, // 0x01AB
+        SmartClusterQueueActiveInfo = 428, // 0x01AC
+        SmartClusterQueueKickWarning = 429, // 0x01AD
+        SmartClusterQueueInvite = 430, // 0x01AE
+        ReceivedGvgSeasonPoints = 431, // 0x01AF
+        TowerPowerPointUpdate = 432, // 0x01B0
+        OpenWorldAttackScheduleStart = 433, // 0x01B1
+        OpenWorldAttackScheduleFinished = 434, // 0x01B2
+        OpenWorldAttackScheduleCancel = 435, // 0x01B3
+        OpenWorldAttackConquerStart = 436, // 0x01B4
+        OpenWorldAttackConquerFinished = 437, // 0x01B5
+        OpenWorldAttackConquerCancel = 438, // 0x01B6
+        OpenWorldAttackConquerStatus = 439, // 0x01B7
+        OpenWorldAttackStart = 440, // 0x01B8
+        OpenWorldAttackEnd = 441, // 0x01B9
+        NewRandomResourceBlocker = 442, // 0x01BA
+        NewHomeObject = 443, // 0x01BB
+        HideoutObjectUpdate = 444, // 0x01BC
+        UpdateInfamy = 445, // 0x01BD
+        MinimapPositionMarkers = 446, // 0x01BE
+        NewTunnelExit = 447, // 0x01BF
+        CorruptedDungeonUpdate = 448, // 0x01C0
+        CorruptedDungeonStatus = 449, // 0x01C1
+        CorruptedDungeonInfamy = 450, // 0x01C2
+        HellgateRestrictedAreaUpdate = 451, // 0x01C3
+        HellgateInfamy = 452, // 0x01C4
+        HellgateStatus = 453, // 0x01C5
+        HellgateStatusUpdate = 454, // 0x01C6
+        HellgateSuspense = 455, // 0x01C7
+        ReplaceSpellSlotWithMultiSpell = 456, // 0x01C8
+        NewCorruptedShrine = 457, // 0x01C9
+        UpdateCorruptedShrine = 458, // 0x01CA
+        CorruptedShrineUsageStart = 459, // 0x01CB
+        CorruptedShrineUsageCancel = 460, // 0x01CC
+        ExitUsed = 461, // 0x01CD
+        LinkedToObject = 462, // 0x01CE
+        LinkToObjectBroken = 463, // 0x01CF
+        EstimatedMarketValueUpdate = 464, // 0x01D0
+        StuckCancel = 465, // 0x01D1
+        DungonEscapeReady = 466, // 0x01D2
+        FactionWarfareClusterState = 467, // 0x01D3
+        FactionWarfareHasUnclaimedWeeklyReportsEvent = 468, // 0x01D4
+        SimpleFeedback = 469, // 0x01D5
+        SmartClusterQueueSkipClusterError = 470, // 0x01D6
+        XignCodeEvent = 471, // 0x01D7
+        BatchUseItemStart = 472, // 0x01D8
+        BatchUseItemEnd = 473, // 0x01D9
+        RedZonePlayerNotification = 474, // 0x01DA
+        RedZoneEventCheatCleanup = 475, // 0x01DB
+        RedZoneFortressEventChestOpened = 476, // 0x01DC
+        RedZoneWorldMapEvent = 477, // 0x01DD
+        FactionWarfareStats = 478, // 0x01DE
+        UpdateFactionBalanceFactors = 479, // 0x01DF
+        FactionEnlistmentChanged = 480, // 0x01E0
+        UpdateFactionRank = 481, // 0x01E1
+        FactionWarfareCampaignRewardsUnlocked = 482, // 0x01E2
+        FeaturedFeatureUpdate = 483, // 0x01E3
+        NewCarriableObject = 484, // 0x01E4
+        MinimapCrystalPositionMarker = 485, // 0x01E5
+        CarriedObjectUpdate = 486, // 0x01E6
+        PickupCarriableObjectStart = 487, // 0x01E7
+        PickupCarriableObjectCancel = 488, // 0x01E8
+        PickupCarriableObjectFinished = 489, // 0x01E9
+        DoSimpleActionStart = 490, // 0x01EA
+        DoSimpleActionCancel = 491, // 0x01EB
+        DoSimpleActionFinished = 492, // 0x01EC
+        NotifyGuestAccountVerified = 493, // 0x01ED
+        MightAndFavorReceivedEvent = 494, // 0x01EE
+        WeeklyPvpChallengeRewardStateUpdate = 495, // 0x01EF
+        NewUnlockedPvpSeasonChallengeRewards = 496, // 0x01F0
+        StaticDungeonEntrancesDungeonEventStatusUpdates = 497, // 0x01F1
+        StaticDungeonDungeonValueUpdate = 498, // 0x01F2
+        StaticDungeonEntranceDungeonEventsAborted = 499, // 0x01F3
+        InAppPurchaseConfirmedGooglePlay = 500, // 0x01F4
+        FeatureSwitchInfo = 501, // 0x01F5
+        PartyJoinRequestAborted = 502, // 0x01F6
+        PartyInviteAborted = 503, // 0x01F7
+        PartyStartHuntRequest = 504, // 0x01F8
+        PartyStartHuntRequested = 505, // 0x01F9
+        PartyStartHuntRequestAnswer = 506, // 0x01FA
+        PartyPlayerLeaveScheduled = 507, // 0x01FB
+        GuildInviteDeclined = 508, // 0x01FC
+        CancelMultiSpellSlots = 509, // 0x01FD
+        NewVisualEventObject = 510, // 0x01FE
+        CastleClaimProgress = 511, // 0x01FF
+        CastleClaimProgressLogo = 512, // 0x0200
+        TownPortalUpdateState = 513, // 0x0201
+        TownPortalFailed = 514, // 0x0202
+        ConsumableVanityChargesAdded = 515, // 0x0203
+        FestivitiesUpdate = 516, // 0x0204
+        NewBannerObject = 517, // 0x0205
+        NewMistsImmediateReturnExit = 518, // 0x0206
+        MistsPlayerJoinedInfo = 519, // 0x0207
+        NewMistsStaticEntrance = 520, // 0x0208
+        NewMistsOpenWorldExit = 521, // 0x0209
+        NewTunnelExitTemp = 522, // 0x020A
+        NewMistsWispSpawn = 523, // 0x020B
+        MistsWispSpawnStateChange = 524, // 0x020C
+        NewMistsCityEntrance = 525, // 0x020D
+        NewMistsCityRoadsEntrance = 526, // 0x020E
+        MistsCityRoadsEntrancePartyStateUpdate = 527, // 0x020F
+        MistsCityRoadsEntranceClearStateForParty = 528, // 0x0210
+        MistsEntranceDataChanged = 529, // 0x0211
+        NewCagedObject = 530, // 0x0212
+        CagedObjectStateUpdated = 531, // 0x0213
+        EntrancePartyBindingCreated = 532, // 0x0214
+        EntrancePartyBindingCleared = 533, // 0x0215
+        EntrancePartyBindingInfos = 534, // 0x0216
+        NewMistsBorderExit = 535, // 0x0217
+        NewMistsDungeonExit = 536, // 0x0218
+        LocalQuestInfos = 537, // 0x0219
+        LocalQuestStarted = 538, // 0x021A
+        LocalQuestActive = 539, // 0x021B
+        LocalQuestInactive = 540, // 0x021C
+        LocalQuestProgressUpdate = 541, // 0x021D
+        NewUnrestrictedPvpZone = 542, // 0x021E
+        TemporaryFlaggingStatusUpdate = 543, // 0x021F
+        SpellTestPerformanceUpdate = 544, // 0x0220
+        Transformation = 545, // 0x0221
+        TransformationEnd = 546, // 0x0222
+        UpdateTrustlevel = 547, // 0x0223
+        RevealHiddenTimeStamps = 548, // 0x0224
+        ModifyItemTraitFinished = 549, // 0x0225
+        RerollItemTraitValueFinished = 550, // 0x0226
+        HuntQuestProgressInfo = 551, // 0x0227
+        HuntStarted = 552, // 0x0228
+        HuntFinished = 553, // 0x0229
+        HuntAborted = 554, // 0x022A
+        HuntMissionStepStateUpdate = 555, // 0x022B
+        NewHuntTrack = 556, // 0x022C
+        HuntMissionUpdate = 557, // 0x022D
+        HuntQuestMissionProgressUpdate = 558, // 0x022E
+        HuntTrackUsed = 559, // 0x022F
+        HuntTrackUseableAgain = 560, // 0x0230
+        MinimapHuntTrackMarkers = 561, // 0x0231
+        NoTracksFound = 562, // 0x0232
+        HuntQuestAborted = 563, // 0x0233
+        InteractWithTrackStart = 564, // 0x0234
+        InteractWithTrackCancel = 565, // 0x0235
+        InteractWithTrackFinished = 566, // 0x0236
+        NewDynamicCompound = 567, // 0x0237
+        LegendaryItemDestroyed = 568, // 0x0238
+        AttunementInfo = 569, // 0x0239
+        TerritoryClaimRaidedRawEnergyCrystalResult = 570, // 0x023A
+        CarriedObjectExpiryWarning = 571, // 0x023B
+        CarriedObjectExpired = 572, // 0x023C
+        TerritoryRaidStart = 573, // 0x023D
+        TerritoryRaidCancel = 574, // 0x023E
+        TerritoryRaidFinished = 575, // 0x023F
+        TerritoryRaidResult = 576, // 0x0240
+        TerritoryMonolithActiveRaidStatus = 577, // 0x0241
+        TerritoryMonolithActiveRaidCancelled = 578, // 0x0242
+        MonolithEnergyStorageUpdate = 579, // 0x0243
+        MonolithNextScheduledOpenWorldAttackUpdate = 580, // 0x0244
+        MonolithProtectedBuildingsDamageReductionUpdate = 581, // 0x0245
+        NewBuildingBaseEvent = 582, // 0x0246
+        NewFortificationBuilding = 583, // 0x0247
+        NewCastleGateBuilding = 584, // 0x0248
+        BuildingDurabilityUpdate = 585, // 0x0249
+        MonolithFortificationPointsUpdate = 586, // 0x024A
+        FortificationBuildingUpgradeInfo = 587, // 0x024B
+        FortificationBuildingsDamageStateUpdate = 588, // 0x024C
+        SiegeNotificationEvent = 589, // 0x024D
+        UpdateEnemyWarBannerActive = 590, // 0x024E
+        TerritoryAnnouncePlayerEjection = 591, // 0x024F
+        CastleGateSwitchUseStarted = 592, // 0x0250
+        CastleGateSwitchUseFinished = 593, // 0x0251
+        FortificationBuildingWillDowngrade = 594, // 0x0252
+        BotCommand = 595, // 0x0253
+        JournalAchievementProgressUpdate = 596, // 0x0254
+        JournalClaimableRewardUpdate = 597, // 0x0255
+        KeySync = 598, // 0x0256
+        LocalQuestAreaGone = 599, // 0x0257
+        DynamicTemplate = 600, // 0x0258
+        DynamicTemplateForcedStateChange = 601, // 0x0259
+        NewOutlandsTeleportationPortal = 602, // 0x025A
+        NewOutlandsTeleportationReturnPortal = 603, // 0x025B
+        OutlandsTeleportationBindingCleared = 604, // 0x025C
+        OutlandsTeleportationReturnPortalUpdateEvent = 605, // 0x025D
+        PlayerUsedOutlandsTeleportationPortal = 606, // 0x025E
+        EncumberedRestricted = 607, // 0x025F
+        NewPiledObject = 608, // 0x0260
+        PiledObjectStateChanged = 609, // 0x0261
+        NewSmugglerCrateDeliveryStation = 610, // 0x0262
+        KillRewardedNoFame = 611, // 0x0263
+        PickupFromPiledObjectStart = 612, // 0x0264
+        PickupFromPiledObjectCancel = 613, // 0x0265
+        PickupFromPiledObjectReset = 614, // 0x0266
+        PickupFromPiledObjectFinished = 615, // 0x0267
+        ArmoryActivityChange = 616, // 0x0268
+        NewKillTrophyFurnitureBuilding = 617, // 0x0269
+        HellDungeonsPlayerJoinedInfo = 618, // 0x026A
+        NewTileSwitchTrigger = 619, // 0x026B
+        NewMultiRewardObject = 620, // 0x026C
+        NewHellDungeonSoulShrineObject = 621, // 0x026D
+        HellDungeonSoulShrineStateUpdate = 622, // 0x026E
+        NewResurrectionShrine = 623, // 0x026F
+        UpdateResurrectionShrine = 624, // 0x0270
+        StandTimeFinished = 625, // 0x0271
+        EpicAchievementAndStatsUpdate = 626, // 0x0272
+        SpectateTargetAfterDeathUpdate = 627, // 0x0273
+        SpectateTargetAfterDeathEnded = 628, // 0x0274
+        NewHellDungeonUpwardExit = 629, // 0x0275
+        NewHellDungeonSoulExit = 630, // 0x0276
+        NewHellDungeonDownwardExit = 631, // 0x0277
+        NewHellDungeonChestExit = 632, // 0x0278
+        NewCorruptedStaticEntrance = 633, // 0x0279
+        NewHellDungeonStaticEntrance = 634, // 0x027A
+        UpdateHellDungeonStaticEntranceState = 635, // 0x027B
+        DebugTriggerHellDungeonShutdownStart = 636, // 0x027C
+        FullJournalQuestInfo = 637, // 0x027D
+        JournalQuestProgressInfo = 638, // 0x027E
+        NewHellDungeonRoomShrineObject = 639, // 0x027F
+        HellDungeonRoomShrineStateUpdate = 640, // 0x0280
+        SimpleBehaviourBuildingStateUpdate = 641, // 0x0281
+        SetTimeScaling = 642, // 0x0282
+        StopTimeScaling = 643, // 0x0283
+        KeyValidation = 644, // 0x0284
+        PlayerJoinMapMarkerTimerStates = 645, // 0x0285
+        NewMapMarkerTimer = 646, // 0x0286
+        RemoveMapMarkerTimer = 647, // 0x0287
+        NewFactionFortressObject = 648, // 0x0288
+        FactionFortressAnnouncePlayerEjection = 649, // 0x0289
+        RewardFactionWarfareSupply = 650, // 0x028A
+        FactionCaptureAreaProgressUpdate = 651, // 0x028B
+        FactionFortressClaimed = 652, // 0x028C
+        FactionFortressWeaponCachesSpawned = 653, // 0x028D
+        FactionFortressWeaponCacheClaimed = 654, // 0x028E
+        FactionFortressFightStateUpdate = 655, // 0x028F
+        FactionFortressCutoffFightStateUpdate = 656, // 0x0290
+        FactionFortressFightEnded = 657, // 0x0291
+        NewFactionWarfarePortal = 658, // 0x0292
+        FactionPortalTargetUpdate = 659, // 0x0293
+        FactionFortressFightStartedInRemoteClusterEvent = 660, // 0x0294
+        FactionFortressFightFinishedInRemoteClusterEvent = 661, // 0x0295
+        FactionDuchySupplyWarDefensiveVictoryEvent = 662, // 0x0296
+        FactionDuchyReconnectedFromCutoffEvent = 663, // 0x0297
+        FactionFortressCutoffFightCancelledByClusterOwnerChangeEvent = 664, // 0x0298
+        FactionDuchyEnteredCutoffStateEvent = 665, // 0x0299
+        LeaveProtectionStateUpdate = 666, // 0x029A
+        RedZoneEventStandings = 667, // 0x029B
+        NewFactionBattleStandardDeliveryStation = 668, // 0x029C
+        NewLoreSnippetObject = 669, // 0x029D
+        LoreSnippetObjectStateUpdate = 670, // 0x029E
+        LoreSnippedClaimed = 671, // 0x029F
+        LoreSnippetStatesChangedByCheat = 672, // 0x02A0
+        NewTeleporterNode = 673, // 0x02A1
+        TeleporterNodeStateChanged = 674, // 0x02A2
+        TeleporterConnectionsFullStateUpdate = 675, // 0x02A3
+        TeleporterConnectionStateChanged = 676, // 0x02A4
+        RetrieveCarriableObjectStart = 677, // 0x02A5
+        RetrieveCarriableObjectCancel = 678, // 0x02A6
+        RetrieveCarriableObjectReset = 679, // 0x02A7
+        RetrieveCarriableObjectFinished = 680, // 0x02A8
+        LosingCarriableObjectStart = 681, // 0x02A9
+        LosingCarriableObjectFinished = 682, // 0x02AA
     }
 }
