@@ -244,7 +244,7 @@ namespace AlbionDataAvalonia.Network.Services
             }
             catch (Exception ex)
             {
-                Log.Debug(ex.Message);
+                Log.Error(ex, "Error while processing captured Albion packet");
             }
         }
 

@@ -148,7 +148,6 @@ namespace PhotonPackageParser
             switch ((MessageType)messageType)
             {
                 case MessageType.OperationRequest:
-                case MessageType.InternalOperationRequest:
                     {
                         try
                         {
@@ -163,7 +162,6 @@ namespace PhotonPackageParser
                         break;
                     }
                 case MessageType.OperationResponse:
-                case MessageType.InternalOperationResponse:
                     {
                         try
                         {
