@@ -160,6 +160,41 @@
 			<Grid
 				Grid.Row="1"
 				Margin="0,10,0,10"
+				ColumnDefinitions="*"
+				IsVisible="{Binding ShowEncrypted}"
+				RowDefinitions="60">
+				<StackPanel
+					Grid.Row="0"
+					Grid.Column="0"
+					HorizontalAlignment="Center"
+					VerticalAlignment="Center"
+					Orientation="Horizontal"
+					Spacing="4">
+					<TextBlock
+						FontWeight="Bold"
+						Foreground="{StaticResource AFMOrange}"
+						Text="Your market orders are encrypted! Go to"
+						TextAlignment="Center"
+						TextWrapping="Wrap" />
+					<TextBlock
+						Cursor="Hand"
+						FontWeight="Bold"
+						Foreground="{StaticResource AFMOrange}"
+						PointerReleased="AFMDiscordLink_PointerReleased"
+						Text="AFM Discord"
+						TextDecorations="Underline" />
+					<TextBlock
+						FontWeight="Bold"
+						Foreground="{StaticResource AFMOrange}"
+						Text="to understand what's going on."
+						TextAlignment="Center"
+						TextWrapping="Wrap" />
+				</StackPanel>
+			</Grid>
+
+			<Grid
+				Grid.Row="2"
+				Margin="0,10,0,10"
 				ColumnDefinitions="*, *, *"
 				IsVisible="{Binding ShowDataUi}"
 				RowDefinitions="30, 30">
@@ -207,7 +242,7 @@
 			</Grid>
 
 			<Grid
-				Grid.Row="1"
+				Grid.Row="2"
 				Margin="0,10,0,10"
 				ColumnDefinitions="*"
 				IsVisible="{Binding ShowChangeCity}"
@@ -221,7 +256,7 @@
 			</Grid>
 
 			<Grid
-				Grid.Row="1"
+				Grid.Row="2"
 				Margin="0,10,0,10"
 				ColumnDefinitions="*"
 				IsVisible="{Binding ShowGetInGame}"
@@ -306,7 +341,7 @@
 
 			<!--  PUBLIC DATA LINE  -->
 			<Border
-				Grid.Row="2"
+				Grid.Row="3"
 				Margin="0,10,0,10"
 				Classes="SectionCard"
 				IsVisible="{Binding ShowDataUi}">
@@ -384,7 +419,7 @@
 
 			<!--  PRIVATE DATA LINE  -->
 			<Border
-				Grid.Row="3"
+				Grid.Row="4"
 				Margin="0,10,0,10"
 				Classes="SectionCard"
 				IsVisible="{Binding ShowDataUi}">
@@ -443,43 +478,6 @@
 					</WrapPanel>
 				</StackPanel>
 			</Border>
-
-			<!--  ENCRYPTION LINE  -->
-			<Grid
-				Grid.Row="4"
-				Margin="0,10,0,10"
-				ColumnDefinitions="*"
-				IsVisible="{Binding ShowEncrypted}"
-				RowDefinitions="60">
-				<StackPanel
-					Grid.Row="0"
-					Grid.Column="0"
-					HorizontalAlignment="Center"
-					VerticalAlignment="Center"
-					Orientation="Horizontal"
-					Spacing="4">
-					<TextBlock
-						FontWeight="Bold"
-						Foreground="{StaticResource AFMOrange}"
-						Text="Your market orders are encrypted! Go to"
-						TextAlignment="Center"
-						TextWrapping="Wrap" />
-					<TextBlock
-						Cursor="Hand"
-						FontWeight="Bold"
-						Foreground="{StaticResource AFMOrange}"
-						PointerReleased="AFMDiscordLink_PointerReleased"
-						Text="AFM Discord"
-						TextDecorations="Underline" />
-					<TextBlock
-						FontWeight="Bold"
-						Foreground="{StaticResource AFMOrange}"
-						Text="to understand what's going on."
-						TextAlignment="Center"
-						TextWrapping="Wrap" />
-				</StackPanel>
-			</Grid>
-
 		</Grid>
 	</ScrollViewer>
 </UserControl>
