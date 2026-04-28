@@ -34,6 +34,17 @@ public static class ObjectExtensions
         throw new InvalidCastException($"Cannot convert {obj?.GetType()} to long.");
     }
 
+    public static double ToDouble(this object obj)
+    {
+        if (obj is byte b) return b;
+        if (obj is short s) return s;
+        if (obj is int i) return i;
+        if (obj is long l) return l;
+        if (obj is float f) return f;
+        if (obj is double d) return d;
+        return Convert.ToDouble(obj);
+    }
+
     public static bool ToBool(this object obj)
     {
         if (obj is bool b) return b;
@@ -43,10 +54,16 @@ public static class ObjectExtensions
 
     public static Guid? ToGuid(this object obj)
     {
+        if (obj is Guid guid) return guid;
+        if (obj is string text && Guid.TryParse(text, out Guid parsedGuid)) return parsedGuid;
+        if (obj is byte[] bytes && bytes.Length == 16) return new Guid(bytes);
         if (obj is IEnumerable objEnumerable)
         {
             var myBytes = objEnumerable.OfType<byte>().ToArray();
-            return new Guid(myBytes);
+            if (myBytes.Length == 16)
+            {
+                return new Guid(myBytes);
+            }
         }
         throw new InvalidCastException($"Cannot convert {obj?.GetType()} to Guid.");
     }
@@ -134,6 +151,17 @@ public static class ObjectExtensions
     public static Guid[] ToGuidArray(this object obj)
     {
         if (obj is Guid[] arr) return arr;
+        if (obj is byte[] bytes && bytes.Length % 16 == 0)
+        {
+            return Enumerable.Range(0, bytes.Length / 16)
+                .Select(i =>
+                {
+                    var guidBytes = new byte[16];
+                    Array.Copy(bytes, i * 16, guidBytes, 0, 16);
+                    return new Guid(guidBytes);
+                })
+                .ToArray();
+        }
         if (obj is IEnumerable enumerable)
         {
             return enumerable.Cast<object>().Select(x => x.ToGuid() ?? Guid.Empty).ToArray();

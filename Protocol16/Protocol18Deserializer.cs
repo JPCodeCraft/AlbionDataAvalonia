@@ -582,22 +582,12 @@ namespace Protocol16
         private static float ReadSingle(Stream input)
         {
             byte[] buffer = ReadBytes(input, sizeof(float));
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(buffer);
-            }
-
             return BitConverter.ToSingle(buffer, 0);
         }
 
         private static double ReadDouble(Stream input)
         {
             byte[] buffer = ReadBytes(input, sizeof(double));
-            if (BitConverter.IsLittleEndian)
-            {
-                Array.Reverse(buffer);
-            }
-
             return BitConverter.ToDouble(buffer, 0);
         }
 

@@ -1,0 +1,266 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:lvc="using:LiveChartsCore.SkiaSharpView.Avalonia"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
+             mc:Ignorable="d"
+             d:DesignWidth="900"
+             d:DesignHeight="600"
+             x:Class="AlbionDataAvalonia.Views.CombatView"
+             x:DataType="vm:CombatViewModel">
+
+	<UserControl.Styles>
+		<Style Selector="TextBlock.FilterLabel">
+			<Setter Property="FontSize" Value="12" />
+			<Setter Property="Foreground" Value="#888" />
+			<Setter Property="Margin" Value="0,0,0,1" />
+		</Style>
+		<Style Selector="Border.Section">
+			<Setter Property="Padding" Value="10" />
+			<Setter Property="Margin" Value="0,0,0,10" />
+			<Setter Property="CornerRadius" Value="6" />
+			<Setter Property="BorderThickness" Value="1" />
+			<Setter Property="Background" Value="rgba(255,255,255,0.03)" />
+			<Setter Property="BorderBrush" Value="rgba(255,255,255,0.15)" />
+		</Style>
+		<Style Selector="DataGridColumnHeader /template/ Grid#PART_ColumnHeaderRoot">
+			<Setter Property="Background" Value="rgba(255, 255, 255, 0.2)" />
+		</Style>
+		<Style Selector="DataGridColumnHeader:pointerover /template/ Grid#PART_ColumnHeaderRoot">
+			<Setter Property="Background" Value="rgba(255, 255, 255, 0.4)" />
+		</Style>
+	</UserControl.Styles>
+
+	<Grid RowDefinitions="Auto,Auto,Auto,Auto,2*,3*" RowSpacing="8">
+		<WrapPanel Grid.Row="0" VerticalAlignment="Top" Margin="0,8,0,0">
+			<StackPanel Orientation="Vertical" Margin="0,0,20,0">
+				<TextBlock Classes="FilterLabel" Text="Encounter" />
+				<TextBlock Text="{Binding EncounterStatus}" FontSize="18" FontWeight="DemiBold" />
+			</StackPanel>
+			<StackPanel Orientation="Vertical" Margin="0,0,20,0">
+				<TextBlock Classes="FilterLabel" Text="Elapsed" />
+				<TextBlock Text="{Binding ElapsedText}" FontSize="18" FontWeight="DemiBold" />
+			</StackPanel>
+			<StackPanel Orientation="Vertical" Margin="0,0,20,0">
+				<TextBlock Classes="FilterLabel" Text="DPS" />
+				<TextBlock Text="{Binding DamagePerSecondText}" FontSize="18" FontWeight="DemiBold" />
+			</StackPanel>
+			<StackPanel Orientation="Vertical" Margin="0,0,20,0">
+				<TextBlock Classes="FilterLabel" Text="Damage/s in" />
+				<TextBlock Text="{Binding DamageReceivedPerSecondText}" FontSize="18" FontWeight="DemiBold" />
+			</StackPanel>
+			<StackPanel Orientation="Vertical" Margin="0,0,20,0">
+				<TextBlock Classes="FilterLabel" Text="HPS" />
+				<TextBlock Text="{Binding HealingPerSecondText}" FontSize="18" FontWeight="DemiBold" />
+			</StackPanel>
+			<StackPanel Orientation="Vertical" Margin="0,0,20,0">
+				<TextBlock Classes="FilterLabel" Text="Healing/s in" />
+				<TextBlock Text="{Binding HealingReceivedPerSecondText}" FontSize="18" FontWeight="DemiBold" />
+			</StackPanel>
+			<StackPanel Orientation="Vertical" Margin="0,0,20,0">
+				<TextBlock Classes="FilterLabel" Text="Side" />
+				<ComboBox ItemsSource="{Binding SideFilterOptions}"
+						  SelectedItem="{Binding SelectedSideFilter}"
+						  Width="100">
+					<ComboBox.ItemTemplate>
+						<DataTemplate x:DataType="vm:CombatSideFilterViewModel">
+							<TextBlock Text="{Binding Label}" />
+						</DataTemplate>
+					</ComboBox.ItemTemplate>
+				</ComboBox>
+			</StackPanel>
+			<StackPanel Orientation="Vertical" Margin="0,0,20,0">
+				<TextBlock Classes="FilterLabel" Text="Party" />
+				<TextBlock Text="{Binding PartyMemberCount}" FontSize="18" FontWeight="DemiBold" />
+			</StackPanel>
+			<Button Content="Reset" Command="{Binding ResetCommand}" Padding="12,8" VerticalAlignment="Bottom" />
+		</WrapPanel>
+
+		<Border Grid.Row="1" Classes="Section">
+			<Grid RowDefinitions="Auto,Auto,*">
+				<TextBlock Text="Tracked roster" FontWeight="DemiBold" Margin="0,0,0,8" />
+				<TextBlock Grid.Row="1"
+						   Text="Local player is not registered yet. Combat damage will not be tracked until the player is detected."
+						   Foreground="#FFB74D"
+						   IsVisible="{Binding ShowMissingPlayerWarning}"
+						   Margin="0,0,0,8" />
+				<Grid Grid.Row="2" ColumnDefinitions="220,*" ColumnSpacing="12">
+					<StackPanel>
+						<TextBlock Classes="FilterLabel" Text="Player" />
+						<TextBlock Text="{Binding LocalPlayerText}" FontWeight="DemiBold" TextWrapping="Wrap" />
+					</StackPanel>
+					<DataGrid Grid.Column="1"
+							  ItemsSource="{Binding TrackedEntities}"
+							  AutoGenerateColumns="False"
+							  IsReadOnly="True"
+							  GridLinesVisibility="None"
+							  BorderThickness="0"
+							  MaxHeight="120">
+						<DataGrid.Columns>
+							<DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" />
+							<DataGridTextColumn Header="Role" Binding="{Binding Role}" />
+						</DataGrid.Columns>
+					</DataGrid>
+				</Grid>
+			</Grid>
+		</Border>
+
+		<Border Grid.Row="2" Classes="Section">
+			<Grid RowDefinitions="Auto,*">
+				<Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+					<TextBlock Text="Encounters" FontWeight="DemiBold" />
+					<Button Grid.Column="1"
+							Content="All encounters"
+							Command="{Binding ClearSelectedEncounterCommand}"
+							Padding="10,4" />
+				</Grid>
+				<DataGrid Grid.Row="1"
+						  ItemsSource="{Binding Encounters}"
+						  SelectedItem="{Binding SelectedEncounter}"
+						  AutoGenerateColumns="False"
+						  IsReadOnly="True"
+						  GridLinesVisibility="None"
+						  BorderThickness="0"
+						  MaxHeight="120">
+					<DataGrid.Columns>
+						<DataGridTextColumn Header="Combat" Binding="{Binding Label}" />
+						<DataGridTextColumn Header="Started" Binding="{Binding StartedText}" />
+						<DataGridTextColumn Header="Status" Binding="{Binding Status}" />
+						<DataGridTextColumn Header="Duration" Binding="{Binding Duration}" />
+						<DataGridTextColumn Header="Dmg Out" Binding="{Binding DamageDealt}" />
+						<DataGridTextColumn Header="DPS" Binding="{Binding DamageDealtPerSecond}" />
+						<DataGridTextColumn Header="Dmg In" Binding="{Binding DamageReceived}" />
+						<DataGridTextColumn Header="Dmg/s In" Binding="{Binding DamageReceivedPerSecond}" />
+						<DataGridTextColumn Header="Heal Out" Binding="{Binding HealingDone}" />
+						<DataGridTextColumn Header="HPS" Binding="{Binding HealingDonePerSecond}" />
+						<DataGridTextColumn Header="Heal In" Binding="{Binding HealingReceived}" />
+						<DataGridTextColumn Header="Heal/s In" Binding="{Binding HealingReceivedPerSecond}" />
+					</DataGrid.Columns>
+				</DataGrid>
+			</Grid>
+		</Border>
+
+		<Border Grid.Row="3" Classes="Section">
+			<Grid RowDefinitions="Auto,*">
+				<Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+					<TextBlock Text="Combat over time" FontWeight="DemiBold" />
+					<StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+						<TextBlock Classes="FilterLabel" Text="Aggregation" VerticalAlignment="Center" />
+						<ComboBox ItemsSource="{Binding AggregationOptions}"
+								  SelectedItem="{Binding SelectedAggregation}"
+								  Width="92">
+							<ComboBox.ItemTemplate>
+								<DataTemplate x:DataType="vm:CombatAggregationOptionViewModel">
+									<TextBlock Text="{Binding Label}" />
+								</DataTemplate>
+							</ComboBox.ItemTemplate>
+						</ComboBox>
+						<TextBlock Classes="FilterLabel" Text="Metric" VerticalAlignment="Center" />
+						<ComboBox ItemsSource="{Binding ChartMetricOptions}"
+								  SelectedItem="{Binding SelectedChartMetric}"
+								  Width="112">
+							<ComboBox.ItemTemplate>
+								<DataTemplate x:DataType="vm:CombatChartMetricOptionViewModel">
+									<TextBlock Text="{Binding Label}" />
+								</DataTemplate>
+							</ComboBox.ItemTemplate>
+						</ComboBox>
+						<TextBlock Classes="FilterLabel" Text="Window" VerticalAlignment="Center" />
+						<ComboBox ItemsSource="{Binding ChartWindowOptions}"
+								  SelectedItem="{Binding SelectedChartWindow}"
+								  Width="104">
+							<ComboBox.ItemTemplate>
+								<DataTemplate x:DataType="vm:CombatChartWindowOptionViewModel">
+									<TextBlock Text="{Binding Label}" />
+								</DataTemplate>
+							</ComboBox.ItemTemplate>
+						</ComboBox>
+					</StackPanel>
+				</Grid>
+				<lvc:CartesianChart x:Name="CombatChart"
+									Grid.Row="1"
+									Series="{Binding ChartSeries}"
+									XAxes="{Binding ChartXAxes}"
+									YAxes="{Binding ChartYAxes}"
+									LegendPosition="Right"
+									TooltipPosition="Top"
+									FindingStrategy="CompareOnlyXTakeClosest"
+									ZoomMode="X"
+									Height="180" />
+			</Grid>
+		</Border>
+
+		<Grid Grid.Row="4" RowDefinitions="Auto,*">
+			<Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+				<TextBlock Text="Players" FontWeight="DemiBold" />
+				<Button Grid.Column="1"
+						Content="All players"
+						Command="{Binding ClearSelectedPlayerCommand}"
+						Padding="10,4" />
+			</Grid>
+			<DataGrid Grid.Row="1"
+					  ItemsSource="{Binding Players}"
+					  SelectedItem="{Binding SelectedPlayer}"
+					  AutoGenerateColumns="False"
+					  IsReadOnly="True"
+					  GridLinesVisibility="None"
+					  BorderThickness="0">
+				<DataGrid.Columns>
+					<DataGridTextColumn Header="Player" Binding="{Binding Name}" Width="*" />
+					<DataGridTextColumn Header="Dmg Out" Binding="{Binding DamageDealt}" />
+					<DataGridTextColumn Header="DPS" Binding="{Binding DamageDealtPerSecond}" />
+					<DataGridTextColumn Header="Dmg In" Binding="{Binding DamageReceived}" />
+					<DataGridTextColumn Header="Dmg/s In" Binding="{Binding DamageReceivedPerSecond}" />
+					<DataGridTextColumn Header="Heal Out" Binding="{Binding HealingDone}" />
+					<DataGridTextColumn Header="HPS" Binding="{Binding HealingDonePerSecond}" />
+					<DataGridTextColumn Header="Heal In" Binding="{Binding HealingReceived}" />
+					<DataGridTextColumn Header="Heal/s In" Binding="{Binding HealingReceivedPerSecond}" />
+				</DataGrid.Columns>
+			</DataGrid>
+		</Grid>
+
+		<TabControl Grid.Row="5">
+			<TabItem Header="Damage by Target">
+				<DataGrid ItemsSource="{Binding DamageDealtRows}" AutoGenerateColumns="False" IsReadOnly="True" GridLinesVisibility="None" BorderThickness="0">
+					<DataGrid.Columns>
+						<DataGridTextColumn Header="Source" Binding="{Binding PlayerName}" Width="*" />
+						<DataGridTextColumn Header="Target" Binding="{Binding OtherName}" Width="*" />
+						<DataGridTextColumn Header="Spell" Binding="{Binding SpellLabel}" Width="*" />
+						<DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat=N0}" />
+					</DataGrid.Columns>
+				</DataGrid>
+			</TabItem>
+			<TabItem Header="Damage Received">
+				<DataGrid ItemsSource="{Binding DamageReceivedRows}" AutoGenerateColumns="False" IsReadOnly="True" GridLinesVisibility="None" BorderThickness="0">
+					<DataGrid.Columns>
+						<DataGridTextColumn Header="Target" Binding="{Binding PlayerName}" Width="*" />
+						<DataGridTextColumn Header="Source" Binding="{Binding OtherName}" Width="*" />
+						<DataGridTextColumn Header="Spell" Binding="{Binding SpellLabel}" Width="*" />
+						<DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat=N0}" />
+					</DataGrid.Columns>
+				</DataGrid>
+			</TabItem>
+			<TabItem Header="Healing by Target">
+				<DataGrid ItemsSource="{Binding HealingDoneRows}" AutoGenerateColumns="False" IsReadOnly="True" GridLinesVisibility="None" BorderThickness="0">
+					<DataGrid.Columns>
+						<DataGridTextColumn Header="Source" Binding="{Binding PlayerName}" Width="*" />
+						<DataGridTextColumn Header="Target" Binding="{Binding OtherName}" Width="*" />
+						<DataGridTextColumn Header="Spell" Binding="{Binding SpellLabel}" Width="*" />
+						<DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat=N0}" />
+					</DataGrid.Columns>
+				</DataGrid>
+			</TabItem>
+			<TabItem Header="Healing Received">
+				<DataGrid ItemsSource="{Binding HealingReceivedRows}" AutoGenerateColumns="False" IsReadOnly="True" GridLinesVisibility="None" BorderThickness="0">
+					<DataGrid.Columns>
+						<DataGridTextColumn Header="Target" Binding="{Binding PlayerName}" Width="*" />
+						<DataGridTextColumn Header="Source" Binding="{Binding OtherName}" Width="*" />
+						<DataGridTextColumn Header="Spell" Binding="{Binding SpellLabel}" Width="*" />
+						<DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat=N0}" />
+					</DataGrid.Columns>
+				</DataGrid>
+			</TabItem>
+		</TabControl>
+	</Grid>
+</UserControl>

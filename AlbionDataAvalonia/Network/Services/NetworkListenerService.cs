@@ -1,4 +1,5 @@
 ﻿using Albion.Network;
+using AlbionDataAvalonia.Combat;
 using AlbionDataAvalonia.Items.Services;
 using AlbionDataAvalonia.Network.Handlers;
 using AlbionDataAvalonia.Network.Models;
@@ -30,6 +31,7 @@ namespace AlbionDataAvalonia.Network.Services
         private readonly IdleService _idleService;
         private readonly ItemsIdsService _itemsIdsService;
         private readonly AchievementsService _achievementsService;
+        private readonly CombatTrackerService _combatTracker;
 
         private bool hasCleanedUpDevices = false;
         private bool hasFinishedStartingDevices = false;
@@ -38,7 +40,7 @@ namespace AlbionDataAvalonia.Network.Services
         private IPhotonReceiver? receiver;
         private CaptureDeviceList? devices;
 
-        public NetworkListenerService(Uploader uploader, PlayerState playerState, SettingsManager settingsManager, MailService mailService, IdleService idleService, TradeService tradeService, AFMUploader afmUploader, ItemsIdsService itemsIdsService, AchievementsService achievementsService)
+        public NetworkListenerService(Uploader uploader, PlayerState playerState, SettingsManager settingsManager, MailService mailService, IdleService idleService, TradeService tradeService, AFMUploader afmUploader, ItemsIdsService itemsIdsService, AchievementsService achievementsService, CombatTrackerService combatTracker)
         {
             _uploader = uploader;
             _playerState = playerState;
@@ -47,6 +49,7 @@ namespace AlbionDataAvalonia.Network.Services
             _idleService = idleService;
             _itemsIdsService = itemsIdsService;
             _achievementsService = achievementsService;
+            _combatTracker = combatTracker;
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
@@ -91,6 +94,15 @@ namespace AlbionDataAvalonia.Network.Services
                 // builder.AddEventHandler(new LeaveEventHandler(_playerState));
                 // builder.AddEventHandler(new PlayerCountsEventHandler(_playerState, _afmUploader));
                 // builder.AddEventHandler(new CharacterStatsEventHandler());
+                builder.AddEventHandler(new NewCharacterEventHandler(_combatTracker));
+                builder.AddEventHandler(new PartyJoinedEventHandler(_combatTracker));
+                builder.AddEventHandler(new PartyPlayerJoinedEventHandler(_combatTracker));
+                builder.AddEventHandler(new PartyPlayerLeftEventHandler(_combatTracker));
+                builder.AddEventHandler(new PartyDisbandedEventHandler(_combatTracker));
+                builder.AddEventHandler(new HealthUpdateEventHandler(_combatTracker));
+                builder.AddEventHandler(new HealthUpdatesEventHandler(_combatTracker));
+                builder.AddEventHandler(new InCombatStateUpdateEventHandler(_combatTracker));
+                builder.AddEventHandler(new TimeSyncEventHandler(_combatTracker));
                 builder.AddEventHandler(new FullAchievementInfoEventHandler(_achievementsService, _playerState, _afmUploader, _settingsManager));
                 builder.AddEventHandler(new RedZoneWorldMapEventHandler(_playerState, _uploader));
                 // builder.AddEventHandler(new AttachItemContainerEventHandler(_playerState));
@@ -105,7 +117,7 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddResponseHandler(new AuctionGetOffersResponseHandler(_uploader, _playerState, _tradeService));
                 builder.AddResponseHandler(new AuctionGetRequestsResponseHandler(_uploader, _playerState, _tradeService));
                 builder.AddResponseHandler(new AuctionGetItemAverageStatsResponseHandler(_uploader, _playerState));
-                builder.AddResponseHandler(new JoinResponseHandler(_playerState, _afmUploader));
+                builder.AddResponseHandler(new JoinResponseHandler(_playerState, _afmUploader, _combatTracker));
                 builder.AddResponseHandler(new AuctionGetGoldAverageStatsResponseHandler(_uploader));
                 builder.AddResponseHandler(new GetMailInfosResponseHandler(_playerState, _mailService));
                 builder.AddResponseHandler(new ReadMailResponseHandler(_playerState, _mailService));

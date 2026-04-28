@@ -81,6 +81,17 @@
 					</StackPanel>
 				</Button>
 
+				<Button Classes="menu" Margin="10" HorizontalAlignment="Stretch"
+					Classes.active="{Binding IsCombatSelected}"
+					Command="{Binding ShowCombatCommand}">
+					<StackPanel Orientation="Horizontal">
+						<PathIcon
+							Data="M12,2A10,10 0 0,1 22,12H20A8,8 0 0,0 12,4V2M12,20A8,8 0 0,0 20,12H22A10,10 0 0,1 12,22V20M12,6A6,6 0 0,1 18,12H16A4,4 0 0,0 12,8V6M12,16A4,4 0 0,0 16,12H18A6,6 0 0,1 12,18V16M10,11H2V13H10V16L15,12L10,8V11Z"
+							Width="16" Height="16" Margin="0,0,8,0" />
+						<TextBlock Text="Combat" VerticalAlignment="Center" />
+					</StackPanel>
+				</Button>
+
 				<!-- Trades Button with Icon -->
 				<Button Classes="menu" Margin="10" HorizontalAlignment="Stretch"
 					Classes.active="{Binding IsTradesSelected}"

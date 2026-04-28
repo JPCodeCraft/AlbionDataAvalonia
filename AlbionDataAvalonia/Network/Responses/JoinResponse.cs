@@ -12,6 +12,7 @@ public class JoinResponse : BaseOperation
     public readonly AlbionLocation playerLocation;
     public readonly string playerName;
     public readonly int userObjectId;
+    public readonly Guid? userGuid;
     public readonly double? globalMultiplier;
 
     public JoinResponse(Dictionary<byte, object> parameters) : base(parameters)
@@ -44,6 +45,11 @@ public class JoinResponse : BaseOperation
                         Log.Error("Unexpected type for objectId: {Type}", objectId.GetType());
                         break;
                 }
+            }
+
+            if (parameters.TryGetValue(1, out object? guidData))
+            {
+                userGuid = guidData.ToGuid();
             }
 
             if (parameters.TryGetValue(2, out object nameData))

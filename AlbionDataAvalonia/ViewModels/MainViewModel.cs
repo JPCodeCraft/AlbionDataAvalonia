@@ -23,6 +23,7 @@ public partial class MainViewModel : ViewModelBase
     private enum MainPage
     {
         Dashboard,
+        Combat,
         Trades,
         Mails,
         Settings,
@@ -36,6 +37,7 @@ public partial class MainViewModel : ViewModelBase
     private readonly LogsViewModel _logsViewModel;
     private readonly MailsViewModel _mailsViewModel;
     private readonly TradesViewModel _tradesViewModel;
+    private readonly CombatViewModel _combatViewModel;
     private readonly Uploader _uploader;
     private readonly AuthService _authService;
 
@@ -142,7 +144,7 @@ public partial class MainViewModel : ViewModelBase
     {
     }
 
-    public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, SettingsManager settingsManager, SettingsViewModel settingsViewModel, LogsViewModel logsViewModel, MailsViewModel mailsViewModel, TradesViewModel tradesViewModel, Uploader uploader, AuthService authService)
+    public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, SettingsManager settingsManager, SettingsViewModel settingsViewModel, LogsViewModel logsViewModel, MailsViewModel mailsViewModel, TradesViewModel tradesViewModel, CombatViewModel combatViewModel, Uploader uploader, AuthService authService)
     {
         _playerState = playerState;
         _networkListener = networkListener;
@@ -151,6 +153,7 @@ public partial class MainViewModel : ViewModelBase
         _logsViewModel = logsViewModel;
         _mailsViewModel = mailsViewModel;
         _tradesViewModel = tradesViewModel;
+        _combatViewModel = combatViewModel;
         _uploader = uploader;
         _authService = authService;
 
@@ -187,6 +190,7 @@ public partial class MainViewModel : ViewModelBase
     }
 
     public bool IsDashboardSelected => _selectedPage == MainPage.Dashboard;
+    public bool IsCombatSelected => _selectedPage == MainPage.Combat;
     public bool IsTradesSelected => _selectedPage == MainPage.Trades;
     public bool IsMailsSelected => _selectedPage == MainPage.Mails;
     public bool IsSettingsSelected => _selectedPage == MainPage.Settings;
@@ -198,6 +202,7 @@ public partial class MainViewModel : ViewModelBase
         {
             _selectedPage = page;
             OnPropertyChanged(nameof(IsDashboardSelected));
+            OnPropertyChanged(nameof(IsCombatSelected));
             OnPropertyChanged(nameof(IsTradesSelected));
             OnPropertyChanged(nameof(IsMailsSelected));
             OnPropertyChanged(nameof(IsSettingsSelected));
@@ -207,6 +212,7 @@ public partial class MainViewModel : ViewModelBase
         CurrentView = page switch
         {
             MainPage.Dashboard => NpCapInstallationChecker.IsNpCapInstalled() ? new DashboardView() : new PCapView(),
+            MainPage.Combat => new CombatView(_combatViewModel),
             MainPage.Trades => new TradesView(_tradesViewModel),
             MainPage.Mails => new MailsView(_mailsViewModel),
             MainPage.Settings => new SettingsView(_settingsViewModel),
@@ -336,6 +342,12 @@ public partial class MainViewModel : ViewModelBase
     private void ShowDashboard()
     {
         NavigateTo(MainPage.Dashboard);
+    }
+
+    [RelayCommand]
+    private void ShowCombat()
+    {
+        NavigateTo(MainPage.Combat);
     }
 
     [RelayCommand]

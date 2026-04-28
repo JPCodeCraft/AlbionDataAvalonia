@@ -1,4 +1,5 @@
 ﻿using AlbionDataAvalonia.Auth.Services;
+using AlbionDataAvalonia.Combat;
 using AlbionDataAvalonia.DB;
 using AlbionDataAvalonia.Items.Services;
 using AlbionDataAvalonia.Locations;
@@ -233,11 +234,13 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<AchievementsService>();
         collection.AddSingleton<AuthService>();
         collection.AddSingleton<CsvExportService>();
+        collection.AddSingleton<CombatTrackerService>();
 
         collection.AddSingleton<MainViewModel>();
         collection.AddSingleton<SettingsViewModel>();
         collection.AddSingleton<LogsViewModel>();
         collection.AddSingleton<MailsViewModel>();
         collection.AddSingleton<TradesViewModel>();
+        collection.AddSingleton<CombatViewModel>();
     }
 }
