@@ -19,10 +19,31 @@
 		<Style Selector="Border.Section">
 			<Setter Property="Padding" Value="10" />
 			<Setter Property="Margin" Value="0,0,0,10" />
+			<Setter Property="BorderThickness" Value="0" />
+			<Setter Property="Background" Value="Transparent" />
+		</Style>
+		<Style Selector="Border.SummaryCard">
+			<Setter Property="Padding" Value="12" />
+			<Setter Property="Margin" Value="0,0,10,10" />
+			<Setter Property="MinWidth" Value="260" />
 			<Setter Property="CornerRadius" Value="6" />
+			<Setter Property="Background" Value="rgba(255,255,255,0.04)" />
 			<Setter Property="BorderThickness" Value="1" />
-			<Setter Property="Background" Value="rgba(255,255,255,0.03)" />
-			<Setter Property="BorderBrush" Value="rgba(255,255,255,0.15)" />
+			<Setter Property="BorderBrush" Value="rgba(255,255,255,0.12)" />
+		</Style>
+		<Style Selector="TextBlock.SummaryValue">
+			<Setter Property="FontSize" Value="18" />
+			<Setter Property="FontWeight" Value="DemiBold" />
+		</Style>
+		<Style Selector="TextBlock.SummaryRate">
+			<Setter Property="FontSize" Value="13" />
+			<Setter Property="FontWeight" Value="DemiBold" />
+			<Setter Property="VerticalAlignment" Value="Center" />
+		</Style>
+		<Style Selector="TextBlock.RateSuffix">
+			<Setter Property="FontSize" Value="12" />
+			<Setter Property="Foreground" Value="#888" />
+			<Setter Property="VerticalAlignment" Value="Center" />
 		</Style>
 		<Style Selector="DataGridColumnHeader /template/ Grid#PART_ColumnHeaderRoot">
 			<Setter Property="Background" Value="rgba(255, 255, 255, 0.2)" />
@@ -32,119 +53,143 @@
 		</Style>
 	</UserControl.Styles>
 
-	<Grid RowDefinitions="Auto,Auto,Auto,Auto,2*,3*" RowSpacing="8">
-		<WrapPanel Grid.Row="0" VerticalAlignment="Top" Margin="0,8,0,0">
-			<StackPanel Orientation="Vertical" Margin="0,0,20,0">
-				<TextBlock Classes="FilterLabel" Text="Encounter" />
-				<TextBlock Text="{Binding EncounterStatus}" FontSize="18" FontWeight="DemiBold" />
-			</StackPanel>
-			<StackPanel Orientation="Vertical" Margin="0,0,20,0">
-				<TextBlock Classes="FilterLabel" Text="Elapsed" />
-				<TextBlock Text="{Binding ElapsedText}" FontSize="18" FontWeight="DemiBold" />
-			</StackPanel>
-			<StackPanel Orientation="Vertical" Margin="0,0,20,0">
-				<TextBlock Classes="FilterLabel" Text="DPS" />
-				<TextBlock Text="{Binding DamagePerSecondText}" FontSize="18" FontWeight="DemiBold" />
-			</StackPanel>
-			<StackPanel Orientation="Vertical" Margin="0,0,20,0">
-				<TextBlock Classes="FilterLabel" Text="Damage/s in" />
-				<TextBlock Text="{Binding DamageReceivedPerSecondText}" FontSize="18" FontWeight="DemiBold" />
-			</StackPanel>
-			<StackPanel Orientation="Vertical" Margin="0,0,20,0">
-				<TextBlock Classes="FilterLabel" Text="HPS" />
-				<TextBlock Text="{Binding HealingPerSecondText}" FontSize="18" FontWeight="DemiBold" />
-			</StackPanel>
-			<StackPanel Orientation="Vertical" Margin="0,0,20,0">
-				<TextBlock Classes="FilterLabel" Text="Healing/s in" />
-				<TextBlock Text="{Binding HealingReceivedPerSecondText}" FontSize="18" FontWeight="DemiBold" />
-			</StackPanel>
-			<StackPanel Orientation="Vertical" Margin="0,0,20,0">
-				<TextBlock Classes="FilterLabel" Text="Side" />
-				<ComboBox ItemsSource="{Binding SideFilterOptions}"
-						  SelectedItem="{Binding SelectedSideFilter}"
-						  Width="100">
-					<ComboBox.ItemTemplate>
-						<DataTemplate x:DataType="vm:CombatSideFilterViewModel">
-							<TextBlock Text="{Binding Label}" />
-						</DataTemplate>
-					</ComboBox.ItemTemplate>
-				</ComboBox>
-			</StackPanel>
-			<StackPanel Orientation="Vertical" Margin="0,0,20,0">
-				<TextBlock Classes="FilterLabel" Text="Party" />
-				<TextBlock Text="{Binding PartyMemberCount}" FontSize="18" FontWeight="DemiBold" />
-			</StackPanel>
-			<Button Content="Reset" Command="{Binding ResetCommand}" Padding="12,8" VerticalAlignment="Bottom" />
-		</WrapPanel>
-
-		<Border Grid.Row="1" Classes="Section">
-			<Grid RowDefinitions="Auto,Auto,*">
-				<TextBlock Text="Tracked roster" FontWeight="DemiBold" Margin="0,0,0,8" />
+	<Grid RowSpacing="8">
+		<Grid.RowDefinitions>
+			<RowDefinition Height="Auto" />
+			<RowDefinition Height="1.6*" MinHeight="160" />
+			<RowDefinition Height="2*" />
+			<RowDefinition Height="2.4*" />
+		</Grid.RowDefinitions>
+		<Border Grid.Row="0" Classes="Section">
+			<Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="12">
+				<Grid ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="16">
+					<StackPanel>
+						<TextBlock Text="Local player summary" FontWeight="DemiBold" />
+						<TextBlock Text="{Binding LocalPlayerText}" FontSize="18" FontWeight="DemiBold" TextWrapping="Wrap" />
+						<TextBlock Classes="FilterLabel" Text="{Binding SummaryScopeText}" />
+					</StackPanel>
+					<StackPanel Grid.Column="1" HorizontalAlignment="Right">
+						<TextBlock Classes="FilterLabel" Text="Elapsed" HorizontalAlignment="Right" />
+						<TextBlock Text="{Binding ElapsedText}" FontSize="18" FontWeight="DemiBold" HorizontalAlignment="Right" />
+					</StackPanel>
+					<StackPanel Grid.Column="2" HorizontalAlignment="Right">
+						<TextBlock Classes="FilterLabel" Text="Party" HorizontalAlignment="Right" />
+						<TextBlock Text="{Binding PartyMemberCount}" FontSize="18" FontWeight="DemiBold" HorizontalAlignment="Right" />
+					</StackPanel>
+					<Button Grid.Column="3"
+							Content="Reset"
+							Command="{Binding ResetCommand}"
+							Padding="12,8"
+							VerticalAlignment="Center" />
+				</Grid>
 				<TextBlock Grid.Row="1"
 						   Text="Local player is not registered yet. Combat damage will not be tracked until the player is detected."
 						   Foreground="#FFB74D"
-						   IsVisible="{Binding ShowMissingPlayerWarning}"
-						   Margin="0,0,0,8" />
-				<Grid Grid.Row="2" ColumnDefinitions="220,*" ColumnSpacing="12">
+						   IsVisible="{Binding ShowMissingPlayerWarning}" />
+				<WrapPanel Grid.Row="2">
+					<Border Classes="SummaryCard">
+						<StackPanel>
+							<TextBlock Classes="FilterLabel" Text="Damage out" />
+							<Grid ColumnDefinitions="*,*" ColumnSpacing="14" Margin="0,8,0,0">
+								<StackPanel>
+									<TextBlock Classes="FilterLabel" Text="Total" />
+									<Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="6" VerticalAlignment="Center">
+										<TextBlock Classes="SummaryValue" Text="{Binding SummaryDamageDealtTotalText}" />
+										<TextBlock Grid.Column="1" Classes="SummaryRate" Text="{Binding DamagePerSecondText}" />
+										<TextBlock Grid.Column="2" Classes="RateSuffix" Text="/s" />
+									</Grid>
+								</StackPanel>
+								<StackPanel Grid.Column="1">
+									<TextBlock Classes="FilterLabel" Text="{Binding SummaryWindowLabel}" />
+									<Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="6" VerticalAlignment="Center">
+										<TextBlock Classes="SummaryValue" Text="{Binding SummaryDamageDealtWindowText}" />
+										<TextBlock Grid.Column="1" Classes="SummaryRate" Text="{Binding SummaryDamageDealtWindowRateText}" />
+										<TextBlock Grid.Column="2" Classes="RateSuffix" Text="/s" />
+									</Grid>
+								</StackPanel>
+							</Grid>
+						</StackPanel>
+					</Border>
+					<Border Classes="SummaryCard">
+						<StackPanel>
+							<TextBlock Classes="FilterLabel" Text="Damage in" />
+							<Grid ColumnDefinitions="*,*" ColumnSpacing="14" Margin="0,8,0,0">
+								<StackPanel>
+									<TextBlock Classes="FilterLabel" Text="Total" />
+									<Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="6" VerticalAlignment="Center">
+										<TextBlock Classes="SummaryValue" Text="{Binding SummaryDamageReceivedTotalText}" />
+										<TextBlock Grid.Column="1" Classes="SummaryRate" Text="{Binding DamageReceivedPerSecondText}" />
+										<TextBlock Grid.Column="2" Classes="RateSuffix" Text="/s" />
+									</Grid>
+								</StackPanel>
+								<StackPanel Grid.Column="1">
+									<TextBlock Classes="FilterLabel" Text="{Binding SummaryWindowLabel}" />
+									<Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="6" VerticalAlignment="Center">
+										<TextBlock Classes="SummaryValue" Text="{Binding SummaryDamageReceivedWindowText}" />
+										<TextBlock Grid.Column="1" Classes="SummaryRate" Text="{Binding SummaryDamageReceivedWindowRateText}" />
+										<TextBlock Grid.Column="2" Classes="RateSuffix" Text="/s" />
+									</Grid>
+								</StackPanel>
+							</Grid>
+						</StackPanel>
+					</Border>
+					<Border Classes="SummaryCard">
+						<StackPanel>
+							<TextBlock Classes="FilterLabel" Text="Healing out" />
+							<Grid ColumnDefinitions="*,*" ColumnSpacing="14" Margin="0,8,0,0">
+								<StackPanel>
+									<TextBlock Classes="FilterLabel" Text="Total" />
+									<Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="6" VerticalAlignment="Center">
+										<TextBlock Classes="SummaryValue" Text="{Binding SummaryHealingDoneTotalText}" />
+										<TextBlock Grid.Column="1" Classes="SummaryRate" Text="{Binding HealingPerSecondText}" />
+										<TextBlock Grid.Column="2" Classes="RateSuffix" Text="/s" />
+									</Grid>
+								</StackPanel>
+								<StackPanel Grid.Column="1">
+									<TextBlock Classes="FilterLabel" Text="{Binding SummaryWindowLabel}" />
+									<Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="6" VerticalAlignment="Center">
+										<TextBlock Classes="SummaryValue" Text="{Binding SummaryHealingDoneWindowText}" />
+										<TextBlock Grid.Column="1" Classes="SummaryRate" Text="{Binding SummaryHealingDoneWindowRateText}" />
+										<TextBlock Grid.Column="2" Classes="RateSuffix" Text="/s" />
+									</Grid>
+								</StackPanel>
+							</Grid>
+						</StackPanel>
+					</Border>
+					<Border Classes="SummaryCard">
+						<StackPanel>
+							<TextBlock Classes="FilterLabel" Text="Healing in" />
+							<Grid ColumnDefinitions="*,*" ColumnSpacing="14" Margin="0,8,0,0">
+								<StackPanel>
+									<TextBlock Classes="FilterLabel" Text="Total" />
+									<Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="6" VerticalAlignment="Center">
+										<TextBlock Classes="SummaryValue" Text="{Binding SummaryHealingReceivedTotalText}" />
+										<TextBlock Grid.Column="1" Classes="SummaryRate" Text="{Binding HealingReceivedPerSecondText}" />
+										<TextBlock Grid.Column="2" Classes="RateSuffix" Text="/s" />
+									</Grid>
+								</StackPanel>
+								<StackPanel Grid.Column="1">
+									<TextBlock Classes="FilterLabel" Text="{Binding SummaryWindowLabel}" />
+									<Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="6" VerticalAlignment="Center">
+										<TextBlock Classes="SummaryValue" Text="{Binding SummaryHealingReceivedWindowText}" />
+										<TextBlock Grid.Column="1" Classes="SummaryRate" Text="{Binding SummaryHealingReceivedWindowRateText}" />
+										<TextBlock Grid.Column="2" Classes="RateSuffix" Text="/s" />
+									</Grid>
+								</StackPanel>
+							</Grid>
+						</StackPanel>
+					</Border>
+				</WrapPanel>
+			</Grid>
+		</Border>
+
+		<Border Grid.Row="1" Classes="Section">
+			<Grid RowDefinitions="Auto,*">
+				<Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
 					<StackPanel>
-						<TextBlock Classes="FilterLabel" Text="Player" />
-						<TextBlock Text="{Binding LocalPlayerText}" FontWeight="DemiBold" TextWrapping="Wrap" />
+						<TextBlock Text="{Binding ChartTitle}" FontWeight="DemiBold" TextTrimming="CharacterEllipsis" />
+						<TextBlock Classes="FilterLabel" Text="Select a player below to change the chart target." />
 					</StackPanel>
-					<DataGrid Grid.Column="1"
-							  ItemsSource="{Binding TrackedEntities}"
-							  AutoGenerateColumns="False"
-							  IsReadOnly="True"
-							  GridLinesVisibility="None"
-							  BorderThickness="0"
-							  MaxHeight="120">
-						<DataGrid.Columns>
-							<DataGridTextColumn Header="Name" Binding="{Binding Name}" Width="*" />
-							<DataGridTextColumn Header="Role" Binding="{Binding Role}" />
-						</DataGrid.Columns>
-					</DataGrid>
-				</Grid>
-			</Grid>
-		</Border>
-
-		<Border Grid.Row="2" Classes="Section">
-			<Grid RowDefinitions="Auto,*">
-				<Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
-					<TextBlock Text="Encounters" FontWeight="DemiBold" />
-					<Button Grid.Column="1"
-							Content="All encounters"
-							Command="{Binding ClearSelectedEncounterCommand}"
-							Padding="10,4" />
-				</Grid>
-				<DataGrid Grid.Row="1"
-						  ItemsSource="{Binding Encounters}"
-						  SelectedItem="{Binding SelectedEncounter}"
-						  AutoGenerateColumns="False"
-						  IsReadOnly="True"
-						  GridLinesVisibility="None"
-						  BorderThickness="0"
-						  MaxHeight="120">
-					<DataGrid.Columns>
-						<DataGridTextColumn Header="Combat" Binding="{Binding Label}" />
-						<DataGridTextColumn Header="Started" Binding="{Binding StartedText}" />
-						<DataGridTextColumn Header="Status" Binding="{Binding Status}" />
-						<DataGridTextColumn Header="Duration" Binding="{Binding Duration}" />
-						<DataGridTextColumn Header="Dmg Out" Binding="{Binding DamageDealt}" />
-						<DataGridTextColumn Header="DPS" Binding="{Binding DamageDealtPerSecond}" />
-						<DataGridTextColumn Header="Dmg In" Binding="{Binding DamageReceived}" />
-						<DataGridTextColumn Header="Dmg/s In" Binding="{Binding DamageReceivedPerSecond}" />
-						<DataGridTextColumn Header="Heal Out" Binding="{Binding HealingDone}" />
-						<DataGridTextColumn Header="HPS" Binding="{Binding HealingDonePerSecond}" />
-						<DataGridTextColumn Header="Heal In" Binding="{Binding HealingReceived}" />
-						<DataGridTextColumn Header="Heal/s In" Binding="{Binding HealingReceivedPerSecond}" />
-					</DataGrid.Columns>
-				</DataGrid>
-			</Grid>
-		</Border>
-
-		<Border Grid.Row="3" Classes="Section">
-			<Grid RowDefinitions="Auto,*">
-				<Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
-					<TextBlock Text="Combat over time" FontWeight="DemiBold" />
 					<StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
 						<TextBlock Classes="FilterLabel" Text="Aggregation" VerticalAlignment="Center" />
 						<ComboBox ItemsSource="{Binding AggregationOptions}"
@@ -179,24 +224,62 @@
 					</StackPanel>
 				</Grid>
 				<lvc:CartesianChart x:Name="CombatChart"
-									Grid.Row="1"
-									Series="{Binding ChartSeries}"
-									XAxes="{Binding ChartXAxes}"
-									YAxes="{Binding ChartYAxes}"
-									LegendPosition="Right"
-									TooltipPosition="Top"
-									FindingStrategy="CompareOnlyXTakeClosest"
-									ZoomMode="X"
-									Height="180" />
+								Grid.Row="1"
+								Series="{Binding ChartSeries}"
+								XAxes="{Binding ChartXAxes}"
+								YAxes="{Binding ChartYAxes}"
+								LegendPosition="Right"
+								LegendTextSize="12"
+								TooltipPosition="Top"
+								FindingStrategy="CompareOnlyXTakeClosest"
+								ZoomMode="X"
+								MinHeight="160" />
 			</Grid>
 		</Border>
 
-		<Grid Grid.Row="4" RowDefinitions="Auto,*">
+		<Border Grid.Row="2" Classes="Section">
+			<Grid RowDefinitions="Auto,*">
+				<Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+					<TextBlock Text="Encounters" FontWeight="DemiBold" />
+					<Button Grid.Column="1"
+							Content="Clear selection"
+							Command="{Binding ClearSelectedEncounterCommand}"
+							IsVisible="{Binding HasSelectedEncounter}"
+							Padding="10,6"
+							MinHeight="34" />
+				</Grid>
+				<DataGrid Grid.Row="1"
+						  ItemsSource="{Binding Encounters}"
+						  SelectedItem="{Binding SelectedEncounter}"
+						  AutoGenerateColumns="False"
+						  IsReadOnly="True"
+						  GridLinesVisibility="None"
+						  BorderThickness="0">
+					<DataGrid.Columns>
+						<DataGridTextColumn Header="Combat" Binding="{Binding Label}" />
+						<DataGridTextColumn Header="Started" Binding="{Binding StartedText}" />
+						<DataGridTextColumn Header="Status" Binding="{Binding Status}" />
+						<DataGridTextColumn Header="Duration" Binding="{Binding Duration}" />
+						<DataGridTextColumn Header="Dmg Out" Binding="{Binding DamageDealt}" />
+						<DataGridTextColumn Header="DPS" Binding="{Binding DamageDealtPerSecond}" />
+						<DataGridTextColumn Header="Dmg In" Binding="{Binding DamageReceived}" />
+						<DataGridTextColumn Header="Dmg/s In" Binding="{Binding DamageReceivedPerSecond}" />
+						<DataGridTextColumn Header="Heal Out" Binding="{Binding HealingDone}" />
+						<DataGridTextColumn Header="HPS" Binding="{Binding HealingDonePerSecond}" />
+						<DataGridTextColumn Header="Heal In" Binding="{Binding HealingReceived}" />
+						<DataGridTextColumn Header="Heal/s In" Binding="{Binding HealingReceivedPerSecond}" />
+					</DataGrid.Columns>
+				</DataGrid>
+			</Grid>
+		</Border>
+
+		<Grid Grid.Row="3" RowDefinitions="Auto,*">
 			<Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
 				<TextBlock Text="Players" FontWeight="DemiBold" />
 				<Button Grid.Column="1"
-						Content="All players"
+						Content="Clear selection"
 						Command="{Binding ClearSelectedPlayerCommand}"
+						IsVisible="{Binding HasSelectedPlayer}"
 						Padding="10,4" />
 			</Grid>
 			<DataGrid Grid.Row="1"
@@ -219,48 +302,5 @@
 				</DataGrid.Columns>
 			</DataGrid>
 		</Grid>
-
-		<TabControl Grid.Row="5">
-			<TabItem Header="Damage by Target">
-				<DataGrid ItemsSource="{Binding DamageDealtRows}" AutoGenerateColumns="False" IsReadOnly="True" GridLinesVisibility="None" BorderThickness="0">
-					<DataGrid.Columns>
-						<DataGridTextColumn Header="Source" Binding="{Binding PlayerName}" Width="*" />
-						<DataGridTextColumn Header="Target" Binding="{Binding OtherName}" Width="*" />
-						<DataGridTextColumn Header="Spell" Binding="{Binding SpellLabel}" Width="*" />
-						<DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat=N0}" />
-					</DataGrid.Columns>
-				</DataGrid>
-			</TabItem>
-			<TabItem Header="Damage Received">
-				<DataGrid ItemsSource="{Binding DamageReceivedRows}" AutoGenerateColumns="False" IsReadOnly="True" GridLinesVisibility="None" BorderThickness="0">
-					<DataGrid.Columns>
-						<DataGridTextColumn Header="Target" Binding="{Binding PlayerName}" Width="*" />
-						<DataGridTextColumn Header="Source" Binding="{Binding OtherName}" Width="*" />
-						<DataGridTextColumn Header="Spell" Binding="{Binding SpellLabel}" Width="*" />
-						<DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat=N0}" />
-					</DataGrid.Columns>
-				</DataGrid>
-			</TabItem>
-			<TabItem Header="Healing by Target">
-				<DataGrid ItemsSource="{Binding HealingDoneRows}" AutoGenerateColumns="False" IsReadOnly="True" GridLinesVisibility="None" BorderThickness="0">
-					<DataGrid.Columns>
-						<DataGridTextColumn Header="Source" Binding="{Binding PlayerName}" Width="*" />
-						<DataGridTextColumn Header="Target" Binding="{Binding OtherName}" Width="*" />
-						<DataGridTextColumn Header="Spell" Binding="{Binding SpellLabel}" Width="*" />
-						<DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat=N0}" />
-					</DataGrid.Columns>
-				</DataGrid>
-			</TabItem>
-			<TabItem Header="Healing Received">
-				<DataGrid ItemsSource="{Binding HealingReceivedRows}" AutoGenerateColumns="False" IsReadOnly="True" GridLinesVisibility="None" BorderThickness="0">
-					<DataGrid.Columns>
-						<DataGridTextColumn Header="Target" Binding="{Binding PlayerName}" Width="*" />
-						<DataGridTextColumn Header="Source" Binding="{Binding OtherName}" Width="*" />
-						<DataGridTextColumn Header="Spell" Binding="{Binding SpellLabel}" Width="*" />
-						<DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat=N0}" />
-					</DataGrid.Columns>
-				</DataGrid>
-			</TabItem>
-		</TabControl>
 	</Grid>
 </UserControl>
