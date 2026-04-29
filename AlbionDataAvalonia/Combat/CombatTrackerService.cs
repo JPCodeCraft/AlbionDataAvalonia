@@ -1,4 +1,5 @@
 using AlbionDataAvalonia.Combat.Models;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -8,6 +9,9 @@ namespace AlbionDataAvalonia.Combat;
 public sealed class CombatTrackerService
 {
     public static readonly TimeSpan FixedBucketSize = TimeSpan.FromSeconds(1);
+    private const int MaxRetainedEncounters = 50;
+    private static readonly TimeSpan UnreferencedEntityRetention = TimeSpan.FromMinutes(30);
+    private static readonly TimeSpan UnreferencedEntityPruneInterval = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan GameTimeBackwardResetThreshold = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan GameTimeReceiveDriftResetThreshold = TimeSpan.FromSeconds(30);
 
@@ -23,6 +27,7 @@ public sealed class CombatTrackerService
     private int nextEncounterNumber = 1;
     private long? anchorGameTimeMilliseconds;
     private DateTime? anchorUtc;
+    private DateTime lastUnreferencedEntityPruneUtc = DateTime.MinValue;
     private bool anchorFromTimeSync;
 
     public event Action<CombatTrackerSnapshot>? SnapshotChanged;
@@ -43,6 +48,7 @@ public sealed class CombatTrackerService
         CombatTrackerSnapshot snapshot;
         lock (sync)
         {
+            var nowUtc = DateTime.UtcNow;
             if (objectId <= 0)
             {
                 if (localEntity is not null)
@@ -60,7 +66,8 @@ public sealed class CombatTrackerService
                 localEntity.IsPartyMember = true;
             }
 
-            snapshot = BuildSnapshot(DateTime.UtcNow);
+            PruneUnreferencedEntitiesIfDue(nowUtc);
+            snapshot = BuildSnapshot(nowUtc);
         }
 
         SnapshotChanged?.Invoke(snapshot);
@@ -71,8 +78,10 @@ public sealed class CombatTrackerService
         CombatTrackerSnapshot snapshot;
         lock (sync)
         {
+            var nowUtc = DateTime.UtcNow;
             AddOrUpdateEntity(objectId, guid, name, CombatEntityKind.Player);
-            snapshot = BuildSnapshot(DateTime.UtcNow);
+            PruneUnreferencedEntitiesIfDue(nowUtc);
+            snapshot = BuildSnapshot(nowUtc);
         }
 
         SnapshotChanged?.Invoke(snapshot);
@@ -88,6 +97,7 @@ public sealed class CombatTrackerService
         CombatTrackerSnapshot? snapshot = null;
         lock (sync)
         {
+            var nowUtc = DateTime.UtcNow;
             if (entitiesByObjectId.TryGetValue(objectId, out var existingEntity)
                 && (existingEntity.IsLocalPlayer || existingEntity.IsPartyMember))
             {
@@ -97,9 +107,10 @@ public sealed class CombatTrackerService
             var previousName = existingEntity?.Name;
             var previousRole = existingEntity is null ? CombatEntityRole.Unknown : GetEntityRole(existingEntity);
             var entity = AddOrUpdateEntity(objectId, null, GetMobName(mobIndex, mobName), CombatEntityKind.Mob);
+            PruneUnreferencedEntitiesIfDue(nowUtc);
             if (!string.Equals(previousName, entity.Name, StringComparison.Ordinal) || previousRole != GetEntityRole(entity))
             {
-                snapshot = BuildSnapshot(DateTime.UtcNow);
+                snapshot = BuildSnapshot(nowUtc);
             }
         }
 
@@ -114,6 +125,7 @@ public sealed class CombatTrackerService
         CombatTrackerSnapshot snapshot;
         lock (sync)
         {
+            var nowUtc = DateTime.UtcNow;
             foreach (var entity in entitiesByKey.Values)
             {
                 entity.IsPartyMember = false;
@@ -135,7 +147,8 @@ public sealed class CombatTrackerService
                 entity.IsPartyMember = true;
             }
 
-            snapshot = BuildSnapshot(DateTime.UtcNow);
+            PruneUnreferencedEntitiesIfDue(nowUtc);
+            snapshot = BuildSnapshot(nowUtc);
         }
 
         SnapshotChanged?.Invoke(snapshot);
@@ -146,6 +159,7 @@ public sealed class CombatTrackerService
         CombatTrackerSnapshot snapshot;
         lock (sync)
         {
+            var nowUtc = DateTime.UtcNow;
             if (guid != Guid.Empty)
             {
                 var entity = AddOrUpdateEntity(null, guid, name, CombatEntityKind.Player);
@@ -157,7 +171,8 @@ public sealed class CombatTrackerService
                 localEntity.IsPartyMember = true;
             }
 
-            snapshot = BuildSnapshot(DateTime.UtcNow);
+            PruneUnreferencedEntitiesIfDue(nowUtc);
+            snapshot = BuildSnapshot(nowUtc);
         }
 
         SnapshotChanged?.Invoke(snapshot);
@@ -233,11 +248,15 @@ public sealed class CombatTrackerService
             var recordedAny = false;
             foreach (var healthEvent in events)
             {
-                recordedAny |= RecordHealthEvent(healthEvent, ResolveHealthEventTimeUtc(healthEvent, receivedAtUtc));
+                recordedAny |= RecordHealthEvent(
+                    healthEvent,
+                    ResolveHealthEventTimeUtc(healthEvent, receivedAtUtc),
+                    receivedAtUtc);
             }
 
             if (recordedAny)
             {
+                PruneUnreferencedEntitiesIfDue(receivedAtUtc);
                 snapshot = BuildSnapshot(receivedAtUtc);
             }
         }
@@ -311,6 +330,7 @@ public sealed class CombatTrackerService
             nextEncounterNumber = 1;
             anchorGameTimeMilliseconds = null;
             anchorUtc = null;
+            lastUnreferencedEntityPruneUtc = DateTime.MinValue;
             anchorFromTimeSync = false;
             snapshot = BuildSnapshot(DateTime.UtcNow);
         }
@@ -318,10 +338,10 @@ public sealed class CombatTrackerService
         SnapshotChanged?.Invoke(snapshot);
     }
 
-    private bool RecordHealthEvent(CombatHealthEvent healthEvent, DateTime eventUtc)
+    private bool RecordHealthEvent(CombatHealthEvent healthEvent, DateTime eventUtc, DateTime seenAtUtc)
     {
-        var source = GetOrCreateEntityByObjectId(healthEvent.SourceObjectId);
-        var target = GetOrCreateEntityByObjectId(healthEvent.TargetObjectId);
+        var source = GetOrCreateEntityByObjectId(healthEvent.SourceObjectId, seenAtUtc);
+        var target = GetOrCreateEntityByObjectId(healthEvent.TargetObjectId, seenAtUtc);
 
         if (!IsTracked(source) && !IsTracked(target))
         {
@@ -431,7 +451,139 @@ public sealed class CombatTrackerService
             encounterNumber,
             receivedAtUtc);
         encounters.Add(activeEncounter);
+        PruneRetainedEncounters();
         return activeEncounter;
+    }
+
+    private void PruneRetainedEncounters()
+    {
+        if (encounters.Count <= MaxRetainedEncounters)
+        {
+            return;
+        }
+
+        var removedAny = false;
+        while (encounters.Count > MaxRetainedEncounters)
+        {
+            var oldestEndedEncounterIndex = encounters.FindIndex(x => x != activeEncounter && !x.IsActive);
+            if (oldestEndedEncounterIndex < 0)
+            {
+                break;
+            }
+
+            var removedEncounter = encounters[oldestEndedEncounterIndex];
+            encounters.RemoveAt(oldestEndedEncounterIndex);
+            Log.Debug(
+                "Pruned combat encounter {EncounterKey} #{EncounterNumber}. Started={StartedAtUtc} Ended={EndedAtUtc} Buckets={BucketCount}",
+                removedEncounter.EncounterKey,
+                removedEncounter.EncounterNumber,
+                removedEncounter.StartedAtUtc,
+                removedEncounter.EndedAtUtc,
+                removedEncounter.Buckets.Count);
+            removedAny = true;
+        }
+
+        if (removedAny)
+        {
+            PruneUnreferencedEntities(DateTime.UtcNow);
+        }
+    }
+
+    private void PruneUnreferencedEntitiesIfDue(DateTime nowUtc)
+    {
+        if (lastUnreferencedEntityPruneUtc != DateTime.MinValue
+            && nowUtc - lastUnreferencedEntityPruneUtc < UnreferencedEntityPruneInterval)
+        {
+            return;
+        }
+
+        lastUnreferencedEntityPruneUtc = nowUtc;
+        PruneUnreferencedEntities(nowUtc);
+    }
+
+    private void PruneUnreferencedEntities(DateTime nowUtc)
+    {
+        var referencedEntityKeys = GetReferencedEntityKeys();
+        var entityKeysToRemove = entitiesByKey
+            .Where(x => !x.Value.IsLocalPlayer
+                && !x.Value.IsPartyMember
+                && !referencedEntityKeys.Contains(x.Key)
+                && nowUtc - x.Value.LastSeenAtUtc > UnreferencedEntityRetention)
+            .Select(x => x.Key)
+            .ToArray();
+
+        foreach (var entityKey in entityKeysToRemove)
+        {
+            if (entitiesByKey.TryGetValue(entityKey, out var entity))
+            {
+                Log.Debug(
+                    "Pruned stale unreferenced combat entity {EntityKey}. Name={Name} Kind={Kind} ObjectId={ObjectId} Guid={Guid} LastSeenAtUtc={LastSeenAtUtc}",
+                    entity.EntityKey,
+                    string.IsNullOrWhiteSpace(entity.Name) ? null : entity.Name,
+                    entity.Kind,
+                    entity.ObjectId,
+                    entity.Guid,
+                    entity.LastSeenAtUtc);
+                RemoveEntity(entity);
+            }
+        }
+    }
+
+    private HashSet<string> GetReferencedEntityKeys()
+    {
+        var referencedEntityKeys = new HashSet<string>(StringComparer.Ordinal);
+
+        foreach (var encounter in encounters)
+        {
+            foreach (var bucket in encounter.Buckets)
+            {
+                foreach (var entityKey in bucket.PlayerTotals.Keys)
+                {
+                    referencedEntityKeys.Add(entityKey);
+                }
+
+                AddReferencedBreakdownEntityKeys(referencedEntityKeys, bucket.DamageDealt);
+                AddReferencedBreakdownEntityKeys(referencedEntityKeys, bucket.DamageReceived);
+                AddReferencedBreakdownEntityKeys(referencedEntityKeys, bucket.HealingDone);
+                AddReferencedBreakdownEntityKeys(referencedEntityKeys, bucket.HealingReceived);
+            }
+        }
+
+        return referencedEntityKeys;
+    }
+
+    private static void AddReferencedBreakdownEntityKeys(
+        HashSet<string> referencedEntityKeys,
+        Dictionary<string, Dictionary<string, Dictionary<string, long>>> breakdown)
+    {
+        foreach (var (playerKey, byOther) in breakdown)
+        {
+            referencedEntityKeys.Add(playerKey);
+            foreach (var otherKey in byOther.Keys)
+            {
+                referencedEntityKeys.Add(otherKey);
+            }
+        }
+    }
+
+    private void RemoveEntity(CombatTrackedEntity entity)
+    {
+        entitiesByKey.Remove(entity.EntityKey);
+        combatStates.Remove(entity.EntityKey);
+
+        if (entity.ObjectId is { } objectId
+            && entitiesByObjectId.TryGetValue(objectId, out var entityByObjectId)
+            && ReferenceEquals(entityByObjectId, entity))
+        {
+            entitiesByObjectId.Remove(objectId);
+        }
+
+        if (entity.Guid is { } guid
+            && entitiesByGuid.TryGetValue(guid, out var entityByGuid)
+            && ReferenceEquals(entityByGuid, entity))
+        {
+            entitiesByGuid.Remove(guid);
+        }
     }
 
     private CombatTimeBucket GetBucket(CombatEncounter encounter, DateTime receivedAtUtc)
@@ -596,7 +748,7 @@ public sealed class CombatTrackerService
             .ToArray();
     }
 
-    private CombatTrackedEntity AddOrUpdateEntity(long? objectId, Guid? guid, string? name, CombatEntityKind? kind = null)
+    private CombatTrackedEntity AddOrUpdateEntity(long? objectId, Guid? guid, string? name, CombatEntityKind? kind = null, DateTime? seenAtUtc = null)
     {
         CombatTrackedEntity? entity = null;
 
@@ -647,17 +799,20 @@ public sealed class CombatTrackerService
             entity.Kind = resolvedKind;
         }
 
+        entity.LastSeenAtUtc = seenAtUtc ?? DateTime.UtcNow;
+
         return entity;
     }
 
-    private CombatTrackedEntity GetOrCreateEntityByObjectId(long objectId)
+    private CombatTrackedEntity GetOrCreateEntityByObjectId(long objectId, DateTime seenAtUtc)
     {
         if (entitiesByObjectId.TryGetValue(objectId, out var entity))
         {
+            entity.LastSeenAtUtc = seenAtUtc;
             return entity;
         }
 
-        return AddOrUpdateEntity(objectId, null, null);
+        return AddOrUpdateEntity(objectId, null, null, seenAtUtc: seenAtUtc);
     }
 
     private static bool IsTracked(CombatTrackedEntity entity)
@@ -752,6 +907,7 @@ public sealed class CombatTrackerService
         public Guid? Guid { get; set; }
         public string Name { get; set; } = string.Empty;
         public CombatEntityKind Kind { get; set; } = CombatEntityKind.Unknown;
+        public DateTime LastSeenAtUtc { get; set; } = DateTime.UtcNow;
         public bool IsPartyMember { get; set; }
         public bool IsLocalPlayer { get; set; }
     }
