@@ -78,6 +78,36 @@ public sealed class CombatTrackerService
         SnapshotChanged?.Invoke(snapshot);
     }
 
+    public void AddOrUpdateMob(long objectId, int? mobIndex, string? mobName = null)
+    {
+        if (objectId <= 0)
+        {
+            return;
+        }
+
+        CombatTrackerSnapshot? snapshot = null;
+        lock (sync)
+        {
+            if (entitiesByObjectId.TryGetValue(objectId, out var existingEntity)
+                && (existingEntity.IsLocalPlayer || existingEntity.IsPartyMember))
+            {
+                return;
+            }
+
+            var previousName = existingEntity?.Name;
+            var entity = AddOrUpdateEntity(objectId, null, GetMobName(mobIndex, mobName));
+            if (!string.Equals(previousName, entity.Name, StringComparison.Ordinal))
+            {
+                snapshot = BuildSnapshot(DateTime.UtcNow);
+            }
+        }
+
+        if (snapshot is not null)
+        {
+            SnapshotChanged?.Invoke(snapshot);
+        }
+    }
+
     public void SetPartySnapshot(IReadOnlyDictionary<Guid, string> partyMembers)
     {
         CombatTrackerSnapshot snapshot;
@@ -649,6 +679,18 @@ public sealed class CombatTrackerService
         return spellKey.StartsWith("spell:", StringComparison.Ordinal)
             ? $"Spell {spellKey.Substring("spell:".Length)}"
             : spellKey;
+    }
+
+    private static string GetMobName(int? mobIndex, string? mobName)
+    {
+        if (!string.IsNullOrWhiteSpace(mobName))
+        {
+            return mobName;
+        }
+
+        return mobIndex is > 0
+            ? $"Mob {mobIndex.Value}"
+            : "Mob";
     }
 
     private sealed class CombatEncounter

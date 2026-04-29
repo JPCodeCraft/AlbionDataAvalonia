@@ -32,6 +32,7 @@ namespace AlbionDataAvalonia.Network.Services
         private readonly ItemsIdsService _itemsIdsService;
         private readonly AchievementsService _achievementsService;
         private readonly CombatTrackerService _combatTracker;
+        private readonly MobsService _mobsService;
 
         private bool hasCleanedUpDevices = false;
         private bool hasFinishedStartingDevices = false;
@@ -40,7 +41,7 @@ namespace AlbionDataAvalonia.Network.Services
         private IPhotonReceiver? receiver;
         private CaptureDeviceList? devices;
 
-        public NetworkListenerService(Uploader uploader, PlayerState playerState, SettingsManager settingsManager, MailService mailService, IdleService idleService, TradeService tradeService, AFMUploader afmUploader, ItemsIdsService itemsIdsService, AchievementsService achievementsService, CombatTrackerService combatTracker)
+        public NetworkListenerService(Uploader uploader, PlayerState playerState, SettingsManager settingsManager, MailService mailService, IdleService idleService, TradeService tradeService, AFMUploader afmUploader, ItemsIdsService itemsIdsService, AchievementsService achievementsService, CombatTrackerService combatTracker, MobsService mobsService)
         {
             _uploader = uploader;
             _playerState = playerState;
@@ -50,6 +51,7 @@ namespace AlbionDataAvalonia.Network.Services
             _itemsIdsService = itemsIdsService;
             _achievementsService = achievementsService;
             _combatTracker = combatTracker;
+            _mobsService = mobsService;
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
@@ -95,6 +97,7 @@ namespace AlbionDataAvalonia.Network.Services
                 // builder.AddEventHandler(new PlayerCountsEventHandler(_playerState, _afmUploader));
                 // builder.AddEventHandler(new CharacterStatsEventHandler());
                 builder.AddEventHandler(new NewCharacterEventHandler(_combatTracker));
+                builder.AddEventHandler(new NewMobEventHandler(_combatTracker, _mobsService));
                 builder.AddEventHandler(new PartyJoinedEventHandler(_combatTracker));
                 builder.AddEventHandler(new PartyPlayerJoinedEventHandler(_combatTracker));
                 builder.AddEventHandler(new PartyPlayerLeftEventHandler(_combatTracker));

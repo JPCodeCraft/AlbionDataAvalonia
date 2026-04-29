@@ -84,6 +84,7 @@ public partial class App : Application
         var uploader = services.GetRequiredService<Uploader>();
         var afmUploader = services.GetRequiredService<AFMUploader>();
         var localization = services.GetRequiredService<LocalizationService>();
+        var mobsService = services.GetRequiredService<MobsService>();
         var itemsIdsService = services.GetRequiredService<ItemsIdsService>();
         var achievementsService = services.GetRequiredService<AchievementsService>();
         var idleService = services.GetRequiredService<IdleService>();
@@ -110,6 +111,9 @@ public partial class App : Application
             await ClientUpdater.CheckForUpdatesAsync(settings.AppSettings.LatestVersionUrl, settings.AppSettings.LatesVersionDownloadUrl, settings.AppSettings.FileNameFormat);
         };
         _updateTimer.Start();
+
+        //INITIALIZE MOBS
+        await mobsService.InitializeAsync();
 
         //UPLOADER
         var uploaderCancellationToken = new CancellationTokenSource();
@@ -230,6 +234,7 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<MailService>();
         collection.AddSingleton<TradeService>();
         collection.AddSingleton<LocalizationService>();
+        collection.AddSingleton<MobsService>();
         collection.AddSingleton<ItemsIdsService>();
         collection.AddSingleton<AchievementsService>();
         collection.AddSingleton<AuthService>();
