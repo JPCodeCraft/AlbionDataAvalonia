@@ -1,5 +1,6 @@
 using AlbionDataAvalonia.Combat;
 using AlbionDataAvalonia.Combat.Models;
+using AlbionDataAvalonia.Settings;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -11,6 +12,7 @@ using LiveChartsCore.SkiaSharpView.Painting;
 using SkiaSharp;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Text;
@@ -20,6 +22,7 @@ namespace AlbionDataAvalonia.ViewModels;
 public partial class CombatViewModel : ViewModelBase, IDisposable
 {
     private readonly CombatTrackerService? combatTracker;
+    private readonly SettingsManager? settingsManager;
     private DispatcherTimer? activeEncounterRefreshTimer;
     private CombatTrackerSnapshot currentSnapshot;
     private CombatEncounterSnapshot? selectedEncounterSnapshot;
@@ -118,6 +121,10 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     private CombatEncounterListItemViewModel? selectedEncounter;
 
+    [ObservableProperty]
+    private bool isCombatTrackerDisabled;
+
+    public bool IsCombatTrackerEnabled => !IsCombatTrackerDisabled;
     public bool HasSelectedPlayer => SelectedPlayer is not null;
     public bool HasSelectedEncounter => SelectedEncounter is not null;
 
@@ -140,22 +147,31 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     public CombatViewModel()
     {
         currentSnapshot = CombatTrackerSnapshot.Empty();
+        isCombatTrackerDisabled = false;
         selectedAggregation = InitializeAggregationOptions();
         selectedChartWindow = InitializeChartWindowOptions();
         selectedChartMetric = InitializeChartMetricOptions();
         selectedPlayerFilter = InitializePlayerFilterOptions();
     }
 
-    public CombatViewModel(CombatTrackerService combatTracker)
+    public CombatViewModel(CombatTrackerService combatTracker, SettingsManager settingsManager)
     {
         this.combatTracker = combatTracker;
+        this.settingsManager = settingsManager;
+        isCombatTrackerDisabled = settingsManager.UserSettings.DisableCombatTracker;
         currentSnapshot = combatTracker.CurrentSnapshot;
         selectedAggregation = InitializeAggregationOptions();
         selectedChartWindow = InitializeChartWindowOptions();
         selectedChartMetric = InitializeChartMetricOptions();
         selectedPlayerFilter = InitializePlayerFilterOptions();
         ApplySnapshot(currentSnapshot);
+        settingsManager.UserSettings.PropertyChanged += OnUserSettingsPropertyChanged;
         combatTracker.SnapshotChanged += OnSnapshotChanged;
+    }
+
+    partial void OnIsCombatTrackerDisabledChanged(bool value)
+    {
+        OnPropertyChanged(nameof(IsCombatTrackerEnabled));
     }
 
     partial void OnSelectedPlayerChanged(CombatPlayerRowViewModel? value)
@@ -242,6 +258,22 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     private void OnSnapshotChanged(CombatTrackerSnapshot snapshot)
     {
         Dispatcher.UIThread.Post(() => ApplySnapshot(snapshot));
+    }
+
+    private void OnUserSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(UserSettings.DisableCombatTracker))
+        {
+            return;
+        }
+
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (settingsManager is not null)
+            {
+                IsCombatTrackerDisabled = settingsManager.UserSettings.DisableCombatTracker;
+            }
+        });
     }
 
     private void OnActiveEncounterRefreshTimerTick(object? sender, EventArgs e)
@@ -1067,6 +1099,11 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         if (combatTracker is not null)
         {
             combatTracker.SnapshotChanged -= OnSnapshotChanged;
+        }
+
+        if (settingsManager is not null)
+        {
+            settingsManager.UserSettings.PropertyChanged -= OnUserSettingsPropertyChanged;
         }
 
         if (activeEncounterRefreshTimer is not null)

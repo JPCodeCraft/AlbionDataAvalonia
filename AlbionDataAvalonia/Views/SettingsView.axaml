@@ -8,19 +8,16 @@
 			 x:DataType="vm:SettingsViewModel">
 
 	<ScrollViewer Padding="0, 0, 20, 20">
-		<StackPanel Spacing="16">
+		<StackPanel Spacing="24">
 
-			<!--START HIDDEN-->
-			<CheckBox Content="Start Hidden" IsChecked="{Binding UserSettings.StartHidden}" Margin="0 0 0 10"/>
+			<StackPanel Spacing="10">
+				<TextBlock Text="General" FontSize="16" FontWeight="SemiBold" />
+				<CheckBox Content="Start Hidden" IsChecked="{Binding UserSettings.StartHidden}" />
+				<CheckBox Content="Shut Down on Window Close" IsChecked="{Binding UserSettings.ShutDownOnClose}" />
+			</StackPanel>
 
-			<!--SHUT DOWN ON CLOSE-->
-			<CheckBox Content="Shut Down on Window Close" IsChecked="{Binding UserSettings.ShutDownOnClose}" Margin="0 0 0 10"/>
-
-			<!--DISABLE COMBAT TRACKER-->
-			<CheckBox Content="Disable Combat Tracker" IsChecked="{Binding UserSettings.DisableCombatTracker}" Margin="0 0 0 10"/>
-
-			<!--THREAD COUNT-->
-			<StackPanel Margin="0 0 0 10" Spacing="12">
+			<StackPanel Spacing="12">
+				<TextBlock Text="Uploads" FontSize="16" FontWeight="SemiBold" />
 				<Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
 					<TextBlock Text="Parallel uploads" />
 					<TextBlock Grid.Column="1" Text="{Binding UserSettings.DesiredThreadCount, Mode=OneWay, StringFormat={}{0:N0}}" />
@@ -78,6 +75,11 @@
 						</UniformGrid>
 					</StackPanel>
 				</Border>
+			</StackPanel>
+
+			<StackPanel Spacing="10">
+				<TextBlock Text="Combat" FontSize="16" FontWeight="SemiBold" />
+				<CheckBox Content="Disable Combat Tracker" IsChecked="{Binding UserSettings.DisableCombatTracker}" />
 			</StackPanel>
 
 		</StackPanel>
