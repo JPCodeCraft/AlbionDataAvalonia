@@ -26,6 +26,10 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     private bool applyingSnapshot;
     private bool applyingPlayerSelection;
     private string? lastChartRenderSignature;
+    private string? selectedEncounterKey;
+    private string? selectedPlayerKey;
+    private int encounterSelectionRestoreVersion;
+    private int playerSelectionRestoreVersion;
 
     [ObservableProperty]
     private string elapsedText = "00:00";
@@ -163,6 +167,12 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             return;
         }
 
+        selectedPlayerKey = value?.EntityKey;
+        if (value is not null)
+        {
+            playerSelectionRestoreVersion++;
+        }
+
         RefreshChart();
     }
 
@@ -173,6 +183,12 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         if (applyingSnapshot)
         {
             return;
+        }
+
+        selectedEncounterKey = value?.EncounterKey;
+        if (value is not null)
+        {
+            encounterSelectionRestoreVersion++;
         }
 
         ApplySelectedEncounter(value?.Encounter);
@@ -210,12 +226,16 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     [RelayCommand]
     private void ClearSelectedEncounter()
     {
+        selectedEncounterKey = null;
+        encounterSelectionRestoreVersion++;
         SelectedEncounter = null;
     }
 
     [RelayCommand]
     private void ClearSelectedPlayer()
     {
+        selectedPlayerKey = null;
+        playerSelectionRestoreVersion++;
         SelectedPlayer = null;
     }
 
@@ -244,17 +264,19 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             ? "Player not set"
             : snapshot.LocalPlayer.Name;
 
-        var selectedEncounterKey = SelectedEncounter?.EncounterKey;
+        var requestedSelectedEncounterKey = selectedEncounterKey ?? SelectedEncounter?.EncounterKey;
         Replace(Encounters, snapshot.Encounters.Select(CreateEncounterItem));
 
-        var selectedEncounter = string.IsNullOrEmpty(selectedEncounterKey)
+        var selectedEncounter = string.IsNullOrEmpty(requestedSelectedEncounterKey)
             ? null
-            : Encounters.FirstOrDefault(x => x.EncounterKey == selectedEncounterKey);
+            : Encounters.FirstOrDefault(x => x.EncounterKey == requestedSelectedEncounterKey);
 
         applyingSnapshot = true;
         SelectedEncounter = selectedEncounter;
         applyingSnapshot = false;
+        selectedEncounterKey = selectedEncounter?.EncounterKey;
         ApplySelectedEncounter(selectedEncounter?.Encounter);
+        QueueEncounterSelectionRestore(selectedEncounterKey);
         UpdateActiveEncounterRefreshTimer(snapshot.IsEncounterActive);
     }
 
@@ -352,7 +374,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     private void RefreshPlayers()
     {
         var encounters = GetDisplayedEncounters().ToArray();
-        var selectedKey = SelectedPlayer?.EntityKey;
+        var requestedSelectedPlayerKey = selectedPlayerKey ?? SelectedPlayer?.EntityKey;
         var duration = SumElapsed(encounters, DateTime.UtcNow);
         var players = AggregatePlayers(encounters)
             .Where(MatchesSelectedPlayerFilter)
@@ -368,14 +390,85 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         {
             Replace(Players, players);
 
-            SelectedPlayer = string.IsNullOrEmpty(selectedKey)
+            SelectedPlayer = string.IsNullOrEmpty(requestedSelectedPlayerKey)
                 ? null
-                : Players.FirstOrDefault(x => x.EntityKey == selectedKey);
+                : Players.FirstOrDefault(x => x.EntityKey == requestedSelectedPlayerKey);
+            selectedPlayerKey = SelectedPlayer?.EntityKey;
         }
         finally
         {
             applyingPlayerSelection = false;
         }
+
+        QueuePlayerSelectionRestore(selectedPlayerKey);
+    }
+
+    private void QueueEncounterSelectionRestore(string? encounterKey)
+    {
+        if (string.IsNullOrEmpty(encounterKey))
+        {
+            return;
+        }
+
+        var version = ++encounterSelectionRestoreVersion;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (version != encounterSelectionRestoreVersion)
+            {
+                return;
+            }
+
+            if (SelectedEncounter?.EncounterKey == encounterKey)
+            {
+                return;
+            }
+
+            var encounter = Encounters.FirstOrDefault(x => x.EncounterKey == encounterKey);
+            if (encounter is null)
+            {
+                return;
+            }
+
+            applyingSnapshot = true;
+            SelectedEncounter = encounter;
+            applyingSnapshot = false;
+            selectedEncounterKey = encounter.EncounterKey;
+            ApplySelectedEncounter(encounter.Encounter);
+        }, DispatcherPriority.Background);
+    }
+
+    private void QueuePlayerSelectionRestore(string? playerKey)
+    {
+        if (string.IsNullOrEmpty(playerKey))
+        {
+            return;
+        }
+
+        var version = ++playerSelectionRestoreVersion;
+        Dispatcher.UIThread.Post(() =>
+        {
+            if (version != playerSelectionRestoreVersion)
+            {
+                return;
+            }
+
+            if (SelectedPlayer?.EntityKey == playerKey)
+            {
+                return;
+            }
+
+            var player = Players.FirstOrDefault(x => x.EntityKey == playerKey);
+            if (player is null)
+            {
+                return;
+            }
+
+            applyingPlayerSelection = true;
+            SelectedPlayer = player;
+            applyingPlayerSelection = false;
+            selectedPlayerKey = player.EntityKey;
+            RefreshChart();
+        }, DispatcherPriority.Background);
     }
 
     private void RefreshChart()
