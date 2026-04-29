@@ -33,6 +33,8 @@ public sealed class CombatTrackerService
     private DateTime lastUnreferencedEntityPruneUtc = DateTime.MinValue;
     private bool anchorFromTimeSync;
     private bool isDisabled;
+    private bool isPaused;
+    private bool startNewEncounterAfterPause;
 
     public event Action<CombatTrackerSnapshot>? SnapshotChanged;
 
@@ -55,6 +57,17 @@ public sealed class CombatTrackerService
             lock (sync)
             {
                 return BuildSnapshot(DateTime.UtcNow);
+            }
+        }
+    }
+
+    public bool IsPaused
+    {
+        get
+        {
+            lock (sync)
+            {
+                return isPaused;
             }
         }
     }
@@ -299,6 +312,13 @@ public sealed class CombatTrackerService
                 return;
             }
 
+            if (isPaused)
+            {
+                TrackHealthEventEntities(events, receivedAtUtc);
+                PruneUnreferencedEntitiesIfDue(receivedAtUtc);
+                return;
+            }
+
             UpdateGameTimeAnchor(events, receivedAtUtc);
 
             var recordedAny = false;
@@ -321,6 +341,44 @@ public sealed class CombatTrackerService
         {
             SnapshotChanged?.Invoke(snapshot);
         }
+    }
+
+    public void SetPaused(bool paused)
+    {
+        CombatTrackerSnapshot? snapshot = null;
+        lock (sync)
+        {
+            if (isDisabled)
+            {
+                isPaused = false;
+                return;
+            }
+
+            if (isPaused == paused)
+            {
+                return;
+            }
+
+            var nowUtc = DateTime.UtcNow;
+            isPaused = paused;
+            if (paused)
+            {
+                EndActiveEncounter(nowUtc);
+                combatStates.Clear();
+                startNewEncounterAfterPause = true;
+            }
+
+            snapshot = BuildSnapshot(nowUtc);
+        }
+
+        if (snapshot is not null)
+        {
+            SnapshotChanged?.Invoke(snapshot);
+        }
+
+        Log.Information(paused
+            ? "Combat tracker paused; health changes will not be counted."
+            : "Combat tracker resumed.");
     }
 
     public void UpdateGameTimeAnchorFromTimeSync(long gameTimeMilliseconds, DateTime receivedAtUtc)
@@ -353,6 +411,11 @@ public sealed class CombatTrackerService
                 return;
             }
 
+            if (isPaused)
+            {
+                return;
+            }
+
             if (!entitiesByObjectId.TryGetValue(objectId, out var entity) || !IsTracked(entity))
             {
                 return;
@@ -370,9 +433,7 @@ public sealed class CombatTrackerService
                 combatStates[entity.EntityKey] = false;
                 if (activeEncounter is not null && !AnyTrackedEntityInCombat())
                 {
-                    activeEncounter.IsActive = false;
-                    activeEncounter.EndedAtUtc = receivedAtUtc;
-                    activeEncounter = null;
+                    EndActiveEncounter(receivedAtUtc);
                 }
             }
 
@@ -448,6 +509,7 @@ public sealed class CombatTrackerService
         anchorUtc = null;
         lastUnreferencedEntityPruneUtc = DateTime.MinValue;
         anchorFromTimeSync = false;
+        startNewEncounterAfterPause = false;
     }
 
     private void FullResetCore()
@@ -457,6 +519,7 @@ public sealed class CombatTrackerService
         entitiesByObjectId.Clear();
         entitiesByGuid.Clear();
         localEntity = null;
+        isPaused = false;
     }
 
     private bool RecordHealthEvent(CombatHealthEvent healthEvent, DateTime eventUtc, DateTime seenAtUtc)
@@ -488,6 +551,15 @@ public sealed class CombatTrackerService
         }
 
         return true;
+    }
+
+    private void TrackHealthEventEntities(IEnumerable<CombatHealthEvent> healthEvents, DateTime seenAtUtc)
+    {
+        foreach (var healthEvent in healthEvents)
+        {
+            GetOrCreateEntityByObjectId(healthEvent.SourceObjectId, seenAtUtc);
+            GetOrCreateEntityByObjectId(healthEvent.TargetObjectId, seenAtUtc);
+        }
     }
 
     private void UpdateGameTimeAnchor(IReadOnlyCollection<CombatHealthEvent> healthEvents, DateTime receivedAtUtc)
@@ -551,9 +623,14 @@ public sealed class CombatTrackerService
             return activeEncounter;
         }
 
-        if (encounters.Count > 0)
+        if (!startNewEncounterAfterPause && encounters.Count > 0)
         {
-            return encounters[^1];
+            var latestEncounter = encounters[^1];
+            if (latestEncounter.IsActive
+                || latestEncounter.EndedAtUtc is { } endedAtUtc && receivedAtUtc <= endedAtUtc)
+            {
+                return latestEncounter;
+            }
         }
 
         return StartActiveEncounter(receivedAtUtc);
@@ -572,8 +649,21 @@ public sealed class CombatTrackerService
             encounterNumber,
             receivedAtUtc);
         encounters.Add(activeEncounter);
+        startNewEncounterAfterPause = false;
         PruneRetainedEncounters();
         return activeEncounter;
+    }
+
+    private void EndActiveEncounter(DateTime endedAtUtc)
+    {
+        if (activeEncounter is null)
+        {
+            return;
+        }
+
+        activeEncounter.IsActive = false;
+        activeEncounter.EndedAtUtc = endedAtUtc;
+        activeEncounter = null;
     }
 
     private void PruneRetainedEncounters()
@@ -764,6 +854,7 @@ public sealed class CombatTrackerService
 
         return new CombatTrackerSnapshot(
             displayEncounter?.IsActive ?? false,
+            isPaused,
             displayEncounter?.StartedAtUtc,
             displayEncounter?.EndedAtUtc,
             displayEncounter?.Elapsed ?? TimeSpan.Zero,

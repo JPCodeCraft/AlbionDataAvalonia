@@ -21,14 +21,18 @@ namespace AlbionDataAvalonia.ViewModels;
 
 public partial class CombatViewModel : ViewModelBase, IDisposable
 {
+    private static readonly TimeSpan ChartRefreshInterval = TimeSpan.FromSeconds(2);
+
     private readonly CombatTrackerService? combatTracker;
     private readonly SettingsManager? settingsManager;
     private DispatcherTimer? activeEncounterRefreshTimer;
+    private IDisposable? pendingChartRefreshRegistration;
     private CombatTrackerSnapshot currentSnapshot;
     private CombatEncounterSnapshot? selectedEncounterSnapshot;
     private bool applyingSnapshot;
     private bool applyingPlayerSelection;
     private string? lastChartRenderSignature;
+    private DateTime lastChartRefreshUtc = DateTime.MinValue;
     private string? selectedEncounterKey;
     private string? selectedPlayerKey;
     private int encounterSelectionRestoreVersion;
@@ -124,9 +128,13 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     private bool isCombatTrackerDisabled;
 
+    [ObservableProperty]
+    private bool isCombatTrackerPaused;
+
     public bool IsCombatTrackerEnabled => !IsCombatTrackerDisabled;
     public bool HasSelectedPlayer => SelectedPlayer is not null;
     public bool HasSelectedEncounter => SelectedEncounter is not null;
+    public string PauseButtonText => IsCombatTrackerPaused ? "Resume" : "Pause";
 
     public ObservableCollection<CombatPlayerRowViewModel> Players { get; } = new();
     public ObservableCollection<CombatEncounterListItemViewModel> Encounters { get; } = new();
@@ -160,6 +168,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         this.settingsManager = settingsManager;
         isCombatTrackerDisabled = settingsManager.UserSettings.DisableCombatTracker;
         currentSnapshot = combatTracker.CurrentSnapshot;
+        isCombatTrackerPaused = currentSnapshot.IsPaused;
         selectedAggregation = InitializeAggregationOptions();
         selectedChartWindow = InitializeChartWindowOptions();
         selectedChartMetric = InitializeChartMetricOptions();
@@ -172,6 +181,11 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     partial void OnIsCombatTrackerDisabledChanged(bool value)
     {
         OnPropertyChanged(nameof(IsCombatTrackerEnabled));
+    }
+
+    partial void OnIsCombatTrackerPausedChanged(bool value)
+    {
+        OnPropertyChanged(nameof(PauseButtonText));
     }
 
     partial void OnSelectedPlayerChanged(CombatPlayerRowViewModel? value)
@@ -189,7 +203,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             playerSelectionRestoreVersion++;
         }
 
-        RefreshChart();
+        RequestChartRefresh(immediate: true);
     }
 
     partial void OnSelectedEncounterChanged(CombatEncounterListItemViewModel? value)
@@ -207,36 +221,48 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             encounterSelectionRestoreVersion++;
         }
 
-        ApplySelectedEncounter(value?.Encounter);
+        ApplySelectedEncounter(value?.Encounter, immediateChartRefresh: true);
     }
 
     partial void OnSelectedAggregationChanged(CombatAggregationOptionViewModel value)
     {
         RefreshDisplayedSummary(DateTime.UtcNow);
-        RefreshChart();
+        RequestChartRefresh(immediate: true);
     }
 
     partial void OnSelectedChartWindowChanged(CombatChartWindowOptionViewModel value)
     {
         RefreshDisplayedSummary(DateTime.UtcNow);
-        RefreshChart();
+        RequestChartRefresh(immediate: true);
     }
 
     partial void OnSelectedChartMetricChanged(CombatChartMetricOptionViewModel value)
     {
-        RefreshChart();
+        RequestChartRefresh(immediate: true);
     }
 
     partial void OnSelectedPlayerFilterChanged(CombatPlayerFilterOptionViewModel value)
     {
         RefreshPlayers();
-        RefreshChart();
+        RequestChartRefresh(immediate: true);
     }
 
     [RelayCommand]
     private void Reset()
     {
         combatTracker?.Reset();
+    }
+
+    [RelayCommand]
+    private void TogglePause()
+    {
+        if (combatTracker is null)
+        {
+            IsCombatTrackerPaused = !IsCombatTrackerPaused;
+            return;
+        }
+
+        combatTracker.SetPaused(!IsCombatTrackerPaused);
     }
 
     [RelayCommand]
@@ -290,6 +316,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     private void ApplySnapshot(CombatTrackerSnapshot snapshot)
     {
         currentSnapshot = snapshot;
+        IsCombatTrackerPaused = snapshot.IsPaused;
         PartyMemberCount = snapshot.PartyMemberCount;
         ShowMissingPlayerWarning = !snapshot.HasLocalPlayer;
         LocalPlayerText = snapshot.LocalPlayer is null
@@ -342,12 +369,12 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         activeEncounterRefreshTimer?.Stop();
     }
 
-    private void ApplySelectedEncounter(CombatEncounterSnapshot? encounter)
+    private void ApplySelectedEncounter(CombatEncounterSnapshot? encounter, bool immediateChartRefresh = false)
     {
         selectedEncounterSnapshot = encounter;
         RefreshDisplayedSummary(DateTime.UtcNow);
         RefreshPlayers();
-        RefreshChart();
+        RequestChartRefresh(immediate: immediateChartRefresh);
     }
 
     private void RefreshDisplayedSummary(DateTime nowUtc)
@@ -499,12 +526,59 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             SelectedPlayer = player;
             applyingPlayerSelection = false;
             selectedPlayerKey = player.EntityKey;
-            RefreshChart();
+            RequestChartRefresh();
         }, DispatcherPriority.Background);
+    }
+
+    private void RequestChartRefresh(bool immediate = false)
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => RequestChartRefresh(immediate));
+            return;
+        }
+
+        if (immediate)
+        {
+            CancelPendingChartRefresh();
+            RefreshChart();
+            return;
+        }
+
+        var nowUtc = DateTime.UtcNow;
+        var elapsed = nowUtc - lastChartRefreshUtc;
+        if (lastChartRefreshUtc == DateTime.MinValue || elapsed >= ChartRefreshInterval)
+        {
+            CancelPendingChartRefresh();
+            RefreshChart();
+            return;
+        }
+
+        if (pendingChartRefreshRegistration is not null)
+        {
+            return;
+        }
+
+        var delay = elapsed < TimeSpan.Zero
+            ? ChartRefreshInterval
+            : ChartRefreshInterval - elapsed;
+
+        pendingChartRefreshRegistration = DispatcherTimer.RunOnce(() =>
+        {
+            pendingChartRefreshRegistration = null;
+            RefreshChart();
+        }, delay);
+    }
+
+    private void CancelPendingChartRefresh()
+    {
+        pendingChartRefreshRegistration?.Dispose();
+        pendingChartRefreshRegistration = null;
     }
 
     private void RefreshChart()
     {
+        lastChartRefreshUtc = DateTime.UtcNow;
         var chartTargetEntityKey = GetEffectiveChartTargetEntityKey();
         ChartTitle = CreateChartTitle();
 
@@ -518,8 +592,12 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             return;
         }
 
-        var encounters = GetDisplayedEncounters();
-        var buckets = AggregateBuckets(encounters, SelectedAggregation.Seconds, CreateEntityPredicate(chartTargetEntityKey)).ToArray();
+        var encounters = GetDisplayedEncounters().ToArray();
+        var buckets = AggregateBuckets(
+            encounters,
+            SelectedAggregation.Seconds,
+            CreateEntityPredicate(chartTargetEntityKey),
+            SelectedChartWindow.Duration).ToArray();
         var signature = CreateChartRenderSignature(buckets, chartTargetEntityKey);
         if (signature == lastChartRenderSignature)
         {
@@ -548,31 +626,36 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     private IEnumerable<AggregatedCombatBucket> AggregateBuckets(
         IEnumerable<CombatEncounterSnapshot> encounters,
         int aggregationSeconds,
-        Func<string, bool> includeEntity)
+        Func<string, bool> includeEntity,
+        TimeSpan? chartWindow = null)
     {
+        var encounterArray = encounters as IReadOnlyList<CombatEncounterSnapshot> ?? encounters.ToArray();
         var aggregationTicks = TimeSpan.FromSeconds(aggregationSeconds).Ticks;
-        var groupedBuckets = encounters
+        var minimumBucketTicks = GetMinimumVisibleBucketTicks(encounterArray, aggregationTicks, chartWindow);
+        var groupedBuckets = encounterArray
             .SelectMany(encounter => encounter.TimeBuckets.Select(bucket =>
             {
+                var bucketTicks = GetAggregatedBucketTicks(encounter.StartedAtUtc.Add(bucket.StartOffset), aggregationTicks);
                 var playerTotals = bucket.PlayerTotals
                     .Where(player => includeEntity(player.EntityKey))
                     .ToArray();
 
                 return new
                 {
-                    TimestampUtc = encounter.StartedAtUtc.Add(bucket.StartOffset),
+                    BucketTicks = bucketTicks,
                     DamageDealt = playerTotals.Sum(player => player.DamageDealt),
                     DamageReceived = playerTotals.Sum(player => player.DamageReceived),
                     HealingDone = playerTotals.Sum(player => player.HealingDone),
                     HealingReceived = playerTotals.Sum(player => player.HealingReceived)
                 };
             }))
-            .GroupBy(x => x.TimestampUtc.Ticks / aggregationTicks)
+            .Where(x => minimumBucketTicks is null || x.BucketTicks >= minimumBucketTicks.Value)
+            .GroupBy(x => x.BucketTicks)
             .OrderBy(x => x.Key)
             .Select(x =>
             {
                 return new AggregatedCombatBucket(
-                    new DateTime(x.Key * aggregationTicks, DateTimeKind.Utc),
+                    new DateTime(x.Key, DateTimeKind.Utc),
                     x.Sum(bucket => bucket.DamageDealt),
                     x.Sum(bucket => bucket.DamageReceived),
                     x.Sum(bucket => bucket.HealingDone),
@@ -586,6 +669,37 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         }
 
         return FillMissingBuckets(groupedBuckets, aggregationSeconds);
+    }
+
+    private static long? GetMinimumVisibleBucketTicks(
+        IReadOnlyList<CombatEncounterSnapshot> encounters,
+        long aggregationTicks,
+        TimeSpan? chartWindow)
+    {
+        if (chartWindow is null)
+        {
+            return null;
+        }
+
+        long? latestBucketTicks = null;
+        foreach (var encounter in encounters)
+        {
+            foreach (var bucket in encounter.TimeBuckets)
+            {
+                var bucketTicks = GetAggregatedBucketTicks(encounter.StartedAtUtc.Add(bucket.StartOffset), aggregationTicks);
+                if (latestBucketTicks is null || bucketTicks > latestBucketTicks.Value)
+                {
+                    latestBucketTicks = bucketTicks;
+                }
+            }
+        }
+
+        return latestBucketTicks - chartWindow.Value.Ticks;
+    }
+
+    private static long GetAggregatedBucketTicks(DateTime bucketStartedAtUtc, long aggregationTicks)
+    {
+        return bucketStartedAtUtc.Ticks / aggregationTicks * aggregationTicks;
     }
 
     private static IEnumerable<AggregatedCombatBucket> FillMissingBuckets(
@@ -1112,6 +1226,8 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             activeEncounterRefreshTimer.Stop();
             activeEncounterRefreshTimer = null;
         }
+
+        CancelPendingChartRefresh();
     }
 }
 

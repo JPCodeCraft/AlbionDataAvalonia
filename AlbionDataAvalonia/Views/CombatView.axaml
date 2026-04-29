@@ -77,16 +77,26 @@
 						<TextBlock Classes="FilterLabel" Text="Party" HorizontalAlignment="Right" />
 						<TextBlock Text="{Binding PartyMemberCount}" FontSize="18" FontWeight="DemiBold" HorizontalAlignment="Right" />
 					</StackPanel>
-					<Button Grid.Column="3"
-							Content="Reset"
-							Command="{Binding ResetCommand}"
-							Padding="12,8"
-							VerticalAlignment="Center" />
+					<StackPanel Grid.Column="3"
+								Orientation="Horizontal"
+								Spacing="6"
+								VerticalAlignment="Center">
+						<Button Content="{Binding PauseButtonText}"
+								Command="{Binding TogglePauseCommand}"
+								Padding="12,8" />
+						<Button Content="Reset"
+								Command="{Binding ResetCommand}"
+								Padding="12,8" />
+					</StackPanel>
 				</Grid>
-				<TextBlock Grid.Row="1"
-						   Text="Local player is not registered yet. Combat damage will not be tracked until the player is detected."
-						   Foreground="#FFB74D"
-						   IsVisible="{Binding ShowMissingPlayerWarning}" />
+				<StackPanel Grid.Row="1" Spacing="4">
+					<TextBlock Text="Combat tracker is paused. Health changes are not being counted, but entities are still tracked."
+							   Foreground="#FFB74D"
+							   IsVisible="{Binding IsCombatTrackerPaused}" />
+					<TextBlock Text="Local player is not registered yet. Combat damage will not be tracked until the player is detected."
+							   Foreground="#FFB74D"
+							   IsVisible="{Binding ShowMissingPlayerWarning}" />
+				</StackPanel>
 				<WrapPanel Grid.Row="2">
 					<Border Classes="SummaryCard">
 						<StackPanel>

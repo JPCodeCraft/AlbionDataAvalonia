@@ -124,6 +124,7 @@ public sealed record CombatEncounterSnapshot(
 
 public sealed record CombatTrackerSnapshot(
     bool IsEncounterActive,
+    bool IsPaused,
     DateTime? EncounterStartedAtUtc,
     DateTime? EncounterEndedAtUtc,
     TimeSpan Elapsed,
@@ -134,6 +135,7 @@ public sealed record CombatTrackerSnapshot(
     IReadOnlyList<CombatEncounterSnapshot> Encounters)
 {
     public static CombatTrackerSnapshot Empty() => new(
+        false,
         false,
         null,
         null,
