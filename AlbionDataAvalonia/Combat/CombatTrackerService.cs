@@ -1,7 +1,9 @@
 using AlbionDataAvalonia.Combat.Models;
+using AlbionDataAvalonia.Settings;
 using Serilog;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 
 namespace AlbionDataAvalonia.Combat;
@@ -21,6 +23,7 @@ public sealed class CombatTrackerService
     private readonly Dictionary<Guid, CombatTrackedEntity> entitiesByGuid = new();
     private readonly List<CombatEncounter> encounters = new();
     private readonly Dictionary<string, bool> combatStates = new();
+    private readonly SettingsManager settingsManager;
 
     private CombatTrackedEntity? localEntity;
     private CombatEncounter? activeEncounter;
@@ -29,8 +32,21 @@ public sealed class CombatTrackerService
     private DateTime? anchorUtc;
     private DateTime lastUnreferencedEntityPruneUtc = DateTime.MinValue;
     private bool anchorFromTimeSync;
+    private bool isDisabled;
 
     public event Action<CombatTrackerSnapshot>? SnapshotChanged;
+
+    public CombatTrackerService(SettingsManager settingsManager)
+    {
+        this.settingsManager = settingsManager;
+        isDisabled = settingsManager.UserSettings.DisableCombatTracker;
+        settingsManager.UserSettings.PropertyChanged += OnUserSettingsPropertyChanged;
+
+        if (isDisabled)
+        {
+            FullResetCore();
+        }
+    }
 
     public CombatTrackerSnapshot CurrentSnapshot
     {
@@ -48,6 +64,11 @@ public sealed class CombatTrackerService
         CombatTrackerSnapshot snapshot;
         lock (sync)
         {
+            if (isDisabled)
+            {
+                return;
+            }
+
             var nowUtc = DateTime.UtcNow;
             if (objectId <= 0)
             {
@@ -78,6 +99,11 @@ public sealed class CombatTrackerService
         CombatTrackerSnapshot snapshot;
         lock (sync)
         {
+            if (isDisabled)
+            {
+                return;
+            }
+
             var nowUtc = DateTime.UtcNow;
             AddOrUpdateEntity(objectId, guid, name, CombatEntityKind.Player);
             PruneUnreferencedEntitiesIfDue(nowUtc);
@@ -97,6 +123,11 @@ public sealed class CombatTrackerService
         CombatTrackerSnapshot? snapshot = null;
         lock (sync)
         {
+            if (isDisabled)
+            {
+                return;
+            }
+
             var nowUtc = DateTime.UtcNow;
             if (entitiesByObjectId.TryGetValue(objectId, out var existingEntity)
                 && (existingEntity.IsLocalPlayer || existingEntity.IsPartyMember))
@@ -125,6 +156,11 @@ public sealed class CombatTrackerService
         CombatTrackerSnapshot snapshot;
         lock (sync)
         {
+            if (isDisabled)
+            {
+                return;
+            }
+
             var nowUtc = DateTime.UtcNow;
             foreach (var entity in entitiesByKey.Values)
             {
@@ -159,6 +195,11 @@ public sealed class CombatTrackerService
         CombatTrackerSnapshot snapshot;
         lock (sync)
         {
+            if (isDisabled)
+            {
+                return;
+            }
+
             var nowUtc = DateTime.UtcNow;
             if (guid != Guid.Empty)
             {
@@ -183,6 +224,11 @@ public sealed class CombatTrackerService
         CombatTrackerSnapshot snapshot;
         lock (sync)
         {
+            if (isDisabled)
+            {
+                return;
+            }
+
             if (guid is { } value && value != Guid.Empty && entitiesByGuid.TryGetValue(value, out var entity) && entity != localEntity)
             {
                 entity.IsPartyMember = false;
@@ -204,6 +250,11 @@ public sealed class CombatTrackerService
         CombatTrackerSnapshot snapshot;
         lock (sync)
         {
+            if (isDisabled)
+            {
+                return;
+            }
+
             foreach (var entity in entitiesByKey.Values)
             {
                 entity.IsPartyMember = false;
@@ -238,6 +289,11 @@ public sealed class CombatTrackerService
         CombatTrackerSnapshot? snapshot = null;
         lock (sync)
         {
+            if (isDisabled)
+            {
+                return;
+            }
+
             if (localEntity is null)
             {
                 return;
@@ -271,6 +327,11 @@ public sealed class CombatTrackerService
     {
         lock (sync)
         {
+            if (isDisabled)
+            {
+                return;
+            }
+
             anchorGameTimeMilliseconds = gameTimeMilliseconds;
             anchorUtc = receivedAtUtc;
             anchorFromTimeSync = true;
@@ -282,6 +343,11 @@ public sealed class CombatTrackerService
         CombatTrackerSnapshot? snapshot = null;
         lock (sync)
         {
+            if (isDisabled)
+            {
+                return;
+            }
+
             if (localEntity is null)
             {
                 return;
@@ -324,18 +390,73 @@ public sealed class CombatTrackerService
         CombatTrackerSnapshot snapshot;
         lock (sync)
         {
-            encounters.Clear();
-            combatStates.Clear();
-            activeEncounter = null;
-            nextEncounterNumber = 1;
-            anchorGameTimeMilliseconds = null;
-            anchorUtc = null;
-            lastUnreferencedEntityPruneUtc = DateTime.MinValue;
-            anchorFromTimeSync = false;
+            if (isDisabled)
+            {
+                FullResetCore();
+            }
+            else
+            {
+                ResetEncounterDataCore();
+            }
+
             snapshot = BuildSnapshot(DateTime.UtcNow);
         }
 
         SnapshotChanged?.Invoke(snapshot);
+    }
+
+    private void OnUserSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(UserSettings.DisableCombatTracker))
+        {
+            return;
+        }
+
+        CombatTrackerSnapshot snapshot;
+        lock (sync)
+        {
+            var disableCombatTracker = settingsManager.UserSettings.DisableCombatTracker;
+            if (isDisabled == disableCombatTracker)
+            {
+                return;
+            }
+
+            isDisabled = disableCombatTracker;
+            if (isDisabled)
+            {
+                FullResetCore();
+                Log.Information("Combat tracker disabled; all combat tracker data was reset.");
+            }
+            else
+            {
+                Log.Information("Combat tracker enabled.");
+            }
+
+            snapshot = BuildSnapshot(DateTime.UtcNow);
+        }
+
+        SnapshotChanged?.Invoke(snapshot);
+    }
+
+    private void ResetEncounterDataCore()
+    {
+        encounters.Clear();
+        combatStates.Clear();
+        activeEncounter = null;
+        nextEncounterNumber = 1;
+        anchorGameTimeMilliseconds = null;
+        anchorUtc = null;
+        lastUnreferencedEntityPruneUtc = DateTime.MinValue;
+        anchorFromTimeSync = false;
+    }
+
+    private void FullResetCore()
+    {
+        ResetEncounterDataCore();
+        entitiesByKey.Clear();
+        entitiesByObjectId.Clear();
+        entitiesByGuid.Clear();
+        localEntity = null;
     }
 
     private bool RecordHealthEvent(CombatHealthEvent healthEvent, DateTime eventUtc, DateTime seenAtUtc)

@@ -124,6 +124,21 @@ public class UserSettings : INotifyPropertyChanged
         }
     }
 
+    private bool disableCombatTracker = false;
+    public bool DisableCombatTracker
+    {
+        get => disableCombatTracker;
+        set
+        {
+            if (disableCombatTracker != value)
+            {
+                disableCombatTracker = value;
+                OnPropertyChanged(nameof(DisableCombatTracker));
+                Log.Information("Disable combat tracker set to {DisableCombatTracker}", disableCombatTracker);
+            }
+        }
+    }
+
     private LogEventLevel logLevel = LogEventLevel.Information;
     public LogEventLevel LogLevel
     {

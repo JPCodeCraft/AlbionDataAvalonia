@@ -6,5 +6,6 @@
   "MailsPerPage": 1000,
   "TradesToShow": 1000,
   "UploadSpecsToAfm": true,
+  "DisableCombatTracker": false,
   "LogLevel": 2
 }
