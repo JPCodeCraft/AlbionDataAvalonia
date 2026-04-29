@@ -276,11 +276,22 @@
 		<Grid Grid.Row="3" RowDefinitions="Auto,*">
 			<Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
 				<TextBlock Text="Players" FontWeight="DemiBold" />
-				<Button Grid.Column="1"
-						Content="Clear selection"
-						Command="{Binding ClearSelectedPlayerCommand}"
-						IsVisible="{Binding HasSelectedPlayer}"
-						Padding="10,4" />
+				<StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="6">
+					<TextBlock Classes="FilterLabel" Text="Show" VerticalAlignment="Center" />
+					<ComboBox ItemsSource="{Binding PlayerFilterOptions}"
+							  SelectedItem="{Binding SelectedPlayerFilter}"
+							  Width="128">
+						<ComboBox.ItemTemplate>
+							<DataTemplate x:DataType="vm:CombatPlayerFilterOptionViewModel">
+								<TextBlock Text="{Binding Label}" />
+							</DataTemplate>
+						</ComboBox.ItemTemplate>
+					</ComboBox>
+					<Button Content="Clear selection"
+							Command="{Binding ClearSelectedPlayerCommand}"
+							IsVisible="{Binding HasSelectedPlayer}"
+							Padding="10,4" />
+				</StackPanel>
 			</Grid>
 			<DataGrid Grid.Row="1"
 					  ItemsSource="{Binding Players}"
@@ -290,6 +301,7 @@
 					  GridLinesVisibility="None"
 					  BorderThickness="0">
 				<DataGrid.Columns>
+					<DataGridTextColumn Header="Role" Binding="{Binding RoleLabel}" SortMemberPath="RoleSortOrder" CanUserSort="True" Width="115" />
 					<DataGridTextColumn Header="Player" Binding="{Binding Name}" Width="*" />
 					<DataGridTextColumn Header="Dmg Out" Binding="{Binding DamageDealt}" />
 					<DataGridTextColumn Header="DPS" Binding="{Binding DamageDealtPerSecond}" />

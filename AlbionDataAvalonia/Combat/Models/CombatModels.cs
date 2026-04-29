@@ -10,11 +10,20 @@ public enum CombatChangeKind
     Healing
 }
 
+public enum CombatEntityRole
+{
+    PartyPlayer = 0,
+    Player = 1,
+    Mob = 2,
+    Unknown = 3
+}
+
 public sealed record CombatEntitySnapshot(
     string EntityKey,
     long? ObjectId,
     Guid? Guid,
     string Name,
+    CombatEntityRole Role,
     bool IsPartyMember,
     bool IsLocalPlayer);
 
@@ -63,6 +72,7 @@ public sealed record CombatHealthEvent(
 public sealed record CombatPlayerSummary(
     string EntityKey,
     string Name,
+    CombatEntityRole Role,
     long DamageDealt,
     long DamageReceived,
     long HealingDone,

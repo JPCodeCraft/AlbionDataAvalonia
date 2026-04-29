@@ -55,7 +55,7 @@ public sealed class CombatTrackerService
             }
             else
             {
-                localEntity = AddOrUpdateEntity(objectId, guid, name);
+                localEntity = AddOrUpdateEntity(objectId, guid, name, CombatEntityKind.Player);
                 localEntity.IsLocalPlayer = true;
                 localEntity.IsPartyMember = true;
             }
@@ -71,7 +71,7 @@ public sealed class CombatTrackerService
         CombatTrackerSnapshot snapshot;
         lock (sync)
         {
-            AddOrUpdateEntity(objectId, guid, name);
+            AddOrUpdateEntity(objectId, guid, name, CombatEntityKind.Player);
             snapshot = BuildSnapshot(DateTime.UtcNow);
         }
 
@@ -95,8 +95,9 @@ public sealed class CombatTrackerService
             }
 
             var previousName = existingEntity?.Name;
-            var entity = AddOrUpdateEntity(objectId, null, GetMobName(mobIndex, mobName));
-            if (!string.Equals(previousName, entity.Name, StringComparison.Ordinal))
+            var previousRole = existingEntity is null ? CombatEntityRole.Unknown : GetEntityRole(existingEntity);
+            var entity = AddOrUpdateEntity(objectId, null, GetMobName(mobIndex, mobName), CombatEntityKind.Mob);
+            if (!string.Equals(previousName, entity.Name, StringComparison.Ordinal) || previousRole != GetEntityRole(entity))
             {
                 snapshot = BuildSnapshot(DateTime.UtcNow);
             }
@@ -130,7 +131,7 @@ public sealed class CombatTrackerService
                     continue;
                 }
 
-                var entity = AddOrUpdateEntity(null, guid, name);
+                var entity = AddOrUpdateEntity(null, guid, name, CombatEntityKind.Player);
                 entity.IsPartyMember = true;
             }
 
@@ -147,7 +148,7 @@ public sealed class CombatTrackerService
         {
             if (guid != Guid.Empty)
             {
-                var entity = AddOrUpdateEntity(null, guid, name);
+                var entity = AddOrUpdateEntity(null, guid, name, CombatEntityKind.Player);
                 entity.IsPartyMember = true;
             }
 
@@ -553,6 +554,7 @@ public sealed class CombatTrackerService
             .Select(x => new CombatPlayerSummary(
                 x.Key,
                 GetEntityName(x.Key),
+                GetEntityRole(x.Key),
                 x.Value.DamageDealt,
                 x.Value.DamageReceived,
                 x.Value.HealingDone,
@@ -571,6 +573,7 @@ public sealed class CombatTrackerService
             entity.ObjectId,
             entity.Guid,
             string.IsNullOrWhiteSpace(entity.Name) ? entity.EntityKey : entity.Name,
+            GetEntityRole(entity),
             entity.IsPartyMember,
             entity.IsLocalPlayer);
     }
@@ -593,7 +596,7 @@ public sealed class CombatTrackerService
             .ToArray();
     }
 
-    private CombatTrackedEntity AddOrUpdateEntity(long? objectId, Guid? guid, string? name)
+    private CombatTrackedEntity AddOrUpdateEntity(long? objectId, Guid? guid, string? name, CombatEntityKind? kind = null)
     {
         CombatTrackedEntity? entity = null;
 
@@ -639,6 +642,11 @@ public sealed class CombatTrackerService
             entity.Name = "Unknown entity";
         }
 
+        if (kind is { } resolvedKind)
+        {
+            entity.Kind = resolvedKind;
+        }
+
         return entity;
     }
 
@@ -662,6 +670,28 @@ public sealed class CombatTrackerService
         return entitiesByKey.TryGetValue(entityKey, out var entity) && !string.IsNullOrWhiteSpace(entity.Name)
             ? entity.Name
             : "Unknown entity";
+    }
+
+    private CombatEntityRole GetEntityRole(string entityKey)
+    {
+        return entitiesByKey.TryGetValue(entityKey, out var entity)
+            ? GetEntityRole(entity)
+            : CombatEntityRole.Unknown;
+    }
+
+    private static CombatEntityRole GetEntityRole(CombatTrackedEntity entity)
+    {
+        if (entity.IsPartyMember || entity.IsLocalPlayer)
+        {
+            return CombatEntityRole.PartyPlayer;
+        }
+
+        return entity.Kind switch
+        {
+            CombatEntityKind.Player => CombatEntityRole.Player,
+            CombatEntityKind.Mob => CombatEntityRole.Mob,
+            _ => CombatEntityRole.Unknown
+        };
     }
 
     private static string GetSpellKey(int? spellId)
@@ -721,7 +751,15 @@ public sealed class CombatTrackerService
         public long? ObjectId { get; set; }
         public Guid? Guid { get; set; }
         public string Name { get; set; } = string.Empty;
+        public CombatEntityKind Kind { get; set; } = CombatEntityKind.Unknown;
         public bool IsPartyMember { get; set; }
         public bool IsLocalPlayer { get; set; }
+    }
+
+    private enum CombatEntityKind
+    {
+        Unknown,
+        Player,
+        Mob
     }
 }

@@ -52,6 +52,9 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     private CombatChartMetricOptionViewModel selectedChartMetric;
 
     [ObservableProperty]
+    private CombatPlayerFilterOptionViewModel selectedPlayerFilter;
+
+    [ObservableProperty]
     private int partyMemberCount;
 
     [ObservableProperty]
@@ -119,6 +122,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     public ObservableCollection<CombatAggregationOptionViewModel> AggregationOptions { get; } = new();
     public ObservableCollection<CombatChartWindowOptionViewModel> ChartWindowOptions { get; } = new();
     public ObservableCollection<CombatChartMetricOptionViewModel> ChartMetricOptions { get; } = new();
+    public ObservableCollection<CombatPlayerFilterOptionViewModel> PlayerFilterOptions { get; } = new();
 
     [ObservableProperty]
     private ISeries[] chartSeries = Array.Empty<ISeries>();
@@ -135,6 +139,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         selectedAggregation = InitializeAggregationOptions();
         selectedChartWindow = InitializeChartWindowOptions();
         selectedChartMetric = InitializeChartMetricOptions();
+        selectedPlayerFilter = InitializePlayerFilterOptions();
     }
 
     public CombatViewModel(CombatTrackerService combatTracker)
@@ -144,6 +149,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         selectedAggregation = InitializeAggregationOptions();
         selectedChartWindow = InitializeChartWindowOptions();
         selectedChartMetric = InitializeChartMetricOptions();
+        selectedPlayerFilter = InitializePlayerFilterOptions();
         ApplySnapshot(currentSnapshot);
         combatTracker.SnapshotChanged += OnSnapshotChanged;
     }
@@ -186,6 +192,12 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
 
     partial void OnSelectedChartMetricChanged(CombatChartMetricOptionViewModel value)
     {
+        RefreshChart();
+    }
+
+    partial void OnSelectedPlayerFilterChanged(CombatPlayerFilterOptionViewModel value)
+    {
+        RefreshPlayers();
         RefreshChart();
     }
 
@@ -343,6 +355,11 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         var selectedKey = SelectedPlayer?.EntityKey;
         var duration = SumElapsed(encounters, DateTime.UtcNow);
         var players = AggregatePlayers(encounters)
+            .Where(MatchesSelectedPlayerFilter)
+            .OrderBy(player => GetRoleSortOrder(player.Role))
+            .ThenByDescending(player => player.DamageDealt)
+            .ThenByDescending(player => player.HealingDone)
+            .ThenBy(player => player.Name, StringComparer.OrdinalIgnoreCase)
             .Select(player => CreatePlayerRow(player, duration))
             .ToArray();
 
@@ -492,14 +509,12 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             .Select(x => new CombatPlayerSummary(
                 x.Key,
                 x.First().Name,
+                x.First().Role,
                 x.Sum(player => player.DamageDealt),
                 x.Sum(player => player.DamageReceived),
                 x.Sum(player => player.HealingDone),
                 x.Sum(player => player.HealingReceived)))
             .Where(x => x.DamageDealt > 0 || x.DamageReceived > 0 || x.HealingDone > 0 || x.HealingReceived > 0)
-            .OrderByDescending(x => x.DamageDealt)
-            .ThenByDescending(x => x.HealingDone)
-            .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
     }
 
@@ -508,6 +523,9 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         return new CombatPlayerRowViewModel(
             player.EntityKey,
             player.Name,
+            player.Role,
+            GetRoleLabel(player.Role),
+            GetRoleSortOrder(player.Role),
             FormatAmount(player.DamageDealt),
             FormatRate(CalculateRate(player.DamageDealt, duration)),
             FormatAmount(player.DamageReceived),
@@ -516,6 +534,39 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             FormatRate(CalculateRate(player.HealingDone, duration)),
             FormatAmount(player.HealingReceived),
             FormatRate(CalculateRate(player.HealingReceived, duration)));
+    }
+
+    private bool MatchesSelectedPlayerFilter(CombatPlayerSummary player)
+    {
+        return SelectedPlayerFilter.Kind switch
+        {
+            CombatPlayerFilterKind.Party => player.Role == CombatEntityRole.PartyPlayer,
+            CombatPlayerFilterKind.Players => player.Role is CombatEntityRole.PartyPlayer or CombatEntityRole.Player,
+            CombatPlayerFilterKind.Mobs => player.Role == CombatEntityRole.Mob,
+            _ => true
+        };
+    }
+
+    private static int GetRoleSortOrder(CombatEntityRole role)
+    {
+        return role switch
+        {
+            CombatEntityRole.PartyPlayer => 0,
+            CombatEntityRole.Player => 1,
+            CombatEntityRole.Mob => 2,
+            _ => 3
+        };
+    }
+
+    private static string GetRoleLabel(CombatEntityRole role)
+    {
+        return role switch
+        {
+            CombatEntityRole.PartyPlayer => "Party Player",
+            CombatEntityRole.Player => "Player",
+            CombatEntityRole.Mob => "Mob",
+            _ => "Unknown"
+        };
     }
 
     private static CombatMetricTotals AggregateTotals(
@@ -895,6 +946,20 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         return options[0];
     }
 
+    private CombatPlayerFilterOptionViewModel InitializePlayerFilterOptions()
+    {
+        var options = new[]
+        {
+            new CombatPlayerFilterOptionViewModel(CombatPlayerFilterKind.All, "All"),
+            new CombatPlayerFilterOptionViewModel(CombatPlayerFilterKind.Party, "Only Party"),
+            new CombatPlayerFilterOptionViewModel(CombatPlayerFilterKind.Players, "Only Players"),
+            new CombatPlayerFilterOptionViewModel(CombatPlayerFilterKind.Mobs, "Only Mobs")
+        };
+
+        Replace(PlayerFilterOptions, options);
+        return options[0];
+    }
+
     private static void Replace<T>(ObservableCollection<T> target, IEnumerable<T> values)
     {
         target.Clear();
@@ -935,6 +1000,16 @@ public enum CombatChartMetricKind
 
 public sealed record CombatChartMetricOptionViewModel(CombatChartMetricKind Kind, string Label);
 
+public enum CombatPlayerFilterKind
+{
+    All,
+    Party,
+    Players,
+    Mobs
+}
+
+public sealed record CombatPlayerFilterOptionViewModel(CombatPlayerFilterKind Kind, string Label);
+
 public sealed record AggregatedCombatBucket(
     DateTime StartedAtUtc,
     long DamageDealt,
@@ -945,6 +1020,9 @@ public sealed record AggregatedCombatBucket(
 public sealed record CombatPlayerRowViewModel(
     string EntityKey,
     string Name,
+    CombatEntityRole Role,
+    string RoleLabel,
+    int RoleSortOrder,
     string DamageDealt,
     string DamageDealtPerSecond,
     string DamageReceived,
