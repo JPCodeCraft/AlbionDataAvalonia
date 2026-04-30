@@ -30,6 +30,7 @@ An alternative client for [The Albion Online Data Project](https://www.albion-on
 | 🧰 Market Data Collection | Captures in-game market data and uploads to AODP servers                       |
 | 📬 Market Mail Tracking   | Collects and displays your market mail data for price tracking                 |
 | 🪙 Trade History          | Stores instant buy/sell trades for later reference                             |
+| ⚔️ Damage Tracker         | Tracks combat encounters with damage, DPS, healing, and party/player summaries |
 | 📡 Enhanced Capture       | Captures data from loadout's quick buy screen, market screens, and gold screen |
 | 📊 Specs Capture          | Uploads character specs for use with AFM website                               |
 | 🚀 Launch on Startup      | Automatically starts with your system                                          |
@@ -107,6 +108,20 @@ There's no automatic update feature for MacOS, so you should manually download n
 - Basically, anything that can run Albion Online will run this application
 
 ## 📊 Features Showcase
+
+### Damage Tracker
+
+The Combat tab includes a passive damage tracker for reviewing combat while the client is running. It detects the local player, party members, other players, and mobs from captured packets, then groups health changes into combat encounters.
+
+The tracker shows:
+
+- Damage dealt, damage received, healing done, and healing received
+- Total values and per-second rates for the full session or the selected chart window
+- Encounter history with duration, status, DPS, damage taken, HPS, and healing received
+- Player, party, and mob summaries with filters for all entities, party only, players only, or mobs only
+- A time chart with configurable aggregation, total/per-second metrics, and 1m, 5m, 10m, 30m, 1h, or unlimited windows
+
+Use the Combat tab's **Pause** button to stop counting health changes without losing tracked entities, or **Reset** to clear the current tracker data. If you do not want combat data tracked, enable **Disable Combat Tracker** in Settings.
 
 ### User Trades
 
