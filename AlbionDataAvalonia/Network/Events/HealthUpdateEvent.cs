@@ -63,7 +63,6 @@ public class HealthUpdateEvent : BaseEvent
             AffectedObjectId,
             HealthChange,
             NewHealthValue,
-            CausingSpellIndex,
             GameTimeMilliseconds,
             out healthEvent);
     }

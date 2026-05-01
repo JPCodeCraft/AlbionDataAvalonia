@@ -78,6 +78,9 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     private string summaryScopeText = "No encounters yet";
 
     [ObservableProperty]
+    private string summaryTargetText = "Player not set";
+
+    [ObservableProperty]
     private string summaryWindowLabel = "Visible window (all)";
 
     [ObservableProperty]
@@ -130,6 +133,9 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     private bool isCombatTrackerPaused;
+
+    [ObservableProperty]
+    private bool useAllPartyStats;
 
     public bool IsCombatTrackerEnabled => !IsCombatTrackerDisabled;
     public bool HasSelectedPlayer => SelectedPlayer is not null;
@@ -188,6 +194,12 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(PauseButtonText));
     }
 
+    partial void OnUseAllPartyStatsChanged(bool value)
+    {
+        RefreshDisplayedSummary(DateTime.UtcNow);
+        RequestChartRefresh(immediate: true);
+    }
+
     partial void OnSelectedPlayerChanged(CombatPlayerRowViewModel? value)
     {
         OnPropertyChanged(nameof(HasSelectedPlayer));
@@ -197,12 +209,21 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             return;
         }
 
+        if (value is null && ShouldRestoreSelectedPlayer())
+        {
+            QueuePlayerSelectionRestore(selectedPlayerKey);
+            return;
+        }
+
         selectedPlayerKey = value?.EntityKey;
         if (value is not null)
         {
             playerSelectionRestoreVersion++;
+            ClearSelectedEncounterState();
         }
 
+        RefreshEncounters();
+        RefreshDisplayedSummary(DateTime.UtcNow);
         RequestChartRefresh(immediate: true);
     }
 
@@ -215,10 +236,17 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             return;
         }
 
+        if (value is null && ShouldRestoreSelectedEncounter())
+        {
+            QueueEncounterSelectionRestore(selectedEncounterKey);
+            return;
+        }
+
         selectedEncounterKey = value?.EncounterKey;
         if (value is not null)
         {
             encounterSelectionRestoreVersion++;
+            ClearSelectedPlayerState();
         }
 
         ApplySelectedEncounter(value?.Encounter, immediateChartRefresh: true);
@@ -243,7 +271,15 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
 
     partial void OnSelectedPlayerFilterChanged(CombatPlayerFilterOptionViewModel value)
     {
+        var hadSelectedPlayer = !string.IsNullOrEmpty(selectedPlayerKey);
         RefreshPlayers();
+        if (hadSelectedPlayer && string.IsNullOrEmpty(selectedPlayerKey))
+        {
+            RefreshEncounters();
+            RefreshDisplayedSummary(DateTime.UtcNow);
+            RefreshPlayers();
+        }
+
         RequestChartRefresh(immediate: true);
     }
 
@@ -268,17 +304,21 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     [RelayCommand]
     private void ClearSelectedEncounter()
     {
-        selectedEncounterKey = null;
-        encounterSelectionRestoreVersion++;
-        SelectedEncounter = null;
+        ClearSelectedEncounterState();
+        RefreshEncounters();
+        RefreshDisplayedSummary(DateTime.UtcNow);
+        RefreshPlayers();
+        RequestChartRefresh(immediate: true);
     }
 
     [RelayCommand]
     private void ClearSelectedPlayer()
     {
-        selectedPlayerKey = null;
-        playerSelectionRestoreVersion++;
-        SelectedPlayer = null;
+        ClearSelectedPlayerState();
+        RefreshEncounters();
+        RefreshDisplayedSummary(DateTime.UtcNow);
+        RefreshPlayers();
+        RequestChartRefresh(immediate: true);
     }
 
     private void OnSnapshotChanged(CombatTrackerSnapshot snapshot)
@@ -323,19 +363,18 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             ? "Player not set"
             : snapshot.LocalPlayer.Name;
 
-        var requestedSelectedEncounterKey = selectedEncounterKey ?? SelectedEncounter?.EncounterKey;
-        Replace(Encounters, snapshot.Encounters.Select(CreateEncounterItem));
+        var hadSelectedPlayer = !string.IsNullOrEmpty(selectedPlayerKey);
+        RefreshEncounters();
+        RefreshDisplayedSummary(DateTime.UtcNow);
+        RefreshPlayers();
+        if (hadSelectedPlayer && string.IsNullOrEmpty(selectedPlayerKey))
+        {
+            RefreshEncounters();
+            RefreshDisplayedSummary(DateTime.UtcNow);
+            RefreshPlayers();
+        }
 
-        var selectedEncounter = string.IsNullOrEmpty(requestedSelectedEncounterKey)
-            ? null
-            : Encounters.FirstOrDefault(x => x.EncounterKey == requestedSelectedEncounterKey);
-
-        applyingSnapshot = true;
-        SelectedEncounter = selectedEncounter;
-        applyingSnapshot = false;
-        selectedEncounterKey = selectedEncounter?.EncounterKey;
-        ApplySelectedEncounter(selectedEncounter?.Encounter);
-        QueueEncounterSelectionRestore(selectedEncounterKey);
+        RequestChartRefresh();
         UpdateActiveEncounterRefreshTimer(snapshot.IsEncounterActive);
     }
 
@@ -377,18 +416,52 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         RequestChartRefresh(immediate: immediateChartRefresh);
     }
 
+    private void ClearSelectedEncounterState()
+    {
+        selectedEncounterKey = null;
+        selectedEncounterSnapshot = null;
+        encounterSelectionRestoreVersion++;
+
+        applyingSnapshot = true;
+        try
+        {
+            SelectedEncounter = null;
+        }
+        finally
+        {
+            applyingSnapshot = false;
+        }
+    }
+
+    private void ClearSelectedPlayerState()
+    {
+        selectedPlayerKey = null;
+        playerSelectionRestoreVersion++;
+
+        applyingPlayerSelection = true;
+        try
+        {
+            SelectedPlayer = null;
+        }
+        finally
+        {
+            applyingPlayerSelection = false;
+        }
+    }
+
     private void RefreshDisplayedSummary(DateTime nowUtc)
     {
         var encounterArray = GetDisplayedEncounters().ToArray();
         var elapsed = SumElapsed(encounterArray, nowUtc);
-        var localPlayerEntityKey = currentSnapshot.LocalPlayer?.EntityKey;
-        var aggregatedBuckets = AggregateBuckets(encounterArray, SelectedAggregation.Seconds, CreateEntityPredicate(localPlayerEntityKey)).ToArray();
-        var totals = AggregateTotals(encounterArray, CreateEntityPredicate(localPlayerEntityKey));
+        var metricTarget = CreateMetricTarget(encounterArray);
+        var aggregatedBuckets = AggregateBuckets(encounterArray, SelectedAggregation.Seconds, metricTarget.IncludeEntity).ToArray();
+        var totals = AggregateTotals(encounterArray, metricTarget.IncludeEntity);
         var visibleBuckets = GetVisibleBuckets(aggregatedBuckets);
         var windowTotals = AggregateTotals(visibleBuckets);
         var visibleWindowDuration = GetVisibleEncounterDuration(encounterArray, visibleBuckets, nowUtc, SelectedAggregation.Seconds);
 
         ElapsedText = FormatDuration(elapsed);
+        SummaryTargetText = metricTarget.Label;
         SummaryScopeText = CreateEncounterScopeLabel();
         SummaryWindowLabel = CreateSummaryWindowLabel();
         SummaryDamageDealtTotalText = FormatAmount(totals.DamageDealt);
@@ -412,22 +485,65 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     private static CombatEncounterListItemViewModel CreateEncounterItem(CombatEncounterSnapshot encounter)
     {
         var duration = encounter.Elapsed;
+        var partyTotals = GetPartyTotals(encounter);
         return new CombatEncounterListItemViewModel(
             encounter.EncounterKey,
             $"#{encounter.EncounterNumber}",
             FormatUtcTime(encounter.StartedAtUtc),
             encounter.IsActive ? "Active" : "Ended",
             FormatDuration(duration),
-            FormatAmount(encounter.TotalDamageDealt),
-            FormatRate(CalculateRate(encounter.TotalDamageDealt, duration)),
-            FormatAmount(encounter.TotalDamageReceived),
-            FormatRate(CalculateRate(encounter.TotalDamageReceived, duration)),
-            FormatAmount(encounter.TotalHealingDone),
-            FormatRate(CalculateRate(encounter.TotalHealingDone, duration)),
-            FormatAmount(encounter.TotalHealingReceived),
-            FormatRate(CalculateRate(encounter.TotalHealingReceived, duration)),
+            FormatAmount(partyTotals.DamageDealt),
+            FormatRate(CalculateRate(partyTotals.DamageDealt, duration)),
+            FormatAmount(partyTotals.DamageReceived),
+            FormatRate(CalculateRate(partyTotals.DamageReceived, duration)),
+            FormatAmount(partyTotals.HealingDone),
+            FormatRate(CalculateRate(partyTotals.HealingDone, duration)),
+            FormatAmount(partyTotals.HealingReceived),
+            FormatRate(CalculateRate(partyTotals.HealingReceived, duration)),
             encounter.IsActive,
             encounter);
+    }
+
+    private static CombatMetricTotals GetPartyTotals(CombatEncounterSnapshot encounter)
+    {
+        var totals = new CombatMetricTotals();
+        foreach (var player in encounter.Players.Where(x => x.Role == CombatEntityRole.PartyPlayer))
+        {
+            totals.DamageDealt += player.DamageDealt;
+            totals.DamageReceived += player.DamageReceived;
+            totals.HealingDone += player.HealingDone;
+            totals.HealingReceived += player.HealingReceived;
+        }
+
+        return totals;
+    }
+
+    private void RefreshEncounters()
+    {
+        var requestedSelectedEncounterKey = selectedEncounterKey ?? SelectedEncounter?.EncounterKey;
+        var encounters = GetEncounterListEncounters()
+            .Select(CreateEncounterItem)
+            .ToArray();
+
+        applyingSnapshot = true;
+        try
+        {
+            Replace(Encounters, encounters);
+
+            var selectedEncounter = string.IsNullOrEmpty(requestedSelectedEncounterKey)
+                ? null
+                : Encounters.FirstOrDefault(x => x.EncounterKey == requestedSelectedEncounterKey);
+
+            SelectedEncounter = selectedEncounter;
+            selectedEncounterKey = selectedEncounter?.EncounterKey;
+            selectedEncounterSnapshot = selectedEncounter?.Encounter;
+        }
+        finally
+        {
+            applyingSnapshot = false;
+        }
+
+        QueueEncounterSelectionRestore(selectedEncounterKey);
     }
 
     private void RefreshPlayers()
@@ -530,6 +646,18 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         }, DispatcherPriority.Background);
     }
 
+    private bool ShouldRestoreSelectedEncounter()
+    {
+        return !string.IsNullOrEmpty(selectedEncounterKey)
+            && Encounters.Any(x => x.EncounterKey == selectedEncounterKey);
+    }
+
+    private bool ShouldRestoreSelectedPlayer()
+    {
+        return !string.IsNullOrEmpty(selectedPlayerKey)
+            && Players.Any(x => x.EntityKey == selectedPlayerKey);
+    }
+
     private void RequestChartRefresh(bool immediate = false)
     {
         if (!Dispatcher.UIThread.CheckAccess())
@@ -579,26 +707,26 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     private void RefreshChart()
     {
         lastChartRefreshUtc = DateTime.UtcNow;
-        var chartTargetEntityKey = GetEffectiveChartTargetEntityKey();
-        ChartTitle = CreateChartTitle();
+        var encounters = GetDisplayedEncounters().ToArray();
+        var metricTarget = CreateMetricTarget(encounters);
+        ChartTitle = CreateChartTitle(metricTarget.Label);
 
-        if (string.IsNullOrEmpty(chartTargetEntityKey))
+        if (!metricTarget.HasTarget)
         {
             var emptyBuckets = Array.Empty<AggregatedCombatBucket>();
-            lastChartRenderSignature = CreateChartRenderSignature(emptyBuckets, chartTargetEntityKey);
+            lastChartRenderSignature = CreateChartRenderSignature(emptyBuckets, metricTarget.SignatureKey);
             ChartSeries = Array.Empty<ISeries>();
             ChartXAxes = CreateChartXAxes(emptyBuckets, SelectedAggregation.Seconds, SelectedChartWindow.Duration);
             ChartYAxes = CreateChartYAxes(0, SelectedChartMetric.Kind);
             return;
         }
 
-        var encounters = GetDisplayedEncounters().ToArray();
         var buckets = AggregateBuckets(
             encounters,
             SelectedAggregation.Seconds,
-            CreateEntityPredicate(chartTargetEntityKey),
+            metricTarget.IncludeEntity,
             SelectedChartWindow.Duration).ToArray();
-        var signature = CreateChartRenderSignature(buckets, chartTargetEntityKey);
+        var signature = CreateChartRenderSignature(buckets, metricTarget.SignatureKey);
         if (signature == lastChartRenderSignature)
         {
             return;
@@ -725,9 +853,61 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
 
     private IEnumerable<CombatEncounterSnapshot> GetDisplayedEncounters()
     {
-        return selectedEncounterSnapshot is null
+        var selectedEncounter = SelectedEncounter?.Encounter ?? selectedEncounterSnapshot;
+        if (selectedEncounter is not null)
+        {
+            return new[] { selectedEncounter };
+        }
+
+        return GetPlayerFilteredEncounters();
+    }
+
+    private IEnumerable<CombatEncounterSnapshot> GetEncounterListEncounters()
+    {
+        if (SelectedEncounter is not null || selectedEncounterSnapshot is not null)
+        {
+            return currentSnapshot.Encounters;
+        }
+
+        return GetPlayerFilteredEncounters();
+    }
+
+    private IEnumerable<CombatEncounterSnapshot> GetPlayerFilteredEncounters()
+    {
+        var playerKey = SelectedPlayer?.EntityKey ?? selectedPlayerKey;
+        return string.IsNullOrEmpty(playerKey)
             ? currentSnapshot.Encounters
-            : new[] { selectedEncounterSnapshot };
+            : currentSnapshot.Encounters.Where(encounter => EncounterHasPlayer(encounter, playerKey));
+    }
+
+    private static bool EncounterHasPlayer(CombatEncounterSnapshot encounter, string playerKey)
+    {
+        return encounter.Players.Any(player => player.EntityKey == playerKey);
+    }
+
+    private CombatMetricTarget CreateMetricTarget(IReadOnlyList<CombatEncounterSnapshot> encounters)
+    {
+        if (UseAllPartyStats)
+        {
+            var partyKeys = encounters
+                .SelectMany(encounter => encounter.Players)
+                .Where(player => player.Role == CombatEntityRole.PartyPlayer)
+                .Select(player => player.EntityKey)
+                .ToHashSet(StringComparer.Ordinal);
+
+            return new CombatMetricTarget(
+                "party",
+                "Party",
+                partyKeys.Contains,
+                partyKeys.Count > 0);
+        }
+
+        var targetEntityKey = GetSingleMetricTargetEntityKey();
+        return new CombatMetricTarget(
+            targetEntityKey ?? "none",
+            GetSingleMetricTargetLabel(),
+            CreateEntityPredicate(targetEntityKey),
+            !string.IsNullOrEmpty(targetEntityKey));
     }
 
     private static Func<string, bool> CreateEntityPredicate(string? selectedEntityKey)
@@ -913,12 +1093,14 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         return TimeSpan.FromTicks(visibleTicks);
     }
 
-    private string CreateChartRenderSignature(IReadOnlyList<AggregatedCombatBucket> buckets, string? chartTargetEntityKey)
+    private string CreateChartRenderSignature(IReadOnlyList<AggregatedCombatBucket> buckets, string chartTargetKey)
     {
         var builder = new StringBuilder();
-        builder.Append(selectedEncounterSnapshot?.EncounterKey ?? "all")
+        builder.Append(selectedEncounterSnapshot?.EncounterKey ?? selectedPlayerKey ?? "all")
             .Append('|')
-            .Append(chartTargetEntityKey ?? "none")
+            .Append(chartTargetKey)
+            .Append('|')
+            .Append(UseAllPartyStats)
             .Append('|')
             .Append(SelectedAggregation.Seconds)
             .Append('|')
@@ -950,16 +1132,31 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         return builder.ToString();
     }
 
-    private string? GetEffectiveChartTargetEntityKey()
+    private string? GetSingleMetricTargetEntityKey()
     {
-        return SelectedPlayer?.EntityKey ?? currentSnapshot.LocalPlayer?.EntityKey;
+        return SelectedPlayer?.EntityKey ?? selectedPlayerKey ?? currentSnapshot.LocalPlayer?.EntityKey;
     }
 
-    private string GetEffectiveChartTargetLabel()
+    private string GetSingleMetricTargetLabel()
     {
-        return SelectedPlayer?.Name
+        return GetSelectedPlayerName()
             ?? currentSnapshot.LocalPlayer?.Name
             ?? "Player not set";
+    }
+
+    private string? GetSelectedPlayerName()
+    {
+        if (SelectedPlayer is not null)
+        {
+            return SelectedPlayer.Name;
+        }
+
+        return string.IsNullOrEmpty(selectedPlayerKey)
+            ? null
+            : currentSnapshot.Encounters
+                .SelectMany(encounter => encounter.Players)
+                .FirstOrDefault(player => player.EntityKey == selectedPlayerKey)
+                ?.Name;
     }
 
     private string CreateEncounterScopeLabel()
@@ -967,6 +1164,11 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         if (SelectedEncounter is not null)
         {
             return $"{SelectedEncounter.Label} ({SelectedEncounter.Status})";
+        }
+
+        if (GetSelectedPlayerName() is { } selectedPlayerName)
+        {
+            return $"Encounters with {selectedPlayerName}";
         }
 
         return currentSnapshot.Encounters.Count == 0
@@ -981,10 +1183,16 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             : $"Visible window ({SelectedChartWindow.Label})";
     }
 
-    private string CreateChartTitle()
+    private string CreateChartTitle(string targetLabel)
     {
-        return $"Combat over time - {GetEffectiveChartTargetLabel()} - {CreateEncounterScopeLabel()}";
+        return $"Combat over time - {targetLabel} - {CreateEncounterScopeLabel()}";
     }
+
+    private sealed record CombatMetricTarget(
+        string SignatureKey,
+        string Label,
+        Func<string, bool> IncludeEntity,
+        bool HasTarget);
 
     private static double GetChartValue(long amount, CombatChartMetricKind metricKind, int aggregationSeconds)
     {

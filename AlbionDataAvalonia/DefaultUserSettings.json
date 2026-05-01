@@ -7,5 +7,6 @@
   "TradesToShow": 1000,
   "UploadSpecsToAfm": true,
   "DisableCombatTracker": false,
+  "CombatEncounterRetentionLimit": 1000,
   "LogLevel": 2
 }

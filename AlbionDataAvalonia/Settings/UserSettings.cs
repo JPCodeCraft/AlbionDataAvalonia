@@ -7,6 +7,10 @@ using System.ComponentModel;
 
 public class UserSettings : INotifyPropertyChanged
 {
+    public const int MinCombatEncounterRetentionLimit = 50;
+    public const int MaxCombatEncounterRetentionLimit = 10000;
+    public const int DefaultCombatEncounterRetentionLimit = 1000;
+
     public event PropertyChangedEventHandler? PropertyChanged;
 
     private bool _startHidden = true;
@@ -135,6 +139,22 @@ public class UserSettings : INotifyPropertyChanged
                 disableCombatTracker = value;
                 OnPropertyChanged(nameof(DisableCombatTracker));
                 Log.Information("Disable combat tracker set to {DisableCombatTracker}", disableCombatTracker);
+            }
+        }
+    }
+
+    private int combatEncounterRetentionLimit = DefaultCombatEncounterRetentionLimit;
+    public int CombatEncounterRetentionLimit
+    {
+        get => combatEncounterRetentionLimit;
+        set
+        {
+            var clamped = Math.Clamp(value, MinCombatEncounterRetentionLimit, MaxCombatEncounterRetentionLimit);
+            if (combatEncounterRetentionLimit != clamped)
+            {
+                combatEncounterRetentionLimit = clamped;
+                OnPropertyChanged(nameof(CombatEncounterRetentionLimit));
+                Log.Information("Combat encounter retention limit set to {CombatEncounterRetentionLimit}", combatEncounterRetentionLimit);
             }
         }
     }

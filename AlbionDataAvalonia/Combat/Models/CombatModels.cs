@@ -32,7 +32,6 @@ public sealed record CombatHealthEvent(
     long TargetObjectId,
     long Amount,
     CombatChangeKind Kind,
-    int? SpellId,
     double NewHealthValue,
     long? GameTimeMilliseconds)
 {
@@ -41,7 +40,6 @@ public sealed record CombatHealthEvent(
         long targetObjectId,
         double healthChange,
         double newHealthValue,
-        int causingSpellIndex,
         long? gameTimeMilliseconds,
         out CombatHealthEvent healthEvent)
     {
@@ -62,7 +60,6 @@ public sealed record CombatHealthEvent(
             targetObjectId,
             amount,
             healthChange < 0 ? CombatChangeKind.Damage : CombatChangeKind.Healing,
-            causingSpellIndex > 0 ? causingSpellIndex : null,
             newHealthValue,
             gameTimeMilliseconds);
         return true;
@@ -77,15 +74,6 @@ public sealed record CombatPlayerSummary(
     long DamageReceived,
     long HealingDone,
     long HealingReceived);
-
-public sealed record CombatBreakdownRow(
-    string PlayerEntityKey,
-    string PlayerName,
-    string OtherEntityKey,
-    string OtherName,
-    string SpellKey,
-    string SpellLabel,
-    long Amount);
 
 public sealed record CombatTimeBucketPoint(
     int Index,
@@ -116,10 +104,6 @@ public sealed record CombatEncounterSnapshot(
     long TotalHealingDone,
     long TotalHealingReceived,
     IReadOnlyList<CombatPlayerSummary> Players,
-    IReadOnlyList<CombatBreakdownRow> DamageDealt,
-    IReadOnlyList<CombatBreakdownRow> DamageReceived,
-    IReadOnlyList<CombatBreakdownRow> HealingDone,
-    IReadOnlyList<CombatBreakdownRow> HealingReceived,
     IReadOnlyList<CombatTimeBucketPoint> TimeBuckets);
 
 public sealed record CombatTrackerSnapshot(
@@ -146,6 +130,14 @@ public sealed record CombatTrackerSnapshot(
         Array.Empty<CombatEntitySnapshot>(),
         Array.Empty<CombatEncounterSnapshot>());
 }
+
+public sealed record CombatTrackerStatistics(
+    int RetainedEncounterCount,
+    int RetentionLimit,
+    int KnownEntityCount,
+    int TimeBucketCount,
+    int ParticipantTotalCount,
+    long EstimatedHistoryBytes);
 
 public sealed class CombatParticipantTotals
 {
@@ -176,25 +168,17 @@ public sealed class CombatTimeBucket
     public TimeSpan StartOffset { get; }
     public TimeSpan EndOffset { get; }
     public Dictionary<string, CombatParticipantTotals> PlayerTotals { get; } = new();
-    public Dictionary<string, Dictionary<string, Dictionary<string, long>>> DamageDealt { get; } = new();
-    public Dictionary<string, Dictionary<string, Dictionary<string, long>>> DamageReceived { get; } = new();
-    public Dictionary<string, Dictionary<string, Dictionary<string, long>>> HealingDone { get; } = new();
-    public Dictionary<string, Dictionary<string, Dictionary<string, long>>> HealingReceived { get; } = new();
 
-    public void AddDamage(string sourceKey, string targetKey, string spellKey, long amount)
+    public void AddDamage(string sourceKey, string targetKey, long amount)
     {
         GetTotals(sourceKey).DamageDealt += amount;
         GetTotals(targetKey).DamageReceived += amount;
-        AddBreakdown(DamageDealt, sourceKey, targetKey, spellKey, amount);
-        AddBreakdown(DamageReceived, targetKey, sourceKey, spellKey, amount);
     }
 
-    public void AddHealing(string sourceKey, string targetKey, string spellKey, long amount)
+    public void AddHealing(string sourceKey, string targetKey, long amount)
     {
         GetTotals(sourceKey).HealingDone += amount;
         GetTotals(targetKey).HealingReceived += amount;
-        AddBreakdown(HealingDone, sourceKey, targetKey, spellKey, amount);
-        AddBreakdown(HealingReceived, targetKey, sourceKey, spellKey, amount);
     }
 
     private CombatParticipantTotals GetTotals(string entityKey)
@@ -206,29 +190,6 @@ public sealed class CombatTimeBucket
         }
 
         return totals;
-    }
-
-    private static void AddBreakdown(
-        Dictionary<string, Dictionary<string, Dictionary<string, long>>> root,
-        string playerKey,
-        string otherKey,
-        string spellKey,
-        long amount)
-    {
-        if (!root.TryGetValue(playerKey, out var byOther))
-        {
-            byOther = new Dictionary<string, Dictionary<string, long>>();
-            root[playerKey] = byOther;
-        }
-
-        if (!byOther.TryGetValue(otherKey, out var bySpell))
-        {
-            bySpell = new Dictionary<string, long>();
-            byOther[otherKey] = bySpell;
-        }
-
-        bySpell.TryGetValue(spellKey, out var current);
-        bySpell[spellKey] = current + amount;
     }
 }
 
@@ -253,52 +214,6 @@ public static class CombatTimeBucketExtensions
         }
 
         return totals;
-    }
-
-    public static Dictionary<string, Dictionary<string, Dictionary<string, long>>> FoldBreakdowns(
-        this IEnumerable<CombatTimeBucket> buckets,
-        Func<CombatTimeBucket, Dictionary<string, Dictionary<string, Dictionary<string, long>>>> selector)
-    {
-        var totals = new Dictionary<string, Dictionary<string, Dictionary<string, long>>>();
-
-        foreach (var bucket in buckets)
-        {
-            foreach (var (playerKey, byOther) in selector(bucket))
-            {
-                foreach (var (otherKey, bySpell) in byOther)
-                {
-                    foreach (var (spellKey, amount) in bySpell)
-                    {
-                        Add(totals, playerKey, otherKey, spellKey, amount);
-                    }
-                }
-            }
-        }
-
-        return totals;
-    }
-
-    private static void Add(
-        Dictionary<string, Dictionary<string, Dictionary<string, long>>> root,
-        string playerKey,
-        string otherKey,
-        string spellKey,
-        long amount)
-    {
-        if (!root.TryGetValue(playerKey, out var byOther))
-        {
-            byOther = new Dictionary<string, Dictionary<string, long>>();
-            root[playerKey] = byOther;
-        }
-
-        if (!byOther.TryGetValue(otherKey, out var bySpell))
-        {
-            bySpell = new Dictionary<string, long>();
-            byOther[otherKey] = bySpell;
-        }
-
-        bySpell.TryGetValue(spellKey, out var current);
-        bySpell[spellKey] = current + amount;
     }
 
     public static long TotalDamageDealt(this CombatTimeBucket bucket) => bucket.PlayerTotals.Values.Sum(x => x.DamageDealt);

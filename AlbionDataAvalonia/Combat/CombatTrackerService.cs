@@ -5,17 +5,35 @@ using System;
 using System.Collections.Generic;
 using System.ComponentModel;
 using System.Linq;
+using System.Threading;
 
 namespace AlbionDataAvalonia.Combat;
 
-public sealed class CombatTrackerService
+public sealed class CombatTrackerService : IDisposable
 {
     public static readonly TimeSpan FixedBucketSize = TimeSpan.FromSeconds(1);
-    private const int MaxRetainedEncounters = 50;
+
+    // Conservative 64-bit .NET managed-heap estimates used only for the Settings UI.
+    // They are not exact profiler measurements: the estimate starts from a typical
+    // object header/method-table cost, 8-byte references, primitive field sizes, and
+    // rounded-up collection shell/entry costs. Encounter/entity/bucket values include
+    // their scalar fields and references; list/dictionary values estimate collection
+    // containers and stored entries; strings use a base object cost plus two bytes
+    // per character. The numbers are intentionally rounded up so the UI reports a
+    // useful approximate size without claiming exact per-object heap attribution.
+    private const long EstimatedEncounterBytes = 176;
+    private const long EstimatedBucketBytes = 224;
+    private const long EstimatedParticipantTotalEntryBytes = 128;
+    private const long EstimatedEntityBytes = 192;
+    private const long EstimatedListBytes = 56;
+    private const long EstimatedDictionaryBytes = 96;
+    private const long EstimatedDictionaryEntryBytes = 48;
+    private const long EstimatedStringBytes = 24;
     private static readonly TimeSpan UnreferencedEntityRetention = TimeSpan.FromMinutes(30);
     private static readonly TimeSpan UnreferencedEntityPruneInterval = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan GameTimeBackwardResetThreshold = TimeSpan.FromSeconds(5);
     private static readonly TimeSpan GameTimeReceiveDriftResetThreshold = TimeSpan.FromSeconds(30);
+    private static readonly TimeSpan CombatEncounterIdleTimeout = TimeSpan.FromSeconds(7);
 
     private readonly object sync = new();
     private readonly Dictionary<string, CombatTrackedEntity> entitiesByKey = new();
@@ -24,6 +42,7 @@ public sealed class CombatTrackerService
     private readonly List<CombatEncounter> encounters = new();
     private readonly Dictionary<string, bool> combatStates = new();
     private readonly SettingsManager settingsManager;
+    private Timer? encounterIdleTimer;
 
     private CombatTrackedEntity? localEntity;
     private CombatEncounter? activeEncounter;
@@ -69,6 +88,23 @@ public sealed class CombatTrackerService
             {
                 return isPaused;
             }
+        }
+    }
+
+    public void Dispose()
+    {
+        settingsManager.UserSettings.PropertyChanged -= OnUserSettingsPropertyChanged;
+        lock (sync)
+        {
+            StopEncounterIdleTimer();
+        }
+    }
+
+    public CombatTrackerStatistics GetStatistics()
+    {
+        lock (sync)
+        {
+            return BuildStatistics();
         }
     }
 
@@ -319,6 +355,7 @@ public sealed class CombatTrackerService
                 return;
             }
 
+            var closedIdleEncounter = EndActiveEncounterIfIdle(receivedAtUtc);
             UpdateGameTimeAnchor(events, receivedAtUtc);
 
             var recordedAny = false;
@@ -330,7 +367,7 @@ public sealed class CombatTrackerService
                     receivedAtUtc);
             }
 
-            if (recordedAny)
+            if (recordedAny || closedIdleEncounter)
             {
                 PruneUnreferencedEntitiesIfDue(receivedAtUtc);
                 snapshot = BuildSnapshot(receivedAtUtc);
@@ -422,6 +459,7 @@ public sealed class CombatTrackerService
             }
 
             var isInCombat = inActiveCombat || inPassiveCombat;
+            EndActiveEncounterIfIdle(receivedAtUtc);
 
             if (isInCombat)
             {
@@ -468,7 +506,8 @@ public sealed class CombatTrackerService
 
     private void OnUserSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
-        if (e.PropertyName != nameof(UserSettings.DisableCombatTracker))
+        if (e.PropertyName != nameof(UserSettings.DisableCombatTracker)
+            && e.PropertyName != nameof(UserSettings.CombatEncounterRetentionLimit))
         {
             return;
         }
@@ -476,21 +515,28 @@ public sealed class CombatTrackerService
         CombatTrackerSnapshot snapshot;
         lock (sync)
         {
-            var disableCombatTracker = settingsManager.UserSettings.DisableCombatTracker;
-            if (isDisabled == disableCombatTracker)
+            if (e.PropertyName == nameof(UserSettings.DisableCombatTracker))
             {
-                return;
-            }
+                var disableCombatTracker = settingsManager.UserSettings.DisableCombatTracker;
+                if (isDisabled == disableCombatTracker)
+                {
+                    return;
+                }
 
-            isDisabled = disableCombatTracker;
-            if (isDisabled)
-            {
-                FullResetCore();
-                Log.Information("Combat tracker disabled; all combat tracker data was reset.");
+                isDisabled = disableCombatTracker;
+                if (isDisabled)
+                {
+                    FullResetCore();
+                    Log.Information("Combat tracker disabled; all combat tracker data was reset.");
+                }
+                else
+                {
+                    Log.Information("Combat tracker enabled.");
+                }
             }
-            else
+            else if (e.PropertyName == nameof(UserSettings.CombatEncounterRetentionLimit))
             {
-                Log.Information("Combat tracker enabled.");
+                PruneRetainedEncounters();
             }
 
             snapshot = BuildSnapshot(DateTime.UtcNow);
@@ -510,6 +556,7 @@ public sealed class CombatTrackerService
         lastUnreferencedEntityPruneUtc = DateTime.MinValue;
         anchorFromTimeSync = false;
         startNewEncounterAfterPause = false;
+        StopEncounterIdleTimer();
     }
 
     private void FullResetCore()
@@ -532,22 +579,27 @@ public sealed class CombatTrackerService
             return false;
         }
 
-        var encounter = EnsureEncounterForHealthEvent(eventUtc);
+        var encounter = EnsureEncounterForHealthEvent(eventUtc, seenAtUtc);
         if (encounter == activeEncounter && encounter.Buckets.Count == 0 && eventUtc < encounter.StartedAtUtc)
         {
             encounter.StartedAtUtc = eventUtc;
         }
 
         var bucket = GetBucket(encounter, eventUtc);
-        var spellKey = GetSpellKey(healthEvent.SpellId);
 
         if (healthEvent.Kind == CombatChangeKind.Damage)
         {
-            bucket.AddDamage(source.EntityKey, target.EntityKey, spellKey, healthEvent.Amount);
+            bucket.AddDamage(source.EntityKey, target.EntityKey, healthEvent.Amount);
         }
         else
         {
-            bucket.AddHealing(source.EntityKey, target.EntityKey, spellKey, healthEvent.Amount);
+            bucket.AddHealing(source.EntityKey, target.EntityKey, healthEvent.Amount);
+        }
+
+        if (encounter == activeEncounter)
+        {
+            encounter.LastIdleResetAtUtc = seenAtUtc;
+            ScheduleEncounterIdleTimer(encounter);
         }
 
         return true;
@@ -616,7 +668,7 @@ public sealed class CombatTrackerService
         return currentAnchorUtc.AddMilliseconds(gameTimeMilliseconds - currentAnchorGameTimeMilliseconds);
     }
 
-    private CombatEncounter EnsureEncounterForHealthEvent(DateTime receivedAtUtc)
+    private CombatEncounter EnsureEncounterForHealthEvent(DateTime eventUtc, DateTime receivedAtUtc)
     {
         if (activeEncounter is not null)
         {
@@ -627,16 +679,18 @@ public sealed class CombatTrackerService
         {
             var latestEncounter = encounters[^1];
             if (latestEncounter.IsActive
-                || latestEncounter.EndedAtUtc is { } endedAtUtc && receivedAtUtc <= endedAtUtc)
+                || latestEncounter.EndedAtUtc is { } endedAtUtc
+                    && (!latestEncounter.EndedByIdleTimeout || receivedAtUtc <= endedAtUtc)
+                    && eventUtc <= endedAtUtc)
             {
                 return latestEncounter;
             }
         }
 
-        return StartActiveEncounter(receivedAtUtc);
+        return StartActiveEncounter(eventUtc, receivedAtUtc);
     }
 
-    private CombatEncounter StartActiveEncounter(DateTime receivedAtUtc)
+    private CombatEncounter StartActiveEncounter(DateTime startedAtUtc, DateTime? idleResetAtUtc = null)
     {
         if (activeEncounter is not null)
         {
@@ -647,14 +701,16 @@ public sealed class CombatTrackerService
         activeEncounter = new CombatEncounter(
             $"encounter:{encounterNumber}",
             encounterNumber,
-            receivedAtUtc);
+            startedAtUtc,
+            idleResetAtUtc ?? startedAtUtc);
         encounters.Add(activeEncounter);
         startNewEncounterAfterPause = false;
         PruneRetainedEncounters();
+        ScheduleEncounterIdleTimer(activeEncounter);
         return activeEncounter;
     }
 
-    private void EndActiveEncounter(DateTime endedAtUtc)
+    private void EndActiveEncounter(DateTime endedAtUtc, bool endedByIdleTimeout = false)
     {
         if (activeEncounter is null)
         {
@@ -663,18 +719,83 @@ public sealed class CombatTrackerService
 
         activeEncounter.IsActive = false;
         activeEncounter.EndedAtUtc = endedAtUtc;
+        activeEncounter.EndedByIdleTimeout = endedByIdleTimeout;
         activeEncounter = null;
+        StopEncounterIdleTimer();
+    }
+
+    private void ScheduleEncounterIdleTimer(CombatEncounter encounter)
+    {
+        if (!ReferenceEquals(encounter, activeEncounter) || !encounter.IsActive)
+        {
+            return;
+        }
+
+        var idleDeadlineUtc = encounter.LastIdleResetAtUtc + CombatEncounterIdleTimeout;
+        var dueTime = idleDeadlineUtc - DateTime.UtcNow;
+        if (dueTime < TimeSpan.Zero)
+        {
+            dueTime = TimeSpan.Zero;
+        }
+
+        encounterIdleTimer ??= new Timer(OnEncounterIdleTimerElapsed);
+        encounterIdleTimer.Change(dueTime, Timeout.InfiniteTimeSpan);
+    }
+
+    private void StopEncounterIdleTimer()
+    {
+        encounterIdleTimer?.Dispose();
+        encounterIdleTimer = null;
+    }
+
+    private void OnEncounterIdleTimerElapsed(object? state)
+    {
+        CombatTrackerSnapshot? snapshot = null;
+        lock (sync)
+        {
+            var nowUtc = DateTime.UtcNow;
+            if (EndActiveEncounterIfIdle(nowUtc))
+            {
+                snapshot = BuildSnapshot(nowUtc);
+            }
+        }
+
+        if (snapshot is not null)
+        {
+            SnapshotChanged?.Invoke(snapshot);
+        }
+    }
+
+    private bool EndActiveEncounterIfIdle(DateTime nowUtc)
+    {
+        if (activeEncounter is null || isDisabled || isPaused)
+        {
+            StopEncounterIdleTimer();
+            return false;
+        }
+
+        var idleDeadlineUtc = activeEncounter.LastIdleResetAtUtc + CombatEncounterIdleTimeout;
+        if (nowUtc < idleDeadlineUtc)
+        {
+            ScheduleEncounterIdleTimer(activeEncounter);
+            return false;
+        }
+
+        EndActiveEncounter(idleDeadlineUtc, endedByIdleTimeout: true);
+        combatStates.Clear();
+        return true;
     }
 
     private void PruneRetainedEncounters()
     {
-        if (encounters.Count <= MaxRetainedEncounters)
+        var maxRetainedEncounters = GetMaxRetainedEncounters();
+        if (encounters.Count <= maxRetainedEncounters)
         {
             return;
         }
 
         var removedAny = false;
-        while (encounters.Count > MaxRetainedEncounters)
+        while (encounters.Count > maxRetainedEncounters)
         {
             var oldestEndedEncounterIndex = encounters.FindIndex(x => x != activeEncounter && !x.IsActive);
             if (oldestEndedEncounterIndex < 0)
@@ -752,29 +873,65 @@ public sealed class CombatTrackerService
                 {
                     referencedEntityKeys.Add(entityKey);
                 }
-
-                AddReferencedBreakdownEntityKeys(referencedEntityKeys, bucket.DamageDealt);
-                AddReferencedBreakdownEntityKeys(referencedEntityKeys, bucket.DamageReceived);
-                AddReferencedBreakdownEntityKeys(referencedEntityKeys, bucket.HealingDone);
-                AddReferencedBreakdownEntityKeys(referencedEntityKeys, bucket.HealingReceived);
             }
         }
 
         return referencedEntityKeys;
     }
 
-    private static void AddReferencedBreakdownEntityKeys(
-        HashSet<string> referencedEntityKeys,
-        Dictionary<string, Dictionary<string, Dictionary<string, long>>> breakdown)
+    private int GetMaxRetainedEncounters()
     {
-        foreach (var (playerKey, byOther) in breakdown)
+        return Math.Clamp(
+            settingsManager.UserSettings.CombatEncounterRetentionLimit,
+            UserSettings.MinCombatEncounterRetentionLimit,
+            UserSettings.MaxCombatEncounterRetentionLimit);
+    }
+
+    private CombatTrackerStatistics BuildStatistics()
+    {
+        var timeBucketCount = 0;
+        var participantTotalCount = 0;
+        var estimatedHistoryBytes = 0L;
+
+        estimatedHistoryBytes += encounters.Count * (EstimatedEncounterBytes + EstimatedListBytes);
+        foreach (var encounter in encounters)
         {
-            referencedEntityKeys.Add(playerKey);
-            foreach (var otherKey in byOther.Keys)
+            estimatedHistoryBytes += EstimateStringSize(encounter.EncounterKey);
+            estimatedHistoryBytes += encounter.Buckets.Count * EstimatedDictionaryEntryBytes;
+            timeBucketCount += encounter.Buckets.Count;
+
+            foreach (var bucket in encounter.Buckets)
             {
-                referencedEntityKeys.Add(otherKey);
+                var bucketParticipantTotalCount = bucket.PlayerTotals.Count;
+                participantTotalCount += bucketParticipantTotalCount;
+                estimatedHistoryBytes += EstimatedBucketBytes
+                    + EstimatedDictionaryBytes
+                    + bucketParticipantTotalCount * EstimatedParticipantTotalEntryBytes;
             }
         }
+
+        estimatedHistoryBytes += entitiesByKey.Count * EstimatedDictionaryEntryBytes;
+        estimatedHistoryBytes += entitiesByObjectId.Count * EstimatedDictionaryEntryBytes;
+        estimatedHistoryBytes += entitiesByGuid.Count * EstimatedDictionaryEntryBytes;
+        estimatedHistoryBytes += entitiesByKey.Values.Sum(entity =>
+            EstimatedEntityBytes
+            + EstimateStringSize(entity.EntityKey)
+            + EstimateStringSize(entity.Name));
+
+        return new CombatTrackerStatistics(
+            encounters.Count,
+            GetMaxRetainedEncounters(),
+            entitiesByKey.Count,
+            timeBucketCount,
+            participantTotalCount,
+            estimatedHistoryBytes);
+    }
+
+    private static long EstimateStringSize(string? value)
+    {
+        return string.IsNullOrEmpty(value)
+            ? 0
+            : EstimatedStringBytes + value.Length * sizeof(char);
     }
 
     private void RemoveEntity(CombatTrackedEntity entity)
@@ -904,10 +1061,6 @@ public sealed class CombatTrackerService
             bucketPoints.Sum(x => x.HealingDone),
             bucketPoints.Sum(x => x.HealingReceived),
             BuildPlayerSummaries(encounter.Buckets),
-            BuildBreakdownRows(encounter.Buckets.FoldBreakdowns(x => x.DamageDealt)),
-            BuildBreakdownRows(encounter.Buckets.FoldBreakdowns(x => x.DamageReceived)),
-            BuildBreakdownRows(encounter.Buckets.FoldBreakdowns(x => x.HealingDone)),
-            BuildBreakdownRows(encounter.Buckets.FoldBreakdowns(x => x.HealingReceived)),
             bucketPoints);
     }
 
@@ -940,24 +1093,6 @@ public sealed class CombatTrackerService
             GetEntityRole(entity),
             entity.IsPartyMember,
             entity.IsLocalPlayer);
-    }
-
-    private IReadOnlyList<CombatBreakdownRow> BuildBreakdownRows(Dictionary<string, Dictionary<string, Dictionary<string, long>>> breakdown)
-    {
-        return breakdown
-            .SelectMany(player => player.Value.SelectMany(other => other.Value.Select(spell => new CombatBreakdownRow(
-                player.Key,
-                GetEntityName(player.Key),
-                other.Key,
-                GetEntityName(other.Key),
-                spell.Key,
-                GetSpellLabel(spell.Key),
-                spell.Value))))
-            .Where(x => x.Amount > 0)
-            .OrderByDescending(x => x.Amount)
-            .ThenBy(x => x.PlayerName, StringComparer.OrdinalIgnoreCase)
-            .ThenBy(x => x.OtherName, StringComparer.OrdinalIgnoreCase)
-            .ToArray();
     }
 
     private CombatTrackedEntity AddOrUpdateEntity(long? objectId, Guid? guid, string? name, CombatEntityKind? kind = null, DateTime? seenAtUtc = null)
@@ -1061,23 +1196,6 @@ public sealed class CombatTrackerService
         };
     }
 
-    private static string GetSpellKey(int? spellId)
-    {
-        return spellId is > 0 ? $"spell:{spellId.Value}" : "no-spell";
-    }
-
-    private static string GetSpellLabel(string spellKey)
-    {
-        if (spellKey == "no-spell")
-        {
-            return "No spell";
-        }
-
-        return spellKey.StartsWith("spell:", StringComparison.Ordinal)
-            ? $"Spell {spellKey.Substring("spell:".Length)}"
-            : spellKey;
-    }
-
     private static string GetMobName(int? mobIndex, string? mobName)
     {
         if (!string.IsNullOrWhiteSpace(mobName))
@@ -1092,17 +1210,20 @@ public sealed class CombatTrackerService
 
     private sealed class CombatEncounter
     {
-        public CombatEncounter(string encounterKey, int encounterNumber, DateTime startedAtUtc)
+        public CombatEncounter(string encounterKey, int encounterNumber, DateTime startedAtUtc, DateTime idleResetAtUtc)
         {
             EncounterKey = encounterKey;
             EncounterNumber = encounterNumber;
             StartedAtUtc = startedAtUtc;
+            LastIdleResetAtUtc = idleResetAtUtc;
         }
 
         public string EncounterKey { get; }
         public int EncounterNumber { get; }
         public DateTime StartedAtUtc { get; set; }
+        public DateTime LastIdleResetAtUtc { get; set; }
         public DateTime? EndedAtUtc { get; set; }
+        public bool EndedByIdleTimeout { get; set; }
         public bool IsActive { get; set; } = true;
         public List<CombatTimeBucket> Buckets { get; } = new();
     }
