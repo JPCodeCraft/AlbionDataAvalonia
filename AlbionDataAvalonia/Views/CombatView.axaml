@@ -190,6 +190,29 @@
 							</Grid>
 						</StackPanel>
 					</Border>
+					<Border Classes="SummaryCard" IsVisible="{Binding IsFameVisible}">
+						<StackPanel>
+							<TextBlock Classes="FilterLabel" Text="Fame" />
+							<Grid ColumnDefinitions="*,*" ColumnSpacing="14" Margin="0,8,0,0">
+								<StackPanel>
+									<TextBlock Classes="FilterLabel" Text="Total" />
+									<Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="6" VerticalAlignment="Center">
+										<TextBlock Classes="SummaryValue" Text="{Binding SummaryFameTotalText}" />
+										<TextBlock Grid.Column="1" Classes="SummaryRate" Text="{Binding FamePerHourText}" />
+										<TextBlock Grid.Column="2" Classes="RateSuffix" Text="/h" />
+									</Grid>
+								</StackPanel>
+								<StackPanel Grid.Column="1">
+									<TextBlock Classes="FilterLabel" Text="{Binding SummaryWindowLabel}" />
+									<Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="6" VerticalAlignment="Center">
+										<TextBlock Classes="SummaryValue" Text="{Binding SummaryFameWindowText}" />
+										<TextBlock Grid.Column="1" Classes="SummaryRate" Text="{Binding SummaryFameWindowRateText}" />
+										<TextBlock Grid.Column="2" Classes="RateSuffix" Text="/h" />
+									</Grid>
+								</StackPanel>
+							</Grid>
+						</StackPanel>
+					</Border>
 				</WrapPanel>
 			</Grid>
 		</Border>
@@ -289,6 +312,13 @@
 							<DataGridTemplateColumn.CellTemplate>
 								<DataTemplate>
 										<TextBlock Text="{Binding DurationDisplay}" VerticalAlignment="Center" />
+								</DataTemplate>
+							</DataGridTemplateColumn.CellTemplate>
+						</DataGridTemplateColumn>
+						<DataGridTemplateColumn Header="Fame" SortMemberPath="FameGained" CanUserSort="True">
+							<DataGridTemplateColumn.CellTemplate>
+								<DataTemplate>
+									<TextBlock Text="{Binding FameGained, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" />
 								</DataTemplate>
 							</DataGridTemplateColumn.CellTemplate>
 						</DataGridTemplateColumn>

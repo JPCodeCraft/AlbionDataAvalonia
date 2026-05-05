@@ -66,6 +66,27 @@ public sealed record CombatHealthEvent(
     }
 }
 
+public sealed record CombatFameEvent(long Amount)
+{
+    public static bool TryCreate(double totalGainedFame, out CombatFameEvent fameEvent)
+    {
+        fameEvent = default!;
+        if (totalGainedFame <= 0)
+        {
+            return false;
+        }
+
+        var amount = (long)Math.Round(totalGainedFame, MidpointRounding.AwayFromZero);
+        if (amount <= 0)
+        {
+            return false;
+        }
+
+        fameEvent = new CombatFameEvent(amount);
+        return true;
+    }
+}
+
 public sealed record CombatPlayerSummary(
     string EntityKey,
     string Name,
@@ -83,6 +104,7 @@ public sealed record CombatTimeBucketPoint(
     long DamageReceived,
     long HealingDone,
     long HealingReceived,
+    long FameGained,
     IReadOnlyList<CombatParticipantBucketTotals> PlayerTotals);
 
 public sealed record CombatParticipantBucketTotals(
@@ -103,6 +125,7 @@ public sealed record CombatEncounterSnapshot(
     long TotalDamageReceived,
     long TotalHealingDone,
     long TotalHealingReceived,
+    long TotalFameGained,
     IReadOnlyList<CombatPlayerSummary> Players,
     IReadOnlyList<CombatTimeBucketPoint> TimeBuckets);
 
@@ -167,6 +190,7 @@ public sealed class CombatTimeBucket
     public int Index { get; }
     public TimeSpan StartOffset { get; }
     public TimeSpan EndOffset { get; }
+    public long FameGained { get; private set; }
     public Dictionary<string, CombatParticipantTotals> PlayerTotals { get; } = new();
 
     public void AddDamage(string sourceKey, string targetKey, long amount)
@@ -179,6 +203,11 @@ public sealed class CombatTimeBucket
     {
         GetTotals(sourceKey).HealingDone += amount;
         GetTotals(targetKey).HealingReceived += amount;
+    }
+
+    public void AddFame(long amount)
+    {
+        FameGained += amount;
     }
 
     private CombatParticipantTotals GetTotals(string entityKey)
@@ -220,4 +249,5 @@ public static class CombatTimeBucketExtensions
     public static long TotalDamageReceived(this CombatTimeBucket bucket) => bucket.PlayerTotals.Values.Sum(x => x.DamageReceived);
     public static long TotalHealingDone(this CombatTimeBucket bucket) => bucket.PlayerTotals.Values.Sum(x => x.HealingDone);
     public static long TotalHealingReceived(this CombatTimeBucket bucket) => bucket.PlayerTotals.Values.Sum(x => x.HealingReceived);
+    public static long TotalFameGained(this CombatTimeBucket bucket) => bucket.FameGained;
 }

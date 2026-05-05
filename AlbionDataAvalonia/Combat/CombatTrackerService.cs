@@ -22,7 +22,7 @@ public sealed class CombatTrackerService : IDisposable
     // per character. The numbers are intentionally rounded up so the UI reports a
     // useful approximate size without claiming exact per-object heap attribution.
     private const long EstimatedEncounterBytes = 176;
-    private const long EstimatedBucketBytes = 224;
+    private const long EstimatedBucketBytes = 232;
     private const long EstimatedParticipantTotalEntryBytes = 128;
     private const long EstimatedEntityBytes = 192;
     private const long EstimatedListBytes = 56;
@@ -325,6 +325,37 @@ public sealed class CombatTrackerService : IDisposable
         RecordBatch(new[] { healthEvent }, receivedAtUtc);
     }
 
+    public void Record(CombatFameEvent fameEvent, DateTime receivedAtUtc)
+    {
+        if (fameEvent.Amount <= 0)
+        {
+            return;
+        }
+
+        CombatTrackerSnapshot? snapshot = null;
+        lock (sync)
+        {
+            if (isDisabled || isPaused || localEntity is null)
+            {
+                return;
+            }
+
+            var closedIdleEncounter = EndActiveEncounterIfIdle(receivedAtUtc);
+            var recorded = RecordFameEvent(fameEvent, receivedAtUtc);
+
+            if (recorded || closedIdleEncounter)
+            {
+                PruneUnreferencedEntitiesIfDue(receivedAtUtc);
+                snapshot = BuildSnapshot(receivedAtUtc);
+            }
+        }
+
+        if (snapshot is not null)
+        {
+            SnapshotChanged?.Invoke(snapshot);
+        }
+    }
+
     public void RecordBatch(IEnumerable<CombatHealthEvent> healthEvents, DateTime receivedAtUtc)
     {
         var events = healthEvents
@@ -579,7 +610,7 @@ public sealed class CombatTrackerService : IDisposable
             return false;
         }
 
-        var encounter = EnsureEncounterForHealthEvent(eventUtc, seenAtUtc);
+        var encounter = EnsureEncounterForMetricEvent(eventUtc, seenAtUtc, seenAtUtc);
         if (encounter == activeEncounter && encounter.Buckets.Count == 0 && eventUtc < encounter.StartedAtUtc)
         {
             encounter.StartedAtUtc = eventUtc;
@@ -599,6 +630,21 @@ public sealed class CombatTrackerService : IDisposable
         if (encounter == activeEncounter)
         {
             encounter.LastIdleResetAtUtc = seenAtUtc;
+            ScheduleEncounterIdleTimer(encounter);
+        }
+
+        return true;
+    }
+
+    private bool RecordFameEvent(CombatFameEvent fameEvent, DateTime eventUtc)
+    {
+        var encounter = EnsureEncounterForMetricEvent(eventUtc, eventUtc, null);
+        var bucket = GetBucket(encounter, eventUtc);
+        bucket.AddFame(fameEvent.Amount);
+
+        if (encounter == activeEncounter)
+        {
+            encounter.LastIdleResetAtUtc = eventUtc;
             ScheduleEncounterIdleTimer(encounter);
         }
 
@@ -668,7 +714,7 @@ public sealed class CombatTrackerService : IDisposable
         return currentAnchorUtc.AddMilliseconds(gameTimeMilliseconds - currentAnchorGameTimeMilliseconds);
     }
 
-    private CombatEncounter EnsureEncounterForHealthEvent(DateTime eventUtc, DateTime receivedAtUtc)
+    private CombatEncounter EnsureEncounterForMetricEvent(DateTime eventUtc, DateTime receivedAtUtc, DateTime? idleResetAtUtcForNewEncounter)
     {
         if (activeEncounter is not null)
         {
@@ -678,16 +724,24 @@ public sealed class CombatTrackerService : IDisposable
         if (!startNewEncounterAfterPause && encounters.Count > 0)
         {
             var latestEncounter = encounters[^1];
-            if (latestEncounter.IsActive
-                || latestEncounter.EndedAtUtc is { } endedAtUtc
-                    && (!latestEncounter.EndedByIdleTimeout || receivedAtUtc <= endedAtUtc)
-                    && eventUtc <= endedAtUtc)
+            if (!latestEncounter.IsActive
+                && latestEncounter.EndedAtUtc is { } endedAtUtc)
             {
-                return latestEncounter;
+                var elapsedSinceEnd = receivedAtUtc - endedAtUtc;
+                if (elapsedSinceEnd >= TimeSpan.Zero
+                    && elapsedSinceEnd < CombatEncounterIdleTimeout)
+                {
+                    if (eventUtc > endedAtUtc)
+                    {
+                        latestEncounter.EndedAtUtc = eventUtc;
+                    }
+
+                    return latestEncounter;
+                }
             }
         }
 
-        return StartActiveEncounter(eventUtc, receivedAtUtc);
+        return StartActiveEncounter(eventUtc, idleResetAtUtcForNewEncounter);
     }
 
     private CombatEncounter StartActiveEncounter(DateTime startedAtUtc, DateTime? idleResetAtUtc = null)
@@ -710,7 +764,7 @@ public sealed class CombatTrackerService : IDisposable
         return activeEncounter;
     }
 
-    private void EndActiveEncounter(DateTime endedAtUtc, bool endedByIdleTimeout = false)
+    private void EndActiveEncounter(DateTime endedAtUtc)
     {
         if (activeEncounter is null)
         {
@@ -719,7 +773,6 @@ public sealed class CombatTrackerService : IDisposable
 
         activeEncounter.IsActive = false;
         activeEncounter.EndedAtUtc = endedAtUtc;
-        activeEncounter.EndedByIdleTimeout = endedByIdleTimeout;
         activeEncounter = null;
         StopEncounterIdleTimer();
     }
@@ -781,7 +834,7 @@ public sealed class CombatTrackerService : IDisposable
             return false;
         }
 
-        EndActiveEncounter(idleDeadlineUtc, endedByIdleTimeout: true);
+        EndActiveEncounter(idleDeadlineUtc);
         combatStates.Clear();
         return true;
     }
@@ -1039,6 +1092,7 @@ public sealed class CombatTrackerService : IDisposable
                 x.TotalDamageReceived(),
                 x.TotalHealingDone(),
                 x.TotalHealingReceived(),
+                x.TotalFameGained(),
                 x.PlayerTotals
                     .Select(player => new CombatParticipantBucketTotals(
                         player.Key,
@@ -1060,6 +1114,7 @@ public sealed class CombatTrackerService : IDisposable
             bucketPoints.Sum(x => x.DamageReceived),
             bucketPoints.Sum(x => x.HealingDone),
             bucketPoints.Sum(x => x.HealingReceived),
+            bucketPoints.Sum(x => x.FameGained),
             BuildPlayerSummaries(encounter.Buckets),
             bucketPoints);
     }
@@ -1223,7 +1278,6 @@ public sealed class CombatTrackerService : IDisposable
         public DateTime StartedAtUtc { get; set; }
         public DateTime LastIdleResetAtUtc { get; set; }
         public DateTime? EndedAtUtc { get; set; }
-        public bool EndedByIdleTimeout { get; set; }
         public bool IsActive { get; set; } = true;
         public List<CombatTimeBucket> Buckets { get; } = new();
     }

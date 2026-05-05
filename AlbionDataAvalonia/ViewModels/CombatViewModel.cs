@@ -22,10 +22,12 @@ namespace AlbionDataAvalonia.ViewModels;
 public partial class CombatViewModel : ViewModelBase, IDisposable
 {
     private static readonly TimeSpan ChartRefreshInterval = TimeSpan.FromSeconds(2);
+    private static readonly TimeSpan ActiveSummaryRefreshInterval = TimeSpan.FromSeconds(1);
+    private static readonly TimeSpan InactiveFameSummaryRefreshInterval = TimeSpan.FromSeconds(5);
 
     private readonly CombatTrackerService? combatTracker;
     private readonly SettingsManager? settingsManager;
-    private DispatcherTimer? activeEncounterRefreshTimer;
+    private DispatcherTimer? summaryRefreshTimer;
     private IDisposable? pendingChartRefreshRegistration;
     private CombatTrackerSnapshot currentSnapshot;
     private CombatEncounterSnapshot? selectedEncounterSnapshot;
@@ -52,6 +54,9 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     private string healingReceivedPerSecondText = "0.0";
+
+    [ObservableProperty]
+    private string famePerHourText = "0.0";
 
     [ObservableProperty]
     private CombatAggregationOptionViewModel selectedAggregation;
@@ -118,6 +123,18 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     private string summaryHealingReceivedWindowRateText = "0.0";
+
+    [ObservableProperty]
+    private string summaryFameTotalText = "0";
+
+    [ObservableProperty]
+    private string summaryFameWindowText = "0";
+
+    [ObservableProperty]
+    private string summaryFameWindowRateText = "0.0";
+
+    [ObservableProperty]
+    private bool isFameVisible = true;
 
     [ObservableProperty]
     private string chartTitle = "Combat over time";
@@ -342,14 +359,8 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         });
     }
 
-    private void OnActiveEncounterRefreshTimerTick(object? sender, EventArgs e)
+    private void OnSummaryRefreshTimerTick(object? sender, EventArgs e)
     {
-        if (!currentSnapshot.IsEncounterActive)
-        {
-            StopActiveEncounterRefreshTimer();
-            return;
-        }
-
         RefreshDisplayedSummary(DateTime.UtcNow);
     }
 
@@ -375,37 +386,46 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         }
 
         RequestChartRefresh();
-        UpdateActiveEncounterRefreshTimer(snapshot.IsEncounterActive);
     }
 
-    private void UpdateActiveEncounterRefreshTimer(bool isEncounterActive)
+    private void UpdateSummaryRefreshTimer(bool includeFame, long totalFameGained, DateTime? firstFameBucketStartedAtUtc)
     {
-        if (!isEncounterActive)
+        var shouldRefresh = currentSnapshot.IsEncounterActive
+            || includeFame && totalFameGained > 0 && firstFameBucketStartedAtUtc is not null;
+        if (!shouldRefresh)
         {
-            StopActiveEncounterRefreshTimer();
+            StopSummaryRefreshTimer();
             return;
         }
 
-        activeEncounterRefreshTimer ??= CreateActiveEncounterRefreshTimer();
-        if (!activeEncounterRefreshTimer.IsEnabled)
+        summaryRefreshTimer ??= CreateSummaryRefreshTimer();
+        var interval = currentSnapshot.IsEncounterActive
+            ? ActiveSummaryRefreshInterval
+            : InactiveFameSummaryRefreshInterval;
+        if (summaryRefreshTimer.Interval != interval)
         {
-            activeEncounterRefreshTimer.Start();
+            summaryRefreshTimer.Interval = interval;
+        }
+
+        if (!summaryRefreshTimer.IsEnabled)
+        {
+            summaryRefreshTimer.Start();
         }
     }
 
-    private DispatcherTimer CreateActiveEncounterRefreshTimer()
+    private DispatcherTimer CreateSummaryRefreshTimer()
     {
         var timer = new DispatcherTimer
         {
-            Interval = TimeSpan.FromSeconds(1)
+            Interval = ActiveSummaryRefreshInterval
         };
-        timer.Tick += OnActiveEncounterRefreshTimerTick;
+        timer.Tick += OnSummaryRefreshTimerTick;
         return timer;
     }
 
-    private void StopActiveEncounterRefreshTimer()
+    private void StopSummaryRefreshTimer()
     {
-        activeEncounterRefreshTimer?.Stop();
+        summaryRefreshTimer?.Stop();
     }
 
     private void ApplySelectedEncounter(CombatEncounterSnapshot? encounter, bool immediateChartRefresh = false)
@@ -454,12 +474,16 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         var encounterArray = GetDisplayedEncounters().ToArray();
         var elapsed = SumElapsed(encounterArray, nowUtc);
         var metricTarget = CreateMetricTarget(encounterArray);
-        var aggregatedBuckets = AggregateBuckets(encounterArray, SelectedAggregation.Seconds, metricTarget.IncludeEntity).ToArray();
-        var totals = AggregateTotals(encounterArray, metricTarget.IncludeEntity);
+        var includeFame = ShouldShowFame();
+        var aggregatedBuckets = AggregateBuckets(encounterArray, SelectedAggregation.Seconds, metricTarget.IncludeEntity, includeFame).ToArray();
+        var totals = AggregateTotals(encounterArray, metricTarget.IncludeEntity, includeFame);
+        var firstFameBucketStartedAtUtc = includeFame ? GetFirstFameBucketStartedAtUtc(encounterArray) : null;
+        var fameElapsed = GetElapsedSince(firstFameBucketStartedAtUtc, nowUtc);
         var visibleBuckets = GetVisibleBuckets(aggregatedBuckets);
         var windowTotals = AggregateTotals(visibleBuckets);
         var visibleWindowDuration = GetVisibleEncounterDuration(encounterArray, visibleBuckets, nowUtc, SelectedAggregation.Seconds);
 
+        IsFameVisible = includeFame;
         ElapsedText = FormatDuration(elapsed);
         SummaryTargetText = metricTarget.Label;
         SummaryScopeText = CreateEncounterScopeLabel();
@@ -480,6 +504,11 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         HealingReceivedPerSecondText = FormatRate(CalculateRate(totals.HealingReceived, elapsed));
         SummaryHealingReceivedWindowText = FormatAmount(windowTotals.HealingReceived);
         SummaryHealingReceivedWindowRateText = FormatRate(CalculateRate(windowTotals.HealingReceived, visibleWindowDuration));
+        SummaryFameTotalText = FormatAmount(totals.FameGained);
+        FamePerHourText = FormatRate(CalculateHourlyRate(totals.FameGained, fameElapsed));
+        SummaryFameWindowText = FormatAmount(windowTotals.FameGained);
+        SummaryFameWindowRateText = FormatRate(CalculateHourlyRate(windowTotals.FameGained, visibleWindowDuration));
+        UpdateSummaryRefreshTimer(includeFame, totals.FameGained, firstFameBucketStartedAtUtc);
     }
 
     private static CombatEncounterListItemViewModel CreateEncounterItem(CombatEncounterSnapshot encounter)
@@ -492,6 +521,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             encounter.StartedAtUtc,
             encounter.IsActive ? "Active" : "Ended",
             duration,
+            encounter.TotalFameGained,
             partyTotals.DamageDealt,
             CalculateRate(partyTotals.DamageDealt, duration),
             partyTotals.DamageReceived,
@@ -709,12 +739,13 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         lastChartRefreshUtc = DateTime.UtcNow;
         var encounters = GetDisplayedEncounters().ToArray();
         var metricTarget = CreateMetricTarget(encounters);
+        var includeFame = SelectedChartMetric.Kind == CombatChartMetricKind.Fame && ShouldShowFame();
         ChartTitle = CreateChartTitle(metricTarget.Label);
 
-        if (!metricTarget.HasTarget)
+        if (!metricTarget.HasTarget && !includeFame)
         {
             var emptyBuckets = Array.Empty<AggregatedCombatBucket>();
-            lastChartRenderSignature = CreateChartRenderSignature(emptyBuckets, metricTarget.SignatureKey);
+            lastChartRenderSignature = CreateChartRenderSignature(emptyBuckets, metricTarget.SignatureKey, includeFame);
             ChartSeries = Array.Empty<ISeries>();
             ChartXAxes = CreateChartXAxes(emptyBuckets, SelectedAggregation.Seconds, SelectedChartWindow.Duration);
             ChartYAxes = CreateChartYAxes(0, SelectedChartMetric.Kind);
@@ -725,8 +756,9 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             encounters,
             SelectedAggregation.Seconds,
             metricTarget.IncludeEntity,
+            includeFame,
             SelectedChartWindow.Duration).ToArray();
-        var signature = CreateChartRenderSignature(buckets, metricTarget.SignatureKey);
+        var signature = CreateChartRenderSignature(buckets, metricTarget.SignatureKey, includeFame);
         if (signature == lastChartRenderSignature)
         {
             return;
@@ -742,11 +774,11 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         }
 
         var maxValue = buckets
-            .SelectMany(GetChartValues)
+            .SelectMany(bucket => GetChartValues(bucket, includeFame))
             .DefaultIfEmpty(0)
             .Max();
 
-        ChartSeries = CreateChartSeries(buckets, SelectedChartMetric.Kind, SelectedAggregation.Seconds);
+        ChartSeries = CreateChartSeries(buckets, SelectedChartMetric.Kind, SelectedAggregation.Seconds, includeFame);
         ChartXAxes = CreateChartXAxes(buckets, SelectedAggregation.Seconds, SelectedChartWindow.Duration);
         ChartYAxes = CreateChartYAxes(maxValue, SelectedChartMetric.Kind);
     }
@@ -755,6 +787,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         IEnumerable<CombatEncounterSnapshot> encounters,
         int aggregationSeconds,
         Func<string, bool> includeEntity,
+        bool includeFame,
         TimeSpan? chartWindow = null)
     {
         var encounterArray = encounters as IReadOnlyList<CombatEncounterSnapshot> ?? encounters.ToArray();
@@ -774,7 +807,8 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
                     DamageDealt = playerTotals.Sum(player => player.DamageDealt),
                     DamageReceived = playerTotals.Sum(player => player.DamageReceived),
                     HealingDone = playerTotals.Sum(player => player.HealingDone),
-                    HealingReceived = playerTotals.Sum(player => player.HealingReceived)
+                    HealingReceived = playerTotals.Sum(player => player.HealingReceived),
+                    FameGained = includeFame ? bucket.FameGained : 0
                 };
             }))
             .Where(x => minimumBucketTicks is null || x.BucketTicks >= minimumBucketTicks.Value)
@@ -787,7 +821,8 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
                     x.Sum(bucket => bucket.DamageDealt),
                     x.Sum(bucket => bucket.DamageReceived),
                     x.Sum(bucket => bucket.HealingDone),
-                    x.Sum(bucket => bucket.HealingReceived));
+                    x.Sum(bucket => bucket.HealingReceived),
+                    x.Sum(bucket => bucket.FameGained));
             })
             .ToArray();
 
@@ -847,7 +882,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
                 continue;
             }
 
-            yield return new AggregatedCombatBucket(new DateTime(ticks, DateTimeKind.Utc), 0, 0, 0, 0);
+            yield return new AggregatedCombatBucket(new DateTime(ticks, DateTimeKind.Utc), 0, 0, 0, 0, 0);
         }
     }
 
@@ -880,9 +915,32 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             : currentSnapshot.Encounters.Where(encounter => EncounterHasPlayer(encounter, playerKey));
     }
 
-    private static bool EncounterHasPlayer(CombatEncounterSnapshot encounter, string playerKey)
+    private bool EncounterHasPlayer(CombatEncounterSnapshot encounter, string playerKey)
     {
-        return encounter.Players.Any(player => player.EntityKey == playerKey);
+        if (encounter.Players.Any(player => player.EntityKey == playerKey))
+        {
+            return true;
+        }
+
+        return encounter.TotalFameGained > 0
+            && currentSnapshot.LocalPlayer?.EntityKey == playerKey;
+    }
+
+    private bool ShouldShowFame()
+    {
+        if (SelectedEncounter is not null || selectedEncounterSnapshot is not null)
+        {
+            return true;
+        }
+
+        if (UseAllPartyStats)
+        {
+            return false;
+        }
+
+        var selectedEntityKey = SelectedPlayer?.EntityKey ?? selectedPlayerKey;
+        return string.IsNullOrEmpty(selectedEntityKey)
+            || selectedEntityKey == currentSnapshot.LocalPlayer?.EntityKey;
     }
 
     private CombatMetricTarget CreateMetricTarget(IReadOnlyList<CombatEncounterSnapshot> encounters)
@@ -990,15 +1048,22 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
 
     private static CombatMetricTotals AggregateTotals(
         IEnumerable<CombatEncounterSnapshot> encounters,
-        Func<string, bool> includeEntity)
+        Func<string, bool> includeEntity,
+        bool includeFame)
     {
         var totals = new CombatMetricTotals();
-        foreach (var player in AggregatePlayers(encounters).Where(x => includeEntity(x.EntityKey)))
+        var encounterArray = encounters as IReadOnlyList<CombatEncounterSnapshot> ?? encounters.ToArray();
+        foreach (var player in AggregatePlayers(encounterArray).Where(x => includeEntity(x.EntityKey)))
         {
             totals.DamageDealt += player.DamageDealt;
             totals.DamageReceived += player.DamageReceived;
             totals.HealingDone += player.HealingDone;
             totals.HealingReceived += player.HealingReceived;
+        }
+
+        if (includeFame)
+        {
+            totals.FameGained = encounterArray.Sum(x => x.TotalFameGained);
         }
 
         return totals;
@@ -1013,6 +1078,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             totals.DamageReceived += bucket.DamageReceived;
             totals.HealingDone += bucket.HealingDone;
             totals.HealingReceived += bucket.HealingReceived;
+            totals.FameGained += bucket.FameGained;
         }
 
         return totals;
@@ -1021,6 +1087,42 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     private static TimeSpan SumElapsed(IEnumerable<CombatEncounterSnapshot> encounters, DateTime nowUtc)
     {
         return TimeSpan.FromTicks(encounters.Sum(x => GetElapsed(x, nowUtc).Ticks));
+    }
+
+    private static TimeSpan GetElapsedSince(DateTime? startedAtUtc, DateTime nowUtc)
+    {
+        if (startedAtUtc is not { } start)
+        {
+            return TimeSpan.Zero;
+        }
+
+        var elapsed = nowUtc - start;
+        return elapsed < TimeSpan.Zero
+            ? TimeSpan.Zero
+            : elapsed;
+    }
+
+    private static DateTime? GetFirstFameBucketStartedAtUtc(IEnumerable<CombatEncounterSnapshot> encounters)
+    {
+        DateTime? firstStartedAtUtc = null;
+        foreach (var encounter in encounters)
+        {
+            foreach (var bucket in encounter.TimeBuckets)
+            {
+                if (bucket.FameGained <= 0)
+                {
+                    continue;
+                }
+
+                var bucketStartedAtUtc = encounter.StartedAtUtc.Add(bucket.StartOffset);
+                if (firstStartedAtUtc is null || bucketStartedAtUtc < firstStartedAtUtc.Value)
+                {
+                    firstStartedAtUtc = bucketStartedAtUtc;
+                }
+            }
+        }
+
+        return firstStartedAtUtc;
     }
 
     private static TimeSpan GetElapsed(CombatEncounterSnapshot encounter, DateTime nowUtc)
@@ -1034,12 +1136,22 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             : elapsed;
     }
 
-    private IEnumerable<double> GetChartValues(AggregatedCombatBucket bucket)
+    private IEnumerable<double> GetChartValues(AggregatedCombatBucket bucket, bool includeFame)
     {
-        yield return GetChartValue(bucket.DamageDealt, SelectedChartMetric.Kind, SelectedAggregation.Seconds);
-        yield return GetChartValue(bucket.DamageReceived, SelectedChartMetric.Kind, SelectedAggregation.Seconds);
-        yield return GetChartValue(bucket.HealingDone, SelectedChartMetric.Kind, SelectedAggregation.Seconds);
-        yield return GetChartValue(bucket.HealingReceived, SelectedChartMetric.Kind, SelectedAggregation.Seconds);
+        if (SelectedChartMetric.Kind == CombatChartMetricKind.Fame)
+        {
+            if (includeFame)
+            {
+                yield return bucket.FameGained;
+            }
+
+            yield break;
+        }
+
+        yield return GetPerSecondChartValue(bucket.DamageDealt, SelectedChartMetric.Kind, SelectedAggregation.Seconds);
+        yield return GetPerSecondChartValue(bucket.DamageReceived, SelectedChartMetric.Kind, SelectedAggregation.Seconds);
+        yield return GetPerSecondChartValue(bucket.HealingDone, SelectedChartMetric.Kind, SelectedAggregation.Seconds);
+        yield return GetPerSecondChartValue(bucket.HealingReceived, SelectedChartMetric.Kind, SelectedAggregation.Seconds);
     }
 
     private IReadOnlyList<AggregatedCombatBucket> GetVisibleBuckets(IReadOnlyList<AggregatedCombatBucket> buckets)
@@ -1093,7 +1205,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         return TimeSpan.FromTicks(visibleTicks);
     }
 
-    private string CreateChartRenderSignature(IReadOnlyList<AggregatedCombatBucket> buckets, string chartTargetKey)
+    private string CreateChartRenderSignature(IReadOnlyList<AggregatedCombatBucket> buckets, string chartTargetKey, bool includeFame)
     {
         var builder = new StringBuilder();
         builder.Append(selectedEncounterSnapshot?.EncounterKey ?? selectedPlayerKey ?? "all")
@@ -1101,6 +1213,8 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             .Append(chartTargetKey)
             .Append('|')
             .Append(UseAllPartyStats)
+            .Append('|')
+            .Append(includeFame)
             .Append('|')
             .Append(SelectedAggregation.Seconds)
             .Append('|')
@@ -1126,7 +1240,9 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
                 .Append(':')
                 .Append(bucket.HealingDone)
                 .Append(':')
-                .Append(bucket.HealingReceived);
+                .Append(bucket.HealingReceived)
+                .Append(':')
+                .Append(bucket.FameGained);
         }
 
         return builder.ToString();
@@ -1194,7 +1310,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         Func<string, bool> IncludeEntity,
         bool HasTarget);
 
-    private static double GetChartValue(long amount, CombatChartMetricKind metricKind, int aggregationSeconds)
+    private static double GetPerSecondChartValue(long amount, CombatChartMetricKind metricKind, int aggregationSeconds)
     {
         return metricKind == CombatChartMetricKind.PerSecond
             ? CalculateRate(amount, TimeSpan.FromSeconds(aggregationSeconds))
@@ -1204,15 +1320,26 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     private static ISeries[] CreateChartSeries(
         IReadOnlyList<AggregatedCombatBucket> buckets,
         CombatChartMetricKind metricKind,
-        int aggregationSeconds)
+        int aggregationSeconds,
+        bool includeFame)
     {
-        var suffix = metricKind == CombatChartMetricKind.PerSecond ? "/s" : string.Empty;
+        if (metricKind == CombatChartMetricKind.Fame)
+        {
+            return includeFame
+                ? new ISeries[]
+                {
+                    CreateLineSeries("Fame", buckets, x => x.FameGained, metricKind, SKColors.Gold)
+                }
+                : Array.Empty<ISeries>();
+        }
+
+        var perSecondSuffix = metricKind == CombatChartMetricKind.PerSecond ? "/s" : string.Empty;
         return new ISeries[]
         {
-            CreateLineSeries($"Damage dealt{suffix}", buckets, x => GetChartValue(x.DamageDealt, metricKind, aggregationSeconds), metricKind, SKColors.DeepSkyBlue),
-            CreateLineSeries($"Damage received{suffix}", buckets, x => GetChartValue(x.DamageReceived, metricKind, aggregationSeconds), metricKind, SKColors.LightCoral),
-            CreateLineSeries($"Healing done{suffix}", buckets, x => GetChartValue(x.HealingDone, metricKind, aggregationSeconds), metricKind, SKColors.LightGreen),
-            CreateLineSeries($"Healing received{suffix}", buckets, x => GetChartValue(x.HealingReceived, metricKind, aggregationSeconds), metricKind, SKColors.MediumTurquoise)
+            CreateLineSeries($"Damage dealt{perSecondSuffix}", buckets, x => GetPerSecondChartValue(x.DamageDealt, metricKind, aggregationSeconds), metricKind, SKColors.DeepSkyBlue),
+            CreateLineSeries($"Damage received{perSecondSuffix}", buckets, x => GetPerSecondChartValue(x.DamageReceived, metricKind, aggregationSeconds), metricKind, SKColors.LightCoral),
+            CreateLineSeries($"Healing done{perSecondSuffix}", buckets, x => GetPerSecondChartValue(x.HealingDone, metricKind, aggregationSeconds), metricKind, SKColors.LightGreen),
+            CreateLineSeries($"Healing received{perSecondSuffix}", buckets, x => GetPerSecondChartValue(x.HealingReceived, metricKind, aggregationSeconds), metricKind, SKColors.MediumTurquoise)
         };
     }
 
@@ -1281,7 +1408,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         {
             new Axis
             {
-                Name = metricKind == CombatChartMetricKind.PerSecond ? "Per second" : "Amount",
+                Name = metricKind == CombatChartMetricKind.PerSecond ? "Rate" : "Amount",
                 Labeler = value => FormatChartValue(value, metricKind),
                 NameTextSize = 12,
                 TextSize = 11,
@@ -1319,6 +1446,13 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     {
         return duration.TotalSeconds > 0
             ? amount / duration.TotalSeconds
+            : 0;
+    }
+
+    private static double CalculateHourlyRate(long amount, TimeSpan duration)
+    {
+        return duration.TotalSeconds > 0
+            ? amount * 3600d / duration.TotalSeconds
             : 0;
     }
 
@@ -1386,7 +1520,8 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         var options = new[]
         {
             new CombatChartMetricOptionViewModel(CombatChartMetricKind.Total, "Total"),
-            new CombatChartMetricOptionViewModel(CombatChartMetricKind.PerSecond, "Per second")
+            new CombatChartMetricOptionViewModel(CombatChartMetricKind.PerSecond, "Rate"),
+            new CombatChartMetricOptionViewModel(CombatChartMetricKind.Fame, "Fame")
         };
 
         Replace(ChartMetricOptions, options);
@@ -1428,11 +1563,11 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             settingsManager.UserSettings.PropertyChanged -= OnUserSettingsPropertyChanged;
         }
 
-        if (activeEncounterRefreshTimer is not null)
+        if (summaryRefreshTimer is not null)
         {
-            activeEncounterRefreshTimer.Tick -= OnActiveEncounterRefreshTimerTick;
-            activeEncounterRefreshTimer.Stop();
-            activeEncounterRefreshTimer = null;
+            summaryRefreshTimer.Tick -= OnSummaryRefreshTimerTick;
+            summaryRefreshTimer.Stop();
+            summaryRefreshTimer = null;
         }
 
         CancelPendingChartRefresh();
@@ -1449,7 +1584,8 @@ public sealed record CombatChartWindowOptionViewModel(TimeSpan? Duration, string
 public enum CombatChartMetricKind
 {
     Total,
-    PerSecond
+    PerSecond,
+    Fame
 }
 
 public sealed record CombatChartMetricOptionViewModel(CombatChartMetricKind Kind, string Label);
@@ -1469,7 +1605,8 @@ public sealed record AggregatedCombatBucket(
     long DamageDealt,
     long DamageReceived,
     long HealingDone,
-    long HealingReceived);
+    long HealingReceived,
+    long FameGained);
 
 public sealed record CombatPlayerRowViewModel(
     string EntityKey,
@@ -1492,6 +1629,7 @@ public sealed record CombatEncounterListItemViewModel(
     DateTime StartedAtUtc,
     string Status,
     TimeSpan Duration,
+    long FameGained,
     long DamageDealt,
     double DamageDealtPerSecond,
     long DamageReceived,
@@ -1524,4 +1662,5 @@ public sealed class CombatMetricTotals
     public long DamageReceived { get; set; }
     public long HealingDone { get; set; }
     public long HealingReceived { get; set; }
+    public long FameGained { get; set; }
 }
