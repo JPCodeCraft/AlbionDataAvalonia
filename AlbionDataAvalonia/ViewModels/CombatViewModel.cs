@@ -1589,6 +1589,11 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             new CombatChartWindowOptionViewModel(TimeSpan.FromMinutes(10), "10m"),
             new CombatChartWindowOptionViewModel(TimeSpan.FromMinutes(30), "30m"),
             new CombatChartWindowOptionViewModel(TimeSpan.FromHours(1), "1h"),
+            new CombatChartWindowOptionViewModel(TimeSpan.FromHours(2), "2h"),
+            new CombatChartWindowOptionViewModel(TimeSpan.FromHours(3), "3h"),
+            new CombatChartWindowOptionViewModel(TimeSpan.FromHours(4), "4h"),
+            new CombatChartWindowOptionViewModel(TimeSpan.FromHours(5), "5h"),
+            new CombatChartWindowOptionViewModel(TimeSpan.FromHours(10), "10h"),
             new CombatChartWindowOptionViewModel(null, "Unlimited")
         };
 
