@@ -363,11 +363,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     {
         var nowUtc = DateTime.UtcNow;
         RefreshDisplayedSummary(nowUtc);
-
-        if (IsDisplayEndAnchoredToNow())
-        {
-            RequestChartRefresh();
-        }
+        RequestChartRefresh();
     }
 
     private void ApplySnapshot(CombatTrackerSnapshot snapshot)
@@ -478,7 +474,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     private void RefreshDisplayedSummary(DateTime nowUtc)
     {
         var encounterArray = GetDisplayedEncounters().ToArray();
-        var displayEndUtc = GetDisplayEndUtc(encounterArray, nowUtc);
+        var displayEndUtc = nowUtc;
         var elapsed = SumElapsed(encounterArray, nowUtc);
         var metricTarget = CreateMetricTarget(encounterArray);
         var includeFame = ShouldShowFame();
@@ -496,7 +492,6 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             visibleBuckets,
             visibleFameBucketStartedAtUtc,
             displayEndUtc,
-            SelectedAggregation.Seconds,
             SelectedChartWindow.Duration);
         var visibleWindowDuration = GetVisibleEncounterDuration(
             encounterArray,
@@ -762,7 +757,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         var nowUtc = DateTime.UtcNow;
         lastChartRefreshUtc = nowUtc;
         var encounters = GetDisplayedEncounters().ToArray();
-        var displayEndUtc = GetDisplayEndUtc(encounters, nowUtc);
+        var displayEndUtc = nowUtc;
         var metricTarget = CreateMetricTarget(encounters);
         var includeFame = SelectedChartMetric.Kind == CombatChartMetricKind.Fame && ShouldShowFame();
         ChartTitle = CreateChartTitle(metricTarget.Label);
@@ -957,16 +952,6 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         return string.IsNullOrEmpty(playerKey)
             ? currentSnapshot.Encounters
             : currentSnapshot.Encounters.Where(encounter => EncounterHasPlayer(encounter, playerKey));
-    }
-
-    private bool IsDisplayEndAnchoredToNow()
-    {
-        return true;
-    }
-
-    private DateTime GetDisplayEndUtc(IReadOnlyList<CombatEncounterSnapshot> encounters, DateTime nowUtc)
-    {
-        return nowUtc;
     }
 
     private bool EncounterHasPlayer(CombatEncounterSnapshot encounter, string playerKey)
@@ -1202,7 +1187,6 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         IReadOnlyList<AggregatedCombatBucket> buckets,
         DateTime? firstVisibleFameBucketStartedAtUtc,
         DateTime displayEndUtc,
-        int aggregationSeconds,
         TimeSpan? chartWindow)
     {
         var visibleEndUtc = displayEndUtc;
