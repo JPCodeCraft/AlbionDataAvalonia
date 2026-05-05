@@ -859,10 +859,10 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
 
         if (groupedBuckets.Length == 0)
         {
-            return groupedBuckets;
+            return CreateEmptyBuckets(aggregationSeconds, minimumBucketTicks, maximumBucketTicks);
         }
 
-        return FillMissingBuckets(groupedBuckets, aggregationSeconds, maximumBucketTicks);
+        return FillMissingBuckets(groupedBuckets, aggregationSeconds, minimumBucketTicks, maximumBucketTicks);
     }
 
     private static long? GetMinimumVisibleBucketTicks(
@@ -886,13 +886,16 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     private static IEnumerable<AggregatedCombatBucket> FillMissingBuckets(
         IReadOnlyList<AggregatedCombatBucket> buckets,
         int aggregationSeconds,
+        long? firstTicksOverride = null,
         long? lastTicksOverride = null)
     {
         var bucketsByTicks = buckets.ToDictionary(x => x.StartedAtUtc.Ticks);
         var aggregationTicks = TimeSpan.FromSeconds(aggregationSeconds).Ticks;
-        var firstTicks = buckets[0].StartedAtUtc.Ticks;
-        var lastTicks = lastTicksOverride is { } overrideTicks && overrideTicks > buckets[^1].StartedAtUtc.Ticks
-            ? overrideTicks
+        var firstTicks = firstTicksOverride is { } firstOverrideTicks && firstOverrideTicks < buckets[0].StartedAtUtc.Ticks
+            ? firstOverrideTicks
+            : buckets[0].StartedAtUtc.Ticks;
+        var lastTicks = lastTicksOverride is { } lastOverrideTicks && lastOverrideTicks > buckets[^1].StartedAtUtc.Ticks
+            ? lastOverrideTicks
             : buckets[^1].StartedAtUtc.Ticks;
 
         for (var ticks = firstTicks; ticks <= lastTicks; ticks += aggregationTicks)
@@ -905,6 +908,26 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
 
             yield return new AggregatedCombatBucket(new DateTime(ticks, DateTimeKind.Utc), 0, 0, 0, 0, 0);
         }
+    }
+
+    private static IEnumerable<AggregatedCombatBucket> CreateEmptyBuckets(
+        int aggregationSeconds,
+        long? firstTicks,
+        long? lastTicks)
+    {
+        if (firstTicks is not { } startTicks || lastTicks is not { } endTicks || endTicks < startTicks)
+        {
+            return Array.Empty<AggregatedCombatBucket>();
+        }
+
+        var buckets = new List<AggregatedCombatBucket>();
+        var aggregationTicks = TimeSpan.FromSeconds(aggregationSeconds).Ticks;
+        for (var ticks = startTicks; ticks <= endTicks; ticks += aggregationTicks)
+        {
+            buckets.Add(new AggregatedCombatBucket(new DateTime(ticks, DateTimeKind.Utc), 0, 0, 0, 0, 0));
+        }
+
+        return buckets;
     }
 
     private IEnumerable<CombatEncounterSnapshot> GetDisplayedEncounters()
@@ -1455,10 +1478,6 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         {
             var maxTicks = displayEndUtc.Ticks;
             var minTicks = maxTicks - window.Ticks;
-            if (buckets.Count > 0)
-            {
-                minTicks = Math.Max(buckets[0].StartedAtUtc.Ticks, minTicks);
-            }
 
             minLimit = minTicks;
             maxLimit = maxTicks;
