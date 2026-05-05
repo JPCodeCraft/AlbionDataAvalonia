@@ -488,18 +488,18 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         var partyTotals = GetPartyTotals(encounter);
         return new CombatEncounterListItemViewModel(
             encounter.EncounterKey,
-            $"#{encounter.EncounterNumber}",
-            FormatUtcTime(encounter.StartedAtUtc),
+            encounter.EncounterNumber,
+            encounter.StartedAtUtc,
             encounter.IsActive ? "Active" : "Ended",
-            FormatDuration(duration),
-            FormatAmount(partyTotals.DamageDealt),
-            FormatRate(CalculateRate(partyTotals.DamageDealt, duration)),
-            FormatAmount(partyTotals.DamageReceived),
-            FormatRate(CalculateRate(partyTotals.DamageReceived, duration)),
-            FormatAmount(partyTotals.HealingDone),
-            FormatRate(CalculateRate(partyTotals.HealingDone, duration)),
-            FormatAmount(partyTotals.HealingReceived),
-            FormatRate(CalculateRate(partyTotals.HealingReceived, duration)),
+            duration,
+            partyTotals.DamageDealt,
+            CalculateRate(partyTotals.DamageDealt, duration),
+            partyTotals.DamageReceived,
+            CalculateRate(partyTotals.DamageReceived, duration),
+            partyTotals.HealingDone,
+            CalculateRate(partyTotals.HealingDone, duration),
+            partyTotals.HealingReceived,
+            CalculateRate(partyTotals.HealingReceived, duration),
             encounter.IsActive,
             encounter);
     }
@@ -945,14 +945,14 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             player.Role,
             GetRoleLabel(player.Role),
             GetRoleSortOrder(player.Role),
-            FormatAmount(player.DamageDealt),
-            FormatRate(CalculateRate(player.DamageDealt, duration)),
-            FormatAmount(player.DamageReceived),
-            FormatRate(CalculateRate(player.DamageReceived, duration)),
-            FormatAmount(player.HealingDone),
-            FormatRate(CalculateRate(player.HealingDone, duration)),
-            FormatAmount(player.HealingReceived),
-            FormatRate(CalculateRate(player.HealingReceived, duration)));
+            player.DamageDealt,
+            CalculateRate(player.DamageDealt, duration),
+            player.DamageReceived,
+            CalculateRate(player.DamageReceived, duration),
+            player.HealingDone,
+            CalculateRate(player.HealingDone, duration),
+            player.HealingReceived,
+            CalculateRate(player.HealingReceived, duration));
     }
 
     private bool MatchesSelectedPlayerFilter(CombatPlayerSummary player)
@@ -1163,7 +1163,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     {
         if (SelectedEncounter is not null)
         {
-            return $"{SelectedEncounter.Label} ({SelectedEncounter.Status})";
+            return $"#{SelectedEncounter.EncounterNumber} ({SelectedEncounter.Status})";
         }
 
         if (GetSelectedPlayerName() is { } selectedPlayerName)
@@ -1477,31 +1477,46 @@ public sealed record CombatPlayerRowViewModel(
     CombatEntityRole Role,
     string RoleLabel,
     int RoleSortOrder,
-    string DamageDealt,
-    string DamageDealtPerSecond,
-    string DamageReceived,
-    string DamageReceivedPerSecond,
-    string HealingDone,
-    string HealingDonePerSecond,
-    string HealingReceived,
-    string HealingReceivedPerSecond);
+    long DamageDealt,
+    double DamageDealtPerSecond,
+    long DamageReceived,
+    double DamageReceivedPerSecond,
+    long HealingDone,
+    double HealingDonePerSecond,
+    long HealingReceived,
+    double HealingReceivedPerSecond);
 
 public sealed record CombatEncounterListItemViewModel(
     string EncounterKey,
-    string Label,
-    string StartedText,
+    int EncounterNumber,
+    DateTime StartedAtUtc,
     string Status,
-    string Duration,
-    string DamageDealt,
-    string DamageDealtPerSecond,
-    string DamageReceived,
-    string DamageReceivedPerSecond,
-    string HealingDone,
-    string HealingDonePerSecond,
-    string HealingReceived,
-    string HealingReceivedPerSecond,
+    TimeSpan Duration,
+    long DamageDealt,
+    double DamageDealtPerSecond,
+    long DamageReceived,
+    double DamageReceivedPerSecond,
+    long HealingDone,
+    double HealingDonePerSecond,
+    long HealingReceived,
+    double HealingReceivedPerSecond,
     bool IsActive,
-    CombatEncounterSnapshot Encounter);
+    CombatEncounterSnapshot Encounter)
+{
+    public string DurationDisplay
+    {
+        get
+        {
+            var roundedDuration = TimeSpan.FromSeconds(Math.Round(
+                Math.Max(0, Duration.TotalSeconds),
+                MidpointRounding.AwayFromZero));
+
+            return roundedDuration.TotalHours >= 1
+                ? roundedDuration.ToString(@"h\:mm\:ss")
+                : roundedDuration.ToString(@"mm\:ss");
+        }
+    }
+}
 
 public sealed class CombatMetricTotals
 {

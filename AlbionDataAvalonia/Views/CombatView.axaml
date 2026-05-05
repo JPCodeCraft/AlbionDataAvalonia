@@ -270,18 +270,84 @@
 						  GridLinesVisibility="None"
 						  BorderThickness="0">
 					<DataGrid.Columns>
-						<DataGridTextColumn Header="Combat" Binding="{Binding Label}" />
-						<DataGridTextColumn Header="Started" Binding="{Binding StartedText}" />
+							<DataGridTemplateColumn Header="Combat" SortMemberPath="EncounterNumber" CanUserSort="True">
+								<DataGridTemplateColumn.CellTemplate>
+									<DataTemplate>
+										<TextBlock Text="{Binding EncounterNumber, StringFormat='#{0}'}" VerticalAlignment="Center" />
+									</DataTemplate>
+								</DataGridTemplateColumn.CellTemplate>
+							</DataGridTemplateColumn>
+						<DataGridTemplateColumn Header="Started" SortMemberPath="StartedAtUtc" CanUserSort="True">
+							<DataGridTemplateColumn.CellTemplate>
+								<DataTemplate>
+									<TextBlock Text="{Binding StartedAtUtc, StringFormat='{}{0:HH:mm:ss} UTC'}" VerticalAlignment="Center" />
+								</DataTemplate>
+							</DataGridTemplateColumn.CellTemplate>
+						</DataGridTemplateColumn>
 						<DataGridTextColumn Header="Status" Binding="{Binding Status}" />
-						<DataGridTextColumn Header="Duration" Binding="{Binding Duration}" />
-						<DataGridTextColumn Header="Dmg Out" Binding="{Binding DamageDealt}" />
-						<DataGridTextColumn Header="DPS" Binding="{Binding DamageDealtPerSecond}" />
-						<DataGridTextColumn Header="Dmg In" Binding="{Binding DamageReceived}" />
-						<DataGridTextColumn Header="Dmg/s In" Binding="{Binding DamageReceivedPerSecond}" />
-						<DataGridTextColumn Header="Heal Out" Binding="{Binding HealingDone}" />
-						<DataGridTextColumn Header="HPS" Binding="{Binding HealingDonePerSecond}" />
-						<DataGridTextColumn Header="Heal In" Binding="{Binding HealingReceived}" />
-						<DataGridTextColumn Header="Heal/s In" Binding="{Binding HealingReceivedPerSecond}" />
+						<DataGridTemplateColumn Header="Duration" SortMemberPath="Duration" CanUserSort="True">
+							<DataGridTemplateColumn.CellTemplate>
+								<DataTemplate>
+										<TextBlock Text="{Binding DurationDisplay}" VerticalAlignment="Center" />
+								</DataTemplate>
+							</DataGridTemplateColumn.CellTemplate>
+						</DataGridTemplateColumn>
+						<DataGridTemplateColumn Header="Dmg Out" SortMemberPath="DamageDealt" CanUserSort="True">
+							<DataGridTemplateColumn.CellTemplate>
+								<DataTemplate>
+									<TextBlock Text="{Binding DamageDealt, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" />
+								</DataTemplate>
+							</DataGridTemplateColumn.CellTemplate>
+						</DataGridTemplateColumn>
+						<DataGridTemplateColumn Header="DPS" SortMemberPath="DamageDealtPerSecond" CanUserSort="True">
+							<DataGridTemplateColumn.CellTemplate>
+								<DataTemplate>
+									<TextBlock Text="{Binding DamageDealtPerSecond, StringFormat='{}{0:N1}'}" VerticalAlignment="Center" />
+								</DataTemplate>
+							</DataGridTemplateColumn.CellTemplate>
+						</DataGridTemplateColumn>
+						<DataGridTemplateColumn Header="Dmg In" SortMemberPath="DamageReceived" CanUserSort="True">
+							<DataGridTemplateColumn.CellTemplate>
+								<DataTemplate>
+									<TextBlock Text="{Binding DamageReceived, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" />
+								</DataTemplate>
+							</DataGridTemplateColumn.CellTemplate>
+						</DataGridTemplateColumn>
+						<DataGridTemplateColumn Header="Dmg/s In" SortMemberPath="DamageReceivedPerSecond" CanUserSort="True">
+							<DataGridTemplateColumn.CellTemplate>
+								<DataTemplate>
+									<TextBlock Text="{Binding DamageReceivedPerSecond, StringFormat='{}{0:N1}'}" VerticalAlignment="Center" />
+								</DataTemplate>
+							</DataGridTemplateColumn.CellTemplate>
+						</DataGridTemplateColumn>
+						<DataGridTemplateColumn Header="Heal Out" SortMemberPath="HealingDone" CanUserSort="True">
+							<DataGridTemplateColumn.CellTemplate>
+								<DataTemplate>
+									<TextBlock Text="{Binding HealingDone, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" />
+								</DataTemplate>
+							</DataGridTemplateColumn.CellTemplate>
+						</DataGridTemplateColumn>
+						<DataGridTemplateColumn Header="HPS" SortMemberPath="HealingDonePerSecond" CanUserSort="True">
+							<DataGridTemplateColumn.CellTemplate>
+								<DataTemplate>
+									<TextBlock Text="{Binding HealingDonePerSecond, StringFormat='{}{0:N1}'}" VerticalAlignment="Center" />
+								</DataTemplate>
+							</DataGridTemplateColumn.CellTemplate>
+						</DataGridTemplateColumn>
+						<DataGridTemplateColumn Header="Heal In" SortMemberPath="HealingReceived" CanUserSort="True">
+							<DataGridTemplateColumn.CellTemplate>
+								<DataTemplate>
+									<TextBlock Text="{Binding HealingReceived, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" />
+								</DataTemplate>
+							</DataGridTemplateColumn.CellTemplate>
+						</DataGridTemplateColumn>
+						<DataGridTemplateColumn Header="Heal/s In" SortMemberPath="HealingReceivedPerSecond" CanUserSort="True">
+							<DataGridTemplateColumn.CellTemplate>
+								<DataTemplate>
+									<TextBlock Text="{Binding HealingReceivedPerSecond, StringFormat='{}{0:N1}'}" VerticalAlignment="Center" />
+								</DataTemplate>
+							</DataGridTemplateColumn.CellTemplate>
+						</DataGridTemplateColumn>
 					</DataGrid.Columns>
 				</DataGrid>
 			</Grid>
@@ -317,14 +383,62 @@
 				<DataGrid.Columns>
 					<DataGridTextColumn Header="Role" Binding="{Binding RoleLabel}" SortMemberPath="RoleSortOrder" CanUserSort="True" Width="115" />
 					<DataGridTextColumn Header="Player" Binding="{Binding Name}" Width="*" />
-					<DataGridTextColumn Header="Dmg Out" Binding="{Binding DamageDealt}" />
-					<DataGridTextColumn Header="DPS" Binding="{Binding DamageDealtPerSecond}" />
-					<DataGridTextColumn Header="Dmg In" Binding="{Binding DamageReceived}" />
-					<DataGridTextColumn Header="Dmg/s In" Binding="{Binding DamageReceivedPerSecond}" />
-					<DataGridTextColumn Header="Heal Out" Binding="{Binding HealingDone}" />
-					<DataGridTextColumn Header="HPS" Binding="{Binding HealingDonePerSecond}" />
-					<DataGridTextColumn Header="Heal In" Binding="{Binding HealingReceived}" />
-					<DataGridTextColumn Header="Heal/s In" Binding="{Binding HealingReceivedPerSecond}" />
+					<DataGridTemplateColumn Header="Dmg Out" SortMemberPath="DamageDealt" CanUserSort="True">
+						<DataGridTemplateColumn.CellTemplate>
+							<DataTemplate>
+								<TextBlock Text="{Binding DamageDealt, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" />
+							</DataTemplate>
+						</DataGridTemplateColumn.CellTemplate>
+					</DataGridTemplateColumn>
+					<DataGridTemplateColumn Header="DPS" SortMemberPath="DamageDealtPerSecond" CanUserSort="True">
+						<DataGridTemplateColumn.CellTemplate>
+							<DataTemplate>
+								<TextBlock Text="{Binding DamageDealtPerSecond, StringFormat='{}{0:N1}'}" VerticalAlignment="Center" />
+							</DataTemplate>
+						</DataGridTemplateColumn.CellTemplate>
+					</DataGridTemplateColumn>
+					<DataGridTemplateColumn Header="Dmg In" SortMemberPath="DamageReceived" CanUserSort="True">
+						<DataGridTemplateColumn.CellTemplate>
+							<DataTemplate>
+								<TextBlock Text="{Binding DamageReceived, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" />
+							</DataTemplate>
+						</DataGridTemplateColumn.CellTemplate>
+					</DataGridTemplateColumn>
+					<DataGridTemplateColumn Header="Dmg/s In" SortMemberPath="DamageReceivedPerSecond" CanUserSort="True">
+						<DataGridTemplateColumn.CellTemplate>
+							<DataTemplate>
+								<TextBlock Text="{Binding DamageReceivedPerSecond, StringFormat='{}{0:N1}'}" VerticalAlignment="Center" />
+							</DataTemplate>
+						</DataGridTemplateColumn.CellTemplate>
+					</DataGridTemplateColumn>
+					<DataGridTemplateColumn Header="Heal Out" SortMemberPath="HealingDone" CanUserSort="True">
+						<DataGridTemplateColumn.CellTemplate>
+							<DataTemplate>
+								<TextBlock Text="{Binding HealingDone, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" />
+							</DataTemplate>
+						</DataGridTemplateColumn.CellTemplate>
+					</DataGridTemplateColumn>
+					<DataGridTemplateColumn Header="HPS" SortMemberPath="HealingDonePerSecond" CanUserSort="True">
+						<DataGridTemplateColumn.CellTemplate>
+							<DataTemplate>
+								<TextBlock Text="{Binding HealingDonePerSecond, StringFormat='{}{0:N1}'}" VerticalAlignment="Center" />
+							</DataTemplate>
+						</DataGridTemplateColumn.CellTemplate>
+					</DataGridTemplateColumn>
+					<DataGridTemplateColumn Header="Heal In" SortMemberPath="HealingReceived" CanUserSort="True">
+						<DataGridTemplateColumn.CellTemplate>
+							<DataTemplate>
+								<TextBlock Text="{Binding HealingReceived, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" />
+							</DataTemplate>
+						</DataGridTemplateColumn.CellTemplate>
+					</DataGridTemplateColumn>
+					<DataGridTemplateColumn Header="Heal/s In" SortMemberPath="HealingReceivedPerSecond" CanUserSort="True">
+						<DataGridTemplateColumn.CellTemplate>
+							<DataTemplate>
+								<TextBlock Text="{Binding HealingReceivedPerSecond, StringFormat='{}{0:N1}'}" VerticalAlignment="Center" />
+							</DataTemplate>
+						</DataGridTemplateColumn.CellTemplate>
+					</DataGridTemplateColumn>
 				</DataGrid.Columns>
 			</DataGrid>
 		</Grid>
