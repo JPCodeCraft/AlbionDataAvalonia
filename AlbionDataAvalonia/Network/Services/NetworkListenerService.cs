@@ -104,6 +104,7 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddEventHandler(new PartyDisbandedEventHandler(_combatTracker));
                 builder.AddEventHandler(new HealthUpdateEventHandler(_combatTracker));
                 builder.AddEventHandler(new HealthUpdatesEventHandler(_combatTracker));
+                builder.AddEventHandler(new UpdateFameEventHandler());
                 builder.AddEventHandler(new InCombatStateUpdateEventHandler(_combatTracker));
                 builder.AddEventHandler(new TimeSyncEventHandler(_combatTracker));
                 builder.AddEventHandler(new FullAchievementInfoEventHandler(_achievementsService, _playerState, _afmUploader, _settingsManager));

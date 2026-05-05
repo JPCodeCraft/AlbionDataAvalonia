@@ -4,6 +4,8 @@ using System.Linq;
 
 public static class ObjectExtensions
 {
+    private const double FixedPointFactor = 10000d;
+
     public static byte ToByte(this object obj)
     {
         if (obj is byte b) return b;
@@ -43,6 +45,11 @@ public static class ObjectExtensions
         if (obj is float f) return f;
         if (obj is double d) return d;
         return Convert.ToDouble(obj);
+    }
+
+    public static double ToFixedPointDouble(this object obj)
+    {
+        return obj.ToLong() / FixedPointFactor;
     }
 
     public static bool ToBool(this object obj)
