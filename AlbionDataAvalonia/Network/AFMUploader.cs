@@ -382,6 +382,11 @@ namespace AlbionDataAvalonia.Network.Services
 
                 foreach (var chunk in items.Chunk(MaxItemEstimatedMarketValueUploadBatchSize))
                 {
+                    foreach (var item in chunk)
+                    {
+                        Log.Debug("Uploading item estimated market value. ServerId: {ServerId}. ItemUniqueName: {ItemUniqueName}. Quality: {Quality}. Emv: {Emv}. Day: {Day}.", serverId.Value, item.ItemUniqueName, item.Quality, item.Emv, item.Day);
+                    }
+
                     var upload = new ItemEstimatedMarketValueUpload
                     {
                         ServerId = serverId.Value,
