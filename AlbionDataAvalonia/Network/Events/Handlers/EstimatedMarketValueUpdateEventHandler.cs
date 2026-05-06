@@ -23,13 +23,6 @@ public class EstimatedMarketValueUpdateEventHandler : EventPacketHandler<Estimat
             var itemData = itemsIdsService.GetItemById(entry.ItemId);
             entry.ItemUniqueName = itemData.UniqueName;
             entry.ItemUsName = itemData.UsName;
-
-            Log.Information(
-                "Received EstimatedMarketValueUpdateEvent for ItemId {ItemId} ({ItemUsName}), Quality {Quality}, Estimated Market Value: {EstimatedMarketValue}",
-                entry.ItemId,
-                entry.ItemUsName,
-                entry.Quality,
-                entry.EstimatedMarketValue);
         }
 
         return Task.CompletedTask;
