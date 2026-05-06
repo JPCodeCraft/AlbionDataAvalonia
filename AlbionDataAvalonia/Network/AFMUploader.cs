@@ -6,6 +6,8 @@ using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
 using Serilog;
 using System;
+using System.Collections.Concurrent;
+using System.Collections.Generic;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
@@ -14,6 +16,7 @@ using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
 using System.Text.Json.Serialization;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.Network.Services
@@ -24,16 +27,26 @@ namespace AlbionDataAvalonia.Network.Services
         private const string PlayerCountPath = "playercount";
         private const string AchievementsPath = "be/achievements";
         private const string GlobalMultiplierPath = "be/globalMultiplier";
+        private const string ItemEstimatedMarketValuesPath = "itemEstimatedMarketValues";
+        private const int MaxItemEstimatedMarketValueUploadBatchSize = 500;
+        private static readonly TimeSpan ItemEstimatedMarketValueBatchDelay = TimeSpan.FromSeconds(5);
 
         private readonly PlayerState _playerState;
         private readonly SettingsManager _settingsManager;
         private readonly AuthService _authService;
 
         private readonly HttpClient httpClient = new HttpClient();
+        private readonly ConcurrentDictionary<ItemEstimatedMarketValueUploadKey, ItemEstimatedMarketValueUploadEntry> pendingItemEstimatedMarketValues = new();
 
         private readonly object _headersLock = new();
+        private readonly object itemEstimatedMarketValueUploadTimerLock = new();
+        private Timer? itemEstimatedMarketValueUploadTimer;
+        private bool itemEstimatedMarketValueUploadScheduled;
+        private int itemEstimatedMarketValueUploadInProgress;
+        private bool disposed;
         public event EventHandler<AchievementsUploadEventArgs>? OnAchievementsUpload;
         public event EventHandler<GlobalMultiplierUploadEventArgs>? OnGlobalMultiplierUpload;
+        public event EventHandler<ItemEstimatedMarketValueUploadEventArgs>? OnItemEstimatedMarketValueUpload;
 
         public AFMUploader(PlayerState playerState, SettingsManager settingsManager, AuthService authService)
         {
@@ -43,6 +56,7 @@ namespace AlbionDataAvalonia.Network.Services
 
             OnAchievementsUpload += _playerState.AchievementsUploadHandler;
             OnGlobalMultiplierUpload += _playerState.GlobalMultiplierUploadHandler;
+            OnItemEstimatedMarketValueUpload += _playerState.ItemEstimatedMarketValueUploadHandler;
             _authService.FirebaseUserChanged += (user) => UpdateAuthHeader(user);
         }
 
@@ -259,6 +273,249 @@ namespace AlbionDataAvalonia.Network.Services
         public void UploadGlobalMultiplier(GlobalMultiplierUpload globalMultiplierUpload)
         {
             _ = Upload(globalMultiplierUpload);
+        }
+
+        public void QueueItemEstimatedMarketValue(string itemUniqueName, long emv, int quality)
+        {
+            var serverId = _playerState.AlbionServer?.Id;
+            if (serverId is null)
+            {
+                Log.Debug("Skipping item estimated market value upload because server is not set. ItemUniqueName: {ItemUniqueName}. Quality: {Quality}. Emv: {Emv}.", itemUniqueName, quality, emv);
+                return;
+            }
+
+            if (_authService.CurrentFirebaseUser is null)
+            {
+                Log.Debug("Skipping item estimated market value upload because no Firebase session exists. ServerId: {ServerId}. ItemUniqueName: {ItemUniqueName}. Quality: {Quality}. Emv: {Emv}.", serverId, itemUniqueName, quality, emv);
+                return;
+            }
+
+            if (!IsValidItemEstimatedMarketValue(itemUniqueName, emv, quality))
+            {
+                Log.Debug("Skipping invalid item estimated market value. ServerId: {ServerId}. ItemUniqueName: {ItemUniqueName}. Quality: {Quality}. Emv: {Emv}.", serverId, itemUniqueName, quality, emv);
+                return;
+            }
+
+            var day = DateOnly.FromDateTime(DateTime.UtcNow);
+            var key = new ItemEstimatedMarketValueUploadKey(serverId.Value, itemUniqueName, quality, day);
+            pendingItemEstimatedMarketValues[key] = new ItemEstimatedMarketValueUploadEntry
+            {
+                ItemUniqueName = itemUniqueName,
+                Emv = emv,
+                Quality = quality,
+                Day = day
+            };
+
+            ScheduleItemEstimatedMarketValueUpload();
+        }
+
+        private static bool IsValidItemEstimatedMarketValue(string itemUniqueName, long emv, int quality)
+        {
+            return !string.IsNullOrWhiteSpace(itemUniqueName)
+                && !string.Equals(itemUniqueName, "Unknown Item", StringComparison.OrdinalIgnoreCase)
+                && !string.Equals(itemUniqueName, "Unset", StringComparison.OrdinalIgnoreCase)
+                && emv > 0
+                && quality >= 1
+                && quality <= 5;
+        }
+
+        private void ScheduleItemEstimatedMarketValueUpload()
+        {
+            lock (itemEstimatedMarketValueUploadTimerLock)
+            {
+                if (disposed || itemEstimatedMarketValueUploadScheduled)
+                {
+                    return;
+                }
+
+                itemEstimatedMarketValueUploadScheduled = true;
+                itemEstimatedMarketValueUploadTimer ??= new Timer(_ => _ = UploadPendingItemEstimatedMarketValues());
+                itemEstimatedMarketValueUploadTimer.Change(ItemEstimatedMarketValueBatchDelay, Timeout.InfiniteTimeSpan);
+            }
+        }
+
+        private async Task UploadPendingItemEstimatedMarketValues()
+        {
+            lock (itemEstimatedMarketValueUploadTimerLock)
+            {
+                itemEstimatedMarketValueUploadScheduled = false;
+            }
+
+            if (Interlocked.Exchange(ref itemEstimatedMarketValueUploadInProgress, 1) == 1)
+            {
+                ScheduleItemEstimatedMarketValueUpload();
+                return;
+            }
+
+            try
+            {
+                var snapshot = pendingItemEstimatedMarketValues.ToArray();
+                if (snapshot.Length == 0)
+                {
+                    return;
+                }
+
+                var items = new List<ItemEstimatedMarketValueUploadEntry>(snapshot.Length);
+                int? serverId = null;
+
+                foreach (var pair in snapshot)
+                {
+                    if (!pendingItemEstimatedMarketValues.TryRemove(pair.Key, out var entry))
+                    {
+                        continue;
+                    }
+
+                    serverId ??= pair.Key.ServerId;
+                    if (serverId.Value != pair.Key.ServerId)
+                    {
+                        pendingItemEstimatedMarketValues[pair.Key] = entry;
+                        continue;
+                    }
+
+                    items.Add(entry);
+                }
+
+                if (serverId is null || items.Count == 0)
+                {
+                    return;
+                }
+
+                foreach (var chunk in items.Chunk(MaxItemEstimatedMarketValueUploadBatchSize))
+                {
+                    var upload = new ItemEstimatedMarketValueUpload
+                    {
+                        ServerId = serverId.Value,
+                        Items = chunk.ToList()
+                    };
+
+                    await Upload(upload);
+                }
+
+                if (!pendingItemEstimatedMarketValues.IsEmpty)
+                {
+                    ScheduleItemEstimatedMarketValueUpload();
+                }
+            }
+            finally
+            {
+                Interlocked.Exchange(ref itemEstimatedMarketValueUploadInProgress, 0);
+            }
+        }
+
+        private async Task<UploadStatus> Upload(ItemEstimatedMarketValueUpload itemEstimatedMarketValueUpload)
+        {
+            var identifier = itemEstimatedMarketValueUpload.Identifier;
+            var requestUri = httpClient.BaseAddress is null ? null : new Uri(httpClient.BaseAddress, ItemEstimatedMarketValuesPath);
+
+            UploadStatus ReportStatus(UploadStatus status)
+            {
+                OnItemEstimatedMarketValueUpload?.Invoke(this, new ItemEstimatedMarketValueUploadEventArgs(itemEstimatedMarketValueUpload, status, UploadScope.Private, identifier));
+                return status;
+            }
+
+            try
+            {
+                var hasValidToken = await _authService.EnsureValidTokenAsync();
+                if (!hasValidToken)
+                {
+                    Log.Error("Cannot upload item estimated market values without a valid Firebase session. Identifier: {Identifier}. ServerId: {ServerId}. ItemsCount: {ItemsCount}.", identifier, itemEstimatedMarketValueUpload.ServerId, itemEstimatedMarketValueUpload.Items.Count);
+                    return ReportStatus(UploadStatus.Failed);
+                }
+
+                if (requestUri is null)
+                {
+                    Log.Error("Cannot upload item estimated market values because AFM base address is not initialized. Identifier: {Identifier}. ServerId: {ServerId}. ItemsCount: {ItemsCount}.", identifier, itemEstimatedMarketValueUpload.ServerId, itemEstimatedMarketValueUpload.Items.Count);
+                    return ReportStatus(UploadStatus.Failed);
+                }
+
+                var serializerOptions = new JsonSerializerOptions
+                {
+                    PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+                    DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
+                };
+
+                async Task<HttpResponseMessage> SendAsync()
+                {
+                    return await httpClient.PostAsJsonAsync(requestUri, itemEstimatedMarketValueUpload, serializerOptions);
+                }
+
+                HttpResponseMessage? response = null;
+
+                try
+                {
+                    response = await SendAsync();
+
+                    if (response.StatusCode == HttpStatusCode.Unauthorized)
+                    {
+                        await LogHttpFailure(
+                            "item estimated market values",
+                            requestUri,
+                            identifier,
+                            response,
+                            "AFM item estimated market values upload returned unauthorized. Attempting token refresh.",
+                            itemEstimatedMarketValueSummary: GetItemEstimatedMarketValueUploadSummary(itemEstimatedMarketValueUpload),
+                            serverId: itemEstimatedMarketValueUpload.ServerId);
+
+                        response.Dispose();
+                        response = null;
+
+                        var recovered = await _authService.TryRecoverFromUnauthorizedAsync();
+                        if (!recovered)
+                        {
+                            Log.Error("AFM item estimated market values upload could not recover from unauthorized response. Identifier: {Identifier}. ServerId: {ServerId}. {ItemEstimatedMarketValueSummary}", identifier, itemEstimatedMarketValueUpload.ServerId, GetItemEstimatedMarketValueUploadSummary(itemEstimatedMarketValueUpload));
+                            return ReportStatus(UploadStatus.Failed);
+                        }
+
+                        response = await SendAsync();
+
+                        if (response.StatusCode == HttpStatusCode.Unauthorized)
+                        {
+                            await LogHttpFailure(
+                                "item estimated market values",
+                                requestUri,
+                                identifier,
+                                response,
+                                "AFM item estimated market values upload unauthorized after retry.",
+                                itemEstimatedMarketValueSummary: GetItemEstimatedMarketValueUploadSummary(itemEstimatedMarketValueUpload),
+                                serverId: itemEstimatedMarketValueUpload.ServerId);
+
+                            return ReportStatus(UploadStatus.Failed);
+                        }
+                    }
+
+                    if (!response.IsSuccessStatusCode)
+                    {
+                        await LogHttpFailure(
+                            "item estimated market values",
+                            requestUri,
+                            identifier,
+                            response,
+                            "HTTP error while uploading item estimated market values to AFM.",
+                            itemEstimatedMarketValueSummary: GetItemEstimatedMarketValueUploadSummary(itemEstimatedMarketValueUpload),
+                            serverId: itemEstimatedMarketValueUpload.ServerId);
+
+                        return ReportStatus(UploadStatus.Failed);
+                    }
+
+                    Log.Information("Successfully sent {ItemsCount} item estimated market values to {RequestUri}. Identifier: {Identifier}. ServerId: {ServerId}.", itemEstimatedMarketValueUpload.Items.Count, requestUri, identifier, itemEstimatedMarketValueUpload.ServerId);
+                    return ReportStatus(UploadStatus.Success);
+                }
+                finally
+                {
+                    response?.Dispose();
+                }
+            }
+            catch (Exception ex)
+            {
+                LogAfmException(
+                    ex,
+                    "item estimated market values",
+                    requestUri,
+                    identifier,
+                    itemEstimatedMarketValueSummary: GetItemEstimatedMarketValueUploadSummary(itemEstimatedMarketValueUpload),
+                    serverId: itemEstimatedMarketValueUpload.ServerId);
+                return ReportStatus(UploadStatus.Failed);
+            }
         }
 
         private async Task Upload(PlayerCount playerCount)
@@ -637,11 +894,12 @@ namespace AlbionDataAvalonia.Network.Services
             string? characterName = null,
             int? achievementsCount = null,
             int? serverId = null,
-            double? globalMultiplier = null)
+            double? globalMultiplier = null,
+            string? itemEstimatedMarketValueSummary = null)
         {
             var responseBody = await SafeReadResponseBodyAsync(response);
             Log.Error(
-                "{Message} UploadType: {UploadType}. RequestUri: {RequestUri}. Identifier: {Identifier}. StatusCode: {StatusCode}. ResponseBody: {ResponseBody}. ServerId: {ServerId}. CharacterName: {CharacterName}. AchievementsCount: {AchievementsCount}. GlobalMultiplier: {GlobalMultiplier}. MarketUploadSummary: {MarketUploadSummary}. PlayerCountSummary: {PlayerCountSummary}",
+                "{Message} UploadType: {UploadType}. RequestUri: {RequestUri}. Identifier: {Identifier}. StatusCode: {StatusCode}. ResponseBody: {ResponseBody}. ServerId: {ServerId}. CharacterName: {CharacterName}. AchievementsCount: {AchievementsCount}. GlobalMultiplier: {GlobalMultiplier}. MarketUploadSummary: {MarketUploadSummary}. PlayerCountSummary: {PlayerCountSummary}. ItemEstimatedMarketValueSummary: {ItemEstimatedMarketValueSummary}",
                 message,
                 uploadType,
                 requestUri,
@@ -653,7 +911,8 @@ namespace AlbionDataAvalonia.Network.Services
                 achievementsCount,
                 globalMultiplier,
                 marketUploadSummary,
-                playerCountSummary);
+                playerCountSummary,
+                itemEstimatedMarketValueSummary);
         }
 
         private void LogAfmException(
@@ -666,11 +925,12 @@ namespace AlbionDataAvalonia.Network.Services
             string? characterName = null,
             int? achievementsCount = null,
             int? serverId = null,
-            double? globalMultiplier = null)
+            double? globalMultiplier = null,
+            string? itemEstimatedMarketValueSummary = null)
         {
             Log.Error(
                 ex,
-                "Exception while uploading to AFM. UploadType: {UploadType}. RequestUri: {RequestUri}. Identifier: {Identifier}. ServerId: {ServerId}. CharacterName: {CharacterName}. AchievementsCount: {AchievementsCount}. GlobalMultiplier: {GlobalMultiplier}. MarketUploadSummary: {MarketUploadSummary}. PlayerCountSummary: {PlayerCountSummary}",
+                "Exception while uploading to AFM. UploadType: {UploadType}. RequestUri: {RequestUri}. Identifier: {Identifier}. ServerId: {ServerId}. CharacterName: {CharacterName}. AchievementsCount: {AchievementsCount}. GlobalMultiplier: {GlobalMultiplier}. MarketUploadSummary: {MarketUploadSummary}. PlayerCountSummary: {PlayerCountSummary}. ItemEstimatedMarketValueSummary: {ItemEstimatedMarketValueSummary}",
                 uploadType,
                 requestUri,
                 identifier,
@@ -679,7 +939,8 @@ namespace AlbionDataAvalonia.Network.Services
                 achievementsCount,
                 globalMultiplier,
                 marketUploadSummary,
-                playerCountSummary);
+                playerCountSummary,
+                itemEstimatedMarketValueSummary);
         }
 
         private static string GetMarketUploadSummary(MarketUpload marketUpload)
@@ -695,9 +956,22 @@ namespace AlbionDataAvalonia.Network.Services
             return $"Server={playerCount.Server?.Name ?? "Unknown"}; ServerId={playerCount.Server?.Id}; Location={playerCount.Location?.FriendlyName ?? "Unknown"}; DateTime={playerCount.DateTime:O}; NonFlaggedCount={playerCount.NonFlaggedCount}; FlaggedCount={playerCount.FlaggedCount}; IsBz={playerCount.IsBz}";
         }
 
+        private static string GetItemEstimatedMarketValueUploadSummary(ItemEstimatedMarketValueUpload upload)
+        {
+            return $"Items={upload.Items.Count}; Day={upload.Items.FirstOrDefault()?.Day}; Qualities={string.Join(",", upload.Items.Select(x => x.Quality).Distinct())}";
+        }
+
         public void Dispose()
         {
+            disposed = true;
+            itemEstimatedMarketValueUploadTimer?.Dispose();
             httpClient.Dispose();
         }
+
+        private readonly record struct ItemEstimatedMarketValueUploadKey(
+            int ServerId,
+            string ItemUniqueName,
+            int Quality,
+            DateOnly Day);
     }
 }

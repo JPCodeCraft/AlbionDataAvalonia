@@ -21,4 +21,5 @@ public class PrivateUploadStatsSnapshot
     public int MarketRequestsCount { get; set; }
     public int AchievementsCount { get; set; }
     public int GlobalMultipliersCount { get; set; }
+    public int ItemEstimatedMarketValuesCount { get; set; }
 }

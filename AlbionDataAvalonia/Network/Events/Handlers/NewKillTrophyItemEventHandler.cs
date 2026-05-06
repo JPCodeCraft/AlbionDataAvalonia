@@ -1,6 +1,7 @@
 using Albion.Network;
 using AlbionDataAvalonia.Items.Services;
 using AlbionDataAvalonia.Network.Events;
+using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Shared;
 using System.Threading.Tasks;
 
@@ -9,10 +10,12 @@ namespace AlbionDataAvalonia.Network.Handlers;
 public class NewKillTrophyItemEventHandler : EventPacketHandler<NewKillTrophyItemEvent>
 {
     private readonly ItemsIdsService itemsIdsService;
+    private readonly AFMUploader afmUploader;
 
-    public NewKillTrophyItemEventHandler(ItemsIdsService itemsIdsService) : base((int)EventCodes.NewKillTrophyItem)
+    public NewKillTrophyItemEventHandler(ItemsIdsService itemsIdsService, AFMUploader afmUploader) : base((int)EventCodes.NewKillTrophyItem)
     {
         this.itemsIdsService = itemsIdsService;
+        this.afmUploader = afmUploader;
     }
 
     protected override Task OnActionAsync(NewKillTrophyItemEvent value)
@@ -22,6 +25,14 @@ public class NewKillTrophyItemEventHandler : EventPacketHandler<NewKillTrophyIte
             var itemData = itemsIdsService.GetItemById(value.Item.ItemIndex);
             value.Item.ItemUniqueName = itemData.UniqueName;
             value.Item.ItemUsName = itemData.UsName;
+
+            if (value.Item.EstimatedMarketValue > 0)
+            {
+                afmUploader.QueueItemEstimatedMarketValue(
+                    value.Item.ItemUniqueName,
+                    value.Item.EstimatedMarketValue,
+                    value.Item.Quality);
+            }
         }
 
         return Task.CompletedTask;

@@ -475,6 +475,12 @@
 								<TextBlock Classes="StatValue" Text="{Binding PrivateUploadedGlobalMultipliersCount, StringFormat=N0}" />
 							</StackPanel>
 						</Border>
+						<Border Classes="StatCard">
+							<StackPanel Spacing="4">
+								<TextBlock Classes="StatLabel" Text="Uploaded EMV" />
+								<TextBlock Classes="StatValue" Text="{Binding PrivateUploadedItemEstimatedMarketValuesCount, StringFormat=N0}" />
+							</StackPanel>
+						</Border>
 					</WrapPanel>
 				</StackPanel>
 			</Border>

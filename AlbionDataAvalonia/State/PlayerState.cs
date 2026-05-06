@@ -271,6 +271,18 @@ namespace AlbionDataAvalonia.State
             NotifyPrivateUploadStatsChanged();
         }
 
+        public void ItemEstimatedMarketValueUploadHandler(object? sender, ItemEstimatedMarketValueUploadEventArgs e)
+        {
+            ProcessUploadStatus(e.Scope, e.UploadStatus, e.Identifier);
+            if (e.UploadStatus != UploadStatus.Success || e.Scope != UploadScope.Private)
+            {
+                return;
+            }
+
+            PrivateUploadStats.ItemEstimatedMarketValuesCount += e.ItemsCount;
+            NotifyPrivateUploadStatsChanged();
+        }
+
         public bool TryMarkBanditEventSubmission()
         {
             var now = DateTime.UtcNow;
@@ -358,7 +370,8 @@ namespace AlbionDataAvalonia.State
                 MarketOffersCount = source.MarketOffersCount,
                 MarketRequestsCount = source.MarketRequestsCount,
                 AchievementsCount = source.AchievementsCount,
-                GlobalMultipliersCount = source.GlobalMultipliersCount
+                GlobalMultipliersCount = source.GlobalMultipliersCount,
+                ItemEstimatedMarketValuesCount = source.ItemEstimatedMarketValuesCount
             };
         }
 

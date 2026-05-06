@@ -107,17 +107,17 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddEventHandler(new UpdateFameEventHandler(_combatTracker));
                 builder.AddEventHandler(new InCombatStateUpdateEventHandler(_combatTracker));
                 builder.AddEventHandler(new TimeSyncEventHandler(_combatTracker));
-                builder.AddEventHandler(new EstimatedMarketValueUpdateEventHandler(_itemsIdsService));
+                builder.AddEventHandler(new EstimatedMarketValueUpdateEventHandler(_itemsIdsService, _afmUploader));
                 builder.AddEventHandler(new FullAchievementInfoEventHandler(_achievementsService, _playerState, _afmUploader, _settingsManager));
                 builder.AddEventHandler(new RedZoneWorldMapEventHandler(_playerState, _uploader));
                 // builder.AddEventHandler(new AttachItemContainerEventHandler(_playerState));
-                builder.AddEventHandler(new NewSimpleItemEventHandler(_itemsIdsService));
-                builder.AddEventHandler(new NewJournalItemEventHandler(_itemsIdsService));
-                builder.AddEventHandler(new NewLaborerItemEventHandler(_itemsIdsService));
-                builder.AddEventHandler(new NewEquipmentItemEventHandler(_itemsIdsService));
-                builder.AddEventHandler(new NewFurnitureItemEventHandler(_itemsIdsService));
-                builder.AddEventHandler(new NewKillTrophyItemEventHandler(_itemsIdsService));
-                builder.AddEventHandler(new NewSiegeBannerItemEventHandler(_itemsIdsService));
+                builder.AddEventHandler(new NewSimpleItemEventHandler(_itemsIdsService, _afmUploader));
+                builder.AddEventHandler(new NewJournalItemEventHandler(_itemsIdsService, _afmUploader));
+                builder.AddEventHandler(new NewLaborerItemEventHandler(_itemsIdsService, _afmUploader));
+                builder.AddEventHandler(new NewEquipmentItemEventHandler(_itemsIdsService, _afmUploader));
+                builder.AddEventHandler(new NewFurnitureItemEventHandler(_itemsIdsService, _afmUploader));
+                builder.AddEventHandler(new NewKillTrophyItemEventHandler(_itemsIdsService, _afmUploader));
+                builder.AddEventHandler(new NewSiegeBannerItemEventHandler(_itemsIdsService, _afmUploader));
                 // builder.AddEventHandler(new NewEquipmentItemLegendarySoulEventHandler(_playerState));
                 // builder.AddEventHandler(new BankVaultInfoEventHandler(_playerState));
 #if DEBUG
