@@ -20,7 +20,6 @@ public class NewEquipmentItemLegendarySoulEventHandler : EventPacketHandler<NewE
     {
         if (value.LegendarySoul is not null)
         {
-            playerState.AddLegendarySoul(value.LegendarySoul);
         }
         await Task.CompletedTask;
     }

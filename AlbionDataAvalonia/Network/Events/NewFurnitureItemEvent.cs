@@ -1,0 +1,72 @@
+using Albion.Network;
+using Serilog;
+using System;
+using System.Collections.Generic;
+
+namespace AlbionDataAvalonia.Network.Events;
+
+public class NewFurnitureItemEvent : BaseEvent
+{
+    private readonly long? objectId;
+    private readonly int itemId;
+    private readonly int quantity;
+    private readonly string? crafterName;
+    private readonly long estimatedMarketValue;
+    private readonly long durability;
+    private readonly int quality;
+    private readonly bool isAwakened;
+
+    public NewItem? Item { get; }
+
+    public NewFurnitureItemEvent(Dictionary<byte, object> parameters) : base(parameters)
+    {
+        Log.Verbose("Got {PacketType} packet.", GetType());
+        try
+        {
+            if (parameters.TryGetValue(0, out object? objectIdValue))
+            {
+                objectId = objectIdValue.ToLong();
+            }
+
+            if (parameters.TryGetValue(1, out object? itemIdValue))
+            {
+                itemId = itemIdValue.ToInt();
+            }
+
+            if (parameters.TryGetValue(2, out object? quantityValue))
+            {
+                quantity = quantityValue.ToInt();
+            }
+
+            if (parameters.TryGetValue(4, out object? estimatedMarketValueValue))
+            {
+                estimatedMarketValue = estimatedMarketValueValue.ToLong() / 10000;
+            }
+
+            if (parameters.TryGetValue(5, out object? crafterNameValue))
+            {
+                crafterName = crafterNameValue.ToString();
+            }
+
+            // Furniture item param 6 is not confirmed yet. It may be durability,
+            // but it is not parsed until the packet shape is verified.
+
+            if (objectId != null)
+            {
+                Item = new NewItem(
+                    objectId.Value,
+                    itemId,
+                    quantity,
+                    durability,
+                    estimatedMarketValue,
+                    quality,
+                    crafterName,
+                    isAwakened);
+            }
+        }
+        catch (Exception e)
+        {
+            Log.Error(e, e.Message);
+        }
+    }
+}
