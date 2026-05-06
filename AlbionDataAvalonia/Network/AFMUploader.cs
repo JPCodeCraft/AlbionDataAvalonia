@@ -502,7 +502,7 @@ namespace AlbionDataAvalonia.Network.Services
                         return ReportStatus(UploadStatus.Failed);
                     }
 
-                    Log.Information("Successfully sent {ItemsCount} item estimated market values to {RequestUri}. Identifier: {Identifier}. ServerId: {ServerId}.", itemEstimatedMarketValueUpload.Items.Count, requestUri, identifier, itemEstimatedMarketValueUpload.ServerId);
+                    Log.Information("Successfully sent {ItemsCount} item estimated market values to AFM EMV endpoint. Identifier: {Identifier}. ServerId: {ServerId}.", itemEstimatedMarketValueUpload.Items.Count, identifier, itemEstimatedMarketValueUpload.ServerId);
                     return ReportStatus(UploadStatus.Success);
                 }
                 finally
@@ -727,7 +727,7 @@ namespace AlbionDataAvalonia.Network.Services
                         return ReportStatus(UploadStatus.Failed);
                     }
 
-                    Log.Information("Successfully sent {AchievementsCount} achievements for character {CharacterName} on server {ServerId} to AFM. Identifier: {Identifier}.", achievementUpload.Achievements.Count, achievementUpload.CharacterName, achievementUpload.ServerId, identifier);
+                    Log.Information("Successfully sent {AchievementsCount} achievements for character {CharacterName} on server {ServerId} to AFM achievements endpoint. Identifier: {Identifier}.", achievementUpload.Achievements.Count, achievementUpload.CharacterName, achievementUpload.ServerId, identifier);
                     return ReportStatus(UploadStatus.Success);
                 }
                 finally
@@ -852,7 +852,7 @@ namespace AlbionDataAvalonia.Network.Services
                     }
 
                     Log.Information(
-                        "Successfully sent global multiplier {GlobalMultiplier} for server {ServerId}. Identifier: {Identifier}.",
+                        "Successfully sent global multiplier {GlobalMultiplier} for server {ServerId} to AFM global multiplier endpoint. Identifier: {Identifier}.",
                         globalMultiplierUpload.GlobalMultiplier,
                         globalMultiplierUpload.ServerId,
                         identifier);
