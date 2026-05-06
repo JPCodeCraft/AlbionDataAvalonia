@@ -13,7 +13,7 @@ public class NewKillTrophyItemEvent : BaseEvent
     private readonly string? crafterName;
     private readonly long estimatedMarketValue;
     private readonly long durability;
-    private readonly int quality;
+    private readonly int quality = 1;
     private readonly bool isAwakened;
 
     public NewItem? Item { get; }
