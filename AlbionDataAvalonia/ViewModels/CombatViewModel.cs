@@ -24,6 +24,19 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     private static readonly TimeSpan ChartRefreshInterval = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan ActiveSummaryRefreshInterval = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan InactiveFameSummaryRefreshInterval = TimeSpan.FromSeconds(5);
+    private static readonly TimeSpan ChartAggregationThirtyMinuteThreshold = TimeSpan.FromMinutes(30);
+    private static readonly TimeSpan ChartAggregationOneHourThreshold = TimeSpan.FromHours(1);
+    private static readonly TimeSpan ChartAggregationTwoHourThreshold = TimeSpan.FromHours(2);
+    private static readonly TimeSpan ChartAggregationTenHourThreshold = TimeSpan.FromHours(10);
+    private static readonly CombatAggregationOptionViewModel[] AllAggregationOptions =
+    {
+        new(1),
+        new(3),
+        new(5),
+        new(10),
+        new(30),
+        new(60)
+    };
 
     private readonly CombatTrackerService? combatTracker;
     private readonly SettingsManager? settingsManager;
@@ -33,10 +46,12 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     private CombatEncounterSnapshot? selectedEncounterSnapshot;
     private bool applyingSnapshot;
     private bool applyingPlayerSelection;
+    private bool applyingAggregationSelection;
     private string? lastChartRenderSignature;
     private DateTime lastChartRefreshUtc = DateTime.MinValue;
     private string? selectedEncounterKey;
     private string? selectedPlayerKey;
+    private int desiredAggregationSeconds = 1;
     private int encounterSelectionRestoreVersion;
     private int playerSelectionRestoreVersion;
 
@@ -179,8 +194,8 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     {
         currentSnapshot = CombatTrackerSnapshot.Empty();
         isCombatTrackerDisabled = false;
-        selectedAggregation = InitializeAggregationOptions();
         selectedChartWindow = InitializeChartWindowOptions();
+        selectedAggregation = InitializeAggregationOptions();
         selectedChartMetric = InitializeChartMetricOptions();
         selectedPlayerFilter = InitializePlayerFilterOptions();
     }
@@ -192,8 +207,8 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         isCombatTrackerDisabled = settingsManager.UserSettings.DisableCombatTracker;
         currentSnapshot = combatTracker.CurrentSnapshot;
         isCombatTrackerPaused = currentSnapshot.IsPaused;
-        selectedAggregation = InitializeAggregationOptions();
         selectedChartWindow = InitializeChartWindowOptions();
+        selectedAggregation = InitializeAggregationOptions();
         selectedChartMetric = InitializeChartMetricOptions();
         selectedPlayerFilter = InitializePlayerFilterOptions();
         ApplySnapshot(currentSnapshot);
@@ -271,6 +286,12 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
 
     partial void OnSelectedAggregationChanged(CombatAggregationOptionViewModel value)
     {
+        if (applyingAggregationSelection || value is null)
+        {
+            return;
+        }
+
+        desiredAggregationSeconds = value.Seconds;
         RefreshDisplayedSummary(DateTime.UtcNow);
         RequestChartRefresh(immediate: true);
     }
@@ -475,10 +496,16 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     {
         var encounterArray = GetDisplayedEncounters().ToArray();
         var displayEndUtc = nowUtc;
+        RefreshAggregationOptions(encounterArray, displayEndUtc);
         var elapsed = SumElapsed(encounterArray, nowUtc);
         var metricTarget = CreateMetricTarget(encounterArray);
         var includeFame = ShouldShowFame();
-        var aggregatedBuckets = AggregateBuckets(encounterArray, SelectedAggregation.Seconds, metricTarget.IncludeEntity, includeFame).ToArray();
+        var aggregatedBuckets = AggregateBuckets(
+            encounterArray,
+            GetCurrentAggregationSeconds(),
+            metricTarget.IncludeEntity,
+            includeFame,
+            fillMissingBuckets: false).ToArray();
         var totals = AggregateTotals(encounterArray, metricTarget.IncludeEntity, includeFame);
         var firstFameBucketStartedAtUtc = includeFame ? GetFirstFameBucketStartedAtUtc(encounterArray) : null;
         var fameElapsed = GetElapsedSince(firstFameBucketStartedAtUtc, displayEndUtc);
@@ -495,10 +522,8 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             SelectedChartWindow.Duration);
         var visibleWindowDuration = GetVisibleEncounterDuration(
             encounterArray,
-            visibleBuckets,
             nowUtc,
             displayEndUtc,
-            SelectedAggregation.Seconds,
             SelectedChartWindow.Duration);
 
         IsFameVisible = includeFame;
@@ -760,47 +785,51 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         var displayEndUtc = nowUtc;
         var metricTarget = CreateMetricTarget(encounters);
         var includeFame = SelectedChartMetric.Kind == CombatChartMetricKind.Fame && ShouldShowFame();
+        RefreshAggregationOptions(encounters, displayEndUtc);
+        var effectiveAggregationSeconds = GetCurrentAggregationSeconds();
         ChartTitle = CreateChartTitle(metricTarget.Label);
 
         if (!metricTarget.HasTarget && !includeFame)
         {
             var emptyBuckets = Array.Empty<AggregatedCombatBucket>();
-            lastChartRenderSignature = CreateChartRenderSignature(emptyBuckets, metricTarget.SignatureKey, includeFame);
+            lastChartRenderSignature = CreateChartRenderSignature(emptyBuckets, metricTarget.SignatureKey, includeFame, effectiveAggregationSeconds);
             ChartSeries = Array.Empty<ISeries>();
-            ChartXAxes = CreateChartXAxes(emptyBuckets, SelectedAggregation.Seconds, SelectedChartWindow.Duration, displayEndUtc);
+            ChartXAxes = CreateChartXAxes(emptyBuckets, effectiveAggregationSeconds, SelectedChartWindow.Duration, displayEndUtc);
             ChartYAxes = CreateChartYAxes(0, SelectedChartMetric.Kind);
             return;
         }
 
         var buckets = AggregateBuckets(
             encounters,
-            SelectedAggregation.Seconds,
+            effectiveAggregationSeconds,
             metricTarget.IncludeEntity,
             includeFame,
             SelectedChartWindow.Duration,
-            displayEndUtc).ToArray();
-        var signature = CreateChartRenderSignature(buckets, metricTarget.SignatureKey, includeFame);
+            displayEndUtc,
+            extendToDisplayEnd: SelectedChartWindow.Duration is null && encounters.Any(x => x.IsActive)).ToArray();
+        var chartBuckets = CompressZeroChartBuckets(buckets, SelectedChartMetric.Kind, includeFame);
+        var signature = CreateChartRenderSignature(chartBuckets, metricTarget.SignatureKey, includeFame, effectiveAggregationSeconds);
         if (signature == lastChartRenderSignature)
         {
             return;
         }
 
         lastChartRenderSignature = signature;
-        if (buckets.Length == 0)
+        if (chartBuckets.Count == 0)
         {
             ChartSeries = Array.Empty<ISeries>();
-            ChartXAxes = CreateChartXAxes(buckets, SelectedAggregation.Seconds, SelectedChartWindow.Duration, displayEndUtc);
+            ChartXAxes = CreateChartXAxes(chartBuckets, effectiveAggregationSeconds, SelectedChartWindow.Duration, displayEndUtc);
             ChartYAxes = CreateChartYAxes(0, SelectedChartMetric.Kind);
             return;
         }
 
-        var maxValue = buckets
-            .SelectMany(bucket => GetChartValues(bucket, includeFame))
+        var maxValue = chartBuckets
+            .SelectMany(bucket => GetChartValues(bucket, includeFame, SelectedChartMetric.Kind, effectiveAggregationSeconds))
             .DefaultIfEmpty(0)
             .Max();
 
-        ChartSeries = CreateChartSeries(buckets, SelectedChartMetric.Kind, SelectedAggregation.Seconds, includeFame);
-        ChartXAxes = CreateChartXAxes(buckets, SelectedAggregation.Seconds, SelectedChartWindow.Duration, displayEndUtc);
+        ChartSeries = CreateChartSeries(chartBuckets, SelectedChartMetric.Kind, effectiveAggregationSeconds, includeFame);
+        ChartXAxes = CreateChartXAxes(chartBuckets, effectiveAggregationSeconds, SelectedChartWindow.Duration, displayEndUtc);
         ChartYAxes = CreateChartYAxes(maxValue, SelectedChartMetric.Kind);
     }
 
@@ -810,29 +839,45 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         Func<string, bool> includeEntity,
         bool includeFame,
         TimeSpan? chartWindow = null,
-        DateTime? displayEndUtc = null)
+        DateTime? displayEndUtc = null,
+        bool fillMissingBuckets = true,
+        bool extendToDisplayEnd = false)
     {
         var encounterArray = encounters as IReadOnlyList<CombatEncounterSnapshot> ?? encounters.ToArray();
         var aggregationTicks = TimeSpan.FromSeconds(aggregationSeconds).Ticks;
         var minimumBucketTicks = GetMinimumVisibleBucketTicks(aggregationTicks, chartWindow, displayEndUtc);
-        long? maximumBucketTicks = displayEndUtc is null
-            ? null
-            : GetAggregatedBucketTicks(displayEndUtc.Value, aggregationTicks);
+        var shouldUseDisplayEnd = displayEndUtc is not null && (chartWindow is not null || extendToDisplayEnd);
+        long? maximumBucketTicks = shouldUseDisplayEnd
+            ? GetAggregatedBucketTicks(displayEndUtc!.Value, aggregationTicks)
+            : null;
         var groupedBuckets = encounterArray
             .SelectMany(encounter => encounter.TimeBuckets.Select(bucket =>
             {
                 var bucketTicks = GetAggregatedBucketTicks(encounter.StartedAtUtc.Add(bucket.StartOffset), aggregationTicks);
-                var playerTotals = bucket.PlayerTotals
-                    .Where(player => includeEntity(player.EntityKey))
-                    .ToArray();
+                var damageDealt = 0L;
+                var damageReceived = 0L;
+                var healingDone = 0L;
+                var healingReceived = 0L;
+                foreach (var player in bucket.PlayerTotals)
+                {
+                    if (!includeEntity(player.EntityKey))
+                    {
+                        continue;
+                    }
+
+                    damageDealt += player.DamageDealt;
+                    damageReceived += player.DamageReceived;
+                    healingDone += player.HealingDone;
+                    healingReceived += player.HealingReceived;
+                }
 
                 return new
                 {
                     BucketTicks = bucketTicks,
-                    DamageDealt = playerTotals.Sum(player => player.DamageDealt),
-                    DamageReceived = playerTotals.Sum(player => player.DamageReceived),
-                    HealingDone = playerTotals.Sum(player => player.HealingDone),
-                    HealingReceived = playerTotals.Sum(player => player.HealingReceived),
+                    DamageDealt = damageDealt,
+                    DamageReceived = damageReceived,
+                    HealingDone = healingDone,
+                    HealingReceived = healingReceived,
                     FameGained = includeFame ? bucket.FameGained : 0
                 };
             }))
@@ -854,10 +899,14 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
 
         if (groupedBuckets.Length == 0)
         {
-            return CreateEmptyBuckets(aggregationSeconds, minimumBucketTicks, maximumBucketTicks);
+            return fillMissingBuckets
+                ? CreateEmptyBuckets(aggregationSeconds, minimumBucketTicks, maximumBucketTicks)
+                : Array.Empty<AggregatedCombatBucket>();
         }
 
-        return FillMissingBuckets(groupedBuckets, aggregationSeconds, minimumBucketTicks, maximumBucketTicks);
+        return fillMissingBuckets
+            ? FillMissingBuckets(groupedBuckets, aggregationSeconds, minimumBucketTicks, maximumBucketTicks)
+            : groupedBuckets;
     }
 
     private static long? GetMinimumVisibleBucketTicks(
@@ -923,6 +972,213 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         }
 
         return buckets;
+    }
+
+    private void RefreshAggregationOptions(
+        IReadOnlyList<CombatEncounterSnapshot> encounters,
+        DateTime displayEndUtc)
+    {
+        var visibleSpan = SelectedChartWindow?.Duration ?? GetUnlimitedChartSpan(encounters, displayEndUtc);
+        var minimumAggregationSeconds = GetMinimumChartAggregationSeconds(visibleSpan);
+        var options = AllAggregationOptions
+            .Where(x => x.Seconds >= minimumAggregationSeconds)
+            .ToArray();
+        var selectedAggregationSeconds = Math.Max(desiredAggregationSeconds, minimumAggregationSeconds);
+        var selectedOption = options.FirstOrDefault(x => x.Seconds >= selectedAggregationSeconds) ?? options[^1];
+
+        applyingAggregationSelection = true;
+        try
+        {
+            SyncAggregationOptions(options);
+
+            if (SelectedAggregation?.Seconds != selectedOption.Seconds)
+            {
+                SelectedAggregation = selectedOption;
+            }
+        }
+        finally
+        {
+            applyingAggregationSelection = false;
+        }
+    }
+
+    private int GetCurrentAggregationSeconds()
+    {
+        return SelectedAggregation?.Seconds ?? desiredAggregationSeconds;
+    }
+
+    private void SyncAggregationOptions(IReadOnlyList<CombatAggregationOptionViewModel> options)
+    {
+        for (var index = AggregationOptions.Count - 1; index >= 0; index--)
+        {
+            if (!options.Any(x => x.Seconds == AggregationOptions[index].Seconds))
+            {
+                AggregationOptions.RemoveAt(index);
+            }
+        }
+
+        for (var index = 0; index < options.Count; index++)
+        {
+            if (index < AggregationOptions.Count && AggregationOptions[index].Seconds == options[index].Seconds)
+            {
+                continue;
+            }
+
+            var existingIndex = FindAggregationOptionIndex(options[index].Seconds);
+            if (existingIndex >= 0)
+            {
+                AggregationOptions.Move(existingIndex, index);
+            }
+            else
+            {
+                AggregationOptions.Insert(index, options[index]);
+            }
+        }
+    }
+
+    private int FindAggregationOptionIndex(int seconds)
+    {
+        for (var index = 0; index < AggregationOptions.Count; index++)
+        {
+            if (AggregationOptions[index].Seconds == seconds)
+            {
+                return index;
+            }
+        }
+
+        return -1;
+    }
+
+    private static int GetMinimumChartAggregationSeconds(TimeSpan visibleSpan)
+    {
+        if (visibleSpan >= ChartAggregationTenHourThreshold)
+        {
+            return 30;
+        }
+
+        if (visibleSpan >= ChartAggregationTwoHourThreshold)
+        {
+            return 10;
+        }
+
+        if (visibleSpan >= ChartAggregationOneHourThreshold)
+        {
+            return 5;
+        }
+
+        if (visibleSpan >= ChartAggregationThirtyMinuteThreshold)
+        {
+            return 3;
+        }
+
+        return 1;
+    }
+
+    private static TimeSpan GetUnlimitedChartSpan(
+        IReadOnlyList<CombatEncounterSnapshot> encounters,
+        DateTime displayEndUtc)
+    {
+        DateTime? firstBucketStartedAtUtc = null;
+        DateTime? lastBucketEndedAtUtc = null;
+
+        foreach (var encounter in encounters)
+        {
+            foreach (var bucket in encounter.TimeBuckets)
+            {
+                var bucketStartedAtUtc = encounter.StartedAtUtc.Add(bucket.StartOffset);
+                var bucketEndedAtUtc = encounter.StartedAtUtc.Add(bucket.EndOffset);
+
+                if (firstBucketStartedAtUtc is null || bucketStartedAtUtc < firstBucketStartedAtUtc.Value)
+                {
+                    firstBucketStartedAtUtc = bucketStartedAtUtc;
+                }
+
+                if (lastBucketEndedAtUtc is null || bucketEndedAtUtc > lastBucketEndedAtUtc.Value)
+                {
+                    lastBucketEndedAtUtc = bucketEndedAtUtc;
+                }
+            }
+
+            if (encounter.IsActive)
+            {
+                if (firstBucketStartedAtUtc is null || encounter.StartedAtUtc < firstBucketStartedAtUtc.Value)
+                {
+                    firstBucketStartedAtUtc = encounter.StartedAtUtc;
+                }
+
+                if (lastBucketEndedAtUtc is null || displayEndUtc > lastBucketEndedAtUtc.Value)
+                {
+                    lastBucketEndedAtUtc = displayEndUtc;
+                }
+            }
+        }
+
+        if (firstBucketStartedAtUtc is null
+            || lastBucketEndedAtUtc is null
+            || lastBucketEndedAtUtc.Value <= firstBucketStartedAtUtc.Value)
+        {
+            return TimeSpan.Zero;
+        }
+
+        return lastBucketEndedAtUtc.Value - firstBucketStartedAtUtc.Value;
+    }
+
+    private static IReadOnlyList<AggregatedCombatBucket> CompressZeroChartBuckets(
+        IReadOnlyList<AggregatedCombatBucket> buckets,
+        CombatChartMetricKind metricKind,
+        bool includeFame)
+    {
+        if (buckets.Count < 3)
+        {
+            return buckets;
+        }
+
+        var compressedBuckets = new List<AggregatedCombatBucket>(buckets.Count);
+        var index = 0;
+        while (index < buckets.Count)
+        {
+            var bucket = buckets[index];
+            if (!IsZeroChartBucket(bucket, metricKind, includeFame))
+            {
+                compressedBuckets.Add(bucket);
+                index++;
+                continue;
+            }
+
+            var zeroRunStart = index;
+            do
+            {
+                index++;
+            }
+            while (index < buckets.Count && IsZeroChartBucket(buckets[index], metricKind, includeFame));
+
+            var zeroRunLength = index - zeroRunStart;
+            compressedBuckets.Add(buckets[zeroRunStart]);
+            if (zeroRunLength > 1)
+            {
+                compressedBuckets.Add(buckets[index - 1]);
+            }
+        }
+
+        return compressedBuckets.Count == buckets.Count
+            ? buckets
+            : compressedBuckets;
+    }
+
+    private static bool IsZeroChartBucket(
+        AggregatedCombatBucket bucket,
+        CombatChartMetricKind metricKind,
+        bool includeFame)
+    {
+        if (metricKind == CombatChartMetricKind.Fame)
+        {
+            return !includeFame || bucket.FameGained == 0;
+        }
+
+        return bucket.DamageDealt == 0
+            && bucket.DamageReceived == 0
+            && bucket.HealingDone == 0
+            && bucket.HealingReceived == 0;
     }
 
     private IEnumerable<CombatEncounterSnapshot> GetDisplayedEncounters()
@@ -1210,9 +1466,13 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             : elapsed;
     }
 
-    private IEnumerable<double> GetChartValues(AggregatedCombatBucket bucket, bool includeFame)
+    private static IEnumerable<double> GetChartValues(
+        AggregatedCombatBucket bucket,
+        bool includeFame,
+        CombatChartMetricKind metricKind,
+        int aggregationSeconds)
     {
-        if (SelectedChartMetric.Kind == CombatChartMetricKind.Fame)
+        if (metricKind == CombatChartMetricKind.Fame)
         {
             if (includeFame)
             {
@@ -1222,10 +1482,10 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             yield break;
         }
 
-        yield return GetPerSecondChartValue(bucket.DamageDealt, SelectedChartMetric.Kind, SelectedAggregation.Seconds);
-        yield return GetPerSecondChartValue(bucket.DamageReceived, SelectedChartMetric.Kind, SelectedAggregation.Seconds);
-        yield return GetPerSecondChartValue(bucket.HealingDone, SelectedChartMetric.Kind, SelectedAggregation.Seconds);
-        yield return GetPerSecondChartValue(bucket.HealingReceived, SelectedChartMetric.Kind, SelectedAggregation.Seconds);
+        yield return GetPerSecondChartValue(bucket.DamageDealt, metricKind, aggregationSeconds);
+        yield return GetPerSecondChartValue(bucket.DamageReceived, metricKind, aggregationSeconds);
+        yield return GetPerSecondChartValue(bucket.HealingDone, metricKind, aggregationSeconds);
+        yield return GetPerSecondChartValue(bucket.HealingReceived, metricKind, aggregationSeconds);
     }
 
     private IReadOnlyList<AggregatedCombatBucket> GetVisibleBuckets(IReadOnlyList<AggregatedCombatBucket> buckets, DateTime displayEndUtc)
@@ -1245,10 +1505,8 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
 
     private static TimeSpan GetVisibleEncounterDuration(
         IReadOnlyList<CombatEncounterSnapshot> encounters,
-        IReadOnlyList<AggregatedCombatBucket> buckets,
         DateTime nowUtc,
         DateTime displayEndUtc,
-        int aggregationSeconds,
         TimeSpan? chartWindow)
     {
         if (encounters.Count == 0)
@@ -1256,12 +1514,12 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             return TimeSpan.Zero;
         }
 
-        var visibleEndUtc = chartWindow is null
-            ? buckets.Count == 0 ? displayEndUtc : buckets[^1].StartedAtUtc.AddSeconds(aggregationSeconds)
-            : displayEndUtc;
         var visibleStartUtc = chartWindow is null
-            ? buckets.Count == 0 ? displayEndUtc : buckets[0].StartedAtUtc
+            ? GetEarliestEncounterStartUtc(encounters) ?? displayEndUtc
             : displayEndUtc - chartWindow.Value;
+        var visibleEndUtc = chartWindow is null
+            ? GetLatestEncounterEndUtc(encounters, nowUtc) ?? displayEndUtc
+            : displayEndUtc;
         if (visibleEndUtc <= visibleStartUtc)
         {
             return TimeSpan.Zero;
@@ -1284,7 +1542,42 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         return TimeSpan.FromTicks(visibleTicks);
     }
 
-    private string CreateChartRenderSignature(IReadOnlyList<AggregatedCombatBucket> buckets, string chartTargetKey, bool includeFame)
+    private static DateTime? GetEarliestEncounterStartUtc(IReadOnlyList<CombatEncounterSnapshot> encounters)
+    {
+        DateTime? startedAtUtc = null;
+        foreach (var encounter in encounters)
+        {
+            if (startedAtUtc is null || encounter.StartedAtUtc < startedAtUtc.Value)
+            {
+                startedAtUtc = encounter.StartedAtUtc;
+            }
+        }
+
+        return startedAtUtc;
+    }
+
+    private static DateTime? GetLatestEncounterEndUtc(
+        IReadOnlyList<CombatEncounterSnapshot> encounters,
+        DateTime nowUtc)
+    {
+        DateTime? endedAtUtc = null;
+        foreach (var encounter in encounters)
+        {
+            var encounterEndedAtUtc = encounter.StartedAtUtc + GetElapsed(encounter, nowUtc);
+            if (endedAtUtc is null || encounterEndedAtUtc > endedAtUtc.Value)
+            {
+                endedAtUtc = encounterEndedAtUtc;
+            }
+        }
+
+        return endedAtUtc;
+    }
+
+    private string CreateChartRenderSignature(
+        IReadOnlyList<AggregatedCombatBucket> buckets,
+        string chartTargetKey,
+        bool includeFame,
+        int aggregationSeconds)
     {
         var builder = new StringBuilder();
         builder.Append(selectedEncounterSnapshot?.EncounterKey ?? selectedPlayerKey ?? "all")
@@ -1295,7 +1588,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             .Append('|')
             .Append(includeFame)
             .Append('|')
-            .Append(SelectedAggregation.Seconds)
+            .Append(aggregationSeconds)
             .Append('|')
             .Append(SelectedChartMetric.Kind)
             .Append('|')
@@ -1438,6 +1731,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             XToolTipLabelFormatter = chartPoint => FormatUtcTooltipTime(chartPoint.Model?.DateTime ?? DateTime.MinValue),
             YToolTipLabelFormatter = chartPoint =>
                 FormatChartValue(chartPoint.Coordinate.PrimaryValue, metricKind),
+            AnimationsSpeed = TimeSpan.Zero,
             Fill = null,
             Stroke = new SolidColorPaint(color)
             {
@@ -1566,18 +1860,9 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
 
     private CombatAggregationOptionViewModel InitializeAggregationOptions()
     {
-        var options = new[]
-        {
-            new CombatAggregationOptionViewModel(1),
-            new CombatAggregationOptionViewModel(3),
-            new CombatAggregationOptionViewModel(5),
-            new CombatAggregationOptionViewModel(10),
-            new CombatAggregationOptionViewModel(30),
-            new CombatAggregationOptionViewModel(60)
-        };
-
-        Replace(AggregationOptions, options);
-        return options[0];
+        desiredAggregationSeconds = AllAggregationOptions[0].Seconds;
+        Replace(AggregationOptions, AllAggregationOptions);
+        return AllAggregationOptions[0];
     }
 
     private CombatChartWindowOptionViewModel InitializeChartWindowOptions()
