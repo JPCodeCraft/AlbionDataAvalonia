@@ -421,6 +421,13 @@
 							</DataTemplate>
 						</DataGridTemplateColumn.CellTemplate>
 					</DataGridTemplateColumn>
+					<DataGridTemplateColumn Header="Dmg %" SortMemberPath="DamageDealtPartyPercent" CanUserSort="True">
+						<DataGridTemplateColumn.CellTemplate>
+							<DataTemplate>
+								<TextBlock Text="{Binding DamageDealtPartyPercentText}" VerticalAlignment="Center" />
+							</DataTemplate>
+						</DataGridTemplateColumn.CellTemplate>
+					</DataGridTemplateColumn>
 					<DataGridTemplateColumn Header="DPS" SortMemberPath="DamageDealtPerSecond" CanUserSort="True">
 						<DataGridTemplateColumn.CellTemplate>
 							<DataTemplate>
@@ -446,6 +453,13 @@
 						<DataGridTemplateColumn.CellTemplate>
 							<DataTemplate>
 								<TextBlock Text="{Binding HealingDone, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" />
+							</DataTemplate>
+						</DataGridTemplateColumn.CellTemplate>
+					</DataGridTemplateColumn>
+					<DataGridTemplateColumn Header="Heal %" SortMemberPath="HealingDonePartyPercent" CanUserSort="True">
+						<DataGridTemplateColumn.CellTemplate>
+							<DataTemplate>
+								<TextBlock Text="{Binding HealingDonePartyPercentText}" VerticalAlignment="Center" />
 							</DataTemplate>
 						</DataGridTemplateColumn.CellTemplate>
 					</DataGridTemplateColumn>

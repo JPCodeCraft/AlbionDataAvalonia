@@ -624,13 +624,20 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         var encounters = GetDisplayedEncounters().ToArray();
         var requestedSelectedPlayerKey = selectedPlayerKey ?? SelectedPlayer?.EntityKey;
         var duration = SumElapsed(encounters, DateTime.UtcNow);
-        var players = AggregatePlayers(encounters)
+        var aggregatedPlayers = AggregatePlayers(encounters);
+        var totalPartyDamageDealt = aggregatedPlayers
+            .Where(player => player.Role == CombatEntityRole.PartyPlayer)
+            .Sum(player => player.DamageDealt);
+        var totalPartyHealingDone = aggregatedPlayers
+            .Where(player => player.Role == CombatEntityRole.PartyPlayer)
+            .Sum(player => player.HealingDone);
+        var players = aggregatedPlayers
             .Where(MatchesSelectedPlayerFilter)
             .OrderBy(player => GetRoleSortOrder(player.Role))
             .ThenByDescending(player => player.DamageDealt)
             .ThenByDescending(player => player.HealingDone)
             .ThenBy(player => player.Name, StringComparer.OrdinalIgnoreCase)
-            .Select(player => CreatePlayerRow(player, duration))
+            .Select(player => CreatePlayerRow(player, duration, totalPartyDamageDealt, totalPartyHealingDone))
             .ToArray();
 
         applyingPlayerSelection = true;
@@ -1290,8 +1297,15 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             .ToArray();
     }
 
-    private static CombatPlayerRowViewModel CreatePlayerRow(CombatPlayerSummary player, TimeSpan duration)
+    private static CombatPlayerRowViewModel CreatePlayerRow(
+        CombatPlayerSummary player,
+        TimeSpan duration,
+        long totalPartyDamageDealt,
+        long totalPartyHealingDone)
     {
+        var damageDealtPartyPercent = CalculatePartyPercent(player, player.DamageDealt, totalPartyDamageDealt);
+        var healingDonePartyPercent = CalculatePartyPercent(player, player.HealingDone, totalPartyHealingDone);
+
         return new CombatPlayerRowViewModel(
             player.EntityKey,
             player.Name,
@@ -1299,13 +1313,27 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             GetRoleLabel(player.Role),
             GetRoleSortOrder(player.Role),
             player.DamageDealt,
+            damageDealtPartyPercent,
+            FormatPercent(damageDealtPartyPercent),
             CalculateRate(player.DamageDealt, duration),
             player.DamageReceived,
             CalculateRate(player.DamageReceived, duration),
             player.HealingDone,
+            healingDonePartyPercent,
+            FormatPercent(healingDonePartyPercent),
             CalculateRate(player.HealingDone, duration),
             player.HealingReceived,
             CalculateRate(player.HealingReceived, duration));
+    }
+
+    private static double? CalculatePartyPercent(CombatPlayerSummary player, long amount, long totalPartyAmount)
+    {
+        if (player.Role != CombatEntityRole.PartyPlayer || totalPartyAmount <= 0)
+        {
+            return null;
+        }
+
+        return amount * 100d / totalPartyAmount;
     }
 
     private bool MatchesSelectedPlayerFilter(CombatPlayerSummary player)
@@ -1810,6 +1838,13 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         return value.ToString("N1");
     }
 
+    private static string FormatPercent(double? value)
+    {
+        return value is null
+            ? string.Empty
+            : $"{value.Value:N1}%";
+    }
+
     private static string FormatChartValue(double value, CombatChartMetricKind metricKind)
     {
         return metricKind == CombatChartMetricKind.PerSecond
@@ -1986,10 +2021,14 @@ public sealed record CombatPlayerRowViewModel(
     string RoleLabel,
     int RoleSortOrder,
     long DamageDealt,
+    double? DamageDealtPartyPercent,
+    string DamageDealtPartyPercentText,
     double DamageDealtPerSecond,
     long DamageReceived,
     double DamageReceivedPerSecond,
     long HealingDone,
+    double? HealingDonePartyPercent,
+    string HealingDonePartyPercentText,
     double HealingDonePerSecond,
     long HealingReceived,
     double HealingReceivedPerSecond);
