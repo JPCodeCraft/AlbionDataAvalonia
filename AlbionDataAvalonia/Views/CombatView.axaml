@@ -113,10 +113,7 @@
 							   Foreground="#FFB74D"
 							   IsVisible="{Binding ShowMissingPlayerWarning}" />
 				</StackPanel>
-				<ScrollViewer Grid.Row="2"
-							  HorizontalScrollBarVisibility="Auto"
-							  VerticalScrollBarVisibility="Disabled">
-					<StackPanel Orientation="Horizontal">
+				<WrapPanel Grid.Row="2">
 						<Border Classes="SummaryCard">
 							<StackPanel>
 								<TextBlock Classes="FilterLabel" Text="Damage out" />
@@ -232,8 +229,7 @@
 								</Grid>
 							</StackPanel>
 						</Border>
-					</StackPanel>
-				</ScrollViewer>
+				</WrapPanel>
 			</Grid>
 		</Border>
 
