@@ -290,7 +290,7 @@
 								TooltipPosition="Top"
 								AnimationsSpeed="0:0:0"
 								FindingStrategy="CompareOnlyXTakeClosest"
-								ZoomMode="X"
+								ZoomMode="None"
 								MinHeight="180" />
 			</Grid>
 		</Border>
@@ -407,10 +407,11 @@
 			</Grid>
 		</Border>
 
-		<Grid Grid.Row="3"
-			  RowDefinitions="Auto,*"
-			  MinHeight="240"
-			  MaxHeight="{Binding Bounds.Height, ElementName=CombatRoot, Converter={StaticResource PlayerTableMaxHeightConverter}}">
+		<Border Grid.Row="3"
+				Classes="Section"
+				MinHeight="240"
+				MaxHeight="{Binding Bounds.Height, ElementName=CombatRoot, Converter={StaticResource PlayerTableMaxHeightConverter}}">
+		<Grid RowDefinitions="Auto,*">
 			<Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
 				<TextBlock Text="Players" FontWeight="DemiBold" />
 				<WrapPanel Grid.Column="1" HorizontalAlignment="Right">
@@ -515,6 +516,7 @@
 				</DataGrid.Columns>
 			</DataGrid>
 		</Grid>
+		</Border>
 	</Grid>
 	</ScrollViewer>
 
