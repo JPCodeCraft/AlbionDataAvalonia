@@ -29,6 +29,7 @@ namespace AlbionDataAvalonia.Network.Services
         private const string GlobalMultiplierPath = "be/globalMultiplier";
         private const string ItemEstimatedMarketValuesPath = "itemEstimatedMarketValues";
         private const int MaxItemEstimatedMarketValueUploadBatchSize = 500;
+        private const int MaxUploadedItemEstimatedMarketValueFingerprints = 5_000;
         private static readonly TimeSpan ItemEstimatedMarketValueBatchDelay = TimeSpan.FromSeconds(5);
 
         private readonly PlayerState _playerState;
@@ -37,6 +38,7 @@ namespace AlbionDataAvalonia.Network.Services
 
         private readonly HttpClient httpClient = new HttpClient();
         private readonly ConcurrentDictionary<ItemEstimatedMarketValueUploadKey, ItemEstimatedMarketValueUploadEntry> pendingItemEstimatedMarketValues = new();
+        private readonly BoundedUploadFingerprintCache<ItemEstimatedMarketValueUploadFingerprint> uploadedItemEstimatedMarketValues = new(MaxUploadedItemEstimatedMarketValueFingerprints);
 
         private readonly object _headersLock = new();
         private readonly object itemEstimatedMarketValueUploadTimerLock = new();
@@ -297,6 +299,13 @@ namespace AlbionDataAvalonia.Network.Services
             }
 
             var day = DateOnly.FromDateTime(DateTime.UtcNow);
+            var fingerprint = new ItemEstimatedMarketValueUploadFingerprint(serverId.Value, itemUniqueName, quality, day, emv);
+            if (uploadedItemEstimatedMarketValues.Contains(fingerprint))
+            {
+                Log.Verbose("Skipping duplicate item estimated market value upload. ServerId: {ServerId}. ItemUniqueName: {ItemUniqueName}. Quality: {Quality}. Emv: {Emv}. Day: {Day}.", serverId.Value, itemUniqueName, quality, emv, day);
+                return;
+            }
+
             var key = new ItemEstimatedMarketValueUploadKey(serverId.Value, itemUniqueName, quality, day);
             pendingItemEstimatedMarketValues[key] = new ItemEstimatedMarketValueUploadEntry
             {
@@ -500,6 +509,16 @@ namespace AlbionDataAvalonia.Network.Services
                             serverId: itemEstimatedMarketValueUpload.ServerId);
 
                         return ReportStatus(UploadStatus.Failed);
+                    }
+
+                    foreach (var item in itemEstimatedMarketValueUpload.Items)
+                    {
+                        uploadedItemEstimatedMarketValues.Add(new ItemEstimatedMarketValueUploadFingerprint(
+                            itemEstimatedMarketValueUpload.ServerId,
+                            item.ItemUniqueName,
+                            item.Quality,
+                            item.Day,
+                            item.Emv));
                     }
 
                     Log.Information("Successfully sent {ItemsCount} item estimated market values to AFM EMV endpoint. Identifier: {Identifier}. ServerId: {ServerId}.", itemEstimatedMarketValueUpload.Items.Count, identifier, itemEstimatedMarketValueUpload.ServerId);
@@ -978,5 +997,12 @@ namespace AlbionDataAvalonia.Network.Services
             string ItemUniqueName,
             int Quality,
             DateOnly Day);
+
+        private readonly record struct ItemEstimatedMarketValueUploadFingerprint(
+            int ServerId,
+            string ItemUniqueName,
+            int Quality,
+            DateOnly Day,
+            long Emv);
     }
 }
