@@ -799,7 +799,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         if (!metricTarget.HasTarget && !includeFame)
         {
             var emptyBuckets = Array.Empty<AggregatedCombatBucket>();
-            lastChartRenderSignature = CreateChartRenderSignature(emptyBuckets, metricTarget.SignatureKey, includeFame, effectiveAggregationSeconds);
+            lastChartRenderSignature = CreateChartRenderSignature(emptyBuckets, metricTarget.SignatureKey, includeFame, effectiveAggregationSeconds, displayEndUtc);
             ChartSeries = Array.Empty<ISeries>();
             ChartXAxes = CreateChartXAxes(emptyBuckets, effectiveAggregationSeconds, SelectedChartWindow.Duration, displayEndUtc);
             ChartYAxes = CreateChartYAxes(0, SelectedChartMetric.Kind);
@@ -815,7 +815,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             displayEndUtc,
             extendToDisplayEnd: SelectedChartWindow.Duration is null && encounters.Any(x => x.IsActive)).ToArray();
         var chartBuckets = CompressZeroChartBuckets(buckets, SelectedChartMetric.Kind, includeFame);
-        var signature = CreateChartRenderSignature(chartBuckets, metricTarget.SignatureKey, includeFame, effectiveAggregationSeconds);
+        var signature = CreateChartRenderSignature(chartBuckets, metricTarget.SignatureKey, includeFame, effectiveAggregationSeconds, displayEndUtc);
         if (signature == lastChartRenderSignature)
         {
             return;
@@ -1605,7 +1605,8 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         IReadOnlyList<AggregatedCombatBucket> buckets,
         string chartTargetKey,
         bool includeFame,
-        int aggregationSeconds)
+        int aggregationSeconds,
+        DateTime displayEndUtc)
     {
         var builder = new StringBuilder();
         builder.Append(selectedEncounterSnapshot?.EncounterKey ?? selectedPlayerKey ?? "all")
@@ -1621,6 +1622,8 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             .Append(SelectedChartMetric.Kind)
             .Append('|')
             .Append(SelectedChartWindow.Duration?.Ticks)
+            .Append('|')
+            .Append(SelectedChartWindow.Duration is null ? displayEndUtc.Ticks : 0)
             .Append('|')
             .Append(buckets.Count);
 
@@ -1778,15 +1781,14 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         TimeSpan? chartWindow,
         DateTime displayEndUtc)
     {
+        var maxTicks = displayEndUtc.Ticks;
         double? minLimit = null;
-        double? maxLimit = null;
+        double? maxLimit = maxTicks;
         if (chartWindow is { } window)
         {
-            var maxTicks = displayEndUtc.Ticks;
             var minTicks = maxTicks - window.Ticks;
 
             minLimit = minTicks;
-            maxLimit = maxTicks;
         }
 
         return new[]
