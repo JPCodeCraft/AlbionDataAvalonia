@@ -30,6 +30,7 @@ namespace AlbionDataAvalonia.Network.Services
         private const string ItemEstimatedMarketValuesPath = "itemEstimatedMarketValues";
         private const int MaxItemEstimatedMarketValueUploadBatchSize = 500;
         private const int MaxUploadedItemEstimatedMarketValueFingerprints = 5_000;
+        private const int MaxUploadedGlobalMultiplierFingerprints = 10;
         private static readonly TimeSpan ItemEstimatedMarketValueBatchDelay = TimeSpan.FromSeconds(5);
 
         private readonly PlayerState _playerState;
@@ -39,6 +40,7 @@ namespace AlbionDataAvalonia.Network.Services
         private readonly HttpClient httpClient = new HttpClient();
         private readonly ConcurrentDictionary<ItemEstimatedMarketValueUploadKey, ItemEstimatedMarketValueUploadEntry> pendingItemEstimatedMarketValues = new();
         private readonly BoundedUploadFingerprintCache<ItemEstimatedMarketValueUploadFingerprint> uploadedItemEstimatedMarketValues = new(MaxUploadedItemEstimatedMarketValueFingerprints);
+        private readonly BoundedUploadFingerprintCache<GlobalMultiplierUploadFingerprint> uploadedGlobalMultipliers = new(MaxUploadedGlobalMultiplierFingerprints);
 
         private readonly object _headersLock = new();
         private readonly object itemEstimatedMarketValueUploadTimerLock = new();
@@ -274,7 +276,14 @@ namespace AlbionDataAvalonia.Network.Services
 
         public void UploadGlobalMultiplier(GlobalMultiplierUpload globalMultiplierUpload)
         {
-            _ = Upload(globalMultiplierUpload);
+            var fingerprint = new GlobalMultiplierUploadFingerprint(globalMultiplierUpload.ServerId, globalMultiplierUpload.GlobalMultiplier);
+            if (uploadedGlobalMultipliers.Contains(fingerprint))
+            {
+                Log.Verbose("Skipping duplicate global multiplier upload. ServerId: {ServerId}. GlobalMultiplier: {GlobalMultiplier}.", globalMultiplierUpload.ServerId, globalMultiplierUpload.GlobalMultiplier);
+                return;
+            }
+
+            _ = Upload(globalMultiplierUpload, fingerprint);
         }
 
         public void QueueItemEstimatedMarketValue(string itemUniqueName, long emv, int quality)
@@ -768,7 +777,7 @@ namespace AlbionDataAvalonia.Network.Services
             }
         }
 
-        private async Task<UploadStatus> Upload(GlobalMultiplierUpload globalMultiplierUpload)
+        private async Task<UploadStatus> Upload(GlobalMultiplierUpload globalMultiplierUpload, GlobalMultiplierUploadFingerprint fingerprint)
         {
             var identifier = Guid.NewGuid();
             var requestUri = httpClient.BaseAddress is null ? null : new Uri(httpClient.BaseAddress, GlobalMultiplierPath);
@@ -869,6 +878,8 @@ namespace AlbionDataAvalonia.Network.Services
 
                         return ReportStatus(UploadStatus.Failed);
                     }
+
+                    uploadedGlobalMultipliers.Add(fingerprint);
 
                     Log.Information(
                         "Successfully sent global multiplier {GlobalMultiplier} for server {ServerId} to AFM global multiplier endpoint. Identifier: {Identifier}.",
@@ -997,6 +1008,10 @@ namespace AlbionDataAvalonia.Network.Services
             string ItemUniqueName,
             int Quality,
             DateOnly Day);
+
+        private readonly record struct GlobalMultiplierUploadFingerprint(
+            int ServerId,
+            double GlobalMultiplier);
 
         private readonly record struct ItemEstimatedMarketValueUploadFingerprint(
             int ServerId,
