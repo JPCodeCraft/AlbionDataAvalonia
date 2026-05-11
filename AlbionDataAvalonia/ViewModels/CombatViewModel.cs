@@ -74,6 +74,9 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     private string famePerHourText = "0.0";
 
     [ObservableProperty]
+    private string silverPerHourText = "0.0";
+
+    [ObservableProperty]
     private CombatAggregationOptionViewModel selectedAggregation;
 
     [ObservableProperty]
@@ -150,6 +153,18 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     private bool isFameVisible = true;
+
+    [ObservableProperty]
+    private string summarySilverTotalText = "0";
+
+    [ObservableProperty]
+    private string summarySilverWindowText = "0";
+
+    [ObservableProperty]
+    private string summarySilverWindowRateText = "0.0";
+
+    [ObservableProperty]
+    private bool isSilverVisible = true;
 
     [ObservableProperty]
     private string chartTitle = "Combat over time";
@@ -411,10 +426,17 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         RequestChartRefresh();
     }
 
-    private void UpdateSummaryRefreshTimer(bool includeFame, long totalFameGained, DateTime? firstFameBucketStartedAtUtc)
+    private void UpdateSummaryRefreshTimer(
+        bool includeFame,
+        long totalFameGained,
+        DateTime? firstFameBucketStartedAtUtc,
+        bool includeSilver,
+        long totalSilverGained,
+        DateTime? firstSilverBucketStartedAtUtc)
     {
         var shouldRefresh = currentSnapshot.IsEncounterActive
-            || includeFame && totalFameGained > 0 && firstFameBucketStartedAtUtc is not null;
+            || includeFame && totalFameGained > 0 && firstFameBucketStartedAtUtc is not null
+            || includeSilver && totalSilverGained > 0 && firstSilverBucketStartedAtUtc is not null;
         if (!shouldRefresh)
         {
             StopSummaryRefreshTimer();
@@ -500,24 +522,37 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         var elapsed = SumElapsed(encounterArray, nowUtc);
         var metricTarget = CreateMetricTarget(encounterArray);
         var includeFame = ShouldShowFame();
+        var includeSilver = ShouldShowSilver();
         var aggregatedBuckets = AggregateBuckets(
             encounterArray,
             GetCurrentAggregationSeconds(),
             metricTarget.IncludeEntity,
             includeFame,
+            includeSilver,
             fillMissingBuckets: false).ToArray();
-        var totals = AggregateTotals(encounterArray, metricTarget.IncludeEntity, includeFame);
+        var totals = AggregateTotals(encounterArray, metricTarget.IncludeEntity, includeFame, includeSilver);
         var firstFameBucketStartedAtUtc = includeFame ? GetFirstFameBucketStartedAtUtc(encounterArray) : null;
         var fameElapsed = GetElapsedSince(firstFameBucketStartedAtUtc, displayEndUtc);
+        var firstSilverBucketStartedAtUtc = includeSilver ? GetFirstSilverBucketStartedAtUtc(encounterArray, metricTarget.IncludeEntity) : null;
+        var silverElapsed = GetElapsedSince(firstSilverBucketStartedAtUtc, displayEndUtc);
         var visibleBuckets = GetVisibleBuckets(aggregatedBuckets, displayEndUtc);
         var firstVisibleFameBucketStartedAtUtc = includeFame ? GetFirstFameBucketStartedAtUtc(visibleBuckets) : null;
         var visibleFameBucketStartedAtUtc = SelectedChartWindow.Duration is null
             ? firstFameBucketStartedAtUtc
             : firstVisibleFameBucketStartedAtUtc;
+        var firstVisibleSilverBucketStartedAtUtc = includeSilver ? GetFirstSilverBucketStartedAtUtc(visibleBuckets) : null;
+        var visibleSilverBucketStartedAtUtc = SelectedChartWindow.Duration is null
+            ? firstSilverBucketStartedAtUtc
+            : firstVisibleSilverBucketStartedAtUtc;
         var windowTotals = AggregateTotals(visibleBuckets);
         var visibleFameElapsed = GetVisibleWallClockDuration(
             visibleBuckets,
             visibleFameBucketStartedAtUtc,
+            displayEndUtc,
+            SelectedChartWindow.Duration);
+        var visibleSilverElapsed = GetVisibleWallClockDuration(
+            visibleBuckets,
+            visibleSilverBucketStartedAtUtc,
             displayEndUtc,
             SelectedChartWindow.Duration);
         var visibleWindowDuration = GetVisibleEncounterDuration(
@@ -527,6 +562,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             SelectedChartWindow.Duration);
 
         IsFameVisible = includeFame;
+        IsSilverVisible = includeSilver;
         ElapsedText = FormatDuration(elapsed);
         SummaryTargetText = metricTarget.Label;
         SummaryScopeText = CreateEncounterScopeLabel();
@@ -548,10 +584,20 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         SummaryHealingReceivedWindowText = FormatAmount(windowTotals.HealingReceived);
         SummaryHealingReceivedWindowRateText = FormatRate(CalculateRate(windowTotals.HealingReceived, visibleWindowDuration));
         SummaryFameTotalText = FormatAmount(totals.FameGained);
-        FamePerHourText = FormatRate(CalculateHourlyRate(totals.FameGained, fameElapsed));
+        FamePerHourText = FormatWholeRate(CalculateHourlyRate(totals.FameGained, fameElapsed));
         SummaryFameWindowText = FormatAmount(windowTotals.FameGained);
-        SummaryFameWindowRateText = FormatRate(CalculateHourlyRate(windowTotals.FameGained, visibleFameElapsed));
-        UpdateSummaryRefreshTimer(includeFame, totals.FameGained, firstFameBucketStartedAtUtc);
+        SummaryFameWindowRateText = FormatWholeRate(CalculateHourlyRate(windowTotals.FameGained, visibleFameElapsed));
+        SummarySilverTotalText = FormatAmount(totals.SilverGained);
+        SilverPerHourText = FormatWholeRate(CalculateHourlyRate(totals.SilverGained, silverElapsed));
+        SummarySilverWindowText = FormatAmount(windowTotals.SilverGained);
+        SummarySilverWindowRateText = FormatWholeRate(CalculateHourlyRate(windowTotals.SilverGained, visibleSilverElapsed));
+        UpdateSummaryRefreshTimer(
+            includeFame,
+            totals.FameGained,
+            firstFameBucketStartedAtUtc,
+            includeSilver,
+            totals.SilverGained,
+            firstSilverBucketStartedAtUtc);
     }
 
     private static CombatEncounterListItemViewModel CreateEncounterItem(CombatEncounterSnapshot encounter)
@@ -565,6 +611,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             encounter.IsActive ? "Active" : "Ended",
             duration,
             encounter.TotalFameGained,
+            encounter.TotalSilverGained,
             partyTotals.DamageDealt,
             CalculateRate(partyTotals.DamageDealt, duration),
             partyTotals.DamageReceived,
@@ -586,6 +633,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             totals.DamageReceived += player.DamageReceived;
             totals.HealingDone += player.HealingDone;
             totals.HealingReceived += player.HealingReceived;
+            totals.SilverGained += player.SilverGained;
         }
 
         return totals;
@@ -636,6 +684,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             .OrderBy(player => GetRoleSortOrder(player.Role))
             .ThenByDescending(player => player.DamageDealt)
             .ThenByDescending(player => player.HealingDone)
+            .ThenByDescending(player => player.SilverGained)
             .ThenBy(player => player.Name, StringComparer.OrdinalIgnoreCase)
             .Select(player => CreatePlayerRow(player, duration, totalPartyDamageDealt, totalPartyHealingDone))
             .ToArray();
@@ -792,14 +841,15 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         var displayEndUtc = nowUtc;
         var metricTarget = CreateMetricTarget(encounters);
         var includeFame = SelectedChartMetric.Kind == CombatChartMetricKind.Fame && ShouldShowFame();
+        var includeSilver = SelectedChartMetric.Kind == CombatChartMetricKind.Silver && ShouldShowSilver();
         RefreshAggregationOptions(encounters, displayEndUtc);
         var effectiveAggregationSeconds = GetCurrentAggregationSeconds();
         ChartTitle = CreateChartTitle(metricTarget.Label);
 
-        if (!metricTarget.HasTarget && !includeFame)
+        if (!metricTarget.HasTarget && !includeFame && !includeSilver)
         {
             var emptyBuckets = Array.Empty<AggregatedCombatBucket>();
-            lastChartRenderSignature = CreateChartRenderSignature(emptyBuckets, metricTarget.SignatureKey, includeFame, effectiveAggregationSeconds, displayEndUtc);
+            lastChartRenderSignature = CreateChartRenderSignature(emptyBuckets, metricTarget.SignatureKey, includeFame, includeSilver, effectiveAggregationSeconds, displayEndUtc);
             ChartSeries = Array.Empty<ISeries>();
             ChartXAxes = CreateChartXAxes(emptyBuckets, effectiveAggregationSeconds, SelectedChartWindow.Duration, displayEndUtc);
             ChartYAxes = CreateChartYAxes(0, SelectedChartMetric.Kind);
@@ -811,11 +861,12 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             effectiveAggregationSeconds,
             metricTarget.IncludeEntity,
             includeFame,
+            includeSilver,
             SelectedChartWindow.Duration,
             displayEndUtc,
             extendToDisplayEnd: SelectedChartWindow.Duration is null && encounters.Any(x => x.IsActive)).ToArray();
-        var chartBuckets = CompressZeroChartBuckets(buckets, SelectedChartMetric.Kind, includeFame);
-        var signature = CreateChartRenderSignature(chartBuckets, metricTarget.SignatureKey, includeFame, effectiveAggregationSeconds, displayEndUtc);
+        var chartBuckets = CompressZeroChartBuckets(buckets, SelectedChartMetric.Kind, includeFame, includeSilver);
+        var signature = CreateChartRenderSignature(chartBuckets, metricTarget.SignatureKey, includeFame, includeSilver, effectiveAggregationSeconds, displayEndUtc);
         if (signature == lastChartRenderSignature)
         {
             return;
@@ -831,11 +882,11 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         }
 
         var maxValue = chartBuckets
-            .SelectMany(bucket => GetChartValues(bucket, includeFame, SelectedChartMetric.Kind, effectiveAggregationSeconds))
+            .SelectMany(bucket => GetChartValues(bucket, includeFame, includeSilver, SelectedChartMetric.Kind, effectiveAggregationSeconds))
             .DefaultIfEmpty(0)
             .Max();
 
-        ChartSeries = CreateChartSeries(chartBuckets, SelectedChartMetric.Kind, effectiveAggregationSeconds, includeFame);
+        ChartSeries = CreateChartSeries(chartBuckets, SelectedChartMetric.Kind, effectiveAggregationSeconds, includeFame, includeSilver);
         ChartXAxes = CreateChartXAxes(chartBuckets, effectiveAggregationSeconds, SelectedChartWindow.Duration, displayEndUtc);
         ChartYAxes = CreateChartYAxes(maxValue, SelectedChartMetric.Kind);
     }
@@ -845,6 +896,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         int aggregationSeconds,
         Func<string, bool> includeEntity,
         bool includeFame,
+        bool includeSilver,
         TimeSpan? chartWindow = null,
         DateTime? displayEndUtc = null,
         bool fillMissingBuckets = true,
@@ -865,6 +917,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
                 var damageReceived = 0L;
                 var healingDone = 0L;
                 var healingReceived = 0L;
+                var silverGained = 0L;
                 foreach (var player in bucket.PlayerTotals)
                 {
                     if (!includeEntity(player.EntityKey))
@@ -876,6 +929,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
                     damageReceived += player.DamageReceived;
                     healingDone += player.HealingDone;
                     healingReceived += player.HealingReceived;
+                    silverGained += includeSilver ? player.SilverGained : 0;
                 }
 
                 return new
@@ -885,7 +939,8 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
                     DamageReceived = damageReceived,
                     HealingDone = healingDone,
                     HealingReceived = healingReceived,
-                    FameGained = includeFame ? bucket.FameGained : 0
+                    FameGained = includeFame ? bucket.FameGained : 0,
+                    SilverGained = silverGained
                 };
             }))
             .Where(x => (minimumBucketTicks is null || x.BucketTicks >= minimumBucketTicks.Value)
@@ -900,7 +955,8 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
                     x.Sum(bucket => bucket.DamageReceived),
                     x.Sum(bucket => bucket.HealingDone),
                     x.Sum(bucket => bucket.HealingReceived),
-                    x.Sum(bucket => bucket.FameGained));
+                    x.Sum(bucket => bucket.FameGained),
+                    x.Sum(bucket => bucket.SilverGained));
             })
             .ToArray();
 
@@ -957,7 +1013,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
                 continue;
             }
 
-            yield return new AggregatedCombatBucket(new DateTime(ticks, DateTimeKind.Utc), 0, 0, 0, 0, 0);
+            yield return new AggregatedCombatBucket(new DateTime(ticks, DateTimeKind.Utc), 0, 0, 0, 0, 0, 0);
         }
     }
 
@@ -975,7 +1031,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         var aggregationTicks = TimeSpan.FromSeconds(aggregationSeconds).Ticks;
         for (var ticks = startTicks; ticks <= endTicks; ticks += aggregationTicks)
         {
-            buckets.Add(new AggregatedCombatBucket(new DateTime(ticks, DateTimeKind.Utc), 0, 0, 0, 0, 0));
+            buckets.Add(new AggregatedCombatBucket(new DateTime(ticks, DateTimeKind.Utc), 0, 0, 0, 0, 0, 0));
         }
 
         return buckets;
@@ -1133,7 +1189,8 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     private static IReadOnlyList<AggregatedCombatBucket> CompressZeroChartBuckets(
         IReadOnlyList<AggregatedCombatBucket> buckets,
         CombatChartMetricKind metricKind,
-        bool includeFame)
+        bool includeFame,
+        bool includeSilver)
     {
         if (buckets.Count < 3)
         {
@@ -1145,7 +1202,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         while (index < buckets.Count)
         {
             var bucket = buckets[index];
-            if (!IsZeroChartBucket(bucket, metricKind, includeFame))
+            if (!IsZeroChartBucket(bucket, metricKind, includeFame, includeSilver))
             {
                 compressedBuckets.Add(bucket);
                 index++;
@@ -1157,7 +1214,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             {
                 index++;
             }
-            while (index < buckets.Count && IsZeroChartBucket(buckets[index], metricKind, includeFame));
+            while (index < buckets.Count && IsZeroChartBucket(buckets[index], metricKind, includeFame, includeSilver));
 
             var zeroRunLength = index - zeroRunStart;
             compressedBuckets.Add(buckets[zeroRunStart]);
@@ -1175,11 +1232,17 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     private static bool IsZeroChartBucket(
         AggregatedCombatBucket bucket,
         CombatChartMetricKind metricKind,
-        bool includeFame)
+        bool includeFame,
+        bool includeSilver)
     {
         if (metricKind == CombatChartMetricKind.Fame)
         {
             return !includeFame || bucket.FameGained == 0;
+        }
+
+        if (metricKind == CombatChartMetricKind.Silver)
+        {
+            return !includeSilver || bucket.SilverGained == 0;
         }
 
         return bucket.DamageDealt == 0
@@ -1245,6 +1308,23 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             || selectedEntityKey == currentSnapshot.LocalPlayer?.EntityKey;
     }
 
+    private bool ShouldShowSilver()
+    {
+        if (SelectedEncounter is not null || selectedEncounterSnapshot is not null)
+        {
+            return true;
+        }
+
+        if (UseAllPartyStats)
+        {
+            return true;
+        }
+
+        var selectedEntityKey = SelectedPlayer?.EntityKey ?? selectedPlayerKey;
+        return !string.IsNullOrEmpty(selectedEntityKey)
+            || currentSnapshot.LocalPlayer is not null;
+    }
+
     private CombatMetricTarget CreateMetricTarget(IReadOnlyList<CombatEncounterSnapshot> encounters)
     {
         if (UseAllPartyStats)
@@ -1292,8 +1372,9 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
                 x.Sum(player => player.DamageDealt),
                 x.Sum(player => player.DamageReceived),
                 x.Sum(player => player.HealingDone),
-                x.Sum(player => player.HealingReceived)))
-            .Where(x => x.DamageDealt > 0 || x.DamageReceived > 0 || x.HealingDone > 0 || x.HealingReceived > 0)
+                x.Sum(player => player.HealingReceived),
+                x.Sum(player => player.SilverGained)))
+            .Where(x => x.DamageDealt > 0 || x.DamageReceived > 0 || x.HealingDone > 0 || x.HealingReceived > 0 || x.SilverGained > 0)
             .ToArray();
     }
 
@@ -1323,7 +1404,8 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             FormatPercent(healingDonePartyPercent),
             CalculateRate(player.HealingDone, duration),
             player.HealingReceived,
-            CalculateRate(player.HealingReceived, duration));
+            CalculateRate(player.HealingReceived, duration),
+            player.SilverGained);
     }
 
     private static double? CalculatePartyPercent(CombatPlayerSummary player, long amount, long totalPartyAmount)
@@ -1372,7 +1454,8 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     private static CombatMetricTotals AggregateTotals(
         IEnumerable<CombatEncounterSnapshot> encounters,
         Func<string, bool> includeEntity,
-        bool includeFame)
+        bool includeFame,
+        bool includeSilver)
     {
         var totals = new CombatMetricTotals();
         var encounterArray = encounters as IReadOnlyList<CombatEncounterSnapshot> ?? encounters.ToArray();
@@ -1382,6 +1465,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             totals.DamageReceived += player.DamageReceived;
             totals.HealingDone += player.HealingDone;
             totals.HealingReceived += player.HealingReceived;
+            totals.SilverGained += includeSilver ? player.SilverGained : 0;
         }
 
         if (includeFame)
@@ -1402,6 +1486,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             totals.HealingDone += bucket.HealingDone;
             totals.HealingReceived += bucket.HealingReceived;
             totals.FameGained += bucket.FameGained;
+            totals.SilverGained += bucket.SilverGained;
         }
 
         return totals;
@@ -1467,6 +1552,51 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         return firstStartedAtUtc;
     }
 
+    private static DateTime? GetFirstSilverBucketStartedAtUtc(
+        IEnumerable<CombatEncounterSnapshot> encounters,
+        Func<string, bool> includeEntity)
+    {
+        DateTime? firstStartedAtUtc = null;
+        foreach (var encounter in encounters)
+        {
+            foreach (var bucket in encounter.TimeBuckets)
+            {
+                var hasSilver = bucket.PlayerTotals.Any(player => includeEntity(player.EntityKey) && player.SilverGained > 0);
+                if (!hasSilver)
+                {
+                    continue;
+                }
+
+                var bucketStartedAtUtc = encounter.StartedAtUtc.Add(bucket.StartOffset);
+                if (firstStartedAtUtc is null || bucketStartedAtUtc < firstStartedAtUtc.Value)
+                {
+                    firstStartedAtUtc = bucketStartedAtUtc;
+                }
+            }
+        }
+
+        return firstStartedAtUtc;
+    }
+
+    private static DateTime? GetFirstSilverBucketStartedAtUtc(IEnumerable<AggregatedCombatBucket> buckets)
+    {
+        DateTime? firstStartedAtUtc = null;
+        foreach (var bucket in buckets)
+        {
+            if (bucket.SilverGained <= 0)
+            {
+                continue;
+            }
+
+            if (firstStartedAtUtc is null || bucket.StartedAtUtc < firstStartedAtUtc.Value)
+            {
+                firstStartedAtUtc = bucket.StartedAtUtc;
+            }
+        }
+
+        return firstStartedAtUtc;
+    }
+
     private static TimeSpan GetVisibleWallClockDuration(
         IReadOnlyList<AggregatedCombatBucket> buckets,
         DateTime? firstVisibleFameBucketStartedAtUtc,
@@ -1497,6 +1627,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     private static IEnumerable<double> GetChartValues(
         AggregatedCombatBucket bucket,
         bool includeFame,
+        bool includeSilver,
         CombatChartMetricKind metricKind,
         int aggregationSeconds)
     {
@@ -1505,6 +1636,16 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             if (includeFame)
             {
                 yield return bucket.FameGained;
+            }
+
+            yield break;
+        }
+
+        if (metricKind == CombatChartMetricKind.Silver)
+        {
+            if (includeSilver)
+            {
+                yield return bucket.SilverGained;
             }
 
             yield break;
@@ -1605,6 +1746,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         IReadOnlyList<AggregatedCombatBucket> buckets,
         string chartTargetKey,
         bool includeFame,
+        bool includeSilver,
         int aggregationSeconds,
         DateTime displayEndUtc)
     {
@@ -1616,6 +1758,8 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             .Append(UseAllPartyStats)
             .Append('|')
             .Append(includeFame)
+            .Append('|')
+            .Append(includeSilver)
             .Append('|')
             .Append(aggregationSeconds)
             .Append('|')
@@ -1645,7 +1789,9 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
                 .Append(':')
                 .Append(bucket.HealingReceived)
                 .Append(':')
-                .Append(bucket.FameGained);
+                .Append(bucket.FameGained)
+                .Append(':')
+                .Append(bucket.SilverGained);
         }
 
         return builder.ToString();
@@ -1724,7 +1870,8 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         IReadOnlyList<AggregatedCombatBucket> buckets,
         CombatChartMetricKind metricKind,
         int aggregationSeconds,
-        bool includeFame)
+        bool includeFame,
+        bool includeSilver)
     {
         if (metricKind == CombatChartMetricKind.Fame)
         {
@@ -1732,6 +1879,16 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
                 ? new ISeries[]
                 {
                     CreateLineSeries("Fame", buckets, x => x.FameGained, metricKind, SKColors.Gold)
+                }
+                : Array.Empty<ISeries>();
+        }
+
+        if (metricKind == CombatChartMetricKind.Silver)
+        {
+            return includeSilver
+                ? new ISeries[]
+                {
+                    CreateLineSeries("Silver", buckets, x => x.SilverGained, metricKind, SKColors.Silver)
                 }
                 : Array.Empty<ISeries>();
         }
@@ -1840,6 +1997,11 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         return value.ToString("N1");
     }
 
+    private static string FormatWholeRate(double value)
+    {
+        return value.ToString("N0");
+    }
+
     private static string FormatPercent(double? value)
     {
         return value is null
@@ -1929,7 +2091,8 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         {
             new CombatChartMetricOptionViewModel(CombatChartMetricKind.Total, "Total"),
             new CombatChartMetricOptionViewModel(CombatChartMetricKind.PerSecond, "Rate"),
-            new CombatChartMetricOptionViewModel(CombatChartMetricKind.Fame, "Fame")
+            new CombatChartMetricOptionViewModel(CombatChartMetricKind.Fame, "Fame"),
+            new CombatChartMetricOptionViewModel(CombatChartMetricKind.Silver, "Silver")
         };
 
         Replace(ChartMetricOptions, options);
@@ -1993,7 +2156,8 @@ public enum CombatChartMetricKind
 {
     Total,
     PerSecond,
-    Fame
+    Fame,
+    Silver
 }
 
 public sealed record CombatChartMetricOptionViewModel(CombatChartMetricKind Kind, string Label);
@@ -2014,7 +2178,8 @@ public sealed record AggregatedCombatBucket(
     long DamageReceived,
     long HealingDone,
     long HealingReceived,
-    long FameGained);
+    long FameGained,
+    long SilverGained);
 
 public sealed record CombatPlayerRowViewModel(
     string EntityKey,
@@ -2033,7 +2198,8 @@ public sealed record CombatPlayerRowViewModel(
     string HealingDonePartyPercentText,
     double HealingDonePerSecond,
     long HealingReceived,
-    double HealingReceivedPerSecond);
+    double HealingReceivedPerSecond,
+    long SilverGained);
 
 public sealed record CombatEncounterListItemViewModel(
     string EncounterKey,
@@ -2042,6 +2208,7 @@ public sealed record CombatEncounterListItemViewModel(
     string Status,
     TimeSpan Duration,
     long FameGained,
+    long SilverGained,
     long DamageDealt,
     double DamageDealtPerSecond,
     long DamageReceived,
@@ -2075,4 +2242,5 @@ public sealed class CombatMetricTotals
     public long HealingDone { get; set; }
     public long HealingReceived { get; set; }
     public long FameGained { get; set; }
+    public long SilverGained { get; set; }
 }

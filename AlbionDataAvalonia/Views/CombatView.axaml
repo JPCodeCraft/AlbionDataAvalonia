@@ -229,6 +229,29 @@
 								</Grid>
 							</StackPanel>
 						</Border>
+						<Border Classes="SummaryCard" IsVisible="{Binding IsSilverVisible}">
+							<StackPanel>
+								<TextBlock Classes="FilterLabel" Text="Silver" />
+								<Grid ColumnDefinitions="*,*" ColumnSpacing="14" Margin="0,8,0,0">
+									<StackPanel>
+										<TextBlock Classes="FilterLabel" Text="Total" />
+										<Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="6" VerticalAlignment="Center">
+											<TextBlock Classes="SummaryValue" Text="{Binding SummarySilverTotalText}" />
+											<TextBlock Grid.Column="1" Classes="SummaryRate" Text="{Binding SilverPerHourText}" />
+											<TextBlock Grid.Column="2" Classes="RateSuffix" Text="/h" />
+										</Grid>
+									</StackPanel>
+									<StackPanel Grid.Column="1">
+										<TextBlock Classes="FilterLabel" Text="{Binding SummaryWindowLabel}" />
+										<Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="6" VerticalAlignment="Center">
+											<TextBlock Classes="SummaryValue" Text="{Binding SummarySilverWindowText}" />
+											<TextBlock Grid.Column="1" Classes="SummaryRate" Text="{Binding SummarySilverWindowRateText}" />
+											<TextBlock Grid.Column="2" Classes="RateSuffix" Text="/h" />
+										</Grid>
+									</StackPanel>
+								</Grid>
+							</StackPanel>
+						</Border>
 				</WrapPanel>
 			</Grid>
 		</Border>
@@ -346,6 +369,13 @@
 								</DataTemplate>
 							</DataGridTemplateColumn.CellTemplate>
 						</DataGridTemplateColumn>
+						<DataGridTemplateColumn Header="Silver" SortMemberPath="SilverGained" CanUserSort="True">
+							<DataGridTemplateColumn.CellTemplate>
+								<DataTemplate>
+									<TextBlock Text="{Binding SilverGained, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" />
+								</DataTemplate>
+							</DataGridTemplateColumn.CellTemplate>
+						</DataGridTemplateColumn>
 						<DataGridTemplateColumn Header="Dmg Out" SortMemberPath="DamageDealt" CanUserSort="True">
 							<DataGridTemplateColumn.CellTemplate>
 								<DataTemplate>
@@ -443,6 +473,13 @@
 				<DataGrid.Columns>
 					<DataGridTextColumn Header="Role" Binding="{Binding RoleLabel}" SortMemberPath="RoleSortOrder" CanUserSort="True" Width="115" />
 					<DataGridTextColumn Header="Player" Binding="{Binding Name}" Width="*" />
+					<DataGridTemplateColumn Header="Silver" SortMemberPath="SilverGained" CanUserSort="True">
+						<DataGridTemplateColumn.CellTemplate>
+							<DataTemplate>
+								<TextBlock Text="{Binding SilverGained, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" />
+							</DataTemplate>
+						</DataGridTemplateColumn.CellTemplate>
+					</DataGridTemplateColumn>
 					<DataGridTemplateColumn Header="Dmg Out" SortMemberPath="DamageDealt" CanUserSort="True">
 						<DataGridTemplateColumn.CellTemplate>
 							<DataTemplate>

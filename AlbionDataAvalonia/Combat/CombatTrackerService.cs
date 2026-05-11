@@ -23,7 +23,7 @@ public sealed class CombatTrackerService : IDisposable
     // useful approximate size without claiming exact per-object heap attribution.
     private const long EstimatedEncounterBytes = 176;
     private const long EstimatedBucketBytes = 232;
-    private const long EstimatedParticipantTotalEntryBytes = 128;
+    private const long EstimatedParticipantTotalEntryBytes = 136;
     private const long EstimatedEntityBytes = 192;
     private const long EstimatedListBytes = 56;
     private const long EstimatedDictionaryBytes = 96;
@@ -356,6 +356,37 @@ public sealed class CombatTrackerService : IDisposable
         }
     }
 
+    public void Record(CombatSilverEvent silverEvent, DateTime receivedAtUtc)
+    {
+        if (silverEvent.Amount <= 0)
+        {
+            return;
+        }
+
+        CombatTrackerSnapshot? snapshot = null;
+        lock (sync)
+        {
+            if (isDisabled || isPaused || localEntity is null)
+            {
+                return;
+            }
+
+            var closedIdleEncounter = EndActiveEncounterIfIdle(receivedAtUtc);
+            var recorded = RecordSilverEvent(silverEvent, receivedAtUtc);
+
+            if (recorded || closedIdleEncounter)
+            {
+                PruneUnreferencedEntitiesIfDue(receivedAtUtc);
+                snapshot = BuildSnapshot(receivedAtUtc);
+            }
+        }
+
+        if (snapshot is not null)
+        {
+            SnapshotChanged?.Invoke(snapshot);
+        }
+    }
+
     public void RecordBatch(IEnumerable<CombatHealthEvent> healthEvents, DateTime receivedAtUtc)
     {
         var events = healthEvents
@@ -641,6 +672,27 @@ public sealed class CombatTrackerService : IDisposable
         var encounter = EnsureEncounterForMetricEvent(eventUtc, eventUtc, null);
         var bucket = GetBucket(encounter, eventUtc);
         bucket.AddFame(fameEvent.Amount);
+
+        if (encounter == activeEncounter)
+        {
+            encounter.LastIdleResetAtUtc = eventUtc;
+            ScheduleEncounterIdleTimer(encounter);
+        }
+
+        return true;
+    }
+
+    private bool RecordSilverEvent(CombatSilverEvent silverEvent, DateTime eventUtc)
+    {
+        if (!entitiesByObjectId.TryGetValue(silverEvent.PickerObjectId, out var picker) || !IsTracked(picker))
+        {
+            return false;
+        }
+
+        picker.LastSeenAtUtc = eventUtc;
+        var encounter = EnsureEncounterForMetricEvent(eventUtc, eventUtc, null);
+        var bucket = GetBucket(encounter, eventUtc);
+        bucket.AddSilver(picker.EntityKey, silverEvent.Amount);
 
         if (encounter == activeEncounter)
         {
@@ -1093,13 +1145,15 @@ public sealed class CombatTrackerService : IDisposable
                 x.TotalHealingDone(),
                 x.TotalHealingReceived(),
                 x.TotalFameGained(),
+                x.TotalSilverGained(),
                 x.PlayerTotals
                     .Select(player => new CombatParticipantBucketTotals(
                         player.Key,
                         player.Value.DamageDealt,
                         player.Value.DamageReceived,
                         player.Value.HealingDone,
-                        player.Value.HealingReceived))
+                        player.Value.HealingReceived,
+                        player.Value.SilverGained))
                     .ToArray()))
             .ToArray();
 
@@ -1115,6 +1169,7 @@ public sealed class CombatTrackerService : IDisposable
             bucketPoints.Sum(x => x.HealingDone),
             bucketPoints.Sum(x => x.HealingReceived),
             bucketPoints.Sum(x => x.FameGained),
+            bucketPoints.Sum(x => x.SilverGained),
             BuildPlayerSummaries(encounter.Buckets),
             bucketPoints);
     }
@@ -1130,10 +1185,12 @@ public sealed class CombatTrackerService : IDisposable
                 x.Value.DamageDealt,
                 x.Value.DamageReceived,
                 x.Value.HealingDone,
-                x.Value.HealingReceived))
-            .Where(x => x.DamageDealt > 0 || x.DamageReceived > 0 || x.HealingDone > 0 || x.HealingReceived > 0)
+                x.Value.HealingReceived,
+                x.Value.SilverGained))
+            .Where(x => x.DamageDealt > 0 || x.DamageReceived > 0 || x.HealingDone > 0 || x.HealingReceived > 0 || x.SilverGained > 0)
             .OrderByDescending(x => x.DamageDealt)
             .ThenByDescending(x => x.HealingDone)
+            .ThenByDescending(x => x.SilverGained)
             .ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase)
             .ToArray();
     }

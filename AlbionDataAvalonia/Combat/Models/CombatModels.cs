@@ -87,6 +87,27 @@ public sealed record CombatFameEvent(long Amount)
     }
 }
 
+public sealed record CombatSilverEvent(long PickerObjectId, long Amount)
+{
+    public static bool TryCreate(long? pickerObjectId, double gainedSilver, out CombatSilverEvent silverEvent)
+    {
+        silverEvent = default!;
+        if (pickerObjectId is null || pickerObjectId == 0 || gainedSilver <= 0)
+        {
+            return false;
+        }
+
+        var amount = (long)Math.Round(gainedSilver, MidpointRounding.AwayFromZero);
+        if (amount <= 0)
+        {
+            return false;
+        }
+
+        silverEvent = new CombatSilverEvent(pickerObjectId.Value, amount);
+        return true;
+    }
+}
+
 public sealed record CombatPlayerSummary(
     string EntityKey,
     string Name,
@@ -94,7 +115,8 @@ public sealed record CombatPlayerSummary(
     long DamageDealt,
     long DamageReceived,
     long HealingDone,
-    long HealingReceived);
+    long HealingReceived,
+    long SilverGained);
 
 public sealed record CombatTimeBucketPoint(
     int Index,
@@ -105,6 +127,7 @@ public sealed record CombatTimeBucketPoint(
     long HealingDone,
     long HealingReceived,
     long FameGained,
+    long SilverGained,
     IReadOnlyList<CombatParticipantBucketTotals> PlayerTotals);
 
 public sealed record CombatParticipantBucketTotals(
@@ -112,7 +135,8 @@ public sealed record CombatParticipantBucketTotals(
     long DamageDealt,
     long DamageReceived,
     long HealingDone,
-    long HealingReceived);
+    long HealingReceived,
+    long SilverGained);
 
 public sealed record CombatEncounterSnapshot(
     string EncounterKey,
@@ -126,6 +150,7 @@ public sealed record CombatEncounterSnapshot(
     long TotalHealingDone,
     long TotalHealingReceived,
     long TotalFameGained,
+    long TotalSilverGained,
     IReadOnlyList<CombatPlayerSummary> Players,
     IReadOnlyList<CombatTimeBucketPoint> TimeBuckets);
 
@@ -168,6 +193,7 @@ public sealed class CombatParticipantTotals
     public long DamageReceived { get; set; }
     public long HealingDone { get; set; }
     public long HealingReceived { get; set; }
+    public long SilverGained { get; set; }
 
     public void Add(CombatParticipantTotals other)
     {
@@ -175,6 +201,7 @@ public sealed class CombatParticipantTotals
         DamageReceived += other.DamageReceived;
         HealingDone += other.HealingDone;
         HealingReceived += other.HealingReceived;
+        SilverGained += other.SilverGained;
     }
 }
 
@@ -208,6 +235,11 @@ public sealed class CombatTimeBucket
     public void AddFame(long amount)
     {
         FameGained += amount;
+    }
+
+    public void AddSilver(string entityKey, long amount)
+    {
+        GetTotals(entityKey).SilverGained += amount;
     }
 
     private CombatParticipantTotals GetTotals(string entityKey)
@@ -250,4 +282,5 @@ public static class CombatTimeBucketExtensions
     public static long TotalHealingDone(this CombatTimeBucket bucket) => bucket.PlayerTotals.Values.Sum(x => x.HealingDone);
     public static long TotalHealingReceived(this CombatTimeBucket bucket) => bucket.PlayerTotals.Values.Sum(x => x.HealingReceived);
     public static long TotalFameGained(this CombatTimeBucket bucket) => bucket.FameGained;
+    public static long TotalSilverGained(this CombatTimeBucket bucket) => bucket.PlayerTotals.Values.Sum(x => x.SilverGained);
 }

@@ -105,6 +105,7 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddEventHandler(new HealthUpdateEventHandler(_combatTracker));
                 builder.AddEventHandler(new HealthUpdatesEventHandler(_combatTracker));
                 builder.AddEventHandler(new UpdateFameEventHandler(_combatTracker));
+                builder.AddEventHandler(new TakeSilverEventHandler(_combatTracker));
                 builder.AddEventHandler(new InCombatStateUpdateEventHandler(_combatTracker));
                 builder.AddEventHandler(new TimeSyncEventHandler(_combatTracker));
                 builder.AddEventHandler(new EstimatedMarketValueUpdateEventHandler(_itemsIdsService, _afmUploader));
