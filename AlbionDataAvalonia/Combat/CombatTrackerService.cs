@@ -40,6 +40,7 @@ public sealed class CombatTrackerService : IDisposable
     private readonly Dictionary<long, CombatTrackedEntity> entitiesByObjectId = new();
     private readonly Dictionary<Guid, CombatTrackedEntity> entitiesByGuid = new();
     private readonly List<CombatEncounter> encounters = new();
+    private readonly List<CombatPauseInterval> pauseIntervals = new();
     private readonly Dictionary<string, bool> combatStates = new();
     private readonly SettingsManager settingsManager;
     private Timer? encounterIdleTimer;
@@ -462,9 +463,14 @@ public sealed class CombatTrackerService : IDisposable
             isPaused = paused;
             if (paused)
             {
+                StartPauseInterval(nowUtc);
                 EndActiveEncounter(nowUtc);
                 combatStates.Clear();
                 startNewEncounterAfterPause = true;
+            }
+            else
+            {
+                EndPauseInterval(nowUtc);
             }
 
             snapshot = BuildSnapshot(nowUtc);
@@ -551,6 +557,7 @@ public sealed class CombatTrackerService : IDisposable
         CombatTrackerSnapshot snapshot;
         lock (sync)
         {
+            var nowUtc = DateTime.UtcNow;
             if (isDisabled)
             {
                 FullResetCore();
@@ -558,9 +565,13 @@ public sealed class CombatTrackerService : IDisposable
             else
             {
                 ResetEncounterDataCore();
+                if (isPaused)
+                {
+                    StartPauseInterval(nowUtc);
+                }
             }
 
-            snapshot = BuildSnapshot(DateTime.UtcNow);
+            snapshot = BuildSnapshot(nowUtc);
         }
 
         SnapshotChanged?.Invoke(snapshot);
@@ -618,6 +629,7 @@ public sealed class CombatTrackerService : IDisposable
         lastUnreferencedEntityPruneUtc = DateTime.MinValue;
         anchorFromTimeSync = false;
         startNewEncounterAfterPause = false;
+        pauseIntervals.Clear();
         StopEncounterIdleTimer();
     }
 
@@ -629,6 +641,7 @@ public sealed class CombatTrackerService : IDisposable
         entitiesByGuid.Clear();
         localEntity = null;
         isPaused = false;
+        pauseIntervals.Clear();
     }
 
     private bool RecordHealthEvent(CombatHealthEvent healthEvent, DateTime eventUtc, DateTime seenAtUtc)
@@ -827,6 +840,34 @@ public sealed class CombatTrackerService : IDisposable
         activeEncounter.EndedAtUtc = endedAtUtc;
         activeEncounter = null;
         StopEncounterIdleTimer();
+    }
+
+    private void StartPauseInterval(DateTime startedAtUtc)
+    {
+        if (pauseIntervals.Count > 0 && pauseIntervals[^1].EndedAtUtc is null)
+        {
+            return;
+        }
+
+        pauseIntervals.Add(new CombatPauseInterval(startedAtUtc));
+    }
+
+    private void EndPauseInterval(DateTime endedAtUtc)
+    {
+        if (pauseIntervals.Count == 0)
+        {
+            return;
+        }
+
+        var interval = pauseIntervals[^1];
+        if (interval.EndedAtUtc is not null)
+        {
+            return;
+        }
+
+        interval.EndedAtUtc = endedAtUtc < interval.StartedAtUtc
+            ? interval.StartedAtUtc
+            : endedAtUtc;
     }
 
     private void ScheduleEncounterIdleTimer(CombatEncounter encounter)
@@ -1110,6 +1151,9 @@ public sealed class CombatTrackerService : IDisposable
             .Select(x => BuildEncounterSnapshot(x, nowUtc))
             .OrderByDescending(x => x.StartedAtUtc)
             .ToArray();
+        var pauseIntervalSnapshots = pauseIntervals
+            .Select(x => new CombatPauseIntervalSnapshot(x.StartedAtUtc, x.EndedAtUtc))
+            .ToArray();
         var displayEncounter = activeEncounter is not null
             ? encounterSnapshots.FirstOrDefault(x => x.EncounterKey == activeEncounter.EncounterKey)
             : encounterSnapshots.FirstOrDefault();
@@ -1124,7 +1168,8 @@ public sealed class CombatTrackerService : IDisposable
             localEntity is not null,
             localPlayer,
             trackedEntities,
-            encounterSnapshots);
+            encounterSnapshots,
+            pauseIntervalSnapshots);
     }
 
     private CombatEncounterSnapshot BuildEncounterSnapshot(CombatEncounter encounter, DateTime nowUtc)
@@ -1337,6 +1382,17 @@ public sealed class CombatTrackerService : IDisposable
         public DateTime? EndedAtUtc { get; set; }
         public bool IsActive { get; set; } = true;
         public List<CombatTimeBucket> Buckets { get; } = new();
+    }
+
+    private sealed class CombatPauseInterval
+    {
+        public CombatPauseInterval(DateTime startedAtUtc)
+        {
+            StartedAtUtc = startedAtUtc;
+        }
+
+        public DateTime StartedAtUtc { get; }
+        public DateTime? EndedAtUtc { get; set; }
     }
 
     private sealed class CombatTrackedEntity

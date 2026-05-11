@@ -205,6 +205,9 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     private Axis[] chartYAxes = Array.Empty<Axis>();
 
+    [ObservableProperty]
+    private RectangularSection[] chartSections = Array.Empty<RectangularSection>();
+
     public CombatViewModel()
     {
         currentSnapshot = CombatTrackerSnapshot.Empty();
@@ -532,9 +535,9 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             fillMissingBuckets: false).ToArray();
         var totals = AggregateTotals(encounterArray, metricTarget.IncludeEntity, includeFame, includeSilver);
         var firstFameBucketStartedAtUtc = includeFame ? GetFirstFameBucketStartedAtUtc(encounterArray) : null;
-        var fameElapsed = GetElapsedSince(firstFameBucketStartedAtUtc, displayEndUtc);
+        var fameElapsed = GetPauseAdjustedElapsedSince(firstFameBucketStartedAtUtc, displayEndUtc, currentSnapshot.PauseIntervals);
         var firstSilverBucketStartedAtUtc = includeSilver ? GetFirstSilverBucketStartedAtUtc(encounterArray, metricTarget.IncludeEntity) : null;
-        var silverElapsed = GetElapsedSince(firstSilverBucketStartedAtUtc, displayEndUtc);
+        var silverElapsed = GetPauseAdjustedElapsedSince(firstSilverBucketStartedAtUtc, displayEndUtc, currentSnapshot.PauseIntervals);
         var visibleBuckets = GetVisibleBuckets(aggregatedBuckets, displayEndUtc);
         var firstVisibleFameBucketStartedAtUtc = includeFame ? GetFirstFameBucketStartedAtUtc(visibleBuckets) : null;
         var visibleFameBucketStartedAtUtc = SelectedChartWindow.Duration is null
@@ -545,16 +548,18 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             ? firstSilverBucketStartedAtUtc
             : firstVisibleSilverBucketStartedAtUtc;
         var windowTotals = AggregateTotals(visibleBuckets);
-        var visibleFameElapsed = GetVisibleWallClockDuration(
+        var visibleFameElapsed = GetPauseAdjustedVisibleWallClockDuration(
             visibleBuckets,
             visibleFameBucketStartedAtUtc,
             displayEndUtc,
-            SelectedChartWindow.Duration);
-        var visibleSilverElapsed = GetVisibleWallClockDuration(
+            SelectedChartWindow.Duration,
+            currentSnapshot.PauseIntervals);
+        var visibleSilverElapsed = GetPauseAdjustedVisibleWallClockDuration(
             visibleBuckets,
             visibleSilverBucketStartedAtUtc,
             displayEndUtc,
-            SelectedChartWindow.Duration);
+            SelectedChartWindow.Duration,
+            currentSnapshot.PauseIntervals);
         var visibleWindowDuration = GetVisibleEncounterDuration(
             encounterArray,
             nowUtc,
@@ -845,14 +850,16 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         RefreshAggregationOptions(encounters, displayEndUtc);
         var effectiveAggregationSeconds = GetCurrentAggregationSeconds();
         ChartTitle = CreateChartTitle(metricTarget.Label);
+        var pauseSections = CreatePauseSections(currentSnapshot.PauseIntervals, SelectedChartWindow.Duration, displayEndUtc);
 
         if (!metricTarget.HasTarget && !includeFame && !includeSilver)
         {
             var emptyBuckets = Array.Empty<AggregatedCombatBucket>();
-            lastChartRenderSignature = CreateChartRenderSignature(emptyBuckets, metricTarget.SignatureKey, includeFame, includeSilver, effectiveAggregationSeconds, displayEndUtc);
+            lastChartRenderSignature = CreateChartRenderSignature(emptyBuckets, pauseSections, metricTarget.SignatureKey, includeFame, includeSilver, effectiveAggregationSeconds, displayEndUtc);
             ChartSeries = Array.Empty<ISeries>();
             ChartXAxes = CreateChartXAxes(emptyBuckets, effectiveAggregationSeconds, SelectedChartWindow.Duration, displayEndUtc);
             ChartYAxes = CreateChartYAxes(0, SelectedChartMetric.Kind);
+            ChartSections = pauseSections;
             return;
         }
 
@@ -866,7 +873,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             displayEndUtc,
             extendToDisplayEnd: SelectedChartWindow.Duration is null && encounters.Any(x => x.IsActive)).ToArray();
         var chartBuckets = CompressZeroChartBuckets(buckets, SelectedChartMetric.Kind, includeFame, includeSilver);
-        var signature = CreateChartRenderSignature(chartBuckets, metricTarget.SignatureKey, includeFame, includeSilver, effectiveAggregationSeconds, displayEndUtc);
+        var signature = CreateChartRenderSignature(chartBuckets, pauseSections, metricTarget.SignatureKey, includeFame, includeSilver, effectiveAggregationSeconds, displayEndUtc);
         if (signature == lastChartRenderSignature)
         {
             return;
@@ -878,6 +885,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             ChartSeries = Array.Empty<ISeries>();
             ChartXAxes = CreateChartXAxes(chartBuckets, effectiveAggregationSeconds, SelectedChartWindow.Duration, displayEndUtc);
             ChartYAxes = CreateChartYAxes(0, SelectedChartMetric.Kind);
+            ChartSections = pauseSections;
             return;
         }
 
@@ -889,6 +897,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         ChartSeries = CreateChartSeries(chartBuckets, SelectedChartMetric.Kind, effectiveAggregationSeconds, includeFame, includeSilver);
         ChartXAxes = CreateChartXAxes(chartBuckets, effectiveAggregationSeconds, SelectedChartWindow.Duration, displayEndUtc);
         ChartYAxes = CreateChartYAxes(maxValue, SelectedChartMetric.Kind);
+        ChartSections = pauseSections;
     }
 
     private IEnumerable<AggregatedCombatBucket> AggregateBuckets(
@@ -1497,17 +1506,53 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         return TimeSpan.FromTicks(encounters.Sum(x => GetElapsed(x, nowUtc).Ticks));
     }
 
-    private static TimeSpan GetElapsedSince(DateTime? startedAtUtc, DateTime nowUtc)
+    private static TimeSpan GetPauseAdjustedElapsedSince(
+        DateTime? startedAtUtc,
+        DateTime endUtc,
+        IReadOnlyList<CombatPauseIntervalSnapshot> pauseIntervals)
     {
-        if (startedAtUtc is not { } start)
+        if (startedAtUtc is not { } startUtc || endUtc <= startUtc)
         {
             return TimeSpan.Zero;
         }
 
-        var elapsed = nowUtc - start;
-        return elapsed < TimeSpan.Zero
-            ? TimeSpan.Zero
-            : elapsed;
+        var elapsed = endUtc - startUtc;
+        var paused = GetPauseOverlap(startUtc, endUtc, pauseIntervals);
+        var adjusted = elapsed - paused;
+        return adjusted > TimeSpan.Zero
+            ? adjusted
+            : TimeSpan.Zero;
+    }
+
+    private static TimeSpan GetPauseOverlap(
+        DateTime rangeStartUtc,
+        DateTime rangeEndUtc,
+        IReadOnlyList<CombatPauseIntervalSnapshot> pauseIntervals)
+    {
+        if (rangeEndUtc <= rangeStartUtc)
+        {
+            return TimeSpan.Zero;
+        }
+
+        long pausedTicks = 0;
+        foreach (var interval in pauseIntervals)
+        {
+            var intervalStartUtc = interval.StartedAtUtc;
+            var intervalEndUtc = interval.EndedAtUtc ?? rangeEndUtc;
+            if (intervalEndUtc < intervalStartUtc)
+            {
+                intervalEndUtc = intervalStartUtc;
+            }
+
+            var overlapStartUtc = intervalStartUtc > rangeStartUtc ? intervalStartUtc : rangeStartUtc;
+            var overlapEndUtc = intervalEndUtc < rangeEndUtc ? intervalEndUtc : rangeEndUtc;
+            if (overlapEndUtc > overlapStartUtc)
+            {
+                pausedTicks += (overlapEndUtc - overlapStartUtc).Ticks;
+            }
+        }
+
+        return TimeSpan.FromTicks(pausedTicks);
     }
 
     private static DateTime? GetFirstFameBucketStartedAtUtc(IEnumerable<CombatEncounterSnapshot> encounters)
@@ -1597,19 +1642,28 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         return firstStartedAtUtc;
     }
 
-    private static TimeSpan GetVisibleWallClockDuration(
+    private static TimeSpan GetPauseAdjustedVisibleWallClockDuration(
         IReadOnlyList<AggregatedCombatBucket> buckets,
         DateTime? firstVisibleFameBucketStartedAtUtc,
         DateTime displayEndUtc,
-        TimeSpan? chartWindow)
+        TimeSpan? chartWindow,
+        IReadOnlyList<CombatPauseIntervalSnapshot> pauseIntervals)
     {
         var visibleEndUtc = displayEndUtc;
         var visibleStartUtc = chartWindow is null
             ? firstVisibleFameBucketStartedAtUtc ?? (buckets.Count == 0 ? displayEndUtc : buckets[0].StartedAtUtc)
             : displayEndUtc - chartWindow.Value;
 
-        return visibleEndUtc > visibleStartUtc
-            ? visibleEndUtc - visibleStartUtc
+        if (visibleEndUtc <= visibleStartUtc)
+        {
+            return TimeSpan.Zero;
+        }
+
+        var duration = visibleEndUtc - visibleStartUtc;
+        var paused = GetPauseOverlap(visibleStartUtc, visibleEndUtc, pauseIntervals);
+        var adjusted = duration - paused;
+        return adjusted > TimeSpan.Zero
+            ? adjusted
             : TimeSpan.Zero;
     }
 
@@ -1744,6 +1798,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
 
     private string CreateChartRenderSignature(
         IReadOnlyList<AggregatedCombatBucket> buckets,
+        IReadOnlyList<RectangularSection> pauseSections,
         string chartTargetKey,
         bool includeFame,
         bool includeSilver,
@@ -1769,7 +1824,17 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             .Append('|')
             .Append(SelectedChartWindow.Duration is null ? displayEndUtc.Ticks : 0)
             .Append('|')
-            .Append(buckets.Count);
+            .Append(buckets.Count)
+            .Append('|')
+            .Append(pauseSections.Count);
+
+        foreach (var section in pauseSections)
+        {
+            builder.Append('|')
+                .Append(section.Xi)
+                .Append(':')
+                .Append(section.Xj);
+        }
 
         if (buckets.Count == 0)
         {
@@ -1864,6 +1929,65 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         return metricKind == CombatChartMetricKind.PerSecond
             ? CalculateRate(amount, TimeSpan.FromSeconds(aggregationSeconds))
             : amount;
+    }
+
+    private static RectangularSection[] CreatePauseSections(
+        IReadOnlyList<CombatPauseIntervalSnapshot> pauseIntervals,
+        TimeSpan? chartWindow,
+        DateTime displayEndUtc)
+    {
+        if (pauseIntervals.Count == 0)
+        {
+            return Array.Empty<RectangularSection>();
+        }
+
+        var visibleStartUtc = chartWindow is { } window
+            ? displayEndUtc - window
+            : (DateTime?)null;
+        var sections = new List<RectangularSection>();
+
+        foreach (var interval in pauseIntervals)
+        {
+            var intervalStartUtc = interval.StartedAtUtc;
+            var intervalEndUtc = interval.EndedAtUtc ?? displayEndUtc;
+            if (intervalEndUtc < intervalStartUtc)
+            {
+                intervalEndUtc = intervalStartUtc;
+            }
+
+            if (intervalStartUtc >= displayEndUtc)
+            {
+                continue;
+            }
+
+            if (visibleStartUtc is { } visibleStart && intervalEndUtc <= visibleStart)
+            {
+                continue;
+            }
+
+            var sectionStartUtc = visibleStartUtc is { } minStart && intervalStartUtc < minStart
+                ? minStart
+                : intervalStartUtc;
+            var sectionEndUtc = intervalEndUtc > displayEndUtc
+                ? displayEndUtc
+                : intervalEndUtc;
+
+            if (sectionEndUtc <= sectionStartUtc)
+            {
+                continue;
+            }
+
+            sections.Add(new RectangularSection
+            {
+                Xi = sectionStartUtc.Ticks,
+                Xj = sectionEndUtc.Ticks,
+                Fill = new SolidColorPaint(new SKColor(220, 72, 72, 34)),
+                Stroke = null,
+                ZIndex = -1
+            });
+        }
+
+        return sections.ToArray();
     }
 
     private static ISeries[] CreateChartSeries(

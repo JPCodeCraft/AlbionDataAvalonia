@@ -308,6 +308,7 @@
 								Series="{Binding ChartSeries}"
 								XAxes="{Binding ChartXAxes}"
 								YAxes="{Binding ChartYAxes}"
+								Sections="{Binding ChartSections}"
 								LegendPosition="Right"
 								LegendTextSize="12"
 								TooltipPosition="Top"

@@ -154,6 +154,10 @@ public sealed record CombatEncounterSnapshot(
     IReadOnlyList<CombatPlayerSummary> Players,
     IReadOnlyList<CombatTimeBucketPoint> TimeBuckets);
 
+public sealed record CombatPauseIntervalSnapshot(
+    DateTime StartedAtUtc,
+    DateTime? EndedAtUtc);
+
 public sealed record CombatTrackerSnapshot(
     bool IsEncounterActive,
     bool IsPaused,
@@ -164,7 +168,8 @@ public sealed record CombatTrackerSnapshot(
     bool HasLocalPlayer,
     CombatEntitySnapshot? LocalPlayer,
     IReadOnlyList<CombatEntitySnapshot> TrackedEntities,
-    IReadOnlyList<CombatEncounterSnapshot> Encounters)
+    IReadOnlyList<CombatEncounterSnapshot> Encounters,
+    IReadOnlyList<CombatPauseIntervalSnapshot> PauseIntervals)
 {
     public static CombatTrackerSnapshot Empty() => new(
         false,
@@ -176,7 +181,8 @@ public sealed record CombatTrackerSnapshot(
         false,
         null,
         Array.Empty<CombatEntitySnapshot>(),
-        Array.Empty<CombatEncounterSnapshot>());
+        Array.Empty<CombatEncounterSnapshot>(),
+        Array.Empty<CombatPauseIntervalSnapshot>());
 }
 
 public sealed record CombatTrackerStatistics(
