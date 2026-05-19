@@ -12,6 +12,7 @@ using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Linq;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Nodes;
@@ -30,8 +31,11 @@ namespace AlbionDataAvalonia.Network.Services
         private const string ItemEstimatedMarketValuesPath = "itemEstimatedMarketValues";
         private const int MaxItemEstimatedMarketValueUploadBatchSize = 500;
         private const int MaxUploadedItemEstimatedMarketValueFingerprints = 5_000;
-        private const int MaxUploadedGlobalMultiplierFingerprints = 10;
         private static readonly TimeSpan ItemEstimatedMarketValueBatchDelay = TimeSpan.FromSeconds(5);
+        private static readonly JsonSerializerOptions AchievementUploadFingerprintSerializerOptions = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
 
         private readonly PlayerState _playerState;
         private readonly SettingsManager _settingsManager;
@@ -40,10 +44,13 @@ namespace AlbionDataAvalonia.Network.Services
         private readonly HttpClient httpClient = new HttpClient();
         private readonly ConcurrentDictionary<ItemEstimatedMarketValueUploadKey, ItemEstimatedMarketValueUploadEntry> pendingItemEstimatedMarketValues = new();
         private readonly BoundedUploadFingerprintCache<ItemEstimatedMarketValueUploadFingerprint> uploadedItemEstimatedMarketValues = new(MaxUploadedItemEstimatedMarketValueFingerprints);
-        private readonly BoundedUploadFingerprintCache<GlobalMultiplierUploadFingerprint> uploadedGlobalMultipliers = new(MaxUploadedGlobalMultiplierFingerprints);
 
         private readonly object _headersLock = new();
+        private readonly object globalMultiplierUploadFingerprintLock = new();
+        private readonly object achievementUploadFingerprintLock = new();
         private readonly object itemEstimatedMarketValueUploadTimerLock = new();
+        private GlobalMultiplierUploadFingerprint? lastUploadedGlobalMultiplier;
+        private AchievementUploadFingerprint? lastUploadedAchievementUpload;
         private Timer? itemEstimatedMarketValueUploadTimer;
         private bool itemEstimatedMarketValueUploadScheduled;
         private int itemEstimatedMarketValueUploadInProgress;
@@ -271,16 +278,29 @@ namespace AlbionDataAvalonia.Network.Services
 
         public void UploadAchievements(AchievementUpload achievementUpload)
         {
-            _ = Upload(achievementUpload);
+            var fingerprint = CreateAchievementUploadFingerprint(achievementUpload);
+            lock (achievementUploadFingerprintLock)
+            {
+                if (lastUploadedAchievementUpload.HasValue && lastUploadedAchievementUpload.Value.Equals(fingerprint))
+                {
+                    Log.Verbose("Skipping duplicate achievements upload. ServerId: {ServerId}. Character: {CharacterName}. AchievementsCount: {AchievementsCount}.", achievementUpload.ServerId, achievementUpload.CharacterName, achievementUpload.Achievements.Count);
+                    return;
+                }
+            }
+
+            _ = Upload(achievementUpload, fingerprint);
         }
 
         public void UploadGlobalMultiplier(GlobalMultiplierUpload globalMultiplierUpload)
         {
             var fingerprint = new GlobalMultiplierUploadFingerprint(globalMultiplierUpload.ServerId, globalMultiplierUpload.GlobalMultiplier);
-            if (uploadedGlobalMultipliers.Contains(fingerprint))
+            lock (globalMultiplierUploadFingerprintLock)
             {
-                Log.Verbose("Skipping duplicate global multiplier upload. ServerId: {ServerId}. GlobalMultiplier: {GlobalMultiplier}.", globalMultiplierUpload.ServerId, globalMultiplierUpload.GlobalMultiplier);
-                return;
+                if (lastUploadedGlobalMultiplier.HasValue && lastUploadedGlobalMultiplier.Value.Equals(fingerprint))
+                {
+                    Log.Verbose("Skipping duplicate global multiplier upload. ServerId: {ServerId}. GlobalMultiplier: {GlobalMultiplier}.", globalMultiplierUpload.ServerId, globalMultiplierUpload.GlobalMultiplier);
+                    return;
+                }
             }
 
             _ = Upload(globalMultiplierUpload, fingerprint);
@@ -650,7 +670,7 @@ namespace AlbionDataAvalonia.Network.Services
             }
         }
 
-        private async Task<UploadStatus> Upload(AchievementUpload achievementUpload)
+        private async Task<UploadStatus> Upload(AchievementUpload achievementUpload, AchievementUploadFingerprint fingerprint)
         {
             var identifier = Guid.NewGuid();
             var requestUri = httpClient.BaseAddress is null ? null : new Uri(httpClient.BaseAddress, AchievementsPath);
@@ -753,6 +773,11 @@ namespace AlbionDataAvalonia.Network.Services
                             serverId: achievementUpload.ServerId);
 
                         return ReportStatus(UploadStatus.Failed);
+                    }
+
+                    lock (achievementUploadFingerprintLock)
+                    {
+                        lastUploadedAchievementUpload = fingerprint;
                     }
 
                     Log.Information("Successfully sent {AchievementsCount} achievements for character {CharacterName} on server {ServerId} to AFM achievements endpoint. Identifier: {Identifier}.", achievementUpload.Achievements.Count, achievementUpload.CharacterName, achievementUpload.ServerId, identifier);
@@ -879,7 +904,10 @@ namespace AlbionDataAvalonia.Network.Services
                         return ReportStatus(UploadStatus.Failed);
                     }
 
-                    uploadedGlobalMultipliers.Add(fingerprint);
+                    lock (globalMultiplierUploadFingerprintLock)
+                    {
+                        lastUploadedGlobalMultiplier = fingerprint;
+                    }
 
                     Log.Information(
                         "Successfully sent global multiplier {GlobalMultiplier} for server {ServerId} to AFM global multiplier endpoint. Identifier: {Identifier}.",
@@ -996,6 +1024,22 @@ namespace AlbionDataAvalonia.Network.Services
             return $"Items={upload.Items.Count}; Day={upload.Items.FirstOrDefault()?.Day}; Qualities={string.Join(",", upload.Items.Select(x => x.Quality).Distinct())}";
         }
 
+        private static AchievementUploadFingerprint CreateAchievementUploadFingerprint(AchievementUpload upload)
+        {
+            var normalizedAchievements = upload.Achievements
+                .Select(x => new AchievementUploadFingerprintEntry(x.Id ?? string.Empty, x.Level))
+                .OrderBy(x => x.Id, StringComparer.Ordinal)
+                .ThenBy(x => x.Level)
+                .ToArray();
+
+            var characterName = upload.CharacterName ?? string.Empty;
+            var payload = new AchievementUploadFingerprintPayload(upload.ServerId, characterName, normalizedAchievements);
+            var json = JsonSerializer.Serialize(payload, AchievementUploadFingerprintSerializerOptions);
+            var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json)));
+
+            return new AchievementUploadFingerprint(upload.ServerId, characterName, hash);
+        }
+
         public void Dispose()
         {
             disposed = true;
@@ -1012,6 +1056,20 @@ namespace AlbionDataAvalonia.Network.Services
         private readonly record struct GlobalMultiplierUploadFingerprint(
             int ServerId,
             double GlobalMultiplier);
+
+        private readonly record struct AchievementUploadFingerprint(
+            int ServerId,
+            string CharacterName,
+            string PayloadHash);
+
+        private readonly record struct AchievementUploadFingerprintPayload(
+            int ServerId,
+            string CharacterName,
+            AchievementUploadFingerprintEntry[] Achievements);
+
+        private readonly record struct AchievementUploadFingerprintEntry(
+            string Id,
+            byte Level);
 
         private readonly record struct ItemEstimatedMarketValueUploadFingerprint(
             int ServerId,
