@@ -1,4 +1,5 @@
 using Albion.Network;
+using AlbionDataAvalonia.Gathering;
 using AlbionDataAvalonia.Items.Services;
 using AlbionDataAvalonia.Network.Events;
 using AlbionDataAvalonia.Network.Services;
@@ -11,11 +12,19 @@ public class NewSimpleItemEventHandler : EventPacketHandler<NewSimpleItemEvent>
 {
     private readonly ItemsIdsService itemsIdsService;
     private readonly AFMUploader afmUploader;
+    private readonly ItemEstimatedMarketValueService itemEstimatedMarketValues;
+    private readonly GatheringTrackerService gatheringTracker;
 
-    public NewSimpleItemEventHandler(ItemsIdsService itemsIdsService, AFMUploader afmUploader) : base((int)EventCodes.NewSimpleItem)
+    public NewSimpleItemEventHandler(
+        ItemsIdsService itemsIdsService,
+        AFMUploader afmUploader,
+        ItemEstimatedMarketValueService itemEstimatedMarketValues,
+        GatheringTrackerService gatheringTracker) : base((int)EventCodes.NewSimpleItem)
     {
         this.itemsIdsService = itemsIdsService;
         this.afmUploader = afmUploader;
+        this.itemEstimatedMarketValues = itemEstimatedMarketValues;
+        this.gatheringTracker = gatheringTracker;
     }
 
     protected override Task OnActionAsync(NewSimpleItemEvent value)
@@ -28,11 +37,18 @@ public class NewSimpleItemEventHandler : EventPacketHandler<NewSimpleItemEvent>
 
             if (value.Item.EstimatedMarketValue > 0)
             {
+                itemEstimatedMarketValues.Update(
+                    value.Item.ItemIndex,
+                    value.Item.Quality,
+                    value.Item.EstimatedMarketValue);
+
                 afmUploader.QueueItemEstimatedMarketValue(
                     value.Item.ItemUniqueName,
                     value.Item.EstimatedMarketValue,
                     value.Item.Quality);
             }
+
+            gatheringTracker.DiscoverFishingItem(value.Item);
         }
 
         return Task.CompletedTask;

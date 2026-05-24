@@ -95,6 +95,17 @@
 						</StackPanel>
 					</Button>
 
+					<Button Classes="menu" Margin="10" HorizontalAlignment="Stretch"
+						Classes.active="{Binding IsGatheringSelected}"
+						Command="{Binding ShowGatheringCommand}">
+						<StackPanel Orientation="Horizontal">
+							<PathIcon
+								Data="M7,2H17V4H19V7H17V5H7V7H5V4H7V2M6,9H18L16.5,22H7.5L6,9M9,11L9.8,20H14.2L15,11H9Z"
+								Width="16" Height="16" Margin="0,0,8,0" />
+							<TextBlock Text="Gathering" VerticalAlignment="Center" />
+						</StackPanel>
+					</Button>
+
 					<!-- Trades Button with Icon -->
 					<Button Classes="menu" Margin="10" HorizontalAlignment="Stretch"
 						Classes.active="{Binding IsTradesSelected}"

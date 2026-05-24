@@ -11,11 +11,16 @@ public class EstimatedMarketValueUpdateEventHandler : EventPacketHandler<Estimat
 {
     private readonly ItemsIdsService itemsIdsService;
     private readonly AFMUploader afmUploader;
+    private readonly ItemEstimatedMarketValueService itemEstimatedMarketValues;
 
-    public EstimatedMarketValueUpdateEventHandler(ItemsIdsService itemsIdsService, AFMUploader afmUploader) : base((int)EventCodes.EstimatedMarketValueUpdate)
+    public EstimatedMarketValueUpdateEventHandler(
+        ItemsIdsService itemsIdsService,
+        AFMUploader afmUploader,
+        ItemEstimatedMarketValueService itemEstimatedMarketValues) : base((int)EventCodes.EstimatedMarketValueUpdate)
     {
         this.itemsIdsService = itemsIdsService;
         this.afmUploader = afmUploader;
+        this.itemEstimatedMarketValues = itemEstimatedMarketValues;
     }
 
     protected override Task OnActionAsync(EstimatedMarketValueUpdateEvent value)
@@ -25,6 +30,8 @@ public class EstimatedMarketValueUpdateEventHandler : EventPacketHandler<Estimat
             var itemData = itemsIdsService.GetItemById(entry.ItemId);
             entry.ItemUniqueName = itemData.UniqueName;
             entry.ItemUsName = itemData.UsName;
+
+            itemEstimatedMarketValues.Update(entry.ItemId, entry.Quality, entry.EstimatedMarketValue);
 
             afmUploader.QueueItemEstimatedMarketValue(
                 entry.ItemUniqueName,

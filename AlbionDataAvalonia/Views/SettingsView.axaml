@@ -121,6 +121,11 @@
 				</Border>
 			</StackPanel>
 
+			<StackPanel Spacing="10">
+				<TextBlock Text="Gathering" FontSize="16" FontWeight="SemiBold" />
+				<CheckBox Content="Disable Gathering Tracker" IsChecked="{Binding UserSettings.DisableGatheringTracker}" />
+			</StackPanel>
+
 		</StackPanel>
 
 	</ScrollViewer>

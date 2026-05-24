@@ -1,6 +1,7 @@
 ﻿using AlbionDataAvalonia.Auth.Services;
 using AlbionDataAvalonia.Combat;
 using AlbionDataAvalonia.DB;
+using AlbionDataAvalonia.Gathering;
 using AlbionDataAvalonia.Items.Services;
 using AlbionDataAvalonia.Locations;
 using AlbionDataAvalonia.Logging;
@@ -236,10 +237,12 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<LocalizationService>();
         collection.AddSingleton<MobsService>();
         collection.AddSingleton<ItemsIdsService>();
+        collection.AddSingleton<ItemEstimatedMarketValueService>();
         collection.AddSingleton<AchievementsService>();
         collection.AddSingleton<AuthService>();
         collection.AddSingleton<CsvExportService>();
         collection.AddSingleton<CombatTrackerService>();
+        collection.AddSingleton<GatheringTrackerService>();
 
         collection.AddSingleton<MainViewModel>();
         collection.AddSingleton<SettingsViewModel>();
@@ -247,5 +250,6 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<MailsViewModel>();
         collection.AddSingleton<TradesViewModel>();
         collection.AddSingleton<CombatViewModel>();
+        collection.AddSingleton<GatheringViewModel>();
     }
 }

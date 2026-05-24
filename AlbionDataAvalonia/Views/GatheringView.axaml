@@ -1,0 +1,183 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
+             mc:Ignorable="d" d:DesignWidth="900" d:DesignHeight="600"
+             x:Class="AlbionDataAvalonia.Views.GatheringView"
+             x:DataType="vm:GatheringViewModel">
+
+    <UserControl.Styles>
+        <Style Selector="Border.StatCard">
+            <Setter Property="Background" Value="rgba(255, 255, 255, 0.05)" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="12" />
+            <Setter Property="Margin" Value="0,0,10,10" />
+        </Style>
+        <Style Selector="TextBlock.StatLabel">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Foreground" Value="#888" />
+        </Style>
+        <Style Selector="TextBlock.StatValue">
+            <Setter Property="FontSize" Value="20" />
+            <Setter Property="FontWeight" Value="DemiBold" />
+        </Style>
+        <Style Selector="TextBlock.SectionTitle">
+            <Setter Property="FontSize" Value="14" />
+            <Setter Property="FontWeight" Value="DemiBold" />
+            <Setter Property="Margin" Value="0,0,0,8" />
+        </Style>
+        <Style Selector="Button.ActionButton">
+            <Setter Property="Padding" Value="10,6" />
+            <Setter Property="Margin" Value="0,0,10,10" />
+        </Style>
+        <Style Selector="DataGridColumnHeader /template/ Grid#PART_ColumnHeaderRoot">
+            <Setter Property="Background" Value="rgba(255, 255, 255, 0.2)" />
+        </Style>
+        <Style Selector="DataGridColumnHeader:pointerover /template/ Grid#PART_ColumnHeaderRoot">
+            <Setter Property="Background" Value="rgba(255, 255, 255, 0.4)" />
+        </Style>
+    </UserControl.Styles>
+
+    <Grid>
+    <Grid IsVisible="{Binding IsGatheringTrackerEnabled}" RowDefinitions="Auto,*" Margin="0,8,0,0">
+        <WrapPanel Grid.Row="0" VerticalAlignment="Top">
+            <Border Classes="StatCard" Width="180">
+                <StackPanel>
+                    <TextBlock Classes="StatLabel" Text="Session Silver" />
+                    <TextBlock Classes="StatValue" Text="{Binding TotalSessionValueText}" />
+                </StackPanel>
+            </Border>
+            <Border Classes="StatCard" Width="180">
+                <StackPanel>
+                    <TextBlock Classes="StatLabel" Text="Silver per Hour" />
+                    <TextBlock Classes="StatValue" Text="{Binding SilverPerHourText}" />
+                </StackPanel>
+            </Border>
+            <Border Classes="StatCard" Width="160">
+                <StackPanel>
+                    <TextBlock Classes="StatLabel" Text="Total Amount" />
+                    <TextBlock Classes="StatValue" Text="{Binding TotalAmountText}" />
+                </StackPanel>
+            </Border>
+            <Border Classes="StatCard" Width="140">
+                <StackPanel>
+                    <TextBlock Classes="StatLabel" Text="Elapsed" />
+                    <TextBlock Classes="StatValue" Text="{Binding ElapsedText}" />
+                </StackPanel>
+            </Border>
+            <StackPanel Orientation="Horizontal" VerticalAlignment="Top">
+                <Button Classes="ActionButton" Width="100" Content="{Binding PauseButtonText}" Command="{Binding TogglePauseCommand}" />
+                <Button Classes="ActionButton" Width="120" Content="Clear Session" Command="{Binding ClearSessionCommand}" />
+            </StackPanel>
+        </WrapPanel>
+
+        <Grid Grid.Row="1" RowDefinitions="*,*" RowSpacing="16">
+            <Grid RowDefinitions="Auto,*">
+                <TextBlock Classes="SectionTitle" Text="Summary by Item" />
+                <DataGrid Grid.Row="1"
+                          ItemsSource="{Binding SummaryRows}"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          GridLinesVisibility="None"
+                          BorderThickness="0">
+                    <DataGrid.Columns>
+                        <DataGridTextColumn Header="Item" Binding="{Binding ItemName}" Width="*" />
+                        <DataGridTemplateColumn Header="Amount" SortMemberPath="Amount" CanUserSort="True">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Amount, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Unit EMV" SortMemberPath="EstimatedMarketValue" CanUserSort="True">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding EstimatedMarketValueText}" VerticalAlignment="Center" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Total EMV" SortMemberPath="TotalEstimatedMarketValue" CanUserSort="True">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding TotalEstimatedMarketValueText}" VerticalAlignment="Center" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="/ hour" SortMemberPath="AmountPerHour" CanUserSort="True">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding AmountPerHour, StringFormat='{}{0:N1}'}" VerticalAlignment="Center" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+
+            <Grid Grid.Row="1" RowDefinitions="Auto,*">
+                <TextBlock Classes="SectionTitle" Text="Minute By Minute" />
+                <DataGrid Grid.Row="1"
+                          ItemsSource="{Binding BucketRows}"
+                          AutoGenerateColumns="False"
+                          IsReadOnly="True"
+                          GridLinesVisibility="None"
+                          BorderThickness="0">
+                    <DataGrid.Columns>
+                        <DataGridTemplateColumn Header="Minute" SortMemberPath="BucketStartedAtUtc" CanUserSort="True">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding BucketText}" VerticalAlignment="Center" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Amount" SortMemberPath="Amount" CanUserSort="True">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding Amount, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="EMV" SortMemberPath="TotalEstimatedMarketValue" CanUserSort="True">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding TotalEstimatedMarketValueText}" VerticalAlignment="Center" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                        <DataGridTemplateColumn Header="Silver / hour" SortMemberPath="SilverPerHour" CanUserSort="True">
+                            <DataGridTemplateColumn.CellTemplate>
+                                <DataTemplate>
+                                    <TextBlock Text="{Binding SilverPerHourText}" VerticalAlignment="Center" />
+                                </DataTemplate>
+                            </DataGridTemplateColumn.CellTemplate>
+                        </DataGridTemplateColumn>
+                    </DataGrid.Columns>
+                </DataGrid>
+            </Grid>
+        </Grid>
+    </Grid>
+
+    <Grid IsVisible="{Binding IsGatheringTrackerDisabled}">
+        <Border MaxWidth="520"
+                HorizontalAlignment="Center"
+                VerticalAlignment="Center"
+                Background="{DynamicResource ThemeBackgroundBrush}"
+                BorderBrush="{DynamicResource ThemeBorderMidBrush}"
+                BorderThickness="1"
+                CornerRadius="6"
+                Padding="24">
+            <StackPanel Spacing="8">
+                <TextBlock Text="Gathering tracker is disabled"
+                           FontSize="18"
+                           FontWeight="DemiBold"
+                           TextAlignment="Center" />
+                <TextBlock Text="Enable it from the Settings tab to start tracking gathering and fishing data."
+                           TextWrapping="Wrap"
+                           TextAlignment="Center"
+                           Opacity="0.8" />
+            </StackPanel>
+        </Border>
+    </Grid>
+    </Grid>
+</UserControl>

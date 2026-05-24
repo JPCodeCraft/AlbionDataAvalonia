@@ -143,6 +143,21 @@ public class UserSettings : INotifyPropertyChanged
         }
     }
 
+    private bool disableGatheringTracker = false;
+    public bool DisableGatheringTracker
+    {
+        get => disableGatheringTracker;
+        set
+        {
+            if (disableGatheringTracker != value)
+            {
+                disableGatheringTracker = value;
+                OnPropertyChanged(nameof(DisableGatheringTracker));
+                Log.Information("Disable gathering tracker set to {DisableGatheringTracker}", disableGatheringTracker);
+            }
+        }
+    }
+
     private int combatEncounterRetentionLimit = DefaultCombatEncounterRetentionLimit;
     public int CombatEncounterRetentionLimit
     {
