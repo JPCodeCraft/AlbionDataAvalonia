@@ -12,8 +12,36 @@
 
 			<StackPanel Spacing="10">
 				<TextBlock Text="General" FontSize="16" FontWeight="SemiBold" />
-				<CheckBox Content="Start Hidden" IsChecked="{Binding UserSettings.StartHidden}" />
-				<CheckBox Content="Shut Down on Window Close" IsChecked="{Binding UserSettings.ShutDownOnClose}" />
+				<WrapPanel Orientation="Horizontal">
+					<CheckBox Content="Start with Windows"
+							  IsChecked="{Binding UserSettings.StartWithWindows}"
+							  IsVisible="{Binding IsWindows}"
+							  Margin="0,0,28,8" />
+					<CheckBox Content="Minimize button hides window to system tray"
+							  IsChecked="{Binding UserSettings.MinimizeButtonMinimizesToTray}"
+							  Margin="0,0,28,8" />
+					<CheckBox Content="Close button hides window to system tray"
+							  IsChecked="{Binding CloseButtonHidesToTray}"
+							  Margin="0,0,28,8" />
+				</WrapPanel>
+
+				<StackPanel Spacing="8" Margin="0,4,0,0">
+					<TextBlock Text="When AFM Data Client starts:" />
+					<WrapPanel Orientation="Horizontal">
+						<RadioButton Content="Display main window"
+									 GroupName="StartupWindowMode"
+									 IsChecked="{Binding IsShowMainWindowOnStartup}"
+									 Margin="0,0,28,8" />
+						<RadioButton Content="Minimize main window to taskbar"
+									 GroupName="StartupWindowMode"
+									 IsChecked="{Binding IsMinimizedToTaskbarOnStartup}"
+									 Margin="0,0,28,8" />
+						<RadioButton Content="Hide main window in system tray"
+									 GroupName="StartupWindowMode"
+									 IsChecked="{Binding IsHiddenToTrayOnStartup}"
+									 Margin="0,0,28,8" />
+					</WrapPanel>
+				</StackPanel>
 			</StackPanel>
 
 			<StackPanel Spacing="12">
@@ -79,7 +107,11 @@
 
 			<StackPanel Spacing="10">
 				<TextBlock Text="Combat" FontSize="16" FontWeight="SemiBold" />
-				<CheckBox Content="Disable Combat Tracker" IsChecked="{Binding UserSettings.DisableCombatTracker}" />
+				<WrapPanel Orientation="Horizontal">
+					<CheckBox Content="Disable Combat Tracker"
+							  IsChecked="{Binding UserSettings.DisableCombatTracker}"
+							  Margin="0,0,28,8" />
+				</WrapPanel>
 				<Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
 					<TextBlock Text="Retained encounters" />
 					<TextBlock Grid.Column="1" Text="{Binding PendingCombatEncounterRetentionLimit, Mode=OneWay, StringFormat={}{0:N0}}" />
@@ -123,7 +155,11 @@
 
 			<StackPanel Spacing="10">
 				<TextBlock Text="Gathering" FontSize="16" FontWeight="SemiBold" />
-				<CheckBox Content="Disable Gathering Tracker" IsChecked="{Binding UserSettings.DisableGatheringTracker}" />
+				<WrapPanel Orientation="Horizontal">
+					<CheckBox Content="Disable Gathering Tracker"
+							  IsChecked="{Binding UserSettings.DisableGatheringTracker}"
+							  Margin="0,0,28,8" />
+				</WrapPanel>
 			</StackPanel>
 
 		</StackPanel>

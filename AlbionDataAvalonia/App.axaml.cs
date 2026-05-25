@@ -172,10 +172,34 @@ public partial class App : Application
                 desktop.MainWindow.DataContext = vm;
             }
 
-            if (!settings.UserSettings.StartHidden || !NpCapInstallationChecker.IsNpCapInstalled())
+            if (!NpCapInstallationChecker.IsNpCapInstalled())
             {
                 desktop.MainWindow.Show();
                 desktop.MainWindow.Activate();
+            }
+            else
+            {
+                switch (settings.UserSettings.StartupWindowMode)
+                {
+                    case StartupWindowMode.ShowMainWindow:
+                        desktop.MainWindow.Show();
+                        desktop.MainWindow.Activate();
+                        break;
+                    case StartupWindowMode.MinimizedToTaskbar:
+                        if (desktop.MainWindow is MainWindow mainWindow)
+                        {
+                            mainWindow.ShowMinimizedToTaskbar();
+                        }
+                        else
+                        {
+                            desktop.MainWindow.Show();
+                            desktop.MainWindow.WindowState = WindowState.Minimized;
+                        }
+
+                        break;
+                    case StartupWindowMode.HiddenToTray:
+                        break;
+                }
             }
         }
 
@@ -243,6 +267,7 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<CsvExportService>();
         collection.AddSingleton<CombatTrackerService>();
         collection.AddSingleton<GatheringTrackerService>();
+        collection.AddSingleton<WindowsStartupService>();
 
         collection.AddSingleton<MainViewModel>();
         collection.AddSingleton<SettingsViewModel>();

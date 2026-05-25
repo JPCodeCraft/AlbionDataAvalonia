@@ -1,5 +1,8 @@
 {
   "StartHidden": false,
+  "StartWithWindows": true,
+  "MinimizeButtonMinimizesToTray": false,
+  "StartupWindowMode": 0,
   "ShutDownOnClose": false,
   "DesiredThreadCount": 1,
   "MaxLogCount": 1000,

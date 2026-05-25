@@ -5,6 +5,13 @@ using Serilog.Events;
 using System;
 using System.ComponentModel;
 
+public enum StartupWindowMode
+{
+    ShowMainWindow,
+    MinimizedToTaskbar,
+    HiddenToTray
+}
+
 public class UserSettings : INotifyPropertyChanged
 {
     public const int MinCombatEncounterRetentionLimit = 50;
@@ -22,8 +29,69 @@ public class UserSettings : INotifyPropertyChanged
             if (_startHidden != value)
             {
                 _startHidden = value;
+                if (value)
+                {
+                    StartupWindowMode = StartupWindowMode.HiddenToTray;
+                }
+                else if (StartupWindowMode == StartupWindowMode.HiddenToTray)
+                {
+                    StartupWindowMode = StartupWindowMode.ShowMainWindow;
+                }
+
                 OnPropertyChanged(nameof(StartHidden));
                 Log.Information("Start hidden set to {StartHidden}", _startHidden);
+            }
+        }
+    }
+
+    private bool startWithWindows = true;
+    public bool StartWithWindows
+    {
+        get => startWithWindows;
+        set
+        {
+            if (startWithWindows != value)
+            {
+                startWithWindows = value;
+                OnPropertyChanged(nameof(StartWithWindows));
+                Log.Information("Start with Windows set to {StartWithWindows}", startWithWindows);
+            }
+        }
+    }
+
+    private bool minimizeButtonMinimizesToTray = false;
+    public bool MinimizeButtonMinimizesToTray
+    {
+        get => minimizeButtonMinimizesToTray;
+        set
+        {
+            if (minimizeButtonMinimizesToTray != value)
+            {
+                minimizeButtonMinimizesToTray = value;
+                OnPropertyChanged(nameof(MinimizeButtonMinimizesToTray));
+                Log.Information("Minimize button minimizes to tray set to {MinimizeButtonMinimizesToTray}", minimizeButtonMinimizesToTray);
+            }
+        }
+    }
+
+    private StartupWindowMode startupWindowMode = StartupWindowMode.ShowMainWindow;
+    public StartupWindowMode StartupWindowMode
+    {
+        get => startupWindowMode;
+        set
+        {
+            if (startupWindowMode != value)
+            {
+                startupWindowMode = value;
+                var nextStartHidden = startupWindowMode == StartupWindowMode.HiddenToTray;
+                if (_startHidden != nextStartHidden)
+                {
+                    _startHidden = nextStartHidden;
+                    OnPropertyChanged(nameof(StartHidden));
+                }
+
+                OnPropertyChanged(nameof(StartupWindowMode));
+                Log.Information("Startup window mode set to {StartupWindowMode}", startupWindowMode);
             }
         }
     }

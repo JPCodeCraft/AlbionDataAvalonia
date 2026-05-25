@@ -7,6 +7,7 @@ using AlbionDataAvalonia.State;
 using AlbionDataAvalonia.State.Events;
 using AlbionDataAvalonia.Views;
 using Avalonia;
+using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -331,6 +332,7 @@ public partial class MainViewModel : ViewModelBase
         {
             if (desktop.MainWindow != null)
             {
+                desktop.MainWindow.WindowState = WindowState.Normal;
                 desktop.MainWindow.IsVisible = true;
                 desktop.MainWindow.Activate();
             }

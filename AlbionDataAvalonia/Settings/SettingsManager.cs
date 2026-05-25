@@ -13,17 +13,20 @@ public class SettingsManager
     private string defaultAppSettingsFilePath = Path.Combine(AppContext.BaseDirectory, "DefaultAppSettings.json");
 
     private bool loadedAppSettingsFromRemote = false;
+    private readonly WindowsStartupService windowsStartupService;
 
     private string appSettingsDownloadUrl = "https://cdn.albionfreemarket.com/AlbionDataAvalonia/AlbionDataAvalonia/DefaultAppSettings.json";
     public UserSettings UserSettings { get; } = new();
     public AppSettings AppSettings { get; private set; } = new();
-    public SettingsManager()
+    public SettingsManager(WindowsStartupService windowsStartupService)
     {
+        this.windowsStartupService = windowsStartupService;
     }
 
     public async Task InitializeSettings()
     {
         LoadUserSettings();
+        windowsStartupService.Sync(UserSettings.StartWithWindows);
 
         if (!await TryLoadAppSettingsFromRemoteAsync())
         {
@@ -50,23 +53,14 @@ public class SettingsManager
                 localUserSettingsFilePath = deafultUserSettingsFilePath;
 #endif
 
-                string json = File.ReadAllText(localUserSettingsFilePath);
-                var settings = JsonSerializer.Deserialize<UserSettings>(json);
-
-                if (settings != null)
-                {
-                    UserSettings.UpdateFrom(settings);
-                    SaveUserSettings(); // Save the default settings to a new user settings file
-                }
+                _ = LoadUserSettingsFromJson(File.ReadAllText(localUserSettingsFilePath));
+                SaveUserSettings(); // Save the default settings to a new user settings file
             }
             else
             {
-                string json = File.ReadAllText(localUserSettingsFilePath);
-                var settings = JsonSerializer.Deserialize<UserSettings>(json);
-
-                if (settings != null)
+                if (LoadUserSettingsFromJson(File.ReadAllText(localUserSettingsFilePath)))
                 {
-                    UserSettings.UpdateFrom(settings);
+                    SaveUserSettings();
                 }
             }
         }
@@ -81,6 +75,40 @@ public class SettingsManager
     private void UserSettings_PropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs e)
     {
         SaveUserSettings();
+
+        if (e.PropertyName == nameof(UserSettings.StartWithWindows))
+        {
+            windowsStartupService.Sync(UserSettings.StartWithWindows);
+        }
+    }
+
+    private bool LoadUserSettingsFromJson(string json)
+    {
+        var hasStartupWindowMode = HasJsonProperty(json, nameof(UserSettings.StartupWindowMode));
+        var settings = JsonSerializer.Deserialize<UserSettings>(json);
+
+        if (settings == null)
+        {
+            return false;
+        }
+
+        UserSettings.UpdateFrom(settings);
+
+        if (!hasStartupWindowMode)
+        {
+            UserSettings.StartupWindowMode = settings.StartHidden
+                ? StartupWindowMode.HiddenToTray
+                : StartupWindowMode.ShowMainWindow;
+        }
+
+        return !hasStartupWindowMode;
+    }
+
+    private static bool HasJsonProperty(string json, string propertyName)
+    {
+        using var document = JsonDocument.Parse(json);
+        return document.RootElement.ValueKind == JsonValueKind.Object
+            && document.RootElement.TryGetProperty(propertyName, out _);
     }
 
     private async Task<bool> TryLoadAppSettingsFromRemoteAsync()

@@ -1,5 +1,6 @@
 ﻿using System;
 using System.ComponentModel;
+using System.Runtime.InteropServices;
 using AlbionDataAvalonia.Combat;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
@@ -100,6 +101,56 @@ public partial class SettingsViewModel : ViewModelBase
     }
 
     public int PowSolveWindowSize => _playerState?.PowSolveWindowSize ?? 0;
+    public bool IsWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
+
+    public bool CloseButtonHidesToTray
+    {
+        get => !UserSettings.ShutDownOnClose;
+        set
+        {
+            if (UserSettings.ShutDownOnClose == value)
+            {
+                UserSettings.ShutDownOnClose = !value;
+                OnPropertyChanged(nameof(CloseButtonHidesToTray));
+            }
+        }
+    }
+
+    public bool IsShowMainWindowOnStartup
+    {
+        get => UserSettings.StartupWindowMode == StartupWindowMode.ShowMainWindow;
+        set
+        {
+            if (value)
+            {
+                UserSettings.StartupWindowMode = StartupWindowMode.ShowMainWindow;
+            }
+        }
+    }
+
+    public bool IsMinimizedToTaskbarOnStartup
+    {
+        get => UserSettings.StartupWindowMode == StartupWindowMode.MinimizedToTaskbar;
+        set
+        {
+            if (value)
+            {
+                UserSettings.StartupWindowMode = StartupWindowMode.MinimizedToTaskbar;
+            }
+        }
+    }
+
+    public bool IsHiddenToTrayOnStartup
+    {
+        get => UserSettings.StartupWindowMode == StartupWindowMode.HiddenToTray;
+        set
+        {
+            if (value)
+            {
+                UserSettings.StartupWindowMode = StartupWindowMode.HiddenToTray;
+            }
+        }
+    }
 
     [RelayCommand]
     private void ClearPowSolveStats()
@@ -210,6 +261,20 @@ public partial class SettingsViewModel : ViewModelBase
 
     private void OnUserSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
+        if (e.PropertyName == nameof(UserSettings.ShutDownOnClose))
+        {
+            OnPropertyChanged(nameof(CloseButtonHidesToTray));
+            return;
+        }
+
+        if (e.PropertyName == nameof(UserSettings.StartupWindowMode))
+        {
+            OnPropertyChanged(nameof(IsShowMainWindowOnStartup));
+            OnPropertyChanged(nameof(IsMinimizedToTaskbarOnStartup));
+            OnPropertyChanged(nameof(IsHiddenToTrayOnStartup));
+            return;
+        }
+
         if (e.PropertyName != nameof(UserSettings.CombatEncounterRetentionLimit))
         {
             return;

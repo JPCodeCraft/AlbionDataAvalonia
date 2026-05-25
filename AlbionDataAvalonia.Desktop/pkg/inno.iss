@@ -2,7 +2,7 @@
 #define MyAppName "Albion Free Market Data Client"
 #define MyAppPublisher "JP Code Craft"
 #define MyAppPublisherURL "https://www.albionfreemarket.com"
-#define MyAppVersion "0.28.1.1"
+#define MyAppVersion "0.29.0.0"
 #define MyAppExeName "AFMDataClient.exe"
 #define MyAppOutputDir "userdocs:Inno Setup Output"
 #define MyAppOutputBaseFilename "AFMDataClientSetup"
@@ -35,9 +35,6 @@ Source: "{#MyAppSourceDir}"; DestDir: "{app}"; Flags: ignoreversion recursesubdi
 [Icons]
 Name: "{group}\{#MyAppName}"; Filename: "{app}\{#MyAppExeName}"; IconFilename: "{app}\{#MyAppIconFilePath}"
 
-[Registry]
-Root: HKCU; Subkey: "Software\Microsoft\Windows\CurrentVersion\Run"; ValueType: string; ValueName: "{#MyAppName}"; ValueData: "{app}\{#MyAppExeName}"; Flags: uninsdeletevalue
-
 [Run]
 Filename: "{app}\{#WinPCapInstallerFilePath}"; Parameters: "/S"; StatusMsg: "Installing WinPcap..."; Flags: shellexec runascurrentuser waituntilterminated; Check: not IsWinPcapInstalled
 Filename: "{app}\{#MyAppExeName}"; Description: "{cm:LaunchProgram,{#MyAppName}}"; Flags: nowait
@@ -63,8 +60,12 @@ begin
     DeleteConfigFiles := MsgBox('Do you want to remove your configuration files, including stored game E-MAILS?' + #13#10 + 
                                 'Click YES to remove all data or NO to keep your configuration and emails.', mbConfirmation, MB_YESNO) = IDYES;
   end
-  else if (CurUninstallStep = usPostUninstall) and DeleteConfigFiles then
+  else if CurUninstallStep = usPostUninstall then
   begin
-    DelTree(ExpandConstant('{localappdata}\AFMDataClient'), True, True, True);
+    RegDeleteValue(HKCU, 'Software\Microsoft\Windows\CurrentVersion\Run', '{#MyAppName}');
+    if DeleteConfigFiles then
+    begin
+      DelTree(ExpandConstant('{localappdata}\AFMDataClient'), True, True, True);
+    end;
   end;
 end;
