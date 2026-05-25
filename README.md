@@ -27,18 +27,19 @@ An alternative client for [The Albion Online Data Project](https://www.albion-on
 
 | Feature                   | Description                                                                    |
 | ------------------------- | ------------------------------------------------------------------------------ |
-| 🧰 Market Data Collection | Captures in-game market data and uploads to AODP servers                       |
-| 📬 Market Mail Tracking   | Collects and displays your market mail data for price tracking                 |
-| 🪙 Trade History          | Stores instant buy/sell trades for later reference                             |
-| ⚔️ Damage Tracker         | Tracks combat encounters with damage, DPS, healing, fame, and party/player summaries |
-| 📡 Enhanced Capture       | Captures data from loadout's quick buy screen, market screens, and gold screen |
-| 📊 Specs Capture          | Uploads character specs for use with AFM website                               |
-| 🚀 Launch on Startup      | Automatically starts with your system                                          |
-| 📌 System Tray            | Runs quietly in system tray for minimal interference                           |
-| 🔄 Auto-Updates           | Silent, automatic updates                                                      |
-| ⚙️ Configurable Settings  | Adjustable parallelism for AODP's PoW solving and uploads                      |
-| 🤌 User-Friendly          | No admin permissions required (except for NpCap installation)                  |
-| 🌐 Free and Open Source   | This software is free to use and is open source                                |
+| Gathering and Fishing Tracker | Tracks harvested resources, fishing rewards, session value, and silver per hour |
+| Market Data Collection | Captures in-game market data and uploads to AODP servers                       |
+| Market Mail Tracking   | Collects and displays your market mail data for price tracking                 |
+| Trade History          | Stores instant buy/sell trades for later reference                             |
+| Damage Tracker         | Tracks combat encounters with damage, DPS, healing, fame, and party/player summaries |
+| Enhanced Capture       | Captures data from loadout's quick buy screen, market screens, and gold screen |
+| Specs Capture          | Uploads character specs for use with AFM website                               |
+| Launch on Startup      | Automatically starts with your system                                          |
+| System Tray            | Runs quietly in system tray for minimal interference                           |
+| Auto-Updates           | Silent, automatic updates                                                      |
+| Configurable Settings  | Adjustable parallelism for AODP's PoW solving and uploads                      |
+| User-Friendly          | No admin permissions required (except for NpCap installation)                  |
+| Free and Open Source   | This software is free to use and is open source                                |
 
 ## 📥 Installation
 
@@ -122,6 +123,20 @@ The tracker shows:
 - A time chart with configurable aggregation, total/rate/fame metrics, and 1m, 5m, 10m, 30m, 1h, or unlimited windows
 
 Use the Combat tab's **Pause** button to stop counting health changes without losing tracked entities, or **Reset** to clear the current tracker data. If you do not want combat data tracked, enable **Disable Combat Tracker** in Settings.
+
+### Gathering and Fishing Tracker
+
+The Gathering tab includes a passive tracker for reviewing gathering and fishing while the client is running. It records harvested resources and fishing rewards from captured packets, then groups them into a session summary and minute-by-minute activity.
+
+The tracker shows:
+
+- Total estimated session value, silver per hour, total item amount, and elapsed active time
+- Item summaries with amount, estimated market value, total estimated value, and amount per hour
+- Minute-by-minute activity with item amount, estimated market value, and silver per hour
+- Pause/resume controls for temporarily ignoring new gathering and fishing events
+- Clear Session control for resetting the current gathering tracker data
+
+If you do not want gathering and fishing data tracked, enable **Disable Gathering Tracker** in Settings.
 
 ### User Trades
 
