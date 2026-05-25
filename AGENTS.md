@@ -1,7 +1,7 @@
 # Repository Guidelines
 
 ## Build, Test, and Development Commands
-- Only add, remove, or apply EF Core migrations when explicitly instructed.
+- Only add, remove, or apply EF Core migrations when explicitly instructed. Don't modify migration files manually: only use EF commands.
 - `dotnet restore AlbionDataAvalonia.sln` – bootstrap dependencies.
 - `dotnet build -c Debug AlbionDataAvalonia.sln` – compile all projects for local validation.
 
