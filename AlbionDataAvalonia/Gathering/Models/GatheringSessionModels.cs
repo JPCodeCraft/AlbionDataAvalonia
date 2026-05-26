@@ -21,6 +21,8 @@ public sealed class GatheringCompletedSession
     public long TotalAmount { get; set; }
     public long TotalEstimatedMarketValue { get; set; }
     public long SilverPerHour { get; set; }
+    public int? AlbionServerId { get; set; }
+    public string PlayerName { get; set; } = string.Empty;
     public GatheringSessionSource Source { get; set; }
     public List<GatheringCompletedSessionItem> Items { get; set; } = new();
 }
@@ -63,7 +65,9 @@ public sealed record GatheringSessionCheckpoint(
 
 public sealed record GatheringSessionCheckpointPayload(
     List<GatheringSessionCheckpointItem> Items,
-    List<GatheringSessionCheckpointPauseInterval> PauseIntervals);
+    List<GatheringSessionCheckpointPauseInterval> PauseIntervals,
+    int? AlbionServerId,
+    string? PlayerName);
 
 public sealed record GatheringSessionCheckpointItem(
     int ItemId,
@@ -87,6 +91,8 @@ public sealed record GatheringCompletedSessionSnapshot(
     long TotalAmount,
     long TotalEstimatedMarketValue,
     long SilverPerHour,
+    int? AlbionServerId,
+    string PlayerName,
     GatheringSessionSource Source,
     IReadOnlyList<GatheringCompletedSessionItemSnapshot> Items);
 
@@ -109,6 +115,8 @@ public sealed record GatheringCompletedSessionSummary(
     long TotalAmount,
     long TotalEstimatedMarketValue,
     long SilverPerHour,
+    int? AlbionServerId,
+    string PlayerName,
     GatheringSessionSource Source);
 
 public sealed record GatheringCompletedSessionDetails(

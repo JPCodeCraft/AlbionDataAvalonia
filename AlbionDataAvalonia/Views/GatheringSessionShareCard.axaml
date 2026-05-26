@@ -24,6 +24,9 @@
             <Setter Property="FontWeight" Value="DemiBold" />
             <Setter Property="Foreground" Value="#F5F5F5" />
         </Style>
+        <Style Selector="TextBlock.SilverText">
+            <Setter Property="Foreground" Value="#FFC166" />
+        </Style>
     </UserControl.Styles>
 
     <Border Background="#181818">
@@ -58,13 +61,13 @@
                     <Border Classes="StatPanel">
                         <StackPanel Spacing="5">
                             <TextBlock Classes="StatLabel" Text="Total Silver" />
-                            <TextBlock Classes="StatValue" Text="{Binding TotalEstimatedMarketValueText}" />
+                            <TextBlock Classes="StatValue SilverText" Text="{Binding TotalEstimatedMarketValueText}" />
                         </StackPanel>
                     </Border>
                     <Border Grid.Column="1" Classes="StatPanel">
                         <StackPanel Spacing="5">
                             <TextBlock Classes="StatLabel" Text="Silver / Hour" />
-                            <TextBlock Classes="StatValue" Text="{Binding SilverPerHourText}" />
+                            <TextBlock Classes="StatValue SilverText" Text="{Binding SilverPerHourText}" />
                         </StackPanel>
                     </Border>
                     <Border Grid.Column="2" Classes="StatPanel">
@@ -152,12 +155,12 @@
                 <TextBlock Text="albionfreemarket.com"
                            HorizontalAlignment="Left"
                            FontSize="18"
-                           Foreground="#9E9E9E" />
+                           Foreground="#FFC166" />
                 <TextBlock Grid.Column="1"
                            Text="AFM Data Client"
                            HorizontalAlignment="Right"
                            FontSize="18"
-                           Foreground="#9E9E9E" />
+                           Foreground="#FFC166" />
             </Grid>
         </Grid>
     </Border>

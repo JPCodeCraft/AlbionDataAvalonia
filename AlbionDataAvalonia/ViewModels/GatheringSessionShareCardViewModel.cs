@@ -1,4 +1,5 @@
 using AlbionDataAvalonia.Gathering.Models;
+using AlbionDataAvalonia.Network.Models;
 using Avalonia.Media.Imaging;
 using System;
 using System.Collections.Generic;
@@ -22,6 +23,8 @@ public sealed class GatheringSessionShareCardViewModel
         TotalAmount = session.TotalAmount;
         TotalEstimatedMarketValue = session.TotalEstimatedMarketValue;
         SilverPerHour = session.SilverPerHour;
+        AlbionServerId = session.AlbionServerId;
+        PlayerName = session.PlayerName;
         Source = session.Source;
         TopItems = topItems;
         Logo = logo;
@@ -34,6 +37,8 @@ public sealed class GatheringSessionShareCardViewModel
     public long TotalAmount { get; }
     public long TotalEstimatedMarketValue { get; }
     public long SilverPerHour { get; }
+    public int? AlbionServerId { get; }
+    public string PlayerName { get; }
     public GatheringSessionSource Source { get; }
     public IReadOnlyList<GatheringSessionShareItemViewModel> TopItems { get; }
     public Bitmap? Logo { get; }
@@ -56,7 +61,37 @@ public sealed class GatheringSessionShareCardViewModel
         }
     }
 
-    public string DateRangeText => $"{StartedAtUtc.ToLocalTime().ToString("h:mm tt", ShareCulture)} - {EndedAtUtc.ToLocalTime().ToString("h:mm tt", ShareCulture)}";
+    public string DateRangeText
+    {
+        get
+        {
+            var timeRangeText = $"{StartedAtUtc.ToLocalTime().ToString("h:mm tt", ShareCulture)} - {EndedAtUtc.ToLocalTime().ToString("h:mm tt", ShareCulture)}";
+            var parts = new List<string>();
+            if (GetAlbionServerName() is { } albionServerName)
+            {
+                parts.Add(albionServerName);
+            }
+
+            if (!string.IsNullOrWhiteSpace(PlayerName))
+            {
+                parts.Add(PlayerName);
+            }
+
+            parts.Add(timeRangeText);
+            return string.Join(" | ", parts);
+        }
+    }
+
+    private string? GetAlbionServerName()
+    {
+        if (AlbionServerId is null)
+        {
+            return null;
+        }
+
+        return AlbionServers.Get(AlbionServerId.Value)?.Name ?? $"Server {AlbionServerId.Value}";
+    }
+
     public string TotalAmountText => TotalAmount.ToString("N0", CultureInfo.CurrentCulture);
     public string TotalEstimatedMarketValueText => TotalEstimatedMarketValue.ToString("N0", CultureInfo.CurrentCulture);
     public string SilverPerHourText => SilverPerHour.ToString("N0", CultureInfo.CurrentCulture);

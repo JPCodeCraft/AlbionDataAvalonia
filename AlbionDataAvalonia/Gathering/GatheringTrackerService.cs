@@ -32,6 +32,8 @@ public sealed class GatheringTrackerService : IDisposable
     private Guid? activeSessionId;
     private DateTime sessionStartedAtUtc = DateTime.UtcNow;
     private DateTime? lastActivityAtUtc;
+    private int? sessionAlbionServerId;
+    private string sessionPlayerName = string.Empty;
     private GatheringSessionSource sessionSource = GatheringSessionSource.Unknown;
     private FishingAttempt? activeFishingAttempt;
     private Timer? fishingFinalizeTimer;
@@ -481,6 +483,8 @@ public sealed class GatheringTrackerService : IDisposable
         isClosingSession = false;
         activeSessionId = null;
         lastActivityAtUtc = null;
+        sessionAlbionServerId = null;
+        sessionPlayerName = string.Empty;
         sessionSource = GatheringSessionSource.Unknown;
         sessionStartedAtUtc = nowUtc;
     }
@@ -495,8 +499,15 @@ public sealed class GatheringTrackerService : IDisposable
         activeSessionId = Guid.NewGuid();
         sessionStartedAtUtc = startedAtUtc;
         lastActivityAtUtc = startedAtUtc;
+        sessionAlbionServerId = playerState.AlbionServer?.Id;
+        sessionPlayerName = GetCurrentPlayerName();
         sessionSource = source;
-        Log.Information("Gathering session started. SessionId={SessionId} Source={Source}", activeSessionId, source);
+        Log.Information(
+            "Gathering session started. SessionId={SessionId} Source={Source} ServerId={ServerId} PlayerName={PlayerName}",
+            activeSessionId,
+            source,
+            sessionAlbionServerId,
+            sessionPlayerName);
     }
 
     private void RecordAggregatedItem(
@@ -646,6 +657,8 @@ public sealed class GatheringTrackerService : IDisposable
             items.Sum(x => x.Amount),
             totalValue,
             silverPerHour,
+            sessionAlbionServerId,
+            sessionPlayerName,
             sessionSource,
             items);
     }
@@ -670,7 +683,9 @@ public sealed class GatheringTrackerService : IDisposable
                 .ToList(),
             pauseIntervals
                 .Select(x => new GatheringSessionCheckpointPauseInterval(x.StartedAtUtc, x.EndedAtUtc))
-                .ToList());
+                .ToList(),
+            sessionAlbionServerId,
+            sessionPlayerName);
 
         return new GatheringSessionCheckpoint(
             activeSessionId.Value,
@@ -727,6 +742,15 @@ public sealed class GatheringTrackerService : IDisposable
     {
         var ticks = utc.Ticks - utc.Ticks % BucketSize.Ticks;
         return new DateTime(ticks, DateTimeKind.Utc);
+    }
+
+    private string GetCurrentPlayerName()
+    {
+        var playerName = playerState.PlayerName?.Trim();
+        return string.IsNullOrWhiteSpace(playerName)
+            || string.Equals(playerName, "Not set", StringComparison.OrdinalIgnoreCase)
+            ? string.Empty
+            : playerName;
     }
 
     private void ScheduleFishingFinalizationCore()

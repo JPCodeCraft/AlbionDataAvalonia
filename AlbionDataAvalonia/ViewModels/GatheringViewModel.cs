@@ -708,6 +708,8 @@ public sealed class GatheringCompletedSessionRowViewModel
         TotalAmount = row.TotalAmount;
         TotalEstimatedMarketValue = row.TotalEstimatedMarketValue;
         SilverPerHour = row.SilverPerHour;
+        AlbionServerId = row.AlbionServerId;
+        PlayerName = row.PlayerName;
         Source = row.Source;
     }
 
@@ -719,6 +721,8 @@ public sealed class GatheringCompletedSessionRowViewModel
     public long TotalAmount { get; }
     public long TotalEstimatedMarketValue { get; }
     public long SilverPerHour { get; }
+    public int? AlbionServerId { get; }
+    public string PlayerName { get; }
     public GatheringSessionSource Source { get; }
     public string StartedText => StartedAtUtc.ToString("g", CultureInfo.CurrentCulture);
     public string EndedText => EndedAtUtc.ToString("g", CultureInfo.CurrentCulture);

@@ -149,6 +149,8 @@ public sealed class GatheringSessionPersistenceService
                 TotalAmount = snapshot.TotalAmount,
                 TotalEstimatedMarketValue = snapshot.TotalEstimatedMarketValue,
                 SilverPerHour = snapshot.SilverPerHour,
+                AlbionServerId = snapshot.AlbionServerId,
+                PlayerName = snapshot.PlayerName,
                 Source = snapshot.Source,
                 Items = snapshot.Items.Select(x => new GatheringCompletedSessionItem
                 {
@@ -257,6 +259,8 @@ public sealed class GatheringSessionPersistenceService
                     x.TotalAmount,
                     x.TotalEstimatedMarketValue,
                     x.SilverPerHour,
+                    x.AlbionServerId,
+                    x.PlayerName,
                     x.Source))
                 .ToListAsync();
         }
@@ -291,6 +295,8 @@ public sealed class GatheringSessionPersistenceService
                 session.TotalAmount,
                 session.TotalEstimatedMarketValue,
                 session.SilverPerHour,
+                session.AlbionServerId,
+                session.PlayerName,
                 session.Source);
 
             var items = session.Items
@@ -352,6 +358,8 @@ public sealed class GatheringSessionPersistenceService
             items.Sum(x => x.Amount),
             totalValue,
             silverPerHour,
+            checkpoint.Payload.AlbionServerId,
+            checkpoint.Payload.PlayerName ?? string.Empty,
             checkpoint.Source,
             items);
     }
