@@ -1,0 +1,164 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
+             mc:Ignorable="d"
+             x:Class="AlbionDataAvalonia.Views.GatheringSessionShareCard"
+             x:DataType="vm:GatheringSessionShareCardViewModel">
+
+    <UserControl.Styles>
+        <Style Selector="Border.StatPanel">
+            <Setter Property="Background" Value="#242424" />
+            <Setter Property="BorderBrush" Value="#3A3A3A" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="18,10" />
+        </Style>
+        <Style Selector="TextBlock.StatLabel">
+            <Setter Property="FontSize" Value="15" />
+            <Setter Property="Foreground" Value="#BDBDBD" />
+        </Style>
+        <Style Selector="TextBlock.StatValue">
+            <Setter Property="FontSize" Value="27" />
+            <Setter Property="FontWeight" Value="DemiBold" />
+            <Setter Property="Foreground" Value="#F5F5F5" />
+        </Style>
+    </UserControl.Styles>
+
+    <Border Background="#181818">
+        <Grid RowDefinitions="Auto,*,Auto" Margin="32,24">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="18">
+                <Grid Width="62" Height="62">
+                    <Border Background="#262626"
+                            BorderBrush="#444444"
+                            BorderThickness="1"
+                            CornerRadius="8"
+                            IsVisible="{Binding ShowLogoPlaceholder}" />
+                    <Image Source="{Binding Logo}"
+                           IsVisible="{Binding HasLogo}"
+                           Stretch="Uniform" />
+                </Grid>
+                <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="8">
+                    <TextBlock Text="{Binding TitleText}"
+                               FontSize="38"
+                               FontWeight="DemiBold"
+                               Foreground="#F5F5F5" />
+                    <TextBlock Text="{Binding DateRangeText}"
+                               FontSize="18"
+                               Foreground="#C9C9C9" />
+                </StackPanel>
+            </Grid>
+
+            <Grid Grid.Row="1"
+                  RowDefinitions="Auto,*"
+                  RowSpacing="14"
+                  Margin="0,20,0,0">
+                <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="16">
+                    <Border Classes="StatPanel">
+                        <StackPanel Spacing="5">
+                            <TextBlock Classes="StatLabel" Text="Total Silver" />
+                            <TextBlock Classes="StatValue" Text="{Binding TotalEstimatedMarketValueText}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="1" Classes="StatPanel">
+                        <StackPanel Spacing="5">
+                            <TextBlock Classes="StatLabel" Text="Silver / Hour" />
+                            <TextBlock Classes="StatValue" Text="{Binding SilverPerHourText}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="2" Classes="StatPanel">
+                        <StackPanel Spacing="5">
+                            <TextBlock Classes="StatLabel" Text="Total Items" />
+                            <TextBlock Classes="StatValue" Text="{Binding TotalAmountText}" />
+                        </StackPanel>
+                    </Border>
+                    <Border Grid.Column="3" Classes="StatPanel">
+                        <StackPanel Spacing="5">
+                            <TextBlock Classes="StatLabel" Text="Duration" />
+                            <TextBlock Classes="StatValue" Text="{Binding ActiveElapsedText}" />
+                        </StackPanel>
+                    </Border>
+                </Grid>
+
+                <ItemsControl Grid.Row="1"
+                              ItemsSource="{Binding TopItems}"
+                              Margin="-4,0">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <UniformGrid Columns="5" Rows="4" />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="vm:GatheringSessionShareItemViewModel">
+                            <Border Margin="4"
+                                    Background="#292929"
+                                    BorderBrush="#404040"
+                                    BorderThickness="1"
+                                    CornerRadius="7"
+                                    Padding="8">
+                                <Grid>
+                                    <Grid RowDefinitions="44,*"
+                                          ColumnDefinitions="48,*"
+                                          ColumnSpacing="8"
+                                          IsVisible="{Binding IsRegularItem}">
+                                        <Grid Width="44" Height="44">
+                                            <Border Background="#333333"
+                                                    BorderBrush="#505050"
+                                                    BorderThickness="1"
+                                                    CornerRadius="6"
+                                                    IsVisible="{Binding ShowItemImagePlaceholder}" />
+                                            <Image Source="{Binding ItemImage}"
+                                                   IsVisible="{Binding HasItemImage}"
+                                                   Stretch="Uniform" />
+                                        </Grid>
+                                        <StackPanel Grid.Column="1"
+                                                    VerticalAlignment="Center"
+                                                    Spacing="1">
+                                            <TextBlock Text="{Binding AmountText}"
+                                                       FontSize="15"
+                                                       FontWeight="DemiBold"
+                                                       Foreground="#F5F5F5" />
+                                            <TextBlock Text="{Binding TotalEstimatedMarketValueText}"
+                                                       FontSize="15"
+                                                       FontWeight="DemiBold"
+                                                       Foreground="#FFC166" />
+                                        </StackPanel>
+                                        <TextBlock Grid.Row="1"
+                                                   Grid.ColumnSpan="2"
+                                                   Text="{Binding ItemName}"
+                                                   FontSize="14"
+                                                   Foreground="#D0D0D0"
+                                                   VerticalAlignment="Center"
+                                                   LineHeight="18"
+                                                   TextTrimming="CharacterEllipsis" />
+                                    </Grid>
+
+                                    <TextBlock Text="{Binding OverflowText}"
+                                               IsVisible="{Binding IsOverflowIndicator}"
+                                               HorizontalAlignment="Center"
+                                               VerticalAlignment="Center"
+                                               FontSize="25"
+                                               FontWeight="DemiBold"
+                                               Foreground="#C9C9C9" />
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </Grid>
+
+            <Grid Grid.Row="2" ColumnDefinitions="*,Auto" Margin="0,12,0,0">
+                <TextBlock Text="albionfreemarket.com"
+                           HorizontalAlignment="Left"
+                           FontSize="18"
+                           Foreground="#9E9E9E" />
+                <TextBlock Grid.Column="1"
+                           Text="AFM Data Client"
+                           HorizontalAlignment="Right"
+                           FontSize="18"
+                           Foreground="#9E9E9E" />
+            </Grid>
+        </Grid>
+    </Border>
+</UserControl>

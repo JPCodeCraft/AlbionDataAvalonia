@@ -3,6 +3,7 @@ using AlbionDataAvalonia.Gathering.Models;
 using AlbionDataAvalonia.Items.Services;
 using AlbionDataAvalonia.Settings;
 using Avalonia.Media.Imaging;
+using Avalonia.Platform;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -22,9 +23,11 @@ public partial class GatheringViewModel : ViewModelBase, IDisposable
     private readonly GatheringSessionPersistenceService? sessionPersistence;
     private readonly SettingsManager? settingsManager;
     private readonly ItemImageService? itemImageService;
+    private const int ShareCardItemSlots = 20;
     private DispatcherTimer? elapsedTimer;
     private int selectedSessionLoadVersion;
     private int? preferredHistorySelectionIndex;
+    private Bitmap? shareLogo;
 
     [ObservableProperty]
     private string totalSessionValueText = "0";
@@ -53,9 +56,14 @@ public partial class GatheringViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     private GatheringCompletedSessionRowViewModel? selectedCompletedSession;
 
+    [ObservableProperty]
+    private bool isSelectedCompletedSessionLoaded;
+
     public bool IsGatheringTrackerEnabled => !IsGatheringTrackerDisabled;
 
     public bool HasSelectedCompletedSession => SelectedCompletedSession is not null;
+
+    public bool CanShareSelectedCompletedSession => SelectedCompletedSession is not null && IsSelectedCompletedSessionLoaded;
 
     public string PauseButtonText => IsPaused ? "Resume" : "Pause";
 
@@ -114,9 +122,16 @@ public partial class GatheringViewModel : ViewModelBase, IDisposable
 
     partial void OnSelectedCompletedSessionChanged(GatheringCompletedSessionRowViewModel? value)
     {
+        IsSelectedCompletedSessionLoaded = false;
         OnPropertyChanged(nameof(HasSelectedCompletedSession));
+        OnPropertyChanged(nameof(CanShareSelectedCompletedSession));
         DeleteSelectedCompletedSessionCommand.NotifyCanExecuteChanged();
         _ = LoadSelectedCompletedSessionAsync(value, ++selectedSessionLoadVersion);
+    }
+
+    partial void OnIsSelectedCompletedSessionLoadedChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanShareSelectedCompletedSession));
     }
 
     [RelayCommand(CanExecute = nameof(CanChangeCurrentSession))]
@@ -173,6 +188,36 @@ public partial class GatheringViewModel : ViewModelBase, IDisposable
         }
 
         gatheringTracker.SetPaused(!IsPaused);
+    }
+
+    public GatheringSessionShareCardViewModel? CreateSelectedSessionShareCard()
+    {
+        if (SelectedCompletedSession is null || !IsSelectedCompletedSessionLoaded)
+        {
+            return null;
+        }
+
+        var orderedItems = HistoryItemRows
+            .OrderByDescending(x => x.TotalEstimatedMarketValue ?? 0)
+            .ThenByDescending(x => x.Amount)
+            .ToArray();
+
+        var visibleItemCount = orderedItems.Length > ShareCardItemSlots
+            ? ShareCardItemSlots - 1
+            : orderedItems.Length;
+        var topItems = orderedItems
+            .Take(visibleItemCount)
+            .Select(x => new GatheringSessionShareItemViewModel(x))
+            .ToList();
+
+        var hiddenItemCount = orderedItems.Length - visibleItemCount;
+        if (hiddenItemCount > 0)
+        {
+            topItems.Add(GatheringSessionShareItemViewModel.CreateOverflow(hiddenItemCount));
+        }
+
+        shareLogo ??= LoadShareLogo();
+        return new GatheringSessionShareCardViewModel(SelectedCompletedSession, topItems, shareLogo);
     }
 
     private bool CanChangeCurrentSession() => HasActiveSession;
@@ -379,6 +424,7 @@ public partial class GatheringViewModel : ViewModelBase, IDisposable
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
                 HistoryItemRows.Clear();
+                IsSelectedCompletedSessionLoaded = session is null;
             });
             return;
         }
@@ -395,6 +441,7 @@ public partial class GatheringViewModel : ViewModelBase, IDisposable
 
             if (details is null)
             {
+                IsSelectedCompletedSessionLoaded = true;
                 return;
             }
 
@@ -404,7 +451,22 @@ public partial class GatheringViewModel : ViewModelBase, IDisposable
                 HistoryItemRows.Add(rowViewModel);
                 _ = LoadItemImageAsync(rowViewModel);
             }
+
+            IsSelectedCompletedSessionLoaded = true;
         });
+    }
+
+    private static Bitmap? LoadShareLogo()
+    {
+        try
+        {
+            using var stream = AssetLoader.Open(new Uri("avares://AlbionDataAvalonia/Assets/afm-logo.png"));
+            return new Bitmap(stream);
+        }
+        catch
+        {
+            return null;
+        }
     }
 
     private async Task LoadItemImageAsync(GatheringSummaryRowViewModel row)

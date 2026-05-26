@@ -1,0 +1,47 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:views="clr-namespace:AlbionDataAvalonia.Views"
+        mc:Ignorable="d"
+        x:Class="AlbionDataAvalonia.Views.GatheringSessionShareWindow"
+        Width="980"
+        Height="690"
+        MinWidth="760"
+        MinHeight="560"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Title="Share gathering session"
+        Icon="/Assets/logo.ico">
+
+    <Grid RowDefinitions="*,Auto" Margin="18" RowSpacing="14">
+        <Border Background="#101010"
+                BorderBrush="{DynamicResource ThemeBorderMidBrush}"
+                BorderThickness="1"
+                CornerRadius="6"
+                Padding="12">
+            <Viewbox Stretch="Uniform">
+                <views:GatheringSessionShareCard x:Name="ShareCard" />
+            </Viewbox>
+        </Border>
+
+        <Grid Grid.Row="1" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
+            <TextBlock x:Name="StatusTextBlock"
+                       VerticalAlignment="Center"
+                       Opacity="0.8" />
+            <Button x:Name="CopyImageButton"
+                    Grid.Column="1"
+                    Content="Copy Image"
+                    Padding="12,7"
+                    Click="CopyImageButton_Click" />
+            <Button Grid.Column="2"
+                    Content="Save PNG"
+                    Padding="12,7"
+                    Click="SavePngButton_Click" />
+            <Button Grid.Column="3"
+                    Content="Close"
+                    Padding="12,7"
+                    Click="CloseButton_Click" />
+        </Grid>
+    </Grid>
+</Window>

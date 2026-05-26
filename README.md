@@ -134,12 +134,13 @@ The tracker shows:
 - Item summaries with item images, amount, estimated market value, total estimated value, and silver per hour
 - Minute-by-minute activity with item amount, estimated market value, and silver per hour
 - Completed session history with saved session totals and item summaries
+- Shareable 2400x1350 PNG cards for completed history sessions
 - Pause/resume controls for temporarily ignoring new gathering and fishing events
 - Save Session and Discard Session controls for manually closing or clearing the current live session
 
 Active gathering/fishing sessions are checkpointed locally so progress can be recovered if the app closes unexpectedly. On startup, an unfinished checkpoint is closed into History using the last recorded activity time. Completed history is saved locally in SQLite and keeps the estimated values from when the session was recorded.
 
-If no gathered or fished reward is recorded for 10 minutes, the current session is automatically saved to History.
+If no gathered or fished reward is recorded for 30 minutes, the current session is automatically saved to History.
 
 If you do not want gathering and fishing data tracked, enable **Disable Gathering Tracker** in Settings.
 

@@ -110,4 +110,21 @@ public partial class GatheringView : UserControl
             await viewModel.DeleteSelectedCompletedSessionCommand.ExecuteAsync(null);
         }
     }
+
+    private async void ShareHistorySessionButton_Click(object? sender, RoutedEventArgs e)
+    {
+        if (DataContext is not GatheringViewModel viewModel
+            || TopLevel.GetTopLevel(this) is not Window owner)
+        {
+            return;
+        }
+
+        var shareCard = viewModel.CreateSelectedSessionShareCard();
+        if (shareCard is null)
+        {
+            return;
+        }
+
+        await GatheringSessionShareWindow.ShowAsync(owner, shareCard);
+    }
 }

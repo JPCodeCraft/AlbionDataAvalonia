@@ -190,7 +190,7 @@
             <TabItem Header="History">
                 <Grid RowDefinitions="*,*" RowSpacing="16">
                     <Grid RowDefinitions="Auto,*">
-                        <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,8" ColumnSpacing="8">
+                        <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,8" ColumnSpacing="8">
                             <TextBlock Classes="SectionTitle" Text="Completed Sessions" VerticalAlignment="Center" />
                             <Button Grid.Column="1"
                                     Width="90"
@@ -198,6 +198,12 @@
                                     Content="Refresh"
                                     Command="{Binding RefreshHistoryCommand}" />
                             <Button Grid.Column="2"
+                                    Width="90"
+                                    Padding="10,6"
+                                    Content="Share"
+                                    IsEnabled="{Binding CanShareSelectedCompletedSession}"
+                                    Click="ShareHistorySessionButton_Click" />
+                            <Button Grid.Column="3"
                                     Width="120"
                                     Padding="10,6"
                                     Content="Delete Session"

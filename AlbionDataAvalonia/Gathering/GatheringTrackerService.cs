@@ -16,7 +16,7 @@ public sealed class GatheringTrackerService : IDisposable
 {
     private static readonly TimeSpan BucketSize = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan FishingFinalizationGracePeriod = TimeSpan.FromMilliseconds(750);
-    private static readonly TimeSpan InactivityTimeout = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan InactivityTimeout = TimeSpan.FromMinutes(30);
 
     private readonly object sync = new();
     private readonly SettingsManager settingsManager;
