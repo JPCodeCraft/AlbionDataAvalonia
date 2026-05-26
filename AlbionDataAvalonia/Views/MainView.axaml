@@ -44,6 +44,47 @@
 			<Setter Property="Margin" Value="0 0 20 20" />
 			<Setter Property="HorizontalAlignment" Value="Stretch" />
 		</Style>
+
+		<Style Selector="Border.sidebarStatus">
+			<Setter Property="Margin" Value="10,0,10,10" />
+			<Setter Property="Padding" Value="10" />
+			<Setter Property="CornerRadius" Value="4" />
+			<Setter Property="Background" Value="rgba(255,255,255,0.05)" />
+		</Style>
+
+		<Style Selector="TextBlock.sidebarSectionTitle">
+			<Setter Property="FontSize" Value="11" />
+			<Setter Property="Opacity" Value="0.7" />
+			<Setter Property="Margin" Value="0,0,0,6" />
+		</Style>
+
+		<Style Selector="Ellipse.statusDot">
+			<Setter Property="Width" Value="8" />
+			<Setter Property="Height" Value="8" />
+			<Setter Property="VerticalAlignment" Value="Center" />
+		</Style>
+
+		<Style Selector="Ellipse.statusDot.Ok">
+			<Setter Property="Fill" Value="rgba(75, 181, 67, 0.85)" />
+		</Style>
+
+		<Style Selector="Ellipse.statusDot.Warning">
+			<Setter Property="Fill" Value="{StaticResource AFMOrange}" />
+		</Style>
+
+		<Style Selector="TextBlock.statusText">
+			<Setter Property="FontSize" Value="12" />
+			<Setter Property="TextWrapping" Value="Wrap" />
+		</Style>
+
+		<Style Selector="TextBlock.statusText.Ok">
+			<Setter Property="Opacity" Value="0.85" />
+		</Style>
+
+		<Style Selector="TextBlock.statusText.Warning">
+			<Setter Property="Foreground" Value="{StaticResource AFMOrange}" />
+			<Setter Property="FontWeight" Value="DemiBold" />
+		</Style>
 	</UserControl.Styles>
 
 	<Grid>
@@ -56,6 +97,7 @@
 		<Grid Grid.Column="0">
 			<Grid.RowDefinitions>
 				<RowDefinition Height="*" />
+				<RowDefinition Height="Auto" />
 				<RowDefinition Height="Auto" />
 			</Grid.RowDefinitions>
 			<Grid.ColumnDefinitions>
@@ -156,11 +198,38 @@
 				</StackPanel>
 			</ScrollViewer>
 
-			<Rectangle Grid.Row="0" Grid.RowSpan="2" Grid.Column="1" Width="1"
+			<Rectangle Grid.Row="0" Grid.RowSpan="3" Grid.Column="1" Width="1"
 				Fill="rgba(255,255,255,.1)" VerticalAlignment="Stretch" />
 
-			<!-- Authentication Section -->
+			<!-- Capture State Section -->
 			<Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
+				Classes="sidebarStatus">
+				<StackPanel>
+					<TextBlock Classes="sidebarSectionTitle" Text="STATUS" />
+					<ItemsControl ItemsSource="{Binding SidebarStatusItems}">
+						<ItemsControl.ItemTemplate>
+							<DataTemplate x:DataType="vm:SidebarStatusItem">
+								<Grid ColumnDefinitions="Auto,*" Margin="0,2"
+									ToolTip.Tip="{Binding Tooltip}">
+									<Ellipse Grid.Column="0"
+										Classes="statusDot"
+										Classes.Ok="{Binding IsOk}"
+										Classes.Warning="{Binding IsWarning}"
+										Margin="0,0,7,0" />
+									<TextBlock Grid.Column="1"
+										Classes="statusText"
+										Classes.Ok="{Binding IsOk}"
+										Classes.Warning="{Binding IsWarning}"
+										Text="{Binding Text}" />
+								</Grid>
+							</DataTemplate>
+						</ItemsControl.ItemTemplate>
+					</ItemsControl>
+				</StackPanel>
+			</Border>
+
+			<!-- Authentication Section -->
+			<Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
 				Margin="10" Padding="10"
 				CornerRadius="4"
 				Background="rgba(255,255,255,0.05)">

@@ -1,8 +1,11 @@
 ﻿using AlbionDataAvalonia.Locations;
+using AlbionDataAvalonia.Items.Services;
+using AlbionDataAvalonia.Locations.Models;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -24,6 +27,7 @@ public partial class MailsViewModel : ViewModelBase
     private readonly PlayerState _playerState;
     private readonly MailService _mailService;
     private readonly CsvExportService _csvExportService;
+    private readonly ItemImageService? _itemImageService;
     private readonly TimeSpan _filterDebounceInterval = TimeSpan.FromMilliseconds(250);
     private IDisposable? _pendingFilterRefreshRegistration;
     private static readonly IReadOnlyList<NumericOption> _mailsToLoadOptions = NumericOptions.MailAndTradeLoadOptions;
@@ -49,8 +53,8 @@ public partial class MailsViewModel : ViewModelBase
     [ObservableProperty]
     private decimal selectedAverageSilver;
 
-    private ObservableCollection<AlbionMail> mails = new();
-    public ObservableCollection<AlbionMail> Mails
+    private ObservableCollection<MailRowViewModel> mails = new();
+    public ObservableCollection<MailRowViewModel> Mails
     {
         get { return mails; }
         set { SetProperty(ref mails, value); }
@@ -117,12 +121,18 @@ public partial class MailsViewModel : ViewModelBase
     {
     }
 
-    public MailsViewModel(SettingsManager settingsManager, PlayerState playerState, MailService mailService, CsvExportService csvExportService)
+    public MailsViewModel(
+        SettingsManager settingsManager,
+        PlayerState playerState,
+        MailService mailService,
+        CsvExportService csvExportService,
+        ItemImageService itemImageService)
     {
         _settingsManager = settingsManager;
         _playerState = playerState;
         _mailService = mailService;
         _csvExportService = csvExportService;
+        _itemImageService = itemImageService;
 
         _mailService.OnMailAdded += HandleMailAdded;
         _mailService.OnMailDataAdded += HandleMailDataAdded;
@@ -186,12 +196,35 @@ public partial class MailsViewModel : ViewModelBase
         {
             filteredList = UnfilteredMails;
         }
-        Mails = new ObservableCollection<AlbionMail>(filteredList.OrderByDescending(x => x.Received).Take(_settingsManager.UserSettings.MailsPerPage));
+        var rows = filteredList
+            .OrderByDescending(x => x.Received)
+            .Take(_settingsManager.UserSettings.MailsPerPage)
+            .Select(CreateRow)
+            .ToList();
+        Mails = new ObservableCollection<MailRowViewModel>(rows);
     }
 
-    public void UpdateSelectedMails(IEnumerable<AlbionMail> selected)
+    private MailRowViewModel CreateRow(AlbionMail mail)
     {
-        var selectedMails = selected?.ToList() ?? new List<AlbionMail>();
+        var row = new MailRowViewModel(mail);
+        _ = LoadItemImageAsync(row);
+        return row;
+    }
+
+    private async Task LoadItemImageAsync(MailRowViewModel row)
+    {
+        if (_itemImageService is null)
+        {
+            return;
+        }
+
+        var image = await _itemImageService.GetItemImageAsync(row.ItemId, row.ImageQuality);
+        await Dispatcher.UIThread.InvokeAsync(() => row.ItemImage = image);
+    }
+
+    public void UpdateSelectedMails(IEnumerable<MailRowViewModel> selected)
+    {
+        var selectedMails = selected?.ToList() ?? new List<MailRowViewModel>();
         if (selectedMails.Count == 0)
         {
             HasSelectedRows = false;
@@ -284,5 +317,35 @@ public partial class MailsViewModel : ViewModelBase
     {
         _pendingFilterRefreshRegistration?.Dispose();
         _pendingFilterRefreshRegistration = null;
+    }
+}
+
+public sealed class MailRowViewModel : ObservableObject
+{
+    private Bitmap? itemImage;
+
+    public MailRowViewModel(AlbionMail mail)
+    {
+        Source = mail;
+    }
+
+    public AlbionMail Source { get; }
+    public AlbionServer? Server => Source.Server;
+    public string PlayerName => Source.PlayerName;
+    public DateTime Received => Source.Received;
+    public string AuctionTypeFormatted => Source.AuctionTypeFormatted;
+    public string ItemName => Source.ItemName;
+    public AlbionLocation? Location => Source.Location;
+    public int PartialAmount => Source.PartialAmount;
+    public int TotalAmount => Source.TotalAmount;
+    public string ItemId => Source.ItemId;
+    public int ImageQuality => 1;
+    public double UnitSilver => Source.UnitSilver;
+    public long TotalSilver => Source.TotalSilver;
+
+    public Bitmap? ItemImage
+    {
+        get => itemImage;
+        set => SetProperty(ref itemImage, value);
     }
 }

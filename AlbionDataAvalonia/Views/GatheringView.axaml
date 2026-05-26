@@ -40,144 +40,286 @@
     </UserControl.Styles>
 
     <Grid>
-    <Grid IsVisible="{Binding IsGatheringTrackerEnabled}" RowDefinitions="Auto,*" Margin="0,8,0,0">
-        <WrapPanel Grid.Row="0" VerticalAlignment="Top">
-            <Border Classes="StatCard" Width="180">
-                <StackPanel>
-                    <TextBlock Classes="StatLabel" Text="Session Silver" />
-                    <TextBlock Classes="StatValue" Text="{Binding TotalSessionValueText}" />
-                </StackPanel>
-            </Border>
-            <Border Classes="StatCard" Width="180">
-                <StackPanel>
-                    <TextBlock Classes="StatLabel" Text="Silver per Hour" />
-                    <TextBlock Classes="StatValue" Text="{Binding SilverPerHourText}" />
-                </StackPanel>
-            </Border>
-            <Border Classes="StatCard" Width="160">
-                <StackPanel>
-                    <TextBlock Classes="StatLabel" Text="Total Amount" />
-                    <TextBlock Classes="StatValue" Text="{Binding TotalAmountText}" />
-                </StackPanel>
-            </Border>
-            <Border Classes="StatCard" Width="140">
-                <StackPanel>
-                    <TextBlock Classes="StatLabel" Text="Elapsed" />
-                    <TextBlock Classes="StatValue" Text="{Binding ElapsedText}" />
-                </StackPanel>
-            </Border>
-            <StackPanel Orientation="Horizontal" VerticalAlignment="Top">
-                <Button Classes="ActionButton" Width="100" Content="{Binding PauseButtonText}" Command="{Binding TogglePauseCommand}" />
-                <Button Classes="ActionButton" Width="120" Content="Clear Session" Command="{Binding ClearSessionCommand}" />
-            </StackPanel>
-        </WrapPanel>
+        <TabControl IsVisible="{Binding IsGatheringTrackerEnabled}" Margin="0,8,0,0">
+            <TabItem Header="Live">
+                <Grid RowDefinitions="Auto,Auto,*">
+                    <WrapPanel Grid.Row="0" VerticalAlignment="Top">
+                        <Border Classes="StatCard" Width="180">
+                            <StackPanel>
+                                <TextBlock Classes="StatLabel" Text="Session Silver" />
+                                <TextBlock Classes="StatValue" Text="{Binding TotalSessionValueText}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Classes="StatCard" Width="180">
+                            <StackPanel>
+                                <TextBlock Classes="StatLabel" Text="Silver per Hour" />
+                                <TextBlock Classes="StatValue" Text="{Binding SilverPerHourText}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Classes="StatCard" Width="160">
+                            <StackPanel>
+                                <TextBlock Classes="StatLabel" Text="Total Amount" />
+                                <TextBlock Classes="StatValue" Text="{Binding TotalAmountText}" />
+                            </StackPanel>
+                        </Border>
+                        <Border Classes="StatCard" Width="140">
+                            <StackPanel>
+                                <TextBlock Classes="StatLabel" Text="Elapsed" />
+                                <TextBlock Classes="StatValue" Text="{Binding ElapsedText}" />
+                            </StackPanel>
+                        </Border>
+                        <WrapPanel Width="280" VerticalAlignment="Top">
+                            <Button Classes="ActionButton" Width="100" Content="{Binding PauseButtonText}" Command="{Binding TogglePauseCommand}" />
+                            <Button Classes="ActionButton"
+                                    Width="130"
+                                    Content="Save Session"
+                                    IsEnabled="{Binding HasActiveSession}"
+                                    Click="SaveSessionButton_Click" />
+                            <Button Classes="ActionButton"
+                                    Width="140"
+                                    Content="Discard Session"
+                                    IsEnabled="{Binding HasActiveSession}"
+                                    Click="DiscardSessionButton_Click" />
+                        </WrapPanel>
+                    </WrapPanel>
 
-        <Grid Grid.Row="1" RowDefinitions="*,*" RowSpacing="16">
-            <Grid RowDefinitions="Auto,*">
-                <TextBlock Classes="SectionTitle" Text="Summary by Item" />
-                <DataGrid Grid.Row="1"
-                          ItemsSource="{Binding SummaryRows}"
-                          AutoGenerateColumns="False"
-                          IsReadOnly="True"
-                          GridLinesVisibility="None"
-                          BorderThickness="0">
-                    <DataGrid.Columns>
-                        <DataGridTextColumn Header="Item" Binding="{Binding ItemName}" Width="*" />
-                        <DataGridTemplateColumn Header="Amount" SortMemberPath="Amount" CanUserSort="True">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding Amount, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" />
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                        <DataGridTemplateColumn Header="Unit EMV" SortMemberPath="EstimatedMarketValue" CanUserSort="True">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding EstimatedMarketValueText}" VerticalAlignment="Center" />
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                        <DataGridTemplateColumn Header="Total EMV" SortMemberPath="TotalEstimatedMarketValue" CanUserSort="True">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding TotalEstimatedMarketValueText}" VerticalAlignment="Center" />
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                        <DataGridTemplateColumn Header="/ hour" SortMemberPath="AmountPerHour" CanUserSort="True">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding AmountPerHour, StringFormat='{}{0:N1}'}" VerticalAlignment="Center" />
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                    </DataGrid.Columns>
-                </DataGrid>
-            </Grid>
+                    <StackPanel Grid.Row="1" Spacing="4" Margin="0,0,0,8">
+                        <TextBlock Text="Local player is not registered yet. Gathering harvests will not be tracked until the player is detected."
+                                   Foreground="#FFB74D"
+                                   IsVisible="{Binding ShowMissingPlayerWarning}" />
+                    </StackPanel>
 
-            <Grid Grid.Row="1" RowDefinitions="Auto,*">
-                <TextBlock Classes="SectionTitle" Text="Minute By Minute" />
-                <DataGrid Grid.Row="1"
-                          ItemsSource="{Binding BucketRows}"
-                          AutoGenerateColumns="False"
-                          IsReadOnly="True"
-                          GridLinesVisibility="None"
-                          BorderThickness="0">
-                    <DataGrid.Columns>
-                        <DataGridTemplateColumn Header="Minute" SortMemberPath="BucketStartedAtUtc" CanUserSort="True">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding BucketText}" VerticalAlignment="Center" />
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                        <DataGridTemplateColumn Header="Amount" SortMemberPath="Amount" CanUserSort="True">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding Amount, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" />
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                        <DataGridTemplateColumn Header="EMV" SortMemberPath="TotalEstimatedMarketValue" CanUserSort="True">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding TotalEstimatedMarketValueText}" VerticalAlignment="Center" />
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                        <DataGridTemplateColumn Header="Silver / hour" SortMemberPath="SilverPerHour" CanUserSort="True">
-                            <DataGridTemplateColumn.CellTemplate>
-                                <DataTemplate>
-                                    <TextBlock Text="{Binding SilverPerHourText}" VerticalAlignment="Center" />
-                                </DataTemplate>
-                            </DataGridTemplateColumn.CellTemplate>
-                        </DataGridTemplateColumn>
-                    </DataGrid.Columns>
-                </DataGrid>
-            </Grid>
+                    <Grid Grid.Row="2" RowDefinitions="*,*" RowSpacing="16">
+                        <Grid RowDefinitions="Auto,*">
+                            <TextBlock Classes="SectionTitle" Text="Summary by Item" />
+                            <DataGrid x:Name="SummaryRowsGrid"
+                                      Grid.Row="1"
+                                      ItemsSource="{Binding SummaryRows}"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      GridLinesVisibility="None"
+                                      BorderThickness="0">
+                                <DataGrid.Columns>
+                                    <DataGridTemplateColumn Header="Item" SortMemberPath="ItemName" CanUserSort="True" Width="*">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                    <Image Width="30" Height="30" Source="{Binding ItemImage}" Stretch="Uniform" />
+                                                    <TextBlock Text="{Binding ItemName}" VerticalAlignment="Center" />
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="Amount" SortMemberPath="Amount" CanUserSort="True">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Amount, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="Unit EMV" SortMemberPath="EstimatedMarketValue" CanUserSort="True">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding EstimatedMarketValueText}" VerticalAlignment="Center" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="Total EMV" SortMemberPath="TotalEstimatedMarketValue" CanUserSort="True">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding TotalEstimatedMarketValueText}" VerticalAlignment="Center" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="Silver / hour" SortMemberPath="SilverPerHour" CanUserSort="True">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding SilverPerHourText}" VerticalAlignment="Center" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+
+                        <Grid Grid.Row="1" RowDefinitions="Auto,*">
+                            <TextBlock Classes="SectionTitle" Text="Minute By Minute" />
+                            <DataGrid x:Name="BucketRowsGrid"
+                                      Grid.Row="1"
+                                      ItemsSource="{Binding BucketRows}"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      GridLinesVisibility="None"
+                                      BorderThickness="0">
+                                <DataGrid.Columns>
+                                    <DataGridTemplateColumn Header="Minute" SortMemberPath="BucketStartedAtUtc" CanUserSort="True">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding BucketText}" VerticalAlignment="Center" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="Amount" SortMemberPath="Amount" CanUserSort="True">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Amount, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="EMV" SortMemberPath="TotalEstimatedMarketValue" CanUserSort="True">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding TotalEstimatedMarketValueText}" VerticalAlignment="Center" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="Silver / hour" SortMemberPath="SilverPerHour" CanUserSort="True">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding SilverPerHourText}" VerticalAlignment="Center" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </Grid>
+                </Grid>
+            </TabItem>
+
+            <TabItem Header="History">
+                <Grid RowDefinitions="*,*" RowSpacing="16">
+                    <Grid RowDefinitions="Auto,*">
+                        <Grid ColumnDefinitions="*,Auto,Auto" Margin="0,0,0,8" ColumnSpacing="8">
+                            <TextBlock Classes="SectionTitle" Text="Completed Sessions" VerticalAlignment="Center" />
+                            <Button Grid.Column="1"
+                                    Width="90"
+                                    Padding="10,6"
+                                    Content="Refresh"
+                                    Command="{Binding RefreshHistoryCommand}" />
+                            <Button Grid.Column="2"
+                                    Width="120"
+                                    Padding="10,6"
+                                    Content="Delete Session"
+                                    IsEnabled="{Binding HasSelectedCompletedSession}"
+                                    Click="DeleteHistorySessionButton_Click" />
+                        </Grid>
+                        <DataGrid Grid.Row="1"
+                                  ItemsSource="{Binding CompletedSessions}"
+                                  SelectedItem="{Binding SelectedCompletedSession}"
+                                  AutoGenerateColumns="False"
+                                  IsReadOnly="True"
+                                  GridLinesVisibility="None"
+                                  BorderThickness="0">
+                            <DataGrid.Columns>
+                                <DataGridTemplateColumn Header="Start" SortMemberPath="StartedAtUtc" CanUserSort="True" Width="*">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding StartedText}" VerticalAlignment="Center" />
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Elapsed" SortMemberPath="ActiveElapsed" CanUserSort="True">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding ActiveElapsedText}" VerticalAlignment="Center" />
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Amount" SortMemberPath="TotalAmount" CanUserSort="True">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding TotalAmount, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" />
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Silver" SortMemberPath="TotalEstimatedMarketValue" CanUserSort="True">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding TotalEstimatedMarketValue, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" />
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                                <DataGridTemplateColumn Header="Silver / hour" SortMemberPath="SilverPerHour" CanUserSort="True">
+                                    <DataGridTemplateColumn.CellTemplate>
+                                        <DataTemplate>
+                                            <TextBlock Text="{Binding SilverPerHour, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" />
+                                        </DataTemplate>
+                                    </DataGridTemplateColumn.CellTemplate>
+                                </DataGridTemplateColumn>
+                            </DataGrid.Columns>
+                        </DataGrid>
+                    </Grid>
+
+                    <Grid Grid.Row="1" RowDefinitions="Auto,*">
+                        <Grid RowDefinitions="Auto,*">
+                            <TextBlock Classes="SectionTitle" Text="Summary by Item" />
+                            <DataGrid Grid.Row="1"
+                                      ItemsSource="{Binding HistoryItemRows}"
+                                      AutoGenerateColumns="False"
+                                      IsReadOnly="True"
+                                      GridLinesVisibility="None"
+                                      BorderThickness="0">
+                                <DataGrid.Columns>
+                                    <DataGridTemplateColumn Header="Item" SortMemberPath="ItemName" CanUserSort="True" Width="*">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                                    <Image Width="30" Height="30" Source="{Binding ItemImage}" Stretch="Uniform" />
+                                                    <TextBlock Text="{Binding ItemName}" VerticalAlignment="Center" />
+                                                </StackPanel>
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="Amount" SortMemberPath="Amount" CanUserSort="True">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding Amount, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="Unit EMV" SortMemberPath="EstimatedMarketValue" CanUserSort="True">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding EstimatedMarketValueText}" VerticalAlignment="Center" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                    <DataGridTemplateColumn Header="Total EMV" SortMemberPath="TotalEstimatedMarketValue" CanUserSort="True">
+                                        <DataGridTemplateColumn.CellTemplate>
+                                            <DataTemplate>
+                                                <TextBlock Text="{Binding TotalEstimatedMarketValueText}" VerticalAlignment="Center" />
+                                            </DataTemplate>
+                                        </DataGridTemplateColumn.CellTemplate>
+                                    </DataGridTemplateColumn>
+                                </DataGrid.Columns>
+                            </DataGrid>
+                        </Grid>
+                    </Grid>
+                </Grid>
+            </TabItem>
+        </TabControl>
+
+        <Grid IsVisible="{Binding IsGatheringTrackerDisabled}">
+            <Border MaxWidth="520"
+                    HorizontalAlignment="Center"
+                    VerticalAlignment="Center"
+                    Background="{DynamicResource ThemeBackgroundBrush}"
+                    BorderBrush="{DynamicResource ThemeBorderMidBrush}"
+                    BorderThickness="1"
+                    CornerRadius="6"
+                    Padding="24">
+                <StackPanel Spacing="8">
+                    <TextBlock Text="Gathering tracker is disabled"
+                               FontSize="18"
+                               FontWeight="DemiBold"
+                               TextAlignment="Center" />
+                    <TextBlock Text="Enable it from the Settings tab to start tracking gathering and fishing data."
+                               TextWrapping="Wrap"
+                               TextAlignment="Center"
+                               Opacity="0.8" />
+                </StackPanel>
+            </Border>
         </Grid>
-    </Grid>
-
-    <Grid IsVisible="{Binding IsGatheringTrackerDisabled}">
-        <Border MaxWidth="520"
-                HorizontalAlignment="Center"
-                VerticalAlignment="Center"
-                Background="{DynamicResource ThemeBackgroundBrush}"
-                BorderBrush="{DynamicResource ThemeBorderMidBrush}"
-                BorderThickness="1"
-                CornerRadius="6"
-                Padding="24">
-            <StackPanel Spacing="8">
-                <TextBlock Text="Gathering tracker is disabled"
-                           FontSize="18"
-                           FontWeight="DemiBold"
-                           TextAlignment="Center" />
-                <TextBlock Text="Enable it from the Settings tab to start tracking gathering and fishing data."
-                           TextWrapping="Wrap"
-                           TextAlignment="Center"
-                           Opacity="0.8" />
-            </StackPanel>
-        </Border>
-    </Grid>
     </Grid>
 </UserControl>

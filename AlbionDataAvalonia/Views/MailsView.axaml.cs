@@ -48,7 +48,7 @@ namespace AlbionDataAvalonia.Views
             if (DataContext is not MailsViewModel vm) return;
             if (sender is not DataGrid grid) return;
 
-            vm.UpdateSelectedMails(grid.SelectedItems.OfType<AlbionMail>());
+            vm.UpdateSelectedMails(grid.SelectedItems.OfType<MailRowViewModel>());
         }
 
         private async void CopyValuePointerPressed(object? sender, PointerPressedEventArgs e)

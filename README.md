@@ -126,15 +126,20 @@ Use the Combat tab's **Pause** button to stop counting health changes without lo
 
 ### Gathering and Fishing Tracker
 
-The Gathering tab includes a passive tracker for reviewing gathering and fishing while the client is running. It records harvested resources and fishing rewards from captured packets, then groups them into a session summary and minute-by-minute activity.
+The Gathering tab includes a passive tracker for reviewing gathering and fishing sessions. A session starts when the first gathered or fished item is recorded, then tracks harvested resources and confirmed fishing rewards from captured packets.
 
 The tracker shows:
 
 - Total estimated session value, silver per hour, total item amount, and elapsed active time
-- Item summaries with amount, estimated market value, total estimated value, and amount per hour
+- Item summaries with item images, amount, estimated market value, total estimated value, and silver per hour
 - Minute-by-minute activity with item amount, estimated market value, and silver per hour
+- Completed session history with saved session totals and item summaries
 - Pause/resume controls for temporarily ignoring new gathering and fishing events
-- Clear Session control for resetting the current gathering tracker data
+- Save Session and Discard Session controls for manually closing or clearing the current live session
+
+Active gathering/fishing sessions are checkpointed locally so progress can be recovered if the app closes unexpectedly. On startup, an unfinished checkpoint is closed into History using the last recorded activity time. Completed history is saved locally in SQLite and keeps the estimated values from when the session was recorded.
+
+If no gathered or fished reward is recorded for 10 minutes, the current session is automatically saved to History.
 
 If you do not want gathering and fishing data tracked, enable **Disable Gathering Tracker** in Settings.
 

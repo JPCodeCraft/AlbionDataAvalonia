@@ -14,7 +14,8 @@ public sealed record GatheringSummaryRow(
     long? EstimatedMarketValue,
     long? TotalEstimatedMarketValue,
     double AmountPerMinute,
-    double AmountPerHour);
+    double AmountPerHour,
+    long? SilverPerHour);
 
 public sealed record GatheringBucketRow(
     DateTime BucketStartedAtUtc,
@@ -24,6 +25,8 @@ public sealed record GatheringBucketRow(
 
 public sealed record GatheringTrackerSnapshot(
     bool IsPaused,
+    bool HasLocalPlayer,
+    bool HasActiveSession,
     DateTime SessionStartedAtUtc,
     TimeSpan ActiveElapsed,
     long TotalAmount,
@@ -32,6 +35,8 @@ public sealed record GatheringTrackerSnapshot(
     IReadOnlyList<GatheringBucketRow> BucketRows)
 {
     public static GatheringTrackerSnapshot Empty() => new(
+        false,
+        false,
         false,
         DateTime.UtcNow,
         TimeSpan.Zero,

@@ -149,7 +149,16 @@
 				<DataGridTextColumn Header="Type" Binding="{Binding TradeTypeFormatted}" />
 				<DataGridTextColumn Header="Operation" Binding="{Binding TradeOperationFormatted}" />
 				<DataGridTextColumn Header="Quality" Binding="{Binding QualityLevelFormatted}" />
-				<DataGridTextColumn Header="Item" Binding="{Binding ItemName}" />
+				<DataGridTemplateColumn Header="Item" SortMemberPath="ItemName" CanUserSort="True">
+					<DataGridTemplateColumn.CellTemplate>
+						<DataTemplate>
+							<StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+								<Image Width="30" Height="30" Source="{Binding ItemImage}" Stretch="Uniform" />
+								<TextBlock Text="{Binding ItemName}" VerticalAlignment="Center" />
+							</StackPanel>
+						</DataTemplate>
+					</DataGridTemplateColumn.CellTemplate>
+				</DataGridTemplateColumn>
 				<DataGridTextColumn Header="Location" Binding="{Binding Location.FriendlyName}" />
 
 				<DataGridTemplateColumn Header="Amount" CanUserSort="True" SortMemberPath="Amount">

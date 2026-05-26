@@ -48,7 +48,7 @@ namespace AlbionDataAvalonia.Views
             if (DataContext is not TradesViewModel vm) return;
             if (sender is not DataGrid grid) return;
 
-            vm.UpdateSelectedTrades(grid.SelectedItems.OfType<Trade>());
+            vm.UpdateSelectedTrades(grid.SelectedItems.OfType<TradeRowViewModel>());
         }
 
         private async void CopyValuePointerPressed(object? sender, PointerPressedEventArgs e)

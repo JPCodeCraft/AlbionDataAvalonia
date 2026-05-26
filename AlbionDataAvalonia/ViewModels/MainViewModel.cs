@@ -9,10 +9,12 @@ using AlbionDataAvalonia.Views;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Serilog;
 using System;
+using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -142,11 +144,15 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private bool userLoggedIn = false;
 
+    public ObservableCollection<SidebarStatusItem> SidebarStatusItems { get; } = new();
+
     private int oldUploadQueueSize = 0;
     private int oldRunningTasksCount = 0;
+    private bool sidebarStatusRefreshQueued;
 
     public MainViewModel()
     {
+        SidebarStatusItems.Add(SidebarStatusItem.Ok("Ready", "Capture state looks ready."));
     }
 
     public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, SettingsManager settingsManager, SettingsViewModel settingsViewModel, LogsViewModel logsViewModel, MailsViewModel mailsViewModel, TradesViewModel tradesViewModel, CombatViewModel combatViewModel, GatheringViewModel gatheringViewModel, Uploader uploader, AuthService authService)
@@ -187,9 +193,14 @@ public partial class MainViewModel : ViewModelBase
         _authService.FirebaseUserChanged += user =>
         {
             FirebaseUser = user;
-            UserLoggedIn = FirebaseUser is not null ? true : false;
+            UserLoggedIn = FirebaseUser is not null;
+            RefreshSidebarStatus();
         };
-        
+
+        FirebaseUser = _authService.CurrentFirebaseUser;
+        UserLoggedIn = FirebaseUser is not null;
+        RefreshSidebarStatus();
+
         userSettings = _settingsManager.UserSettings;
 
         NavigateTo(MainPage.Dashboard);
@@ -273,6 +284,12 @@ public partial class MainViewModel : ViewModelBase
 
     private void UpdateState(object? sender, PlayerStateEventArgs e)
     {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => UpdateState(sender, e));
+            return;
+        }
+
         LocationName = e.Location.FriendlyName;
         PlayerName = e.Name;
         AlbionServerName = e.AlbionServer?.Name ?? "Unknown";
@@ -280,6 +297,95 @@ public partial class MainViewModel : ViewModelBase
         ContributeToPublic = e.ContributeToPublic;
 
         UpdateVisibilities();
+        RefreshSidebarStatus();
+    }
+
+    private void RefreshSidebarStatus()
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            if (sidebarStatusRefreshQueued)
+            {
+                return;
+            }
+
+            sidebarStatusRefreshQueued = true;
+            Dispatcher.UIThread.Post(RefreshSidebarStatus);
+            return;
+        }
+
+        sidebarStatusRefreshQueued = false;
+
+        if (_playerState == null)
+        {
+            return;
+        }
+
+        SidebarStatusItems.Clear();
+
+        if (!UserLoggedIn)
+        {
+            AddSidebarStatus(SidebarStatusItem.Warning(
+                "AFM Logged Out",
+                "Sign in to upload private AFM data."));
+        }
+
+        if (!_playerState.IsInGame)
+        {
+            AddSidebarStatus(SidebarStatusItem.Warning(
+                "Not In Game",
+                "Open Albion Online and enter the game."));
+        }
+
+        if (_playerState.HasEncryptedData)
+        {
+            AddSidebarStatus(SidebarStatusItem.Warning(
+                "Encrypted",
+                "Market orders are encrypted. Go to AFM Discord to understand what's going on."));
+        }
+
+        if (_playerState.AlbionServer is null)
+        {
+            AddSidebarStatus(SidebarStatusItem.Warning(
+                "Server Undetected",
+                "The Albion server has not been detected yet."));
+        }
+
+        if (string.IsNullOrWhiteSpace(_playerState.PlayerName)
+            || string.Equals(_playerState.PlayerName, "Not set", StringComparison.OrdinalIgnoreCase))
+        {
+            AddSidebarStatus(SidebarStatusItem.Warning(
+                "User Undetected",
+                "Your character has not been detected yet. Change maps."));
+        }
+
+        if (_playerState.Location == AlbionLocations.Unset || _playerState.Location == AlbionLocations.Unknown)
+        {
+            AddSidebarStatus(SidebarStatusItem.Warning(
+                "Location Undetected",
+                "Your location has not been detected yet. Change maps."));
+        }
+
+        if (SidebarStatusItems.Count == 0)
+        {
+            AddSidebarStatus(SidebarStatusItem.Ok(
+                "Ready",
+                "Capture state looks ready."));
+        }
+    }
+
+    private void AddSidebarStatus(SidebarStatusItem item)
+    {
+        foreach (var existingItem in SidebarStatusItems)
+        {
+            if (string.Equals(existingItem.Text, item.Text, StringComparison.Ordinal)
+                && existingItem.Severity == item.Severity)
+            {
+                return;
+            }
+        }
+
+        SidebarStatusItems.Add(item);
     }
 
     private void UpdateUploadStats()
@@ -496,4 +602,29 @@ public partial class MainViewModel : ViewModelBase
 
         return;
     }
+}
+
+public sealed class SidebarStatusItem
+{
+    private SidebarStatusItem(string text, string tooltip, SidebarStatusSeverity severity)
+    {
+        Text = text;
+        Tooltip = tooltip;
+        Severity = severity;
+    }
+
+    public string Text { get; }
+    public string Tooltip { get; }
+    public SidebarStatusSeverity Severity { get; }
+    public bool IsOk => Severity == SidebarStatusSeverity.Ok;
+    public bool IsWarning => Severity == SidebarStatusSeverity.Warning;
+
+    public static SidebarStatusItem Ok(string text, string tooltip) => new(text, tooltip, SidebarStatusSeverity.Ok);
+    public static SidebarStatusItem Warning(string text, string tooltip) => new(text, tooltip, SidebarStatusSeverity.Warning);
+}
+
+public enum SidebarStatusSeverity
+{
+    Ok,
+    Warning
 }

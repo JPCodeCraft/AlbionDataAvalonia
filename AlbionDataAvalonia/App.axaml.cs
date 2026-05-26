@@ -53,6 +53,14 @@ public partial class App : Application
         // Without this line you will get duplicate validations from both Avalonia and CT
         BindingPlugins.DataValidators.RemoveAt(0);
 
+        //DI SETUP
+        var collection = new ServiceCollection();
+        collection.AddCommonServices();
+        var services = collection.BuildServiceProvider();
+
+        //LOGGING
+        SetupLogging(services.GetRequiredService<ListSink>());
+
         //MIGRATIONS
         using (var db = new LocalContext())
         {
@@ -63,23 +71,12 @@ public partial class App : Application
             }
             catch (Exception e)
             {
-                Log.Error(e, "Error in migrations, exception: {exception}", e);
-                Log.Information("Deleting database and trying again");
-                await db.DeleteDatabase();
-                await db.Database.MigrateAsync();
+                Log.Fatal(e, "Local database migration failed. Keeping the existing database untouched.");
+                throw;
             }
         }
 
-        //DI SETUP
-        var collection = new ServiceCollection();
-        collection.AddCommonServices();
-        var services = collection.BuildServiceProvider();
-
-        //LOGGING
-        SetupLogging(services.GetRequiredService<ListSink>());
-
         //GETTING SERVICES
-        vm = services.GetRequiredService<MainViewModel>();
         var settings = services.GetRequiredService<SettingsManager>();
         var listener = services.GetRequiredService<NetworkListenerService>();
         var uploader = services.GetRequiredService<Uploader>();
@@ -90,6 +87,7 @@ public partial class App : Application
         var achievementsService = services.GetRequiredService<AchievementsService>();
         var idleService = services.GetRequiredService<IdleService>();
         var authService = services.GetRequiredService<AuthService>();
+        var gatheringTracker = services.GetRequiredService<GatheringTrackerService>();
 
         //INITIALIZE SETTINGS
         await settings.InitializeSettings();
@@ -129,15 +127,6 @@ public partial class App : Application
         //AFM UPLOADER
         afmUploader.Initialize();
 
-        //LISTENER
-        _ = listener.StartNetworkListeningAsync().ContinueWith(t =>
-        {
-            if (t.IsFaulted)
-            {
-                Log.Error(t.Exception, "Error in listener, exception: {exception}", t.Exception);
-            }
-        });
-
         //IDLE SERVICE
         _ = idleService.ExecuteAsync().ContinueWith(t =>
         {
@@ -159,7 +148,21 @@ public partial class App : Application
         //INITIALIZE LOCATIONS
         await AlbionLocations.InitializeAsync();
 
+        //RESTORE GATHERING SESSION BEFORE PACKETS ARRIVE
+        await gatheringTracker.InitializeSessionRecoveryAsync();
+
         //VIEWMODEL
+        vm = services.GetRequiredService<MainViewModel>();
+
+        //LISTENER
+        _ = listener.StartNetworkListeningAsync().ContinueWith(t =>
+        {
+            if (t.IsFaulted)
+            {
+                Log.Error(t.Exception, "Error in listener, exception: {exception}", t.Exception);
+            }
+        });
+
         this.DataContext = vm;
 
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
@@ -261,11 +264,13 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<LocalizationService>();
         collection.AddSingleton<MobsService>();
         collection.AddSingleton<ItemsIdsService>();
+        collection.AddSingleton<ItemImageService>();
         collection.AddSingleton<ItemEstimatedMarketValueService>();
         collection.AddSingleton<AchievementsService>();
         collection.AddSingleton<AuthService>();
         collection.AddSingleton<CsvExportService>();
         collection.AddSingleton<CombatTrackerService>();
+        collection.AddSingleton<GatheringSessionPersistenceService>();
         collection.AddSingleton<GatheringTrackerService>();
         collection.AddSingleton<WindowsStartupService>();
 

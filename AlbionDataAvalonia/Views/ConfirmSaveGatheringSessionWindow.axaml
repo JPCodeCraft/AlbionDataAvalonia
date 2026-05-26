@@ -1,0 +1,29 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        x:Class="AlbionDataAvalonia.Views.ConfirmSaveGatheringSessionWindow"
+        Width="420"
+        SizeToContent="Height"
+        CanResize="False"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Title="Save current session?"
+        Icon="/Assets/logo.ico">
+
+    <StackPanel Margin="20" Spacing="14">
+        <TextBlock Text="Save current session?"
+                   FontSize="18"
+                   FontWeight="DemiBold" />
+
+        <TextBlock Text="This closes the current live gathering/fishing session and saves it to History."
+                   TextWrapping="Wrap"
+                   Opacity="0.85" />
+
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button Content="Cancel" Click="CancelButton_Click" />
+            <Button Content="Save Session" Click="SaveButton_Click" />
+        </StackPanel>
+    </StackPanel>
+</Window>

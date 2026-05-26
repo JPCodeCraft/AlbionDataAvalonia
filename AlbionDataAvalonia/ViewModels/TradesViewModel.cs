@@ -1,8 +1,11 @@
 ﻿using AlbionDataAvalonia.Locations;
+using AlbionDataAvalonia.Items.Services;
+using AlbionDataAvalonia.Locations.Models;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -24,6 +27,7 @@ public partial class TradesViewModel : ViewModelBase
     private readonly PlayerState _playerState;
     private readonly TradeService _tradeService;
     private readonly CsvExportService _csvExportService;
+    private readonly ItemImageService? _itemImageService;
     private readonly TimeSpan _filterDebounceInterval = TimeSpan.FromMilliseconds(250);
     private IDisposable? _pendingFilterRefreshRegistration;
     private static readonly IReadOnlyList<NumericOption> _tradesToLoadOptions = NumericOptions.MailAndTradeLoadOptions;
@@ -49,8 +53,8 @@ public partial class TradesViewModel : ViewModelBase
     [ObservableProperty]
     private decimal selectedAverageSilver;
 
-    private ObservableCollection<Trade> trades = new();
-    public ObservableCollection<Trade> Trades
+    private ObservableCollection<TradeRowViewModel> trades = new();
+    public ObservableCollection<TradeRowViewModel> Trades
     {
         get { return trades; }
         set { SetProperty(ref trades, value); }
@@ -122,12 +126,18 @@ public partial class TradesViewModel : ViewModelBase
     {
     }
 
-    public TradesViewModel(SettingsManager settingsManager, PlayerState playerState, TradeService tradeService, CsvExportService csvExportService)
+    public TradesViewModel(
+        SettingsManager settingsManager,
+        PlayerState playerState,
+        TradeService tradeService,
+        CsvExportService csvExportService,
+        ItemImageService itemImageService)
     {
         _settingsManager = settingsManager;
         _playerState = playerState;
         _tradeService = tradeService;
         _csvExportService = csvExportService;
+        _itemImageService = itemImageService;
 
         _tradeService.OnTradeAdded += HandleTradeAdded;
         _settingsManager.UserSettings.PropertyChanged += OnUserSettingsPropertyChanged;
@@ -186,12 +196,35 @@ public partial class TradesViewModel : ViewModelBase
         {
             filteredList = UnfilteredTrades;
         }
-        Trades = new ObservableCollection<Trade>(filteredList.OrderByDescending(x => x.DateTime).Take(_settingsManager.UserSettings.TradesToShow));
+        var rows = filteredList
+            .OrderByDescending(x => x.DateTime)
+            .Take(_settingsManager.UserSettings.TradesToShow)
+            .Select(CreateRow)
+            .ToList();
+        Trades = new ObservableCollection<TradeRowViewModel>(rows);
     }
 
-    public void UpdateSelectedTrades(IEnumerable<Trade> selected)
+    private TradeRowViewModel CreateRow(Trade trade)
     {
-        var selectedTrades = selected?.ToList() ?? new List<Trade>();
+        var row = new TradeRowViewModel(trade);
+        _ = LoadItemImageAsync(row);
+        return row;
+    }
+
+    private async Task LoadItemImageAsync(TradeRowViewModel row)
+    {
+        if (_itemImageService is null)
+        {
+            return;
+        }
+
+        var image = await _itemImageService.GetItemImageAsync(row.ItemId, row.ImageQuality);
+        await Dispatcher.UIThread.InvokeAsync(() => row.ItemImage = image);
+    }
+
+    public void UpdateSelectedTrades(IEnumerable<TradeRowViewModel> selected)
+    {
+        var selectedTrades = selected?.ToList() ?? new List<TradeRowViewModel>();
         if (selectedTrades.Count == 0)
         {
             HasSelectedRows = false;
@@ -284,5 +317,37 @@ public partial class TradesViewModel : ViewModelBase
     {
         _pendingFilterRefreshRegistration?.Dispose();
         _pendingFilterRefreshRegistration = null;
+    }
+}
+
+public sealed class TradeRowViewModel : ObservableObject
+{
+    private Bitmap? itemImage;
+
+    public TradeRowViewModel(Trade trade)
+    {
+        Source = trade;
+    }
+
+    public Trade Source { get; }
+    public string PlayerName => Source.PlayerName;
+    public DateTime DateTime => Source.DateTime;
+    public AlbionServer? Server => Source.Server;
+    public string TradeTypeFormatted => Source.TradeTypeFormatted;
+    public string TradeOperationFormatted => Source.TradeOperationFormatted;
+    public string QualityLevelFormatted => Source.QualityLevelFormatted;
+    public string ItemName => Source.ItemName;
+    public AlbionLocation? Location => Source.Location;
+    public int Amount => Source.Amount;
+    public string ItemId => Source.ItemId;
+    public byte QualityLevel => Source.QualityLevel;
+    public int ImageQuality => QualityLevel > 0 ? QualityLevel : 1;
+    public double UnitSilver => Source.UnitSilver;
+    public ulong TotalSilver => Source.TotalSilver;
+
+    public Bitmap? ItemImage
+    {
+        get => itemImage;
+        set => SetProperty(ref itemImage, value);
     }
 }
