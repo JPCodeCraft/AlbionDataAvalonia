@@ -91,8 +91,7 @@ namespace AlbionDataAvalonia.Network.Services
                     return;
                 }
 
-                var ips = AlbionServers.GetAll().Select(s => $"host {s.HostIp}");
-                var filter = $"({string.Join(" or ", ips)}) and {_settingsManager.AppSettings.PacketFilterPortText}";
+                var filter = _settingsManager.AppSettings.PacketFilterPortText;
 
                 ReceiverBuilder builder = ReceiverBuilder.Create();
 
@@ -263,7 +262,7 @@ namespace AlbionDataAvalonia.Network.Services
                         Log.Verbose("Packet Source IP null or empty, ignoring");
                         return;
                     }
-                    var server = AlbionServers.GetAll().SingleOrDefault(x => srcIp.Contains(x.HostIp));
+                    var server = AlbionServers.GetAll().SingleOrDefault(x => x.HostIps.Any(prefix => srcIp.StartsWith(prefix)));
                     if (server is not null)
                     {
                         //Log.Verbose("Packet from {server} server from IP {ip}", server.Name, srcIp);
