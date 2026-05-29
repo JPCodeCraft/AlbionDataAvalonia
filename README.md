@@ -5,7 +5,7 @@
 
 ## ⚠️ ATTENTION
 
-After instalation, the Data Client will be minimized in system tray!
+After installation, the Data Client will be minimized in system tray!
 
 ![image](https://github.com/user-attachments/assets/7093690e-5735-4636-bc69-7d00e57f7d57)
 
