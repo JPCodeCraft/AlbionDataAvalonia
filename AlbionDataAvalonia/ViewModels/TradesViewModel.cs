@@ -1,11 +1,9 @@
 ﻿using AlbionDataAvalonia.Locations;
-using AlbionDataAvalonia.Items.Services;
 using AlbionDataAvalonia.Locations.Models;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
-using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -27,9 +25,10 @@ public partial class TradesViewModel : ViewModelBase
     private readonly PlayerState _playerState;
     private readonly TradeService _tradeService;
     private readonly CsvExportService _csvExportService;
-    private readonly ItemImageService? _itemImageService;
     private readonly TimeSpan _filterDebounceInterval = TimeSpan.FromMilliseconds(250);
+    private readonly TimeSpan _loadDebounceInterval = TimeSpan.FromMilliseconds(100);
     private IDisposable? _pendingFilterRefreshRegistration;
+    private IDisposable? _pendingLoadTradesRegistration;
     private static readonly IReadOnlyList<NumericOption> _tradesToLoadOptions = NumericOptions.MailAndTradeLoadOptions;
 
     [ObservableProperty]
@@ -111,16 +110,16 @@ public partial class TradesViewModel : ViewModelBase
             if (_settingsManager.UserSettings.TradesToShow != value.Value)
             {
                 _settingsManager.UserSettings.TradesToShow = value.Value;
-                Task.Run(() => LoadTrades());
+                ScheduleLoadTrades();
             }
         }
     }
 
     partial void OnFilterTextChanged(string? oldValue, string newValue) => ScheduleFilterTrades();
-    partial void OnSelectedLocationChanged(string? oldValue, string newValue) => Task.Run(() => LoadTrades());
-    partial void OnSelectedOperationChanged(string? oldValue, string newValue) => Task.Run(() => LoadTrades());
-    partial void OnSelectedTradeTypeChanged(string? oldValue, string newValue) => Task.Run(() => LoadTrades());
-    partial void OnSelectedServerChanged(string? oldValue, string newValue) => Task.Run(() => LoadTrades());
+    partial void OnSelectedLocationChanged(string? oldValue, string newValue) => QueueLoadTradesForSelectionChange(oldValue, newValue);
+    partial void OnSelectedOperationChanged(string? oldValue, string newValue) => QueueLoadTradesForSelectionChange(oldValue, newValue);
+    partial void OnSelectedTradeTypeChanged(string? oldValue, string newValue) => QueueLoadTradesForSelectionChange(oldValue, newValue);
+    partial void OnSelectedServerChanged(string? oldValue, string newValue) => QueueLoadTradesForSelectionChange(oldValue, newValue);
 
     public TradesViewModel()
     {
@@ -130,14 +129,12 @@ public partial class TradesViewModel : ViewModelBase
         SettingsManager settingsManager,
         PlayerState playerState,
         TradeService tradeService,
-        CsvExportService csvExportService,
-        ItemImageService itemImageService)
+        CsvExportService csvExportService)
     {
         _settingsManager = settingsManager;
         _playerState = playerState;
         _tradeService = tradeService;
         _csvExportService = csvExportService;
-        _itemImageService = itemImageService;
 
         _tradeService.OnTradeAdded += HandleTradeAdded;
         _settingsManager.UserSettings.PropertyChanged += OnUserSettingsPropertyChanged;
@@ -152,7 +149,6 @@ public partial class TradesViewModel : ViewModelBase
             if (SelectedServer != currentServer)
             {
                 SelectedServer = currentServer;
-                Task.Run(() => LoadTrades());
             }
         };
     }
@@ -162,24 +158,25 @@ public partial class TradesViewModel : ViewModelBase
     {
         try
         {
-            var location = AlbionLocations.Get(SelectedLocation);
-            AlbionServers.TryParse(SelectedServer, out AlbionServer? server);
-            TradeType? tradeType = SelectedTradeType == "Instant" ? TradeType.Instant : SelectedTradeType == "Order" ? TradeType.Order : null;
-            TradeOperation? tradeOperation = SelectedOperation == "Sold" ? TradeOperation.Sell : SelectedOperation == "Bought" ? TradeOperation.Buy : null;
+            var filter = GetCurrentTradeFilter();
 
-            UnfilteredTrades = await _tradeService.GetTrades(_settingsManager.UserSettings.TradesToShow, 0, server?.Id ?? null, false, location?.IdInt ?? null, tradeType, tradeOperation);
-            CancelPendingFilterRefresh();
-            FilterTrades();
+            var loadedTrades = await _tradeService.GetTrades(_settingsManager.UserSettings.TradesToShow, 0, filter.AlbionServerId, false, filter.LocationId, filter.TradeType, filter.TradeOperation);
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                UnfilteredTrades = loadedTrades;
+                CancelPendingFilterRefresh();
+                FilterTrades();
+            });
         }
-        catch
+        catch (Exception ex)
         {
-            Log.Error("Failed to load trades");
+            Log.Error(ex, "Failed to load trades");
         }
     }
 
-    private async void HandleTradeAdded(Trade trade)
+    private void HandleTradeAdded(Trade trade)
     {
-        await LoadTrades();
+        ScheduleLoadTrades();
     }
 
     private void FilterTrades()
@@ -199,28 +196,79 @@ public partial class TradesViewModel : ViewModelBase
         var rows = filteredList
             .OrderByDescending(x => x.DateTime)
             .Take(_settingsManager.UserSettings.TradesToShow)
-            .Select(CreateRow)
+            .Select(trade => new TradeRowViewModel(trade))
             .ToList();
+
         Trades = new ObservableCollection<TradeRowViewModel>(rows);
     }
 
-    private TradeRowViewModel CreateRow(Trade trade)
+    private void QueueLoadTradesForSelectionChange(string? oldValue, string? newValue)
     {
-        var row = new TradeRowViewModel(trade);
-        _ = LoadItemImageAsync(row);
-        return row;
-    }
-
-    private async Task LoadItemImageAsync(TradeRowViewModel row)
-    {
-        if (_itemImageService is null)
+        if (string.IsNullOrWhiteSpace(newValue) || string.Equals(oldValue, newValue, StringComparison.Ordinal))
         {
             return;
         }
 
-        var image = await _itemImageService.GetItemImageAsync(row.ItemId, row.ImageQuality);
-        await Dispatcher.UIThread.InvokeAsync(() => row.ItemImage = image);
+        ScheduleLoadTrades();
     }
+
+    private void ScheduleLoadTrades()
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(ScheduleLoadTrades);
+            return;
+        }
+
+        _pendingLoadTradesRegistration?.Dispose();
+        _pendingLoadTradesRegistration = DispatcherTimer.RunOnce(() =>
+        {
+            _pendingLoadTradesRegistration = null;
+            _ = LoadTrades();
+        }, _loadDebounceInterval);
+    }
+
+    private string GetSelectedLocation()
+    {
+        return string.IsNullOrWhiteSpace(SelectedLocation) ? "Any" : SelectedLocation;
+    }
+
+    private string GetSelectedOperation()
+    {
+        return string.IsNullOrWhiteSpace(SelectedOperation) ? "Any" : SelectedOperation;
+    }
+
+    private string GetSelectedTradeType()
+    {
+        return string.IsNullOrWhiteSpace(SelectedTradeType) ? "Any" : SelectedTradeType;
+    }
+
+    private string GetSelectedServer()
+    {
+        return string.IsNullOrWhiteSpace(SelectedServer) ? "Any" : SelectedServer;
+    }
+
+    private CurrentTradeFilter GetCurrentTradeFilter()
+    {
+        var location = AlbionLocations.Get(GetSelectedLocation());
+        AlbionServers.TryParse(GetSelectedServer(), out AlbionServer? server);
+        var selectedTradeType = GetSelectedTradeType();
+        var selectedOperation = GetSelectedOperation();
+        TradeType? tradeType = selectedTradeType == "Instant"
+            ? TradeType.Instant
+            : selectedTradeType == "Order"
+                ? TradeType.Order
+                : null;
+        TradeOperation? tradeOperation = selectedOperation == "Sold"
+            ? TradeOperation.Sell
+            : selectedOperation == "Bought"
+                ? TradeOperation.Buy
+                : null;
+
+        return new CurrentTradeFilter(server?.Id, location?.IdInt, tradeType, tradeOperation);
+    }
+
+    private readonly record struct CurrentTradeFilter(int? AlbionServerId, int? LocationId, TradeType? TradeType, TradeOperation? TradeOperation);
 
     public void UpdateSelectedTrades(IEnumerable<TradeRowViewModel> selected)
     {
@@ -322,8 +370,6 @@ public partial class TradesViewModel : ViewModelBase
 
 public sealed class TradeRowViewModel : ObservableObject
 {
-    private Bitmap? itemImage;
-
     public TradeRowViewModel(Trade trade)
     {
         Source = trade;
@@ -344,10 +390,4 @@ public sealed class TradeRowViewModel : ObservableObject
     public int ImageQuality => QualityLevel > 0 ? QualityLevel : 1;
     public double UnitSilver => Source.UnitSilver;
     public ulong TotalSilver => Source.TotalSilver;
-
-    public Bitmap? ItemImage
-    {
-        get => itemImage;
-        set => SetProperty(ref itemImage, value);
-    }
 }

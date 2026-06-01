@@ -6,6 +6,7 @@
 			 xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
              x:Class="AlbionDataAvalonia.Views.MailsView"
 			 x:DataType="vm:MailsViewModel"
+             xmlns:items="clr-namespace:AlbionDataAvalonia.Items"
 			 xmlns:model="using:AlbionDataAvalonia.Network.Models">
 
 	<UserControl.Styles>
@@ -142,7 +143,9 @@
 					<DataGridTemplateColumn.CellTemplate>
 						<DataTemplate>
 							<StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-								<Image Width="30" Height="30" Source="{Binding ItemImage}" Stretch="Uniform" />
+								<Image Width="30" Height="30" Stretch="Uniform"
+                                       items:LazyItemImage.ItemUniqueName="{Binding ItemId}"
+                                       items:LazyItemImage.Quality="{Binding ImageQuality}" />
 								<TextBlock Text="{Binding ItemName}" VerticalAlignment="Center" />
 							</StackPanel>
 						</DataTemplate>

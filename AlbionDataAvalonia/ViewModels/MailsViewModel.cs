@@ -1,11 +1,9 @@
 ﻿using AlbionDataAvalonia.Locations;
-using AlbionDataAvalonia.Items.Services;
 using AlbionDataAvalonia.Locations.Models;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
-using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -27,9 +25,10 @@ public partial class MailsViewModel : ViewModelBase
     private readonly PlayerState _playerState;
     private readonly MailService _mailService;
     private readonly CsvExportService _csvExportService;
-    private readonly ItemImageService? _itemImageService;
     private readonly TimeSpan _filterDebounceInterval = TimeSpan.FromMilliseconds(250);
+    private readonly TimeSpan _loadDebounceInterval = TimeSpan.FromMilliseconds(100);
     private IDisposable? _pendingFilterRefreshRegistration;
+    private IDisposable? _pendingLoadMailsRegistration;
     private static readonly IReadOnlyList<NumericOption> _mailsToLoadOptions = NumericOptions.MailAndTradeLoadOptions;
 
     [ObservableProperty]
@@ -107,15 +106,15 @@ public partial class MailsViewModel : ViewModelBase
             if (_settingsManager.UserSettings.MailsPerPage != value.Value)
             {
                 _settingsManager.UserSettings.MailsPerPage = value.Value;
-                Task.Run(() => LoadMails());
+                ScheduleLoadMails();
             }
         }
     }
 
     partial void OnFilterTextChanged(string? oldValue, string newValue) => ScheduleFilterMails();
-    partial void OnSelectedLocationChanged(string? oldValue, string newValue) => Task.Run(() => LoadMails());
-    partial void OnSelectedTypeChanged(string? oldValue, string newValue) => Task.Run(() => LoadMails());
-    partial void OnSelectedServerChanged(string? oldValue, string newValue) => Task.Run(() => LoadMails());
+    partial void OnSelectedLocationChanged(string? oldValue, string newValue) => QueueLoadMailsForSelectionChange(oldValue, newValue);
+    partial void OnSelectedTypeChanged(string? oldValue, string newValue) => QueueLoadMailsForSelectionChange(oldValue, newValue);
+    partial void OnSelectedServerChanged(string? oldValue, string newValue) => QueueLoadMailsForSelectionChange(oldValue, newValue);
 
     public MailsViewModel()
     {
@@ -125,14 +124,12 @@ public partial class MailsViewModel : ViewModelBase
         SettingsManager settingsManager,
         PlayerState playerState,
         MailService mailService,
-        CsvExportService csvExportService,
-        ItemImageService itemImageService)
+        CsvExportService csvExportService)
     {
         _settingsManager = settingsManager;
         _playerState = playerState;
         _mailService = mailService;
         _csvExportService = csvExportService;
-        _itemImageService = itemImageService;
 
         _mailService.OnMailAdded += HandleMailAdded;
         _mailService.OnMailDataAdded += HandleMailDataAdded;
@@ -148,7 +145,6 @@ public partial class MailsViewModel : ViewModelBase
             if (SelectedServer != currentServer)
             {
                 SelectedServer = currentServer;
-                Task.Run(() => LoadMails());
             }
         };
     }
@@ -158,28 +154,30 @@ public partial class MailsViewModel : ViewModelBase
     {
         try
         {
-            var location = AlbionLocations.Get(SelectedLocation);
-            AlbionServers.TryParse(SelectedServer, out AlbionServer? server);
-            AuctionType? type = SelectedType == "Sold" ? AuctionType.offer : SelectedType == "Bought" ? AuctionType.request : null;
+            var filter = GetCurrentMailFilter();
 
-            UnfilteredMails = await _mailService.GetMails(_settingsManager.UserSettings.MailsPerPage, 0, server?.Id ?? null, false, location?.IdInt ?? null, type);
-            CancelPendingFilterRefresh();
-            FilterMails();
+            var loadedMails = await _mailService.GetMails(_settingsManager.UserSettings.MailsPerPage, 0, filter.AlbionServerId, false, filter.LocationId, filter.AuctionType);
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                UnfilteredMails = loadedMails;
+                CancelPendingFilterRefresh();
+                FilterMails();
+            });
         }
-        catch
+        catch (Exception ex)
         {
-            Log.Error("Failed to load mails");
+            Log.Error(ex, "Failed to load mails");
         }
     }
 
-    private async void HandleMailAdded(List<AlbionMail> mails)
+    private void HandleMailAdded(List<AlbionMail> mails)
     {
-        await LoadMails();
+        ScheduleLoadMails();
     }
 
-    private async void HandleMailDataAdded(AlbionMail mail)
+    private void HandleMailDataAdded(AlbionMail mail)
     {
-        await LoadMails();
+        ScheduleLoadMails();
     }
 
     private void FilterMails()
@@ -199,28 +197,68 @@ public partial class MailsViewModel : ViewModelBase
         var rows = filteredList
             .OrderByDescending(x => x.Received)
             .Take(_settingsManager.UserSettings.MailsPerPage)
-            .Select(CreateRow)
+            .Select(mail => new MailRowViewModel(mail))
             .ToList();
+
         Mails = new ObservableCollection<MailRowViewModel>(rows);
     }
 
-    private MailRowViewModel CreateRow(AlbionMail mail)
+    private void QueueLoadMailsForSelectionChange(string? oldValue, string? newValue)
     {
-        var row = new MailRowViewModel(mail);
-        _ = LoadItemImageAsync(row);
-        return row;
-    }
-
-    private async Task LoadItemImageAsync(MailRowViewModel row)
-    {
-        if (_itemImageService is null)
+        if (string.IsNullOrWhiteSpace(newValue) || string.Equals(oldValue, newValue, StringComparison.Ordinal))
         {
             return;
         }
 
-        var image = await _itemImageService.GetItemImageAsync(row.ItemId, row.ImageQuality);
-        await Dispatcher.UIThread.InvokeAsync(() => row.ItemImage = image);
+        ScheduleLoadMails();
     }
+
+    private void ScheduleLoadMails()
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(ScheduleLoadMails);
+            return;
+        }
+
+        _pendingLoadMailsRegistration?.Dispose();
+        _pendingLoadMailsRegistration = DispatcherTimer.RunOnce(() =>
+        {
+            _pendingLoadMailsRegistration = null;
+            _ = LoadMails();
+        }, _loadDebounceInterval);
+    }
+
+    private string GetSelectedLocation()
+    {
+        return string.IsNullOrWhiteSpace(SelectedLocation) ? "Any" : SelectedLocation;
+    }
+
+    private string GetSelectedType()
+    {
+        return string.IsNullOrWhiteSpace(SelectedType) ? "Any" : SelectedType;
+    }
+
+    private string GetSelectedServer()
+    {
+        return string.IsNullOrWhiteSpace(SelectedServer) ? "Any" : SelectedServer;
+    }
+
+    private CurrentMailFilter GetCurrentMailFilter()
+    {
+        var location = AlbionLocations.Get(GetSelectedLocation());
+        AlbionServers.TryParse(GetSelectedServer(), out AlbionServer? server);
+        var selectedType = GetSelectedType();
+        AuctionType? auctionType = selectedType == "Sold"
+            ? AuctionType.offer
+            : selectedType == "Bought"
+                ? AuctionType.request
+                : null;
+
+        return new CurrentMailFilter(server?.Id, location?.IdInt, auctionType);
+    }
+
+    private readonly record struct CurrentMailFilter(int? AlbionServerId, int? LocationId, AuctionType? AuctionType);
 
     public void UpdateSelectedMails(IEnumerable<MailRowViewModel> selected)
     {
@@ -322,8 +360,6 @@ public partial class MailsViewModel : ViewModelBase
 
 public sealed class MailRowViewModel : ObservableObject
 {
-    private Bitmap? itemImage;
-
     public MailRowViewModel(AlbionMail mail)
     {
         Source = mail;
@@ -342,10 +378,4 @@ public sealed class MailRowViewModel : ObservableObject
     public int ImageQuality => 1;
     public double UnitSilver => Source.UnitSilver;
     public long TotalSilver => Source.TotalSilver;
-
-    public Bitmap? ItemImage
-    {
-        get => itemImage;
-        set => SetProperty(ref itemImage, value);
-    }
 }

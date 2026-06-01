@@ -68,12 +68,7 @@ public class TradeService
 
                 var result = await query.OrderByDescending(x => x.DateTime).AsNoTracking().Skip(countPerPage * pageNumber).Take(countPerPage).ToListAsync();
 
-                foreach (var trade in result)
-                {
-                    trade.Server = AlbionServers.Get(trade.AlbionServerId ?? 0);
-                    trade.Location = AlbionLocations.GetByIntId(trade.LocationId);
-                    trade.ItemName = _localizationService.GetUsName(trade.ItemId);
-                }
+                SetTradeProperties(result);
 
                 Log.Debug("Loaded {Count} trades", result.Count);
 
@@ -95,6 +90,8 @@ public class TradeService
             {
                 await db.Trades.AddAsync(trade);
                 await db.SaveChangesAsync();
+
+                SetTradeProperties(trade);
 
                 OnTradeAdded?.Invoke(trade);
 
@@ -190,5 +187,20 @@ public class TradeService
         var trade = new Trade(mail);
         await AddTradeToDb(trade);
         Log.Debug("Added trade from mail: {TradeId}", trade.Id);
+    }
+
+    private void SetTradeProperties(List<Trade> trades)
+    {
+        foreach (var trade in trades)
+        {
+            SetTradeProperties(trade);
+        }
+    }
+
+    private void SetTradeProperties(Trade trade)
+    {
+        trade.Server = AlbionServers.Get(trade.AlbionServerId ?? 0);
+        trade.Location = AlbionLocations.GetByIntId(trade.LocationId);
+        trade.ItemName = _localizationService.GetUsName(trade.ItemId);
     }
 }

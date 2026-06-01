@@ -2,6 +2,7 @@
 using AlbionDataAvalonia.Combat;
 using AlbionDataAvalonia.DB;
 using AlbionDataAvalonia.Gathering;
+using AlbionDataAvalonia.Items;
 using AlbionDataAvalonia.Items.Services;
 using AlbionDataAvalonia.Locations;
 using AlbionDataAvalonia.Logging;
@@ -57,6 +58,7 @@ public partial class App : Application
         var collection = new ServiceCollection();
         collection.AddCommonServices();
         var services = collection.BuildServiceProvider();
+        LazyItemImage.Configure(services.GetRequiredService<ItemImageService>());
 
         //LOGGING
         SetupLogging(services.GetRequiredService<ListSink>());
