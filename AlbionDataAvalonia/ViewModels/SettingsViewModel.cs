@@ -151,6 +151,7 @@ public partial class SettingsViewModel : ViewModelBase
     public int PowSolveWindowSize => _playerState?.PowSolveWindowSize ?? 0;
     public int MaxSharedFriends => MaxSharedFriendsLimit;
     public string SharedFriendsLimitText => $"{SharedUsers.Count} / {MaxSharedFriendsLimit} friends";
+    public string RedactedCurrentFirebaseUserId => RedactUserId(CurrentFirebaseUserId);
     public bool IsWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
     public bool CanUseSharingSettings => IsUserLoggedIn && !IsSharingBusy;
     public bool CanAddSharedUser => CanUseSharingSettings && SharedUsers.Count < MaxSharedFriendsLimit;
@@ -424,6 +425,11 @@ public partial class SettingsViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanAddSharedUser));
     }
 
+    partial void OnCurrentFirebaseUserIdChanged(string value)
+    {
+        OnPropertyChanged(nameof(RedactedCurrentFirebaseUserId));
+    }
+
     partial void OnIsSharingBusyChanged(bool value)
     {
         OnPropertyChanged(nameof(CanUseSharingSettings));
@@ -581,6 +587,23 @@ public partial class SettingsViewModel : ViewModelBase
         return value.Contains('@', StringComparison.Ordinal)
             ? $"email:{value.Trim().ToLowerInvariant()}"
             : $"userId:{value.Trim()}";
+    }
+
+    private static string RedactUserId(string value)
+    {
+        if (string.IsNullOrWhiteSpace(value))
+        {
+            return string.Empty;
+        }
+
+        const int visibleStart = 4;
+        const int visibleEnd = 4;
+        if (value.Length <= visibleStart + visibleEnd)
+        {
+            return new string('*', value.Length);
+        }
+
+        return $"{value[..visibleStart]}{new string('*', value.Length - visibleStart - visibleEnd)}{value[^visibleEnd..]}";
     }
 
     private void DebounceCombatEncounterRetentionLimitCommit(int value)

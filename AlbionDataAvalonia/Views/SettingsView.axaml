@@ -136,7 +136,7 @@
                                        VerticalAlignment="Center"
                                        Margin="0,0,8,0" />
                             <TextBlock Grid.Column="1"
-                                   Text="{Binding CurrentFirebaseUserId}"
+                                   Text="{Binding RedactedCurrentFirebaseUserId}"
                                    TextWrapping="Wrap"
                                    VerticalAlignment="Center"
                                    MaxWidth="720" />

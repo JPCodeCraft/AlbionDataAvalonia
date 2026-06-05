@@ -264,11 +264,11 @@
 								<StackPanel>
 									<CheckBox IsChecked="{Binding ContributeToPublic}"
 										IsEnabled="{Binding UploadToAfmOnly}"
-										ToolTip.Tip="If you mark this, the orders you upload will be used by everyone in AFM public flips. If you don't mark this, only you will see the orders you upload."
+										ToolTip.Tip="Adds your private market order uploads to AFM public flip data, so other AFM users can benefit from those prices. Turn this off if the upload should stay private."
 										Margin="0,0,0,5" FontSize="11">Share with Other AFM Users</CheckBox>
 									<CheckBox IsChecked="{Binding ShareWithFriends}"
 										IsEnabled="{Binding UploadToAfmOnly}"
-										ToolTip.Tip="If you mark this, your private market order uploads will be shared with friends who also added you."
+										ToolTip.Tip="Shares your private market order uploads with people in your Sharing list, but only when they added you too. Set up your friends in Settings > Sharing. Recipients get the orders in their private flip data as if they uploaded them."
 										Margin="0,0,0,5" FontSize="11">Share with Friends</CheckBox>
 								</StackPanel>
 							</Border>
