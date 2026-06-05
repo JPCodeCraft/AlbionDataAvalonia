@@ -270,7 +270,7 @@ namespace AlbionDataAvalonia.Network.Services
                         //Log.Verbose("Packet from {server} server from IP {ip}", server.Name, srcIp);
                         _playerState.AlbionServer = server;
                     }
-                    else if (_unknownServerIps.Add(srcIp))
+                    else if (!IsPrivateIp(srcIp) && _unknownServerIps.Add(srcIp))
                     {
                         Log.Warning("Received packet from unknown IP {Ip} — could not determine Albion server. Known unknown IPs so far: {Ips}", srcIp, string.Join(", ", _unknownServerIps));
                     }
@@ -286,6 +286,17 @@ namespace AlbionDataAvalonia.Network.Services
             {
                 Log.Error(ex, "Error while processing captured Albion packet");
             }
+        }
+
+        private static bool IsPrivateIp(string ip)
+        {
+            return ip.StartsWith("10.") ||
+                   ip.StartsWith("127.") ||
+                   ip.StartsWith("169.254.") ||
+                   ip.StartsWith("192.168.") ||
+                   ip == "::1" ||
+                   (ip.StartsWith("172.") && System.Net.IPAddress.TryParse(ip, out var addr) &&
+                    addr.GetAddressBytes() is var b && b.Length == 4 && b[1] >= 16 && b[1] <= 31);
         }
 
         private void TerminateDeviceCapture(ILiveDevice device)
