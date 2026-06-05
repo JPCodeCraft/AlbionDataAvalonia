@@ -21,6 +21,7 @@ namespace AlbionDataAvalonia.State
 
         private bool uploadToAfmOnly = false;
         private bool contributeToPublic = false;
+        private bool shareWithFriends = false;
         private readonly object banditEventLock = new();
         private DateTime banditEventLastTimeSubmitted = DateTime.MinValue;
         private static readonly TimeSpan BanditEventMinimumInterval = TimeSpan.FromSeconds(60);
@@ -110,6 +111,16 @@ namespace AlbionDataAvalonia.State
                 InvokePlayerStateChanged();
             }
         }
+        public bool ShareWithFriends
+        {
+            get => shareWithFriends;
+            set
+            {
+                if (shareWithFriends == value) return;
+                shareWithFriends = value;
+                InvokePlayerStateChanged();
+            }
+        }
         public bool IsInGame
         {
             get
@@ -142,7 +153,7 @@ namespace AlbionDataAvalonia.State
 
         private void InvokePlayerStateChanged()
         {
-            OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, IsInGame, HasEncryptedData, UploadToAfmOnly, ContributeToPublic));
+            OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, IsInGame, HasEncryptedData, UploadToAfmOnly, ContributeToPublic, ShareWithFriends));
         }
 
         public PlayerState()

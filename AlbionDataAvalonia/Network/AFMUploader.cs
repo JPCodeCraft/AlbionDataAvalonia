@@ -25,6 +25,7 @@ namespace AlbionDataAvalonia.Network.Services
     public class AFMUploader : IDisposable
     {
         private const string FlipperOrdersPath = "flipperOrders";
+        private const string PrivateOrderSharesPath = "privateOrderShares";
         private const string PlayerCountPath = "playercount";
         private const string AchievementsPath = "be/achievements";
         private const string GlobalMultiplierPath = "be/globalMultiplier";
@@ -35,6 +36,12 @@ namespace AlbionDataAvalonia.Network.Services
         private static readonly JsonSerializerOptions AchievementUploadFingerprintSerializerOptions = new()
         {
             PropertyNamingPolicy = JsonNamingPolicy.CamelCase
+        };
+        private static readonly JsonSerializerOptions AfmApiSerializerOptions = new()
+        {
+            PropertyNamingPolicy = JsonNamingPolicy.CamelCase,
+            PropertyNameCaseInsensitive = true,
+            DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingNull
         };
 
         private readonly PlayerState _playerState;
@@ -131,7 +138,7 @@ namespace AlbionDataAvalonia.Network.Services
             var identifier = marketUpload.Identifier;
             var requestUri = httpClient.BaseAddress is null
                 ? null
-                : new Uri(httpClient.BaseAddress, $"{FlipperOrdersPath}?contributeToPublic={_playerState.ContributeToPublic}");
+                : new Uri(httpClient.BaseAddress, $"{FlipperOrdersPath}?contributeToPublic={_playerState.ContributeToPublic}&shareWithFriends={_playerState.ShareWithFriends}");
 
             try
             {
@@ -269,6 +276,146 @@ namespace AlbionDataAvalonia.Network.Services
                     serverId: _playerState.AlbionServer?.Id);
                 return UploadStatus.Failed;
             }
+        }
+
+        public async Task<PrivateOrderSharesResponse?> GetPrivateOrderSharesAsync(CancellationToken cancellationToken = default)
+        {
+            var requestUri = httpClient.BaseAddress is null
+                ? null
+                : new Uri(httpClient.BaseAddress, PrivateOrderSharesPath);
+
+            try
+            {
+                if (!await EnsureReadyForPrivateOrderSharesAsync(requestUri, cancellationToken))
+                {
+                    return null;
+                }
+
+                async Task<HttpResponseMessage> SendAsync()
+                {
+                    return await httpClient.GetAsync(requestUri, cancellationToken);
+                }
+
+                using var response = await SendWithUnauthorizedRecoveryAsync(SendAsync, cancellationToken);
+                if (response is null)
+                {
+                    return null;
+                }
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    await LogPrivateOrderSharesFailure("load", requestUri!, response);
+                    return null;
+                }
+
+                return await response.Content.ReadFromJsonAsync<PrivateOrderSharesResponse>(AfmApiSerializerOptions, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Exception while loading private order shares. RequestUri: {RequestUri}", requestUri);
+                return null;
+            }
+        }
+
+        public async Task<SavePrivateOrderSharesResponse?> SavePrivateOrderSharesAsync(IEnumerable<string> sharedUsers, CancellationToken cancellationToken = default)
+        {
+            var requestUri = httpClient.BaseAddress is null
+                ? null
+                : new Uri(httpClient.BaseAddress, PrivateOrderSharesPath);
+
+            try
+            {
+                if (!await EnsureReadyForPrivateOrderSharesAsync(requestUri, cancellationToken))
+                {
+                    return null;
+                }
+
+                var payload = new PrivateOrderSharesRequest
+                {
+                    SharedUsers = sharedUsers.ToList()
+                };
+
+                async Task<HttpResponseMessage> SendAsync()
+                {
+                    return await httpClient.PutAsJsonAsync(requestUri, payload, AfmApiSerializerOptions, cancellationToken);
+                }
+
+                using var response = await SendWithUnauthorizedRecoveryAsync(SendAsync, cancellationToken);
+                if (response is null)
+                {
+                    return null;
+                }
+
+                if (!response.IsSuccessStatusCode)
+                {
+                    await LogPrivateOrderSharesFailure("save", requestUri!, response);
+                    return null;
+                }
+
+                return await response.Content.ReadFromJsonAsync<SavePrivateOrderSharesResponse>(AfmApiSerializerOptions, cancellationToken);
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Exception while saving private order shares. RequestUri: {RequestUri}", requestUri);
+                return null;
+            }
+        }
+
+        private async Task<bool> EnsureReadyForPrivateOrderSharesAsync(Uri? requestUri, CancellationToken cancellationToken)
+        {
+            if (requestUri is null)
+            {
+                Log.Error("Cannot access private order shares because AFM base address is not initialized.");
+                return false;
+            }
+
+            var hasValidToken = await _authService.EnsureValidTokenAsync(cancellationToken: cancellationToken);
+            if (!hasValidToken)
+            {
+                Log.Error("Cannot access private order shares without a valid Firebase session.");
+                return false;
+            }
+
+            if (_authService.FirebaseUserId is null)
+            {
+                Log.Error("Cannot access private order shares without a Firebase user ID.");
+                return false;
+            }
+
+            return true;
+        }
+
+        private async Task<HttpResponseMessage?> SendWithUnauthorizedRecoveryAsync(
+            Func<Task<HttpResponseMessage>> sendAsync,
+            CancellationToken cancellationToken)
+        {
+            var response = await sendAsync();
+            if (response.StatusCode != HttpStatusCode.Unauthorized)
+            {
+                return response;
+            }
+
+            response.Dispose();
+
+            var recovered = await _authService.TryRecoverFromUnauthorizedAsync(cancellationToken);
+            if (!recovered)
+            {
+                Log.Error("Private order shares request could not recover from unauthorized response.");
+                return null;
+            }
+
+            return await sendAsync();
+        }
+
+        private static async Task LogPrivateOrderSharesFailure(string operation, Uri requestUri, HttpResponseMessage response)
+        {
+            var responseBody = await SafeReadResponseBodyAsync(response);
+            Log.Error(
+                "Failed to {Operation} private order shares. RequestUri: {RequestUri}. StatusCode: {StatusCode}. ResponseBody: {ResponseBody}",
+                operation,
+                requestUri,
+                response.StatusCode,
+                responseBody);
         }
 
         public void UploadPlayerCount(PlayerCount playerCount)

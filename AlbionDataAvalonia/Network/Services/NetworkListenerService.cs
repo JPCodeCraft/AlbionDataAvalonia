@@ -12,6 +12,7 @@ using PhotonPackageParser;
 using Serilog;
 using SharpPcap;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -22,6 +23,7 @@ namespace AlbionDataAvalonia.Network.Services
     {
         private static readonly object deviceCLeanLock = new object();
         private static readonly object listenLock = new object();
+        private readonly HashSet<string> _unknownServerIps = new HashSet<string>();
 
         private readonly Uploader _uploader;
         private readonly AFMUploader _afmUploader;
@@ -267,6 +269,10 @@ namespace AlbionDataAvalonia.Network.Services
                     {
                         //Log.Verbose("Packet from {server} server from IP {ip}", server.Name, srcIp);
                         _playerState.AlbionServer = server;
+                    }
+                    else if (_unknownServerIps.Add(srcIp))
+                    {
+                        Log.Warning("Received packet from unknown IP {Ip} — could not determine Albion server. Known unknown IPs so far: {Ips}", srcIp, string.Join(", ", _unknownServerIps));
                     }
                     var packetStatus = receiver.ReceivePacket(packet.PayloadData);
                     if (packetStatus == PacketStatus.Encrypted)

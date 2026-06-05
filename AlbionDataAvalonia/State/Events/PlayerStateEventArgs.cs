@@ -13,7 +13,8 @@ namespace AlbionDataAvalonia.State.Events
         public bool HasEncryptedData { get; set; }
         public bool UploadToAfmOnly { get; set; }
         public bool ContributeToPublic { get; set; }
-        public PlayerStateEventArgs(AlbionLocation location, string name, AlbionServer? albionServer, bool isInGame, bool hasEncryptedData, bool uploadToAfmOnly, bool contributeToPublic)
+        public bool ShareWithFriends { get; set; }
+        public PlayerStateEventArgs(AlbionLocation location, string name, AlbionServer? albionServer, bool isInGame, bool hasEncryptedData, bool uploadToAfmOnly, bool contributeToPublic, bool shareWithFriends)
         {
             Location = location;
             Name = name;
@@ -22,6 +23,7 @@ namespace AlbionDataAvalonia.State.Events
             HasEncryptedData = hasEncryptedData;
             UploadToAfmOnly = uploadToAfmOnly;
             ContributeToPublic = contributeToPublic;
+            ShareWithFriends = shareWithFriends;
         }
     }
 }

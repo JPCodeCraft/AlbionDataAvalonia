@@ -73,6 +73,14 @@ public partial class MainViewModel : ViewModelBase
     {
         _playerState.ContributeToPublic = value;
     }
+
+    [ObservableProperty]
+    private bool shareWithFriends = false;
+
+    partial void OnShareWithFriendsChanged(bool value)
+    {
+        _playerState.ShareWithFriends = value;
+    }
     
     [ObservableProperty]
     private UserSettings userSettings;
@@ -295,6 +303,7 @@ public partial class MainViewModel : ViewModelBase
         AlbionServerName = e.AlbionServer?.Name ?? "Unknown";
         UploadToAfmOnly = e.UploadToAfmOnly;
         ContributeToPublic = e.ContributeToPublic;
+        ShareWithFriends = e.ShareWithFriends;
 
         UpdateVisibilities();
         RefreshSidebarStatus();

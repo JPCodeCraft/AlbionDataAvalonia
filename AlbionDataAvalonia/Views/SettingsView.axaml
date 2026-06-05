@@ -2,169 +2,285 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-			 xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
+             xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="AlbionDataAvalonia.Views.SettingsView"
-			 x:DataType="vm:SettingsViewModel">
+             x:Name="SettingsRoot"
+             x:DataType="vm:SettingsViewModel">
 
-	<ScrollViewer Padding="0, 0, 20, 20">
-		<StackPanel Spacing="24">
+    <TabControl Margin="0,0,20,20">
+        <TabItem Header="General">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Spacing="16" Margin="0,14,0,0">
+                    <WrapPanel Orientation="Horizontal">
+                        <CheckBox Content="Start with Windows"
+                                  IsChecked="{Binding UserSettings.StartWithWindows}"
+                                  IsVisible="{Binding IsWindows}"
+                                  Margin="0,0,28,8" />
+                        <CheckBox Content="Minimize button hides window to system tray"
+                                  IsChecked="{Binding UserSettings.MinimizeButtonMinimizesToTray}"
+                                  Margin="0,0,28,8" />
+                        <CheckBox Content="Close button hides window to system tray"
+                                  IsChecked="{Binding CloseButtonHidesToTray}"
+                                  Margin="0,0,28,8" />
+                    </WrapPanel>
 
-			<StackPanel Spacing="10">
-				<TextBlock Text="General" FontSize="16" FontWeight="SemiBold" />
-				<WrapPanel Orientation="Horizontal">
-					<CheckBox Content="Start with Windows"
-							  IsChecked="{Binding UserSettings.StartWithWindows}"
-							  IsVisible="{Binding IsWindows}"
-							  Margin="0,0,28,8" />
-					<CheckBox Content="Minimize button hides window to system tray"
-							  IsChecked="{Binding UserSettings.MinimizeButtonMinimizesToTray}"
-							  Margin="0,0,28,8" />
-					<CheckBox Content="Close button hides window to system tray"
-							  IsChecked="{Binding CloseButtonHidesToTray}"
-							  Margin="0,0,28,8" />
-				</WrapPanel>
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="When AFM Data Client starts:" />
+                        <WrapPanel Orientation="Horizontal">
+                            <RadioButton Content="Display main window"
+                                         GroupName="StartupWindowMode"
+                                         IsChecked="{Binding IsShowMainWindowOnStartup}"
+                                         Margin="0,0,28,8" />
+                            <RadioButton Content="Minimize main window to taskbar"
+                                         GroupName="StartupWindowMode"
+                                         IsChecked="{Binding IsMinimizedToTaskbarOnStartup}"
+                                         Margin="0,0,28,8" />
+                            <RadioButton Content="Hide main window in system tray"
+                                         GroupName="StartupWindowMode"
+                                         IsChecked="{Binding IsHiddenToTrayOnStartup}"
+                                         Margin="0,0,28,8" />
+                        </WrapPanel>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
 
-				<StackPanel Spacing="8" Margin="0,4,0,0">
-					<TextBlock Text="When AFM Data Client starts:" />
-					<WrapPanel Orientation="Horizontal">
-						<RadioButton Content="Display main window"
-									 GroupName="StartupWindowMode"
-									 IsChecked="{Binding IsShowMainWindowOnStartup}"
-									 Margin="0,0,28,8" />
-						<RadioButton Content="Minimize main window to taskbar"
-									 GroupName="StartupWindowMode"
-									 IsChecked="{Binding IsMinimizedToTaskbarOnStartup}"
-									 Margin="0,0,28,8" />
-						<RadioButton Content="Hide main window in system tray"
-									 GroupName="StartupWindowMode"
-									 IsChecked="{Binding IsHiddenToTrayOnStartup}"
-									 Margin="0,0,28,8" />
-					</WrapPanel>
-				</StackPanel>
-			</StackPanel>
+        <TabItem Header="Uploads">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <Grid RowDefinitions="Auto,Auto,*" Margin="0,14,0,0" RowSpacing="18">
+                    <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+                        <TextBlock Text="Parallel uploads" />
+                        <TextBlock Grid.Column="1" Text="{Binding UserSettings.DesiredThreadCount, Mode=OneWay, StringFormat={}{0:N0}}" />
+                    </Grid>
 
-			<StackPanel Spacing="12">
-				<TextBlock Text="Uploads" FontSize="16" FontWeight="SemiBold" />
-				<Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
-					<TextBlock Text="Parallel uploads" />
-					<TextBlock Grid.Column="1" Text="{Binding UserSettings.DesiredThreadCount, Mode=OneWay, StringFormat={}{0:N0}}" />
-				</Grid>
+                    <Slider Grid.Row="1"
+                            Minimum="1"
+                            Maximum="{Binding UserSettings.MaxThreadCount}"
+                            Value="{Binding UserSettings.DesiredThreadCount}"
+                            TickFrequency="1"
+                            IsSnapToTickEnabled="True" />
 
-				<Slider Minimum="1" Maximum="{Binding UserSettings.MaxThreadCount}" Value="{Binding UserSettings.DesiredThreadCount}" TickFrequency="1" IsSnapToTickEnabled="True" />
+                    <Border Grid.Row="2"
+                            Background="{DynamicResource ThemeBackgroundBrush}"
+                            CornerRadius="4"
+                            Padding="12"
+                            BorderBrush="{DynamicResource ThemeBorderMidBrush}"
+                            BorderThickness="1"
+                            VerticalAlignment="Top">
+                        <StackPanel Spacing="8">
+                            <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+                                <TextBlock Text="Pow solve performance" FontWeight="Bold" VerticalAlignment="Center" />
+                                <Button Grid.Column="1" Content="Clear" Command="{Binding ClearPowSolveStatsCommand}" HorizontalAlignment="Right" />
+                            </Grid>
+                            <TextBlock FontSize="12" Opacity="0.8">
+                                <Run Text="Tracking last " />
+                                <Run Text="{Binding PowSolveSampleCount, Mode=OneWay, StringFormat={}{0:N0}}" />
+                                <Run Text=" of " />
+                                <Run Text="{Binding PowSolveWindowSize, Mode=OneWay, StringFormat={}{0:N0}}" />
+                                <Run Text=" solves" />
+                            </TextBlock>
 
-					<Border Background="{DynamicResource ThemeBackgroundBrush}" CornerRadius="4" Padding="12" BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1">
-						<StackPanel Spacing="8">
-							<Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
-								<TextBlock Text="Pow solve performance" FontWeight="Bold" VerticalAlignment="Center" />
-								<Button Grid.Column="1" Content="Clear" Command="{Binding ClearPowSolveStatsCommand}" HorizontalAlignment="Right" />
-							</Grid>
-							<TextBlock FontSize="12" Opacity="0.8">
-							<Run Text="Tracking last " />
-							<Run Text="{Binding PowSolveSampleCount, Mode=OneWay, StringFormat={}{0:N0}}" />
-							<Run Text=" of " />
-							<Run Text="{Binding PowSolveWindowSize, Mode=OneWay, StringFormat={}{0:N0}}" />
-							<Run Text=" solves" />
-						</TextBlock>
+                            <UniformGrid Columns="2" Rows="4" Margin="0,8,0,0">
+                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
+                                <TextBlock Text="Latest:" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding PowSolveTimeLatest, Mode=OneWay, StringFormat={}{0:N0} ms}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="16,0,0,6">
+                                <TextBlock Text="Average:" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding PowSolveTimeAverage, Mode=OneWay, StringFormat={}{0:N1} ms}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
+                                <TextBlock Text="Median:" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding PowSolveTimeMedian, Mode=OneWay, StringFormat={}{0:N0} ms}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="16,0,0,6">
+                                <TextBlock Text="95th percentile:" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding PowSolveTimePercentile95, Mode=OneWay, StringFormat={}{0:N0} ms}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="Min:" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding PowSolveTimeMin, Mode=OneWay, StringFormat={}{0:N0} ms}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="16,0,0,0">
+                                <TextBlock Text="Max:" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding PowSolveTimeMax, Mode=OneWay, StringFormat={}{0:N0} ms}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="Std dev:" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding PowSolveTimeStandardDeviation, Mode=OneWay, StringFormat={}{0:N1} ms}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="16,0,0,0">
+                                <TextBlock Text="Samples:" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding PowSolveSampleCount, Mode=OneWay, StringFormat={}{0:N0}}" />
+                            </StackPanel>
+                            </UniformGrid>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </ScrollViewer>
+        </TabItem>
 
-						<UniformGrid Columns="2" Rows="4" Margin="0,8,0,0">
-							<StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
-								<TextBlock Text="Latest:" FontWeight="SemiBold" />
-								<TextBlock Text="{Binding PowSolveTimeLatest, Mode=OneWay, StringFormat={}{0:N0} ms}" />
-							</StackPanel>
-							<StackPanel Orientation="Horizontal" Spacing="6" Margin="16,0,0,6">
-								<TextBlock Text="Average:" FontWeight="SemiBold" />
-								<TextBlock Text="{Binding PowSolveTimeAverage, Mode=OneWay, StringFormat={}{0:N1} ms}" />
-							</StackPanel>
-							<StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
-								<TextBlock Text="Median:" FontWeight="SemiBold" />
-								<TextBlock Text="{Binding PowSolveTimeMedian, Mode=OneWay, StringFormat={}{0:N0} ms}" />
-							</StackPanel>
-							<StackPanel Orientation="Horizontal" Spacing="6" Margin="16,0,0,6">
-								<TextBlock Text="95th percentile:" FontWeight="SemiBold" />
-								<TextBlock Text="{Binding PowSolveTimePercentile95, Mode=OneWay, StringFormat={}{0:N0} ms}" />
-							</StackPanel>
-							<StackPanel Orientation="Horizontal" Spacing="6">
-								<TextBlock Text="Min:" FontWeight="SemiBold" />
-								<TextBlock Text="{Binding PowSolveTimeMin, Mode=OneWay, StringFormat={}{0:N0} ms}" />
-							</StackPanel>
-							<StackPanel Orientation="Horizontal" Spacing="6" Margin="16,0,0,0">
-								<TextBlock Text="Max:" FontWeight="SemiBold" />
-								<TextBlock Text="{Binding PowSolveTimeMax, Mode=OneWay, StringFormat={}{0:N0} ms}" />
-							</StackPanel>
-							<StackPanel Orientation="Horizontal" Spacing="6">
-								<TextBlock Text="Std dev:" FontWeight="SemiBold" />
-								<TextBlock Text="{Binding PowSolveTimeStandardDeviation, Mode=OneWay, StringFormat={}{0:N1} ms}" />
-							</StackPanel>
-							<StackPanel Orientation="Horizontal" Spacing="6" Margin="16,0,0,0">
-								<TextBlock Text="Samples:" FontWeight="SemiBold" />
-								<TextBlock Text="{Binding PowSolveSampleCount, Mode=OneWay, StringFormat={}{0:N0}}" />
-							</StackPanel>
-						</UniformGrid>
-					</StackPanel>
-				</Border>
-			</StackPanel>
+        <TabItem Header="Sharing">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Spacing="12" Margin="0,14,20,0" HorizontalAlignment="Stretch">
+                    <TextBlock Text="Sign in to manage private sharing settings."
+                               IsVisible="{Binding !IsUserLoggedIn}"
+                               Opacity="0.8" />
 
-			<StackPanel Spacing="10">
-				<TextBlock Text="Combat" FontSize="16" FontWeight="SemiBold" />
-				<WrapPanel Orientation="Horizontal">
-					<CheckBox Content="Disable Combat Tracker"
-							  IsChecked="{Binding UserSettings.DisableCombatTracker}"
-							  Margin="0,0,28,8" />
-				</WrapPanel>
-				<Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
-					<TextBlock Text="Retained encounters" />
-					<TextBlock Grid.Column="1" Text="{Binding PendingCombatEncounterRetentionLimit, Mode=OneWay, StringFormat={}{0:N0}}" />
-				</Grid>
-				<Slider Minimum="50"
-						Maximum="10000"
-						Value="{Binding PendingCombatEncounterRetentionLimit}"
-						TickFrequency="50"
-						IsSnapToTickEnabled="True" />
+                    <StackPanel Spacing="12" IsEnabled="{Binding CanUseSharingSettings}">
+                        <Grid ColumnDefinitions="Auto,Auto,Auto" VerticalAlignment="Center">
+                            <TextBlock Grid.Column="0"
+                                       Text="Your ID:"
+                                       FontWeight="SemiBold"
+                                       VerticalAlignment="Center"
+                                       Margin="0,0,8,0" />
+                            <TextBlock Grid.Column="1"
+                                   Text="{Binding CurrentFirebaseUserId}"
+                                   TextWrapping="Wrap"
+                                   VerticalAlignment="Center"
+                                   MaxWidth="720" />
+                            <Button Grid.Column="2"
+                                    Content="Copy"
+                                    Click="CopyUserIdButton_Click"
+                                    Margin="8,0,0,0" />
+                        </Grid>
 
-				<Border Background="{DynamicResource ThemeBackgroundBrush}" CornerRadius="4" Padding="12" BorderBrush="{DynamicResource ThemeBorderMidBrush}" BorderThickness="1">
-					<StackPanel Spacing="8">
-						<TextBlock Text="Combat tracker statistics" FontWeight="Bold" />
-						<UniformGrid Columns="2" Rows="3" Margin="0,4,0,0">
-							<StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
-								<TextBlock Text="Encounters:" FontWeight="SemiBold" />
-								<TextBlock Text="{Binding CombatRetainedEncounterCount, Mode=OneWay, StringFormat={}{0:N0}}" />
-								<TextBlock Text="/" />
-								<TextBlock Text="{Binding CombatRetentionLimit, Mode=OneWay, StringFormat={}{0:N0}}" />
-							</StackPanel>
-							<StackPanel Orientation="Horizontal" Spacing="6" Margin="16,0,0,6">
-								<TextBlock Text="Known entities:" FontWeight="SemiBold" />
-								<TextBlock Text="{Binding CombatKnownEntityCount, Mode=OneWay, StringFormat={}{0:N0}}" />
-							</StackPanel>
-							<StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
-								<TextBlock Text="Time buckets:" FontWeight="SemiBold" />
-								<TextBlock Text="{Binding CombatTimeBucketCount, Mode=OneWay, StringFormat={}{0:N0}}" />
-							</StackPanel>
-							<StackPanel Orientation="Horizontal" Spacing="6" Margin="16,0,0,6">
-								<TextBlock Text="Participant rows:" FontWeight="SemiBold" />
-								<TextBlock Text="{Binding CombatParticipantTotalCount, Mode=OneWay, StringFormat={}{0:N0}}" />
-							</StackPanel>
-							<StackPanel Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="6">
-								<TextBlock Text="Estimated combat history memory:" FontWeight="SemiBold" />
-								<TextBlock Text="{Binding EstimatedCombatHistoryMemoryText, Mode=OneWay}" />
-							</StackPanel>
-						</UniformGrid>
-					</StackPanel>
-				</Border>
-			</StackPanel>
+                        <TextBlock TextWrapping="Wrap"
+                                   Opacity="0.8"
+                                   HorizontalAlignment="Left"
+                                   Text="Add the people you want to share private uploads with. Sharing works only when they add you too. When sharing is enabled, your private flip uploads are added to their private flip data as if they uploaded those orders themselves. Send them your ID or your email so they can add you." />
 
-			<StackPanel Spacing="10">
-				<TextBlock Text="Gathering" FontSize="16" FontWeight="SemiBold" />
-				<WrapPanel Orientation="Horizontal">
-					<CheckBox Content="Disable Gathering Tracker"
-							  IsChecked="{Binding UserSettings.DisableGatheringTracker}"
-							  Margin="0,0,28,8" />
-				</WrapPanel>
-			</StackPanel>
+                        <TextBlock Text="{Binding SharedFriendsLimitText}"
+                                   FontWeight="SemiBold" />
 
-		</StackPanel>
+                        <Grid ColumnDefinitions="360,Auto" VerticalAlignment="Center" HorizontalAlignment="Left">
+                            <TextBox Grid.Column="0"
+                                     Text="{Binding FriendInput}"
+                                     Watermark="User ID or email" />
+                            <Button Grid.Column="1"
+                                    Content="Add"
+                                    Command="{Binding AddSharedUserCommand}"
+                                    IsEnabled="{Binding CanAddSharedUser}"
+                                    Margin="8,0,0,0" />
+                        </Grid>
 
-	</ScrollViewer>
+                        <ItemsControl ItemsSource="{Binding SharedUsers}">
+                            <ItemsControl.ItemsPanel>
+                                <ItemsPanelTemplate>
+                                    <WrapPanel Orientation="Horizontal" />
+                                </ItemsPanelTemplate>
+                            </ItemsControl.ItemsPanel>
+                            <ItemsControl.ItemTemplate>
+                                <DataTemplate x:DataType="vm:PrivateOrderShareEntryViewModel">
+                                    <Border Background="rgba(255,255,255,0.08)"
+                                            CornerRadius="12"
+                                            Padding="8,4"
+                                            Margin="0,0,8,8"
+                                            BorderBrush="rgba(255,255,255,0.16)"
+                                            BorderThickness="1"
+                                            HorizontalAlignment="Left">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <TextBlock Text="{Binding Value}"
+                                                       TextTrimming="CharacterEllipsis"
+                                                       MaxWidth="280"
+                                                       FontSize="12"
+                                                       VerticalAlignment="Center" />
+                                            <Button Content="x"
+                                                    FontSize="11"
+                                                    Padding="5,0"
+                                                    MinWidth="0"
+                                                    MinHeight="0"
+                                                    Tag="{Binding}"
+                                                    Click="RemoveSharedUserButton_Click" />
+                                        </StackPanel>
+                                    </Border>
+                                </DataTemplate>
+                            </ItemsControl.ItemTemplate>
+                        </ItemsControl>
 
+                        <TextBlock IsVisible="{Binding HasUnresolvedEntries}"
+                                   Text="{Binding SharingStatus}"
+                                   TextWrapping="Wrap"
+                                   Opacity="0.8"
+                                   Foreground="{StaticResource AFMOrange}" />
+                        <TextBlock IsVisible="{Binding HasNormalSharingStatus}"
+                                   Text="{Binding SharingStatus}"
+                                   TextWrapping="Wrap"
+                                   Opacity="0.8" />
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
 
+        <TabItem Header="Combat">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="0,14,0,0" RowSpacing="14">
+                    <WrapPanel Orientation="Horizontal">
+                        <CheckBox Content="Disable Combat Tracker"
+                                  IsChecked="{Binding UserSettings.DisableCombatTracker}"
+                                  Margin="0,0,28,8" />
+                    </WrapPanel>
+
+                    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+                        <TextBlock Text="Retained encounters" />
+                        <TextBlock Grid.Column="1" Text="{Binding PendingCombatEncounterRetentionLimit, Mode=OneWay, StringFormat={}{0:N0}}" />
+                    </Grid>
+
+                    <Slider Grid.Row="2"
+                            Minimum="50"
+                            Maximum="10000"
+                            Value="{Binding PendingCombatEncounterRetentionLimit}"
+                            TickFrequency="50"
+                            IsSnapToTickEnabled="True" />
+
+                    <Border Grid.Row="3"
+                            Background="{DynamicResource ThemeBackgroundBrush}"
+                            CornerRadius="4"
+                            Padding="12"
+                            BorderBrush="{DynamicResource ThemeBorderMidBrush}"
+                            BorderThickness="1"
+                            VerticalAlignment="Top">
+                        <StackPanel Spacing="8">
+                            <TextBlock Text="Combat tracker statistics" FontWeight="Bold" />
+                            <UniformGrid Columns="2" Rows="3" Margin="0,4,0,0">
+                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
+                                <TextBlock Text="Encounters:" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding CombatRetainedEncounterCount, Mode=OneWay, StringFormat={}{0:N0}}" />
+                                <TextBlock Text="/" />
+                                <TextBlock Text="{Binding CombatRetentionLimit, Mode=OneWay, StringFormat={}{0:N0}}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="16,0,0,6">
+                                <TextBlock Text="Known entities:" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding CombatKnownEntityCount, Mode=OneWay, StringFormat={}{0:N0}}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
+                                <TextBlock Text="Time buckets:" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding CombatTimeBucketCount, Mode=OneWay, StringFormat={}{0:N0}}" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="16,0,0,6">
+                                <TextBlock Text="Participant rows:" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding CombatParticipantTotalCount, Mode=OneWay, StringFormat={}{0:N0}}" />
+                            </StackPanel>
+                            <StackPanel Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="6">
+                                <TextBlock Text="Estimated combat history memory:" FontWeight="SemiBold" />
+                                <TextBlock Text="{Binding EstimatedCombatHistoryMemoryText, Mode=OneWay}" />
+                            </StackPanel>
+                            </UniformGrid>
+                        </StackPanel>
+                    </Border>
+                </Grid>
+            </ScrollViewer>
+        </TabItem>
+
+        <TabItem Header="Gathering">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <WrapPanel Orientation="Horizontal" Margin="0,14,0,0">
+                    <CheckBox Content="Disable Gathering Tracker"
+                              IsChecked="{Binding UserSettings.DisableGatheringTracker}"
+                              Margin="0,0,28,8" />
+                </WrapPanel>
+            </ScrollViewer>
+        </TabItem>
+    </TabControl>
 </UserControl>
