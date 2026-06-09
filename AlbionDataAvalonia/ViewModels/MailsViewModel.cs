@@ -61,19 +61,41 @@ public partial class MailsViewModel : ViewModelBase
 
     private List<AlbionMail> UnfilteredMails { get; set; } = new();
 
-    public List<string> Locations
+    private List<string> _locations = ["Any"];
+    public List<string> Locations => _locations;
+
+    private async Task RefreshLocationOptionsAsync()
     {
-        get
+        try
         {
-            var locations = Mails
-                .Select(t => t.Location?.MarketLocation?.FriendlyName ?? t.Location?.FriendlyName)
+            AlbionServers.TryParse(GetSelectedServer(), out AlbionServer? server);
+            var locationIds = await _mailService.GetDistinctLocationIds(server?.Id);
+
+            var locations = locationIds
+                .Select(id => AlbionLocations.ResolveStoredLocation(string.Empty, id))
+                .Select(location => location?.MarketLocation?.FriendlyName ?? location?.FriendlyName)
                 .Where(x => !string.IsNullOrEmpty(x))
                 .Distinct()
                 .OrderBy(x => x)
                 .Cast<string>()
                 .ToList();
             locations.Insert(0, "Any");
-            return locations;
+
+            // Scoped by server only (never the location filter), so selecting a location
+            // doesn't shrink the list. Only notify when the set actually changes to avoid
+            // ItemsSource churn that would round-trip the selection.
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (!_locations.SequenceEqual(locations))
+                {
+                    _locations = locations;
+                    OnPropertyChanged(nameof(Locations));
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to refresh location options");
         }
     }
     [ObservableProperty]
@@ -114,7 +136,16 @@ public partial class MailsViewModel : ViewModelBase
     partial void OnFilterTextChanged(string? oldValue, string newValue) => ScheduleFilterMails();
     partial void OnSelectedLocationChanged(string? oldValue, string newValue) => QueueLoadMailsForSelectionChange(oldValue, newValue);
     partial void OnSelectedTypeChanged(string? oldValue, string newValue) => QueueLoadMailsForSelectionChange(oldValue, newValue);
-    partial void OnSelectedServerChanged(string? oldValue, string newValue) => QueueLoadMailsForSelectionChange(oldValue, newValue);
+    partial void OnSelectedServerChanged(string? oldValue, string newValue)
+    {
+        QueueLoadMailsForSelectionChange(oldValue, newValue);
+
+        // Server scope determines which locations exist; refresh the dropdown for the new server.
+        if (!string.Equals(oldValue, newValue, StringComparison.Ordinal))
+        {
+            _ = RefreshLocationOptionsAsync();
+        }
+    }
 
     public MailsViewModel()
     {
@@ -160,6 +191,7 @@ public partial class MailsViewModel : ViewModelBase
 
         _hasLoadedInitialMails = true;
         ScheduleLoadMails();
+        _ = RefreshLocationOptionsAsync();
     }
 
     [RelayCommand]
@@ -186,6 +218,15 @@ public partial class MailsViewModel : ViewModelBase
     private void HandleMailAdded(List<AlbionMail> mails)
     {
         ScheduleLoadMails();
+
+        // A mail at a location not yet in the dropdown should make it appear there.
+        var hasNewLocation = mails
+            .Select(m => m.Location?.MarketLocation?.FriendlyName ?? m.Location?.FriendlyName)
+            .Any(name => !string.IsNullOrEmpty(name) && !_locations.Contains(name));
+        if (hasNewLocation)
+        {
+            _ = RefreshLocationOptionsAsync();
+        }
     }
 
     private void HandleMailDataAdded(AlbionMail mail)

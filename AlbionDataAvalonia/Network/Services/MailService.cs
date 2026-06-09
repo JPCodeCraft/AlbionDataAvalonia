@@ -74,6 +74,26 @@ public class MailService
         }
     }
 
+    public async Task<List<int>> GetDistinctLocationIds(int? albionServerId = null)
+    {
+        try
+        {
+            using var db = new LocalContext();
+            var query = db.AlbionMails.Where(x => !x.Deleted);
+            if (albionServerId.HasValue)
+            {
+                query = query.Where(x => x.AlbionServerId == albionServerId);
+            }
+
+            return await query.Select(x => x.LocationId).Distinct().ToListAsync();
+        }
+        catch (Exception e)
+        {
+            Log.Error(e, e.Message);
+            return new List<int>();
+        }
+    }
+
     private void SetMailProperties(List<AlbionMail> mails)
     {
         foreach (var mail in mails)

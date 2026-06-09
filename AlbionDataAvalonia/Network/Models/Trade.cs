@@ -1,10 +1,12 @@
 ﻿using AlbionDataAvalonia.Locations;
 using AlbionDataAvalonia.Locations.Models;
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.ComponentModel.DataAnnotations.Schema;
 
 namespace AlbionDataAvalonia.Network.Models;
 
+[Index(nameof(AlbionServerId), nameof(LocationId), nameof(Deleted), nameof(DateTime))]
 public class Trade
 {
     public Guid Id { get; set; }

@@ -82,6 +82,26 @@ public class TradeService
         }
     }
 
+    public async Task<List<int>> GetDistinctLocationIds(int? albionServerId = null)
+    {
+        try
+        {
+            using var db = new LocalContext();
+            var query = db.Trades.Where(x => !x.Deleted);
+            if (albionServerId.HasValue)
+            {
+                query = query.Where(x => x.AlbionServerId == albionServerId);
+            }
+
+            return await query.Select(x => x.LocationId).Distinct().ToListAsync();
+        }
+        catch (Exception e)
+        {
+            Log.Error(e, e.Message);
+            return new List<int>();
+        }
+    }
+
     private async Task AddTradeToDb(Trade trade)
     {
         try

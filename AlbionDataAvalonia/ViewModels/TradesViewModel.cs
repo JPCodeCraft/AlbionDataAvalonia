@@ -61,19 +61,41 @@ public partial class TradesViewModel : ViewModelBase
 
     private List<Trade> UnfilteredTrades { get; set; } = new();
 
-    public List<string> Locations
+    private List<string> _locations = ["Any"];
+    public List<string> Locations => _locations;
+
+    private async Task RefreshLocationOptionsAsync()
     {
-        get
+        try
         {
-            var locations = Trades
-                .Select(t => t.Location?.MarketLocation?.FriendlyName ?? t.Location?.FriendlyName)
+            AlbionServers.TryParse(GetSelectedServer(), out AlbionServer? server);
+            var locationIds = await _tradeService.GetDistinctLocationIds(server?.Id);
+
+            var locations = locationIds
+                .Select(id => AlbionLocations.ResolveStoredLocation(string.Empty, id))
+                .Select(location => location?.MarketLocation?.FriendlyName ?? location?.FriendlyName)
                 .Where(x => !string.IsNullOrEmpty(x))
                 .Distinct()
                 .OrderBy(x => x)
                 .Cast<string>()
                 .ToList();
             locations.Insert(0, "Any");
-            return locations;
+
+            // Scoped by server only (never the location filter), so selecting a location
+            // doesn't shrink the list. Only notify when the set actually changes to avoid
+            // ItemsSource churn that would round-trip the selection.
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (!_locations.SequenceEqual(locations))
+                {
+                    _locations = locations;
+                    OnPropertyChanged(nameof(Locations));
+                }
+            });
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Failed to refresh location options");
         }
     }
     [ObservableProperty]
@@ -119,7 +141,16 @@ public partial class TradesViewModel : ViewModelBase
     partial void OnSelectedLocationChanged(string? oldValue, string newValue) => QueueLoadTradesForSelectionChange(oldValue, newValue);
     partial void OnSelectedOperationChanged(string? oldValue, string newValue) => QueueLoadTradesForSelectionChange(oldValue, newValue);
     partial void OnSelectedTradeTypeChanged(string? oldValue, string newValue) => QueueLoadTradesForSelectionChange(oldValue, newValue);
-    partial void OnSelectedServerChanged(string? oldValue, string newValue) => QueueLoadTradesForSelectionChange(oldValue, newValue);
+    partial void OnSelectedServerChanged(string? oldValue, string newValue)
+    {
+        QueueLoadTradesForSelectionChange(oldValue, newValue);
+
+        // Server scope determines which locations exist; refresh the dropdown for the new server.
+        if (!string.Equals(oldValue, newValue, StringComparison.Ordinal))
+        {
+            _ = RefreshLocationOptionsAsync();
+        }
+    }
 
     public TradesViewModel()
     {
@@ -164,6 +195,7 @@ public partial class TradesViewModel : ViewModelBase
 
         _hasLoadedInitialTrades = true;
         ScheduleLoadTrades();
+        _ = RefreshLocationOptionsAsync();
     }
 
     [RelayCommand]
@@ -190,6 +222,13 @@ public partial class TradesViewModel : ViewModelBase
     private void HandleTradeAdded(Trade trade)
     {
         ScheduleLoadTrades();
+
+        // A trade at a location not yet in the dropdown should make it appear there.
+        var marketName = trade.Location?.MarketLocation?.FriendlyName ?? trade.Location?.FriendlyName;
+        if (!string.IsNullOrEmpty(marketName) && !_locations.Contains(marketName))
+        {
+            _ = RefreshLocationOptionsAsync();
+        }
     }
 
     private void FilterTrades()
