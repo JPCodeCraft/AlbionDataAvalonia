@@ -14,13 +14,13 @@
     <AssemblyName>AFMDataClient_Linux64</AssemblyName>
   </PropertyGroup>
   <ItemGroup>
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.0.0" />
-    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="5.0.0" />
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.1">
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp" Version="5.3.0" />
+    <PackageReference Include="Microsoft.CodeAnalysis.CSharp.Scripting" Version="5.3.0" />
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Tools" Version="10.0.8">
       <PrivateAssets>all</PrivateAssets>
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
-    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.1">
+    <PackageReference Include="Microsoft.EntityFrameworkCore.Design" Version="10.0.8">
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
       <PrivateAssets>all</PrivateAssets>
     </PackageReference>
@@ -34,13 +34,9 @@
       <PublishOutput>
         $(ProjectDir)bin/$(Configuration)/$(TargetFramework)/$(RuntimeIdentifier)/publish</PublishOutput>
     </PropertyGroup>
-    <Copy SourceFiles="$(ProjectDir)install/AFMDataClient_Linux64_Installer.sh"
-      DestinationFolder="$(PublishOutput)" />
-    <Copy SourceFiles="$(ProjectDir)install/AFMDataClient_Linux64_Uninstaller.sh"
-      DestinationFolder="$(PublishOutput)" />
-    <Exec Command="chmod +x $(PublishOutput)/AFMDataClient_Linux64_Installer.sh"
-      Condition=" '$(OS)' == 'Unix' " />
-    <Exec Command="chmod +x $(PublishOutput)/AFMDataClient_Linux64_Uninstaller.sh"
-      Condition=" '$(OS)' == 'Unix' " />
+    <Copy SourceFiles="$(ProjectDir)install/AFMDataClient_Linux64_Installer.sh" DestinationFolder="$(PublishOutput)" />
+    <Copy SourceFiles="$(ProjectDir)install/AFMDataClient_Linux64_Uninstaller.sh" DestinationFolder="$(PublishOutput)" />
+    <Exec Command="chmod +x $(PublishOutput)/AFMDataClient_Linux64_Installer.sh" Condition=" '$(OS)' == 'Unix' " />
+    <Exec Command="chmod +x $(PublishOutput)/AFMDataClient_Linux64_Uninstaller.sh" Condition=" '$(OS)' == 'Unix' " />
   </Target>
 </Project>
