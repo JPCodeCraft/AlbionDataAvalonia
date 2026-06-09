@@ -35,7 +35,7 @@ public class CsvExportService
         await writer.WriteLineAsync(string.Join(delimiter, new[]
         {
             "Server", "Player", "Received", "Type", "Operation", "Quality",
-            "Item", "Location", "Amount", "Unit Silver", "Total Silver"
+            "Item", "Location", "Full Location", "Amount", "Unit Silver", "Total Silver"
         }));
 
         using var db = new LocalContext();
@@ -67,7 +67,9 @@ public class CsvExportService
             foreach (var trade in trades)
             {
                 var server = AlbionServers.Get(trade.AlbionServerId ?? 0);
-                var location = AlbionLocations.GetByIntId(trade.LocationId);
+                var location = AlbionLocations.ResolveStoredLocation(trade.RawLocationId, trade.LocationId);
+                var marketName = location?.MarketLocation?.FriendlyName ?? location?.FriendlyName ?? "";
+                var fullName = location?.FriendlyName ?? "";
                 var itemName = _localizationService.GetUsName(trade.ItemId);
 
                 var line = string.Join(delimiter, new[]
@@ -79,7 +81,8 @@ public class CsvExportService
                     Escape(trade.TradeOperationFormatted, delimiter),
                     Escape(trade.QualityLevelFormatted, delimiter),
                     Escape(itemName, delimiter),
-                    Escape(location?.FriendlyName ?? "", delimiter),
+                    Escape(marketName, delimiter),
+                    Escape(fullName, delimiter),
                     trade.Amount.ToString(culture),
                     trade.UnitSilver.ToString("F2", culture),
                     trade.TotalSilver.ToString("F0", culture)
@@ -110,7 +113,7 @@ public class CsvExportService
         // Write header - matches the columns shown in MailsView.axaml DataGrid
         await writer.WriteLineAsync(string.Join(delimiter, new[]
         {
-            "Server", "Player", "Received", "Type", "Item", "Location",
+            "Server", "Player", "Received", "Type", "Item", "Location", "Full Location",
             "Amount", "Order Amount", "Unit Silver", "Total Silver"
         }));
 
@@ -143,7 +146,9 @@ public class CsvExportService
             foreach (var mail in mails)
             {
                 var server = AlbionServers.GetAll().SingleOrDefault(x => x.Id == mail.AlbionServerId);
-                var location = AlbionLocations.GetByIntId(mail.LocationId);
+                var location = AlbionLocations.ResolveStoredLocation(mail.RawLocationId, mail.LocationId);
+                var marketName = location?.MarketLocation?.FriendlyName ?? location?.FriendlyName ?? "";
+                var fullName = location?.FriendlyName ?? "";
                 var itemName = _localizationService.GetUsName(mail.ItemId);
 
                 var line = string.Join(delimiter, new[]
@@ -153,7 +158,8 @@ public class CsvExportService
                     Escape(mail.Received.ToString(culture), delimiter),
                     Escape(mail.AuctionTypeFormatted, delimiter),
                     Escape(itemName, delimiter),
-                    Escape(location?.FriendlyName ?? "", delimiter),
+                    Escape(marketName, delimiter),
+                    Escape(fullName, delimiter),
                     mail.PartialAmount.ToString("F0", culture),
                     mail.TotalAmount.ToString("F0", culture),
                     mail.UnitSilver.ToString("F2", culture),

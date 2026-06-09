@@ -14,6 +14,7 @@ public class AlbionMail
     public long Id { get; set; }
 
     public int LocationId { get; set; }
+    public string RawLocationId { get; set; } = string.Empty;
     public string PlayerName { get; set; } = string.Empty;
     public AlbionMailInfoType Type { get; set; }
     public AuctionType AuctionType { get; set; }
@@ -59,10 +60,11 @@ public class AlbionMail
 
     }
 
-    public AlbionMail(long id, int locationId, string playerName, AlbionMailInfoType type, DateTime received, int albionServerId)
+    public AlbionMail(long id, string rawLocationId, string playerName, AlbionMailInfoType type, DateTime received, int albionServerId)
     {
         Id = id;
-        LocationId = locationId;
+        RawLocationId = rawLocationId;
+        LocationId = Locations.AlbionLocations.ResolveMarketLocationId(rawLocationId);
         PlayerName = playerName;
         Type = type;
         Received = received;

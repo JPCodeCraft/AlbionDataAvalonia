@@ -17,7 +17,7 @@ public class MarketHistoriesUpload : BaseUpload
     {
         get
         {
-            return AlbionLocations.Get(LocationId) ?? AlbionLocations.Unknown;
+            return AlbionLocations.ResolveLocation(LocationId);
         }
     }
 }

@@ -247,6 +247,15 @@ public partial class MainViewModel : ViewModelBase
             MainPage.Logs => new LogsView(_logsViewModel),
             _ => NpCapInstallationChecker.IsNpCapInstalled() ? new DashboardView() : new PCapView()
         };
+
+        if (page == MainPage.Trades)
+        {
+            _tradesViewModel.EnsureLoaded();
+        }
+        else if (page == MainPage.Mails)
+        {
+            _mailsViewModel.EnsureLoaded();
+        }
     }
 
     private void UpdateVisibilities()

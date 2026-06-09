@@ -20,8 +20,8 @@ public class MailService
     private readonly LocalizationService _localizationService;
     private List<AlbionMail> Mails { get; set; } = new();
 
-    public Action<List<AlbionMail>> OnMailAdded;
-    public Action<AlbionMail> OnMailDataAdded;
+    public Action<List<AlbionMail>>? OnMailAdded;
+    public Action<AlbionMail>? OnMailDataAdded;
 
     public MailService(PlayerState playerState, SettingsManager settingsManager, LocalizationService localizationService)
     {
@@ -78,7 +78,7 @@ public class MailService
     {
         foreach (var mail in mails)
         {
-            mail.Location = AlbionLocations.GetByIntId(mail.LocationId);
+            mail.Location = AlbionLocations.ResolveStoredLocation(mail.RawLocationId, mail.LocationId);
             mail.Server = AlbionServers.GetAll().SingleOrDefault(x => x.Id == mail.AlbionServerId);
             mail.ItemName = _localizationService.GetUsName(mail.ItemId);
         }
@@ -92,19 +92,68 @@ public class MailService
         {
             using (var db = new LocalContext())
             {
-                var existingMailIds = await db.AlbionMails.Select(x => x.Id).ToListAsync();
-                var newMails = mails.Where(mail => !existingMailIds.Contains(mail.Id)).ToList();
+                var incomingIds = mails.Select(x => x.Id).ToList();
+                var existingMails = await db.AlbionMails
+                    .Where(x => incomingIds.Contains(x.Id))
+                    .ToDictionaryAsync(x => x.Id);
+                var newMails = mails.Where(mail => !existingMails.ContainsKey(mail.Id)).ToList();
+                var repairedMails = new List<AlbionMail>();
+                var unknownLocationId = AlbionLocations.Unknown.IdInt ?? -2;
 
                 if (newMails.Any())
                 {
                     await db.AlbionMails.AddRangeAsync(newMails);
+                }
+
+                foreach (var mail in mails)
+                {
+                    if (!existingMails.TryGetValue(mail.Id, out var existingMail))
+                    {
+                        continue;
+                    }
+
+                    var repaired = false;
+                    if (ShouldUpdateRawLocation(existingMail.RawLocationId, mail.RawLocationId, mail.LocationId, unknownLocationId))
+                    {
+                        existingMail.RawLocationId = mail.RawLocationId;
+                        repaired = true;
+                    }
+
+                    // Keep LocationId in sync with RawLocationId, the source of truth. Only fall
+                    // back to the incoming int when the stored raw value still can't be resolved
+                    // (e.g. legacy rows saved before RawLocationId existed).
+                    var resolvedLocationId = string.IsNullOrWhiteSpace(existingMail.RawLocationId)
+                        ? existingMail.LocationId
+                        : AlbionLocations.ResolveMarketLocationId(existingMail.RawLocationId);
+
+                    if (resolvedLocationId == unknownLocationId && mail.LocationId != unknownLocationId)
+                    {
+                        resolvedLocationId = mail.LocationId;
+                    }
+
+                    if (existingMail.LocationId != resolvedLocationId)
+                    {
+                        existingMail.LocationId = resolvedLocationId;
+                        repaired = true;
+                    }
+
+                    if (repaired)
+                    {
+                        repairedMails.Add(existingMail);
+                    }
+                }
+
+                if (newMails.Any() || repairedMails.Any())
+                {
                     await db.SaveChangesAsync();
 
                     SetMailProperties(newMails);
+                    SetMailProperties(repairedMails);
 
-                    OnMailAdded.Invoke(newMails);
+                    OnMailAdded?.Invoke(newMails.Concat(repairedMails).ToList());
 
                     Log.Debug("Added {Count} new mails", newMails.Count);
+                    Log.Debug("Repaired {Count} mail locations", repairedMails.Count);
                 }
             }
         }
@@ -137,7 +186,7 @@ public class MailService
 
                 SetMailProperties(new List<AlbionMail>([mail]));
 
-                OnMailDataAdded.Invoke(mail);
+                OnMailDataAdded?.Invoke(mail);
 
                 Log.Debug("Added data for mail {MailId}", mailId);
             }
@@ -169,5 +218,25 @@ public class MailService
         {
             Log.Error(e, e.Message);
         }
+    }
+
+    private static bool ShouldUpdateRawLocation(string existingRawLocationId, string newRawLocationId, int newLocationId, int unknownLocationId)
+    {
+        if (string.IsNullOrWhiteSpace(newRawLocationId) || newLocationId == unknownLocationId)
+        {
+            return false;
+        }
+
+        if (string.IsNullOrWhiteSpace(existingRawLocationId))
+        {
+            return true;
+        }
+
+        if (existingRawLocationId == unknownLocationId.ToString())
+        {
+            return true;
+        }
+
+        return AlbionLocations.ResolveMarketLocationId(existingRawLocationId) == unknownLocationId;
     }
 }

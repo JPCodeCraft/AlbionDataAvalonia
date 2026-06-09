@@ -12,18 +12,17 @@ namespace AlbionDataAvalonia.Locations
     public static class AlbionLocations
     {
         private const string JsonUrl = "https://cdn.albionfreemarket.com/ao-bin-dumps/formatted/world.json";
-        private static List<LocationJson> locations = new List<LocationJson>();
         private static List<AlbionLocation> albionLocations = new List<AlbionLocation>();
 
-        private static readonly Dictionary<string, string> HellDenToMarket = new()
+        private static readonly Dictionary<string, int> HellDenToMarket = new()
     {
-        { "0000-HellDen", "0007" },
-        { "1000-HellDen", "1002" },
-        { "2000-HellDen", "2004" },
-        { "3004-HellDen", "3008" },
-        { "3003-HellDen", "3005" },
-        { "4000-HellDen", "4002" },
-        { "5000-HellDen", "5003" }
+        { "0000-HellDen", 7 },
+        { "1000-HellDen", 1002 },
+        { "2000-HellDen", 2004 },
+        { "3004-HellDen", 3008 },
+        { "3003-HellDen", 3005 },
+        { "4000-HellDen", 4002 },
+        { "5000-HellDen", 5003 }
     };
 
         private static readonly Dictionary<int, int> PortalToCity = new()
@@ -44,6 +43,7 @@ namespace AlbionDataAvalonia.Locations
             try
             {
                 Log.Information("Initializing locations service...");
+                var locations = new List<LocationJson>();
                 using (var httpClient = new HttpClient())
                 {
                     var json = await httpClient.GetStringAsync(JsonUrl);
@@ -71,7 +71,7 @@ namespace AlbionDataAvalonia.Locations
                     var marketId = GetMarketLocationIdInt(location.Id);
                     if (marketId.HasValue)
                     {
-                        location.MarketLocation = marketId.HasValue ? AlbionLocations.GetByIntId(marketId.Value) : null;
+                        location.MarketLocation = GetByIntId(marketId.Value);
                     }
                     if (location.MarketLocation != null && location.Id != location.MarketLocation.Id)
                     {
@@ -88,75 +88,167 @@ namespace AlbionDataAvalonia.Locations
         }
 
 
-        public static List<AlbionLocation> GetAll() => albionLocations;
-
         public static AlbionLocation? Get(string query)
         {
+            static string Normalize(string value) =>
+                value.Replace(" ", "").Replace("@", "").Replace("_", "").Replace("-", "");
+
+            var normalizedQuery = Normalize(query);
+
             var found = albionLocations
                 .SingleOrDefault(location =>
                     location.Id.Equals(query, StringComparison.OrdinalIgnoreCase)
                     || location.Name.Equals(query, StringComparison.OrdinalIgnoreCase)
-                    || location.FriendlyName.Replace(" ", "").Equals(
-                        query.Replace(" ", "").Replace("@", "").Replace("_", "").Replace("-", ""), StringComparison.OrdinalIgnoreCase)
+                    || Normalize(location.FriendlyName).Equals(normalizedQuery, StringComparison.OrdinalIgnoreCase)
                     || (int.TryParse(location.Id, out var locIdInt) && int.TryParse(query, out var nameInt) && locIdInt == nameInt)
                 );
             return found;
         }
 
-        public static AlbionLocation GetByIntId(int id)
+        public static AlbionLocation ResolveLocation(string rawLocationId)
+        {
+            if (string.IsNullOrWhiteSpace(rawLocationId))
+            {
+                return Unknown;
+            }
+
+            foreach (var candidate in GetLocationCandidates(rawLocationId))
+            {
+                var location = Get(candidate);
+                if (location != null)
+                {
+                    return location;
+                }
+            }
+
+            var marketLocationId = GetMarketLocationIdInt(rawLocationId);
+            if (marketLocationId.HasValue)
+            {
+                return GetByIntId(marketLocationId.Value);
+            }
+
+            return Unknown;
+        }
+
+        public static int ResolveMarketLocationId(string rawLocationId)
+        {
+            var location = ResolveLocation(rawLocationId);
+            if (location != Unknown)
+            {
+                return location.MarketLocation?.IdInt ?? location.IdInt ?? Unknown.IdInt ?? -2;
+            }
+
+            return GetMarketLocationIdInt(rawLocationId) ?? Unknown.IdInt ?? -2;
+        }
+
+        public static AlbionLocation ResolveStoredLocation(string rawLocationId, int locationId)
+        {
+            if (!string.IsNullOrWhiteSpace(rawLocationId))
+            {
+                var location = ResolveLocation(rawLocationId);
+                if (location != Unknown)
+                {
+                    return location;
+                }
+            }
+
+            return GetByIntId(locationId);
+        }
+
+        private static AlbionLocation GetByIntId(int id)
         {
             var found = albionLocations.SingleOrDefault(location => location.IdInt == id);
             return found ?? Unknown;
         }
 
         // Id of the actual market that's used in the location
-        public static int? GetMarketLocationIdInt(string locationId)
+        private static int? GetMarketLocationIdInt(string locationId)
         {
             if (string.IsNullOrEmpty(locationId))
             {
                 return null;
             }
 
-            var id = locationId;
+            foreach (var candidate in GetLocationCandidates(locationId))
+            {
+                var marketId = GetMarketLocationIdIntFromCandidate(candidate);
+                if (marketId.HasValue)
+                {
+                    return marketId.Value;
+                }
+            }
 
-            if (id.EndsWith("-Auction2"))
+            return null; // Parsing failed
+        }
+
+        private static IEnumerable<string> GetLocationCandidates(string rawLocationId)
+        {
+            var trimmed = rawLocationId.Trim();
+            if (string.IsNullOrEmpty(trimmed))
             {
-                id = id.Replace("-Auction2", "");
+                yield break;
             }
-            else if (id.EndsWith("-HellDen"))
+
+            yield return trimmed;
+
+            var parts = trimmed
+                .Split('@', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries)
+                .Reverse();
+
+            foreach (var part in parts)
             {
-                if (HellDenToMarket.TryGetValue(id, out var marketId))
+                if (!string.Equals(part, trimmed, StringComparison.Ordinal))
                 {
-                    id = marketId;
-                }
-                else
-                {
-                    return null; // Not found
-                }
-            }
-            else if (id.Contains('@'))
-            {
-                id = id.Split('@', 2).Last();
-                if (id.Contains("BLACKBANK-"))
-                {
-                    id = id.Replace("BLACKBANK-", "");
+                    yield return part;
                 }
             }
-            else if (id.StartsWith("BLACKBANK-"))
+        }
+
+        private static int? GetMarketLocationIdIntFromCandidate(string candidate)
+        {
+            var id = candidate.Trim();
+            if (string.IsNullOrEmpty(id))
             {
-                id = id.Replace("BLACKBANK-", "");
+                return null;
+            }
+
+            id = id.TrimStart('@');
+
+            if (id.Equals("BLACK_MARKET", StringComparison.OrdinalIgnoreCase)
+                || id.Equals("BLACKMARKET", StringComparison.OrdinalIgnoreCase))
+            {
+                return 3003;
+            }
+
+            var changed = true;
+            while (changed)
+            {
+                changed = false;
+
+                if (id.EndsWith("-Auction2", StringComparison.OrdinalIgnoreCase))
+                {
+                    id = id[..^"-Auction2".Length];
+                    changed = true;
+                }
+
+                if (id.StartsWith("BLACKBANK-", StringComparison.OrdinalIgnoreCase))
+                {
+                    id = id["BLACKBANK-".Length..];
+                    changed = true;
+                }
+            }
+
+            if (id.EndsWith("-HellDen", StringComparison.OrdinalIgnoreCase))
+            {
+                return HellDenToMarket.TryGetValue(id, out var marketId) ? marketId : null;
             }
 
             if (int.TryParse(id, out var intId))
             {
-                if (PortalToCity.TryGetValue(intId, out var cityId))
-                {
-                    return cityId;
-                }
-                return intId;
+                return PortalToCity.TryGetValue(intId, out var cityId) ? cityId : intId;
             }
 
-            return null; // Parsing failed
+            return null;
         }
 
         // Only for locations that can be directly parsed to an int. All markets are.

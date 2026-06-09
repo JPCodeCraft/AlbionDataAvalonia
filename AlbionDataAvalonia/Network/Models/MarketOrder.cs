@@ -1,8 +1,5 @@
 ﻿using AlbionDataAvalonia.Locations;
 using AlbionDataAvalonia.Locations.Models;
-using System;
-using System.Collections.Generic;
-using System.Linq;
 using System.Text.Json.Serialization;
 
 namespace AlbionDataAvalonia.Network.Models;
@@ -26,16 +23,7 @@ public class MarketOrder
     {
         get
         {
-            string? query;
-            if (LocationId.Contains("@"))
-            {
-                query = LocationId.Split('@')[1];
-            }
-            else
-            {
-                query = LocationId;
-            }
-            return AlbionLocations.Get(query) ?? AlbionLocations.Unknown;
+            return AlbionLocations.ResolveLocation(LocationId);
         }
     }
 }

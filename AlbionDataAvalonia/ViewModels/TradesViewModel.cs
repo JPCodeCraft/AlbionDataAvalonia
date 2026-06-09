@@ -66,7 +66,7 @@ public partial class TradesViewModel : ViewModelBase
         get
         {
             var locations = Trades
-                .Select(t => t.Location?.FriendlyName)
+                .Select(t => t.Location?.MarketLocation?.FriendlyName ?? t.Location?.FriendlyName)
                 .Where(x => !string.IsNullOrEmpty(x))
                 .Distinct()
                 .OrderBy(x => x)
@@ -151,6 +151,19 @@ public partial class TradesViewModel : ViewModelBase
                 SelectedServer = currentServer;
             }
         };
+    }
+
+    private bool _hasLoadedInitialTrades;
+
+    public void EnsureLoaded()
+    {
+        if (_hasLoadedInitialTrades)
+        {
+            return;
+        }
+
+        _hasLoadedInitialTrades = true;
+        ScheduleLoadTrades();
     }
 
     [RelayCommand]
@@ -265,7 +278,7 @@ public partial class TradesViewModel : ViewModelBase
                 ? TradeOperation.Buy
                 : null;
 
-        return new CurrentTradeFilter(server?.Id, location?.IdInt, tradeType, tradeOperation);
+        return new CurrentTradeFilter(server?.Id, location?.MarketLocation?.IdInt ?? location?.IdInt, tradeType, tradeOperation);
     }
 
     private readonly record struct CurrentTradeFilter(int? AlbionServerId, int? LocationId, TradeType? TradeType, TradeOperation? TradeOperation);

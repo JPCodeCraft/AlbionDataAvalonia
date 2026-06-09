@@ -60,15 +60,7 @@ public class JoinResponse : BaseOperation
             if (parameters.TryGetValue(8, out object locationData))
             {
                 string location = (string)locationData;
-                var albionLocation = AlbionLocations.Get(location);
-                if (albionLocation != null)
-                {
-                    playerLocation = albionLocation;
-                }
-                else
-                {
-                    playerLocation = AlbionLocations.Unknown;
-                }
+                playerLocation = AlbionLocations.ResolveLocation(location);
             }
 
             if (parameters.TryGetValue(84, out object globalMultiplierData))

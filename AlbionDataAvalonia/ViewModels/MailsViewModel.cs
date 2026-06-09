@@ -66,7 +66,7 @@ public partial class MailsViewModel : ViewModelBase
         get
         {
             var locations = Mails
-                .Select(t => t.Location?.FriendlyName)
+                .Select(t => t.Location?.MarketLocation?.FriendlyName ?? t.Location?.FriendlyName)
                 .Where(x => !string.IsNullOrEmpty(x))
                 .Distinct()
                 .OrderBy(x => x)
@@ -147,6 +147,19 @@ public partial class MailsViewModel : ViewModelBase
                 SelectedServer = currentServer;
             }
         };
+    }
+
+    private bool _hasLoadedInitialMails;
+
+    public void EnsureLoaded()
+    {
+        if (_hasLoadedInitialMails)
+        {
+            return;
+        }
+
+        _hasLoadedInitialMails = true;
+        ScheduleLoadMails();
     }
 
     [RelayCommand]
@@ -255,7 +268,7 @@ public partial class MailsViewModel : ViewModelBase
                 ? AuctionType.request
                 : null;
 
-        return new CurrentMailFilter(server?.Id, location?.IdInt, auctionType);
+        return new CurrentMailFilter(server?.Id, location?.MarketLocation?.IdInt ?? location?.IdInt, auctionType);
     }
 
     private readonly record struct CurrentMailFilter(int? AlbionServerId, int? LocationId, AuctionType? AuctionType);

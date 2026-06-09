@@ -10,6 +10,7 @@ public class Trade
     public Guid Id { get; set; }
     public TradeType Type { get; set; }
     public int LocationId { get; set; }
+    public string RawLocationId { get; set; } = string.Empty;
     public string PlayerName { get; set; } = string.Empty;
     public TradeOperation Operation { get; set; }
     public DateTime DateTime { get; set; }
@@ -106,7 +107,8 @@ public class Trade
         }
         Amount = amount;
         AlbionServerId = albionServerId;
-        LocationId = order.Location.MarketLocation?.IdInt ?? -2;
+        RawLocationId = order.LocationId;
+        LocationId = AlbionLocations.ResolveMarketLocationId(order.LocationId);
         DateTime = DateTime.UtcNow;
         QualityLevel = order.QualityLevel;
         ItemId = order.ItemTypeId;
@@ -135,6 +137,7 @@ public class Trade
         }
         Amount = mail.PartialAmount;
         AlbionServerId = mail.AlbionServerId;
+        RawLocationId = mail.RawLocationId;
         LocationId = mail.LocationId;
         DateTime = mail.Received;
         QualityLevel = 0;

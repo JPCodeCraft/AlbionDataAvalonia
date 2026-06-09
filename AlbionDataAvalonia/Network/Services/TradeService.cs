@@ -200,7 +200,7 @@ public class TradeService
     private void SetTradeProperties(Trade trade)
     {
         trade.Server = AlbionServers.Get(trade.AlbionServerId ?? 0);
-        trade.Location = AlbionLocations.GetByIntId(trade.LocationId);
+        trade.Location = AlbionLocations.ResolveStoredLocation(trade.RawLocationId, trade.LocationId);
         trade.ItemName = _localizationService.GetUsName(trade.ItemId);
     }
 }
