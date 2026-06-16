@@ -197,7 +197,7 @@ public class CsvExportService
         await writer.WriteLineAsync(string.Join(delimiter, new[]
         {
             "Picked Up UTC", "Player", "Party Member At Pickup", "Source Type", "Source",
-            "Location", "Item ID", "Item Unique Name", "Item", "Quality",
+            "Location", "Item Unique Name", "Item", "Quality",
             "Amount", "Unit EMV", "Total EMV"
         }));
 
@@ -220,7 +220,6 @@ public class CsvExportService
                 Escape(record.SourceKind.ToString(), delimiter),
                 Escape(record.SourceName, delimiter),
                 Escape(record.LocationName, delimiter),
-                record.ItemId.ToString(culture),
                 Escape(record.ItemUniqueName, delimiter),
                 Escape(record.ItemName, delimiter),
                 record.Quality.ToString(culture),

@@ -368,7 +368,7 @@ public sealed class LootTrackerService : IDisposable
             if (sourceContainerId == Guid.Empty)
             {
                 Log.Warning(
-                    "Loot tracker will record local move given items with unknown source because source container id is empty. ItemObjectIds: {ItemObjectIds}, DestinationContainerId: {DestinationContainerId}",
+                    "Loot tracker received local move given items with empty source container id. Only items already linked to a loot source will be recorded. ItemObjectIds: {ItemObjectIds}, DestinationContainerId: {DestinationContainerId}",
                     itemObjectIds,
                     destinationContainerId);
             }
@@ -382,7 +382,7 @@ public sealed class LootTrackerService : IDisposable
             if (sourceContainerId != Guid.Empty && !containers.TryGetValue(sourceContainerId, out container))
             {
                 Log.Warning(
-                    "Loot tracker will record local move given items from discovered item data because source container was not known. ItemObjectIds: {ItemObjectIds}, SourceContainerId: {SourceContainerId}, DestinationContainerId: {DestinationContainerId}",
+                    "Loot tracker received local move given items from unknown source container. Only items already linked to a loot source will be recorded. ItemObjectIds: {ItemObjectIds}, SourceContainerId: {SourceContainerId}, DestinationContainerId: {DestinationContainerId}",
                     itemObjectIds,
                     sourceContainerId,
                     destinationContainerId);
@@ -392,19 +392,40 @@ public sealed class LootTrackerService : IDisposable
             foreach (var itemObjectId in itemObjectIds.Distinct())
             {
                 var sourceObjectId = container?.SourceObjectId ?? 0;
-                if (discoveredItems.TryGetValue(itemObjectId, out var discoveredItem)
-                    && discoveredItem.SourceObjectId is { } discoveredSourceObjectId)
+                var discoveredSourceObjectId = discoveredItems.TryGetValue(itemObjectId, out var discoveredItem)
+                    ? discoveredItem.SourceObjectId
+                    : null;
+                if (discoveredSourceObjectId is { } linkedSourceObjectId)
                 {
-                    sourceObjectId = discoveredSourceObjectId;
+                    sourceObjectId = linkedSourceObjectId;
                 }
 
                 if (containerItems is not null && !containerItems.Contains(itemObjectId))
                 {
+                    if (discoveredSourceObjectId is null)
+                    {
+                        Log.Warning(
+                            "Loot tracker skipped local move given item because item object id was not in the source container and was not linked to a loot source. ItemObjectId: {ItemObjectId}, SourceContainerId: {SourceContainerId}, SourceObjectId: {SourceObjectId}",
+                            itemObjectId,
+                            sourceContainerId,
+                            sourceObjectId);
+                        continue;
+                    }
+
                     Log.Warning(
                         "Loot tracker will record local move given item from discovered item data because item object id was not in the source container. ItemObjectId: {ItemObjectId}, SourceContainerId: {SourceContainerId}, SourceObjectId: {SourceObjectId}",
                         itemObjectId,
                         sourceContainerId,
                         sourceObjectId);
+                }
+
+                if (container is null && discoveredSourceObjectId is null)
+                {
+                    Log.Warning(
+                        "Loot tracker skipped local move given item because source container was not known and item object id was not linked to a loot source. ItemObjectId: {ItemObjectId}, SourceContainerId: {SourceContainerId}",
+                        itemObjectId,
+                        sourceContainerId);
+                    continue;
                 }
 
                 snapshot = RecordLocalItemObjectCore(itemObjectId, sourceObjectId) ?? snapshot;
@@ -439,6 +460,17 @@ public sealed class LootTrackerService : IDisposable
             return null;
         }
 
+        if (sourceObjectId <= 0)
+        {
+            Log.Warning(
+                "Loot tracker skipped local item record because item object id was not linked to a loot source. ItemObjectId: {ItemObjectId}, SourceObjectId: {SourceObjectId}, ItemId: {ItemId}, Amount: {Amount}",
+                itemObjectId,
+                sourceObjectId,
+                item.ItemId,
+                item.Amount);
+            return null;
+        }
+
         if (recordedItemObjectIds.TryGetValue(itemObjectId, out var recordedItem)
             && recordedItem.ItemId == item.ItemId
             && recordedItem.Amount == item.Amount
@@ -456,11 +488,12 @@ public sealed class LootTrackerService : IDisposable
         if (!sources.ContainsKey(sourceObjectId))
         {
             Log.Warning(
-                "Loot tracker will record local item with unknown source because source object id was not identified. ItemObjectId: {ItemObjectId}, SourceObjectId: {SourceObjectId}, ItemId: {ItemId}, Amount: {Amount}",
+                "Loot tracker skipped local item record because source object id was not identified. ItemObjectId: {ItemObjectId}, SourceObjectId: {SourceObjectId}, ItemId: {ItemId}, Amount: {Amount}",
                 itemObjectId,
                 sourceObjectId,
                 item.ItemId,
                 item.Amount);
+            return null;
         }
 
         if (TryMatchCorrelation(
