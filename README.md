@@ -96,9 +96,17 @@ So in the Security section, click Open Anyway. You will need to type your passwo
 
 <img width="900" height="429" alt="Screenshot 2025-12-28 224836" src="https://github.com/user-attachments/assets/20192951-1cb5-4b21-90fc-4acaa2afe555" />
 
-Everytime you open the app, it'll ask for your password, since it needs elevated privileges to be able to listen to the network packets.
+After allowing the app, it should open normally and write logs under `~/Library/Application Support/AFMDataClient/logs`.
 
-The app will stay minimized in the top right.
+If packet capture is blocked, the app shows a `Capture Blocked` status with an `Install permissions` button. Click it and approve the macOS administrator prompt to run the bundled BPF permission setup.
+
+You can also run the same setup manually:
+
+```bash
+sudo /bin/sh "/path/to/AFMDataClient_MacOS.app/Contents/Resources/setup-capture-permissions.sh"
+```
+
+Replace `/path/to` with the folder where you extracted the app. The setup creates an `afmdataclient_bpf` group, installs a small LaunchDaemon to keep `/dev/bpf*` readable and writable by that group, and adds your user to the group. Restart AFM after setup. If capture is still denied, log out and back in or reboot.
 
 <img width="411" height="110" alt="Screenshot 2025-12-28 225223" src="https://github.com/user-attachments/assets/36249bfa-f19e-40e4-aad1-5e4d50f1fddc" />
 

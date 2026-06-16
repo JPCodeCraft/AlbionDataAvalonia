@@ -25,6 +25,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Threading;
+using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia;
 
@@ -49,6 +50,29 @@ public partial class App : Application
     }
 
     public override async void OnFrameworkInitializationCompleted()
+    {
+        try
+        {
+            await OnFrameworkInitializationCompletedAsync();
+        }
+        catch (Exception ex)
+        {
+            TryWriteStartupCrashLog(ex);
+
+            try
+            {
+                Log.Fatal(ex, "Application startup failed.");
+                Log.CloseAndFlush();
+            }
+            catch
+            {
+            }
+
+            ShutdownApplication();
+        }
+    }
+
+    private async Task OnFrameworkInitializationCompletedAsync()
     {
         // Line below is needed to remove Avalonia data validation.
         // Without this line you will get duplicate validations from both Avalonia and CT
@@ -218,6 +242,30 @@ public partial class App : Application
 
         base.OnFrameworkInitializationCompleted();
 
+    }
+
+    private static void TryWriteStartupCrashLog(Exception exception)
+    {
+        try
+        {
+            var logDir = Path.Combine(AppData.LocalPath, "logs");
+            Directory.CreateDirectory(logDir);
+            File.WriteAllText(Path.Combine(logDir, "startup-crash.txt"), exception.ToString());
+        }
+        catch
+        {
+        }
+    }
+
+    private static void ShutdownApplication()
+    {
+        if (Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            desktop.Shutdown();
+            return;
+        }
+
+        Environment.Exit(1);
     }
 
     private void SetupLogging(ListSink listSink)
