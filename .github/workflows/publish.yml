@@ -28,15 +28,15 @@ jobs:
         run: |
           dotnet publish ./AlbionDataAvalonia.Desktop.MacOS/AlbionDataAvalonia.Desktop.MacOS.csproj --configuration Release -r osx-arm64
 
-      - name: Compress macOS .app bundle (x64)
+      - name: Compress macOS .app bundle (x64) preserving macOS metadata
         run: |
           cd ./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-x64/publish/
-          zip -r AFMDataClient_MacOS_x64.app.zip AFMDataClient_MacOS.app
+          ditto -c -k --sequesterRsrc --keepParent AFMDataClient_MacOS.app AFMDataClient_MacOS_x64.app.zip
 
-      - name: Compress macOS .app bundle (arm64)
+      - name: Compress macOS .app bundle (arm64) preserving macOS metadata
         run: |
           cd ./AlbionDataAvalonia.Desktop.MacOS/bin/Release/net10.0/osx-arm64/publish/
-          zip -r AFMDataClient_MacOS_arm64.app.zip AFMDataClient_MacOS.app
+          ditto -c -k --sequesterRsrc --keepParent AFMDataClient_MacOS.app AFMDataClient_MacOS_arm64.app.zip
 
       - name: Upload macOS artifact (x64)
         uses: actions/upload-artifact@v4

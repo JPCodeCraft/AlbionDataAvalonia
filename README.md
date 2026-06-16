@@ -81,26 +81,53 @@ curl -s https://api.github.com/repos/JPCodeCraft/AlbionDataAvalonia/releases/lat
 
 ### MacOS
 
-AFM Data Client should be able to run on MacOS, but it's not very developed. Feel free to contribute to the repository if you can.
 If you are on Apple Silicon, download `AFMDataClient_MacOS_arm64.app.zip`. Intel users should download `AFMDataClient_MacOS_x64.app.zip`.
 
-Since the app is not signed, you'll get a warning like this when you try to run it:
+<img width="1073" height="643" alt="image" src="https://github.com/user-attachments/assets/ce781ade-d2f9-42c8-ba10-bea77bb0ba13" />
 
-<img width="384" height="365" alt="Screenshot 2025-12-28 224658" src="https://github.com/user-attachments/assets/9855fd14-59c4-49aa-a7f9-7e392236e853" />
+The macOS app is not signed, so macOS may say `"AFMDataClient_MacOS" is damaged and can't be opened`. Remove the download quarantine flag before opening it:
 
-If you click the ? button, this is the explanation and instructions shown on how to allow the app to run:
+<img width="244" height="218" alt="image" src="https://github.com/user-attachments/assets/6db17f1c-d119-4fd6-b855-d89f40fde348" />
 
-<img width="924" height="779" alt="Screenshot 2025-12-28 224734" src="https://github.com/user-attachments/assets/05d0f10e-ec03-4fc9-b277-36fab9732066" />
+1. Make sure `AFMDataClient_MacOS.app` is visible in your `Downloads` folder. Safari may extract the zip automatically. If you still see only the `.zip` file, double-click it first.
 
-So in the Security section, click Open Anyway. You will need to type your password to allow it.
+<img width="840" height="256" alt="image" src="https://github.com/user-attachments/assets/4c18543a-7da8-4c8c-b4ec-f20a5831e18c" />
+   
+2. Open Terminal:
+   - Press `Command + Space` to open Spotlight.
+   - Type `Terminal`.
+   - Press `Return`.
 
-<img width="900" height="429" alt="Screenshot 2025-12-28 224836" src="https://github.com/user-attachments/assets/20192951-1cb5-4b21-90fc-4acaa2afe555" />
+<img width="864" height="450" alt="image" src="https://github.com/user-attachments/assets/8e4bcbd0-e3f2-4840-a694-0459d2ab2e86" />
 
-Everytime you open the app, it'll ask for your password, since it needs elevated privileges to be able to listen to the network packets.
+3. In Terminal, go to your Downloads folder:
 
-The app will stay minimized in the top right.
+   ```bash
+   cd ~/Downloads
+   ```
 
-<img width="411" height="110" alt="Screenshot 2025-12-28 225223" src="https://github.com/user-attachments/assets/36249bfa-f19e-40e4-aad1-5e4d50f1fddc" />
+4. Remove the quarantine flag from the app:
+
+   ```bash
+   xattr -dr com.apple.quarantine AFMDataClient_MacOS.app
+   ```
+<img width="800" height="113" alt="image" src="https://github.com/user-attachments/assets/328bdccf-97a7-4324-974a-68150145ec10" />
+
+5. Double-click `AFMDataClient_MacOS.app` to open it.
+
+   If double-clicking does not open it, run `open AFMDataClient_MacOS.app` in Terminal.
+
+If packet capture is blocked, the app shows a `Capture Blocked` status.
+
+<img width="177" height="166" alt="image" src="https://github.com/user-attachments/assets/3775d64b-e785-4d9c-a5f9-c08cfb41007c" />
+
+It also shows an `Install permissions` button. Click it, approve the macOS administrator prompt, and let the app restart.
+
+<img width="242" height="296" alt="image" src="https://github.com/user-attachments/assets/35751693-36b9-459e-b9a5-fbef9a356767" />
+
+Once it restarts and you get ingame, you should see the app working.
+
+<img width="930" height="631" alt="image" src="https://github.com/user-attachments/assets/84cfa92a-dc84-431a-ae92-c6815d0dea66" />
 
 There's no automatic update feature for MacOS, so you should manually download new versions.
 

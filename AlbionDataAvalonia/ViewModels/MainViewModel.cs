@@ -16,6 +16,7 @@ using Serilog;
 using System;
 using System.Collections.ObjectModel;
 using System.Diagnostics;
+using System.IO;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
@@ -150,11 +151,24 @@ public partial class MainViewModel : ViewModelBase
     private bool greenBlinking = false;
 
     [ObservableProperty]
+    private bool isInstallingMacOSCapturePermissions = false;
+
+    partial void OnIsInstallingMacOSCapturePermissionsChanged(bool value)
+    {
+        OnPropertyChanged(nameof(MacOSCapturePermissionButtonText));
+    }
+
+    [ObservableProperty]
     private FirebaseAuthResponse? firebaseUser = null;
     [ObservableProperty]
     private bool userLoggedIn = false;
 
     public ObservableCollection<SidebarStatusItem> SidebarStatusItems { get; } = new();
+    public bool ShowMacOSCapturePermissionSetup =>
+        RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
+        && _networkListener?.IsMacOSCapturePermissionSetupRequired == true;
+    public string MacOSCapturePermissionButtonText =>
+        IsInstallingMacOSCapturePermissions ? "Installing..." : "Install permissions";
 
     private int oldUploadQueueSize = 0;
     private int oldRunningTasksCount = 0;
@@ -211,6 +225,8 @@ public partial class MainViewModel : ViewModelBase
         FirebaseUser = _authService.CurrentFirebaseUser;
         UserLoggedIn = FirebaseUser is not null;
         RefreshSidebarStatus();
+
+        _networkListener.MacOSCapturePermissionSetupRequiredChanged += NetworkListener_MacOSCapturePermissionSetupRequiredChanged;
 
         userSettings = _settingsManager.UserSettings;
 
@@ -354,6 +370,13 @@ public partial class MainViewModel : ViewModelBase
                 "Sign in to upload private AFM data."));
         }
 
+        if (ShowMacOSCapturePermissionSetup)
+        {
+            AddSidebarStatus(SidebarStatusItem.Warning(
+                "Capture Blocked",
+                "macOS denied packet capture access. Install capture permissions to allow AFM Data Client to read network packets."));
+        }
+
         if (!_playerState.IsInGame)
         {
             AddSidebarStatus(SidebarStatusItem.Warning(
@@ -396,6 +419,18 @@ public partial class MainViewModel : ViewModelBase
                 "Ready",
                 "Capture state looks ready."));
         }
+    }
+
+    private void NetworkListener_MacOSCapturePermissionSetupRequiredChanged(object? sender, EventArgs e)
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => NetworkListener_MacOSCapturePermissionSetupRequiredChanged(sender, e));
+            return;
+        }
+
+        OnPropertyChanged(nameof(ShowMacOSCapturePermissionSetup));
+        RefreshSidebarStatus();
     }
 
     private void AddSidebarStatus(SidebarStatusItem item)
@@ -562,6 +597,103 @@ public partial class MainViewModel : ViewModelBase
         {
             Log.Error($"An error occurred while trying to install NpCap: {ex.Message}");
         }
+    }
+
+    [RelayCommand]
+    private async Task InstallMacOSCapturePermissions()
+    {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            return;
+        }
+
+        try
+        {
+            IsInstallingMacOSCapturePermissions = true;
+            var installed = await _networkListener.InstallMacOSCapturePermissionsAsync();
+            if (installed)
+            {
+                Log.Information("Restarting AFM Data Client after macOS packet capture permission setup.");
+                if (TryRestartApplication())
+                {
+                    return;
+                }
+
+                Log.Warning("Unable to restart AFM Data Client automatically. Restart the app manually to apply macOS packet capture permissions.");
+            }
+        }
+        finally
+        {
+            IsInstallingMacOSCapturePermissions = false;
+            OnPropertyChanged(nameof(ShowMacOSCapturePermissionSetup));
+            RefreshSidebarStatus();
+        }
+    }
+
+    private static bool TryRestartApplication()
+    {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            return false;
+        }
+
+        try
+        {
+            var appBundlePath = GetCurrentMacOSAppBundlePath();
+            if (string.IsNullOrWhiteSpace(appBundlePath))
+            {
+                Log.Warning("Unable to find the current macOS app bundle path for automatic restart.");
+                return false;
+            }
+
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "/bin/sh",
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            startInfo.ArgumentList.Add("-c");
+            startInfo.ArgumentList.Add("sleep 1; open -n " + QuoteForPosixShell(appBundlePath));
+
+            Process.Start(startInfo);
+
+            if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                desktop.Shutdown();
+            }
+            else
+            {
+                Environment.Exit(0);
+            }
+
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log.Error(ex, "Unable to restart AFM Data Client automatically.");
+            return false;
+        }
+    }
+
+    private static string? GetCurrentMacOSAppBundlePath()
+    {
+        var directory = new DirectoryInfo(AppContext.BaseDirectory);
+        while (directory is not null)
+        {
+            if (string.Equals(directory.Extension, ".app", StringComparison.OrdinalIgnoreCase))
+            {
+                return directory.FullName;
+            }
+
+            directory = directory.Parent;
+        }
+
+        return null;
+    }
+
+    private static string QuoteForPosixShell(string value)
+    {
+        return "'" + value.Replace("'", "'\\''") + "'";
     }
 
     [RelayCommand]
