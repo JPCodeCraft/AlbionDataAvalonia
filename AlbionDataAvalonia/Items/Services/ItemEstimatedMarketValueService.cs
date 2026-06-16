@@ -1,24 +1,25 @@
-using AlbionDataAvalonia.Gathering.Models;
 using System;
 using System.Collections.Concurrent;
 
 namespace AlbionDataAvalonia.Items.Services;
 
+public readonly record struct ItemEstimatedMarketValueKey(int ServerId, int ItemId, int Quality);
+
 public sealed class ItemEstimatedMarketValueService
 {
-    private readonly ConcurrentDictionary<GatheringItemKey, long> values = new();
+    private readonly ConcurrentDictionary<ItemEstimatedMarketValueKey, long> values = new();
     private readonly object updateLock = new();
 
-    public event Action<GatheringItemKey>? EstimatedMarketValueChanged;
+    public event Action<ItemEstimatedMarketValueKey>? EstimatedMarketValueChanged;
 
-    public void Update(int itemId, int quality, long estimatedMarketValue)
+    public void Update(int serverId, int itemId, int quality, long estimatedMarketValue)
     {
-        if (itemId <= 0 || quality <= 0 || estimatedMarketValue <= 0)
+        if (serverId <= 0 || itemId <= 0 || quality <= 0 || estimatedMarketValue <= 0)
         {
             return;
         }
 
-        var key = new GatheringItemKey(itemId, quality);
+        var key = new ItemEstimatedMarketValueKey(serverId, itemId, quality);
         var changed = false;
         lock (updateLock)
         {
@@ -35,9 +36,9 @@ public sealed class ItemEstimatedMarketValueService
         }
     }
 
-    public long? Get(int itemId, int quality)
+    public long? Get(int serverId, int itemId, int quality)
     {
-        if (values.TryGetValue(new GatheringItemKey(itemId, quality), out var value))
+        if (values.TryGetValue(new ItemEstimatedMarketValueKey(serverId, itemId, quality), out var value))
         {
             return value;
         }

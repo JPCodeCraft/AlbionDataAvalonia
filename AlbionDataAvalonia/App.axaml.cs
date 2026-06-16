@@ -109,6 +109,7 @@ public partial class App : Application
         var listener = services.GetRequiredService<NetworkListenerService>();
         var uploader = services.GetRequiredService<Uploader>();
         var afmUploader = services.GetRequiredService<AFMUploader>();
+        var emvBackendLoader = services.GetRequiredService<ItemEstimatedMarketValueBackendLoader>();
         var localization = services.GetRequiredService<LocalizationService>();
         var mobsService = services.GetRequiredService<MobsService>();
         var itemsIdsService = services.GetRequiredService<ItemsIdsService>();
@@ -154,6 +155,7 @@ public partial class App : Application
 
         //AFM UPLOADER
         afmUploader.Initialize();
+        emvBackendLoader.Initialize();
 
         //IDLE SERVICE
         _ = idleService.ExecuteAsync().ContinueWith(t =>
@@ -318,6 +320,7 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<ItemsIdsService>();
         collection.AddSingleton<ItemImageService>();
         collection.AddSingleton<ItemEstimatedMarketValueService>();
+        collection.AddSingleton<ItemEstimatedMarketValueBackendLoader>();
         collection.AddSingleton<AchievementsService>();
         collection.AddSingleton<AuthService>();
         collection.AddSingleton<CsvExportService>();

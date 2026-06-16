@@ -126,7 +126,7 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddEventHandler(new TakeSilverEventHandler(_combatTracker));
                 builder.AddEventHandler(new InCombatStateUpdateEventHandler(_combatTracker));
                 builder.AddEventHandler(new TimeSyncEventHandler(_combatTracker));
-                builder.AddEventHandler(new EstimatedMarketValueUpdateEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues));
+                builder.AddEventHandler(new EstimatedMarketValueUpdateEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _playerState));
                 builder.AddEventHandler(new FullAchievementInfoEventHandler(_achievementsService, _playerState, _afmUploader, _settingsManager));
                 builder.AddEventHandler(new RedZoneWorldMapEventHandler(_playerState, _uploader));
                 builder.AddEventHandler(new HarvestFinishedEventHandler(_gatheringTracker));
@@ -135,13 +135,13 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddEventHandler(new NewLootChestEventHandler(_lootTracker));
                 builder.AddEventHandler(new AttachItemContainerEventHandler(_lootTracker));
                 builder.AddEventHandler(new OtherGrabbedLootEventHandler(_lootTracker));
-                builder.AddEventHandler(new NewSimpleItemEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _gatheringTracker, _lootTracker));
-                builder.AddEventHandler(new NewJournalItemEventHandler(_itemsIdsService, _afmUploader, _lootTracker));
-                builder.AddEventHandler(new NewLaborerItemEventHandler(_itemsIdsService, _afmUploader, _lootTracker));
-                builder.AddEventHandler(new NewEquipmentItemEventHandler(_itemsIdsService, _afmUploader, _lootTracker));
-                builder.AddEventHandler(new NewFurnitureItemEventHandler(_itemsIdsService, _afmUploader, _lootTracker));
-                builder.AddEventHandler(new NewKillTrophyItemEventHandler(_itemsIdsService, _afmUploader, _lootTracker));
-                builder.AddEventHandler(new NewSiegeBannerItemEventHandler(_itemsIdsService, _afmUploader, _lootTracker));
+                builder.AddEventHandler(new NewSimpleItemEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _gatheringTracker, _lootTracker, _playerState));
+                builder.AddEventHandler(new NewJournalItemEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _lootTracker, _playerState));
+                builder.AddEventHandler(new NewLaborerItemEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _lootTracker, _playerState));
+                builder.AddEventHandler(new NewEquipmentItemEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _lootTracker, _playerState));
+                builder.AddEventHandler(new NewFurnitureItemEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _lootTracker, _playerState));
+                builder.AddEventHandler(new NewKillTrophyItemEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _lootTracker, _playerState));
+                builder.AddEventHandler(new NewSiegeBannerItemEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _lootTracker, _playerState));
                 // builder.AddEventHandler(new NewEquipmentItemLegendarySoulEventHandler(_playerState));
                 // builder.AddEventHandler(new BankVaultInfoEventHandler(_playerState));
 #if DEBUG

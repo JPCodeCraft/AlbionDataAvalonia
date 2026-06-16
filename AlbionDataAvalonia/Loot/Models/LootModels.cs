@@ -18,6 +18,7 @@ public sealed record LootRecord(
     bool WasPartyMemberAtPickup,
     LootSourceKind SourceKind,
     string SourceName,
+    int? ServerId,
     string LocationName,
     long? ItemObjectId,
     int ItemId,

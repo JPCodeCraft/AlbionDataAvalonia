@@ -1,4 +1,3 @@
-using AlbionDataAvalonia.Gathering.Models;
 using AlbionDataAvalonia.Items.Services;
 using AlbionDataAvalonia.Loot.Models;
 using AlbionDataAvalonia.Party;
@@ -31,6 +30,7 @@ public sealed class LootTrackerService : IDisposable
     private readonly PartyTrackerService partyTracker;
     private readonly ItemsIdsService itemsIdsService;
     private readonly ItemEstimatedMarketValueService itemEstimatedMarketValues;
+    private readonly ItemEstimatedMarketValueBackendLoader itemEstimatedMarketValueBackendLoader;
     private readonly PlayerState playerState;
 
     private bool isDisabled;
@@ -43,12 +43,14 @@ public sealed class LootTrackerService : IDisposable
         PartyTrackerService partyTracker,
         ItemsIdsService itemsIdsService,
         ItemEstimatedMarketValueService itemEstimatedMarketValues,
+        ItemEstimatedMarketValueBackendLoader itemEstimatedMarketValueBackendLoader,
         PlayerState playerState)
     {
         this.settingsManager = settingsManager;
         this.partyTracker = partyTracker;
         this.itemsIdsService = itemsIdsService;
         this.itemEstimatedMarketValues = itemEstimatedMarketValues;
+        this.itemEstimatedMarketValueBackendLoader = itemEstimatedMarketValueBackendLoader;
         this.playerState = playerState;
 
         isDisabled = settingsManager.UserSettings.DisableLootTracker;
@@ -559,16 +561,19 @@ public sealed class LootTrackerService : IDisposable
     {
         var itemData = itemsIdsService.GetItemById(itemId);
         var resolvedQuality = quality is > 0 ? quality.Value : (int?)null;
-        var estimatedMarketValue = GetEstimatedMarketValue(
-            itemId,
-            resolvedQuality,
-            discoveredEstimatedMarketValue);
         var resolvedUniqueName = IsKnownItemText(uniqueName)
             ? uniqueName!
             : itemData.UniqueName;
         var resolvedName = IsKnownItemText(name)
             ? name!
             : itemData.UsName;
+        var serverId = playerState.AlbionServer?.Id;
+        var estimatedMarketValue = GetEstimatedMarketValue(
+            serverId,
+            itemId,
+            resolvedUniqueName,
+            resolvedQuality,
+            discoveredEstimatedMarketValue);
         var location = playerState.Location;
         var locationName = location.FriendlyName;
 
@@ -579,6 +584,7 @@ public sealed class LootTrackerService : IDisposable
             partyTracker.IsPartyMember(playerName),
             source.Kind,
             source.Name,
+            serverId,
             locationName,
             itemObjectId,
             itemId,
@@ -630,7 +636,12 @@ public sealed class LootTrackerService : IDisposable
         var shouldRefreshEstimatedMarketValue = record.Quality != item.Quality
             || record.EstimatedMarketValue is null;
         var estimatedMarketValue = shouldRefreshEstimatedMarketValue
-            ? GetEstimatedMarketValue(item.ItemId, item.Quality, item.EstimatedMarketValue) ?? record.EstimatedMarketValue
+            ? GetEstimatedMarketValue(
+                record.ServerId,
+                item.ItemId,
+                IsKnownItemText(item.UniqueName) ? item.UniqueName : record.ItemUniqueName,
+                item.Quality,
+                item.EstimatedMarketValue) ?? record.EstimatedMarketValue
             : record.EstimatedMarketValue;
         records[index] = record with
         {
@@ -643,25 +654,25 @@ public sealed class LootTrackerService : IDisposable
         };
     }
 
-    private void OnEstimatedMarketValueChanged(GatheringItemKey key)
+    private void OnEstimatedMarketValueChanged(ItemEstimatedMarketValueKey key)
     {
         LootTrackerSnapshot? snapshot = null;
         lock (sync)
         {
-            var estimatedMarketValue = itemEstimatedMarketValues.Get(key.ItemId, key.Quality);
+            var estimatedMarketValue = itemEstimatedMarketValues.Get(key.ServerId, key.ItemId, key.Quality);
             if (estimatedMarketValue is not > 0)
             {
                 return;
             }
 
             var averageEstimatedMarketValue = key.Quality is >= 1 and <= 4
-                ? GetAverageEstimatedMarketValue(key.ItemId)
+                ? GetAverageEstimatedMarketValue(key.ServerId, key.ItemId)
                 : null;
             var changed = false;
             for (var i = 0; i < records.Count; i++)
             {
                 var record = records[i];
-                if (record.ItemId != key.ItemId)
+                if (record.ServerId != key.ServerId || record.ItemId != key.ItemId)
                 {
                     continue;
                 }
@@ -704,7 +715,9 @@ public sealed class LootTrackerService : IDisposable
     }
 
     private long? GetEstimatedMarketValue(
+        int? serverId,
         int itemId,
+        string itemUniqueName,
         int? quality,
         long? discoveredEstimatedMarketValue)
     {
@@ -713,15 +726,31 @@ public sealed class LootTrackerService : IDisposable
             return discoveredEstimatedMarketValue;
         }
 
-        return quality is { } knownQuality
-            ? itemEstimatedMarketValues.Get(itemId, knownQuality)
-            : GetAverageEstimatedMarketValue(itemId);
+        if (serverId is null)
+        {
+            return null;
+        }
+
+        var estimatedMarketValue = quality is { } knownQuality
+            ? itemEstimatedMarketValues.Get(serverId.Value, itemId, knownQuality)
+            : GetAverageEstimatedMarketValue(serverId.Value, itemId);
+
+        if (estimatedMarketValue is null)
+        {
+            itemEstimatedMarketValueBackendLoader.QueueMissingEstimatedMarketValue(
+                serverId.Value,
+                itemId,
+                itemUniqueName,
+                quality);
+        }
+
+        return estimatedMarketValue;
     }
 
-    private long? GetAverageEstimatedMarketValue(int itemId)
+    private long? GetAverageEstimatedMarketValue(int serverId, int itemId)
     {
         var values = Enumerable.Range(1, 4)
-            .Select(quality => itemEstimatedMarketValues.Get(itemId, quality))
+            .Select(quality => itemEstimatedMarketValues.Get(serverId, itemId, quality))
             .Where(value => value is > 0)
             .Select(value => value!.Value)
             .ToArray();

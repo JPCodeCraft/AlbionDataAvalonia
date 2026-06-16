@@ -23,6 +23,7 @@ public sealed class GatheringTrackerService : IDisposable
     private readonly PlayerState playerState;
     private readonly ItemsIdsService itemsIdsService;
     private readonly ItemEstimatedMarketValueService estimatedMarketValues;
+    private readonly ItemEstimatedMarketValueBackendLoader estimatedMarketValueBackendLoader;
     private readonly GatheringSessionPersistenceService sessionPersistence;
     private readonly Dictionary<GatheringItemKey, GatheringItemAggregate> itemAggregates = new();
     private readonly Dictionary<DateTime, GatheringMinuteBucket> minuteBuckets = new();
@@ -51,12 +52,14 @@ public sealed class GatheringTrackerService : IDisposable
         PlayerState playerState,
         ItemsIdsService itemsIdsService,
         ItemEstimatedMarketValueService estimatedMarketValues,
+        ItemEstimatedMarketValueBackendLoader estimatedMarketValueBackendLoader,
         GatheringSessionPersistenceService sessionPersistence)
     {
         this.settingsManager = settingsManager;
         this.playerState = playerState;
         this.itemsIdsService = itemsIdsService;
         this.estimatedMarketValues = estimatedMarketValues;
+        this.estimatedMarketValueBackendLoader = estimatedMarketValueBackendLoader;
         this.sessionPersistence = sessionPersistence;
         isDisabled = settingsManager.UserSettings.DisableGatheringTracker;
         this.settingsManager.UserSettings.PropertyChanged += OnUserSettingsPropertyChanged;
@@ -244,7 +247,23 @@ public sealed class GatheringTrackerService : IDisposable
 
             if (discovered.EstimatedMarketValue is > 0)
             {
-                estimatedMarketValues.Update(discovered.ItemId, discovered.Quality, discovered.EstimatedMarketValue.Value);
+                var serverId = sessionAlbionServerId ?? playerState.AlbionServer?.Id;
+                if (serverId is null)
+                {
+                    Log.Debug(
+                        "Skipping fishing reward estimated market value update because server is not set. ItemId={ItemId} Quality={Quality} Emv={Emv}",
+                        discovered.ItemId,
+                        discovered.Quality,
+                        discovered.EstimatedMarketValue.Value);
+                }
+                else
+                {
+                    estimatedMarketValues.Update(
+                        serverId.Value,
+                        discovered.ItemId,
+                        discovered.Quality,
+                        discovered.EstimatedMarketValue.Value);
+                }
             }
         }
     }
@@ -357,18 +376,24 @@ public sealed class GatheringTrackerService : IDisposable
         }
     }
 
-    private void OnEstimatedMarketValueChanged(GatheringItemKey key)
+    private void OnEstimatedMarketValueChanged(ItemEstimatedMarketValueKey key)
     {
         GatheringTrackerSnapshot? snapshot = null;
         GatheringSessionCheckpoint? checkpoint = null;
         lock (sync)
         {
-            if (isDisabled || !itemAggregates.TryGetValue(key, out var itemAggregate))
+            if (isDisabled || sessionAlbionServerId != key.ServerId)
             {
                 return;
             }
 
-            itemAggregate.EstimatedMarketValue = estimatedMarketValues.Get(key.ItemId, key.Quality);
+            var itemKey = new GatheringItemKey(key.ItemId, key.Quality);
+            if (!itemAggregates.TryGetValue(itemKey, out var itemAggregate))
+            {
+                return;
+            }
+
+            itemAggregate.EstimatedMarketValue = estimatedMarketValues.Get(key.ServerId, key.ItemId, key.Quality);
             snapshot = BuildSnapshot(DateTime.UtcNow);
             checkpoint = BuildCheckpoint(DateTime.UtcNow);
         }
@@ -536,7 +561,11 @@ public sealed class GatheringTrackerService : IDisposable
             itemAggregates[key] = itemAggregate;
         }
 
-        estimatedMarketValue ??= estimatedMarketValues.Get(itemId, quality);
+        var serverId = sessionAlbionServerId ?? playerState.AlbionServer?.Id;
+        if (serverId is not null)
+        {
+            estimatedMarketValue ??= estimatedMarketValues.Get(serverId.Value, itemId, quality);
+        }
         itemAggregate.EstimatedMarketValue = estimatedMarketValue;
         itemAggregate.Source = CombineSources(itemAggregate.Source, source);
 
@@ -550,6 +579,15 @@ public sealed class GatheringTrackerService : IDisposable
                 quality,
                 itemAggregate.ItemUniqueName,
                 itemAggregate.ItemName);
+
+            if (serverId is not null)
+            {
+                estimatedMarketValueBackendLoader.QueueMissingEstimatedMarketValue(
+                    serverId.Value,
+                    itemId,
+                    itemAggregate.ItemUniqueName,
+                    quality);
+            }
         }
 
         itemAggregate.Amount += amount;
