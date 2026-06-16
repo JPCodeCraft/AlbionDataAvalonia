@@ -20,11 +20,17 @@ public partial class LootViewModel : ViewModelBase, IDisposable
 
     private readonly LootTrackerService? lootTracker;
     private readonly CsvExportService? csvExportService;
+    private readonly TimeSpan filterDebounceInterval = TimeSpan.FromMilliseconds(250);
+    private IDisposable? pendingFilterRefreshRegistration;
     private IReadOnlyList<LootRecord> allRecords = Array.Empty<LootRecord>();
     private List<LootRecord> filteredRecords = new();
+    private string appliedFilterText = string.Empty;
 
     [ObservableProperty]
     private ObservableCollection<LootRowViewModel> loot = new();
+
+    [ObservableProperty]
+    private string filterText = string.Empty;
 
     [ObservableProperty]
     private ObservableCollection<string> playerOptions = new([AllPlayers]);
@@ -82,6 +88,13 @@ public partial class LootViewModel : ViewModelBase, IDisposable
         {
             lootTracker.SnapshotChanged -= OnSnapshotChanged;
         }
+
+        CancelPendingFilterRefresh();
+    }
+
+    partial void OnFilterTextChanged(string? oldValue, string newValue)
+    {
+        ScheduleFilterLoot();
     }
 
     partial void OnSelectedPlayerChanged(string value)
@@ -162,7 +175,8 @@ public partial class LootViewModel : ViewModelBase, IDisposable
         RefreshPlayerOptions();
 
         if (CanApplyAppendOnlySnapshot(previousRecords, snapshot.Records)
-            && string.Equals(previousSelectedPlayer, SelectedPlayer, StringComparison.OrdinalIgnoreCase))
+            && string.Equals(previousSelectedPlayer, SelectedPlayer, StringComparison.OrdinalIgnoreCase)
+            && string.Equals(appliedFilterText, FilterText ?? string.Empty, StringComparison.Ordinal))
         {
             ApplyAppendedRecord(snapshot.Records[^1]);
             return;
@@ -195,6 +209,7 @@ public partial class LootViewModel : ViewModelBase, IDisposable
 
     private void ApplyFilter()
     {
+        appliedFilterText = FilterText ?? string.Empty;
         IEnumerable<LootRecord> query = allRecords;
         if (!string.Equals(SelectedPlayer, AllPlayers, StringComparison.OrdinalIgnoreCase))
         {
@@ -205,6 +220,14 @@ public partial class LootViewModel : ViewModelBase, IDisposable
         if (PartyMembersOnly)
         {
             query = query.Where(record => record.WasPartyMemberAtPickup);
+        }
+
+        var normalizedFilterText = NormalizeItemSearchText(appliedFilterText);
+        if (!string.IsNullOrEmpty(normalizedFilterText))
+        {
+            query = query.Where(record =>
+                NormalizeItemSearchText(record.ItemName)
+                    .Contains(normalizedFilterText, StringComparison.OrdinalIgnoreCase));
         }
 
         filteredRecords = query
@@ -254,7 +277,15 @@ public partial class LootViewModel : ViewModelBase, IDisposable
             return false;
         }
 
-        return !PartyMembersOnly || record.WasPartyMemberAtPickup;
+        if (PartyMembersOnly && !record.WasPartyMemberAtPickup)
+        {
+            return false;
+        }
+
+        var normalizedFilterText = NormalizeItemSearchText(appliedFilterText);
+        return string.IsNullOrEmpty(normalizedFilterText)
+            || NormalizeItemSearchText(record.ItemName)
+                .Contains(normalizedFilterText, StringComparison.OrdinalIgnoreCase);
     }
 
     private int GetInsertIndex(LootRecord record)
@@ -268,6 +299,33 @@ public partial class LootViewModel : ViewModelBase, IDisposable
         }
 
         return filteredRecords.Count;
+    }
+
+    private void ScheduleFilterLoot()
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(ScheduleFilterLoot);
+            return;
+        }
+
+        CancelPendingFilterRefresh();
+        pendingFilterRefreshRegistration = DispatcherTimer.RunOnce(() =>
+        {
+            pendingFilterRefreshRegistration = null;
+            ApplyFilter();
+        }, filterDebounceInterval);
+    }
+
+    private void CancelPendingFilterRefresh()
+    {
+        pendingFilterRefreshRegistration?.Dispose();
+        pendingFilterRefreshRegistration = null;
+    }
+
+    private static string NormalizeItemSearchText(string? value)
+    {
+        return (value ?? string.Empty).Replace(" ", string.Empty);
     }
 }
 

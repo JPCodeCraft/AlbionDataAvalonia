@@ -46,6 +46,12 @@
                     Margin="0,0,16,6" />
 
             <StackPanel Margin="0,0,16,6">
+                <TextBlock Text="Search an Item..." FontSize="12" Opacity="0.65" />
+                <TextBox Text="{Binding FilterText, UpdateSourceTrigger=PropertyChanged}"
+                         Width="220" />
+            </StackPanel>
+
+            <StackPanel Margin="0,0,16,6">
                 <TextBlock Text="Player" FontSize="12" Opacity="0.65" />
                 <ComboBox ItemsSource="{Binding PlayerOptions}"
                           SelectedItem="{Binding SelectedPlayer}"
