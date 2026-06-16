@@ -35,6 +35,18 @@ namespace AlbionDataAvalonia.Locations
         { 3013, 3005 }
     };
 
+        private static readonly (string Token, string Name, string FriendlyName)[] GeneratedLocationTypes =
+        [
+            ("HELLCLUSTER", "Hellgate", "Hellgate"),
+            ("RANDOMDUNGEON", "Dungeon", "Dungeon"),
+            ("CORRUPTEDDUNGEON", "CorruptedDungeon", "Corrupted Dungeon"),
+            ("EXPEDITION", "Expedition", "Expedition"),
+            ("ARENA", "Arena", "Arena"),
+            ("MISTSDUNGEON", "MistsDungeon", "Mists Dungeon"),
+            ("MISTS", "Mists", "Mists"),
+            ("HELLDUNGEON", "AbyssalDepths", "Abyssal Depths")
+        ];
+
         public static AlbionLocation Unknown { get; } = new AlbionLocation("-0002", "Unknown", "Unknown");
         public static AlbionLocation Unset { get; } = new AlbionLocation("-0001", "Unset", "Unset");
 
@@ -127,6 +139,12 @@ namespace AlbionDataAvalonia.Locations
                 return GetByIntId(marketLocationId.Value);
             }
 
+            var generatedLocation = GetGeneratedLocation(rawLocationId);
+            if (generatedLocation != null)
+            {
+                return generatedLocation;
+            }
+
             return Unknown;
         }
 
@@ -183,7 +201,7 @@ namespace AlbionDataAvalonia.Locations
 
         private static IEnumerable<string> GetLocationCandidates(string rawLocationId)
         {
-            var trimmed = rawLocationId.Trim();
+            var trimmed = NormalizeRawLocationId(rawLocationId);
             if (string.IsNullOrEmpty(trimmed))
             {
                 yield break;
@@ -202,6 +220,31 @@ namespace AlbionDataAvalonia.Locations
                     yield return part;
                 }
             }
+        }
+
+        private static AlbionLocation? GetGeneratedLocation(string rawLocationId)
+        {
+            var normalizedLocationId = NormalizeRawLocationId(rawLocationId);
+            if (string.IsNullOrEmpty(normalizedLocationId) || !normalizedLocationId.Contains('@'))
+            {
+                return null;
+            }
+
+            var parts = normalizedLocationId.Split('@', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries);
+            foreach (var generatedLocationType in GeneratedLocationTypes)
+            {
+                if (parts.Any(part => part.Contains(generatedLocationType.Token, StringComparison.OrdinalIgnoreCase)))
+                {
+                    return new AlbionLocation(normalizedLocationId, generatedLocationType.Name, generatedLocationType.FriendlyName);
+                }
+            }
+
+            return null;
+        }
+
+        private static string NormalizeRawLocationId(string rawLocationId)
+        {
+            return rawLocationId.Trim().Trim('"', '\'');
         }
 
         private static int? GetMarketLocationIdIntFromCandidate(string candidate)
