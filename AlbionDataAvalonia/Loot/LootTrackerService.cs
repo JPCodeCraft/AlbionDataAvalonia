@@ -23,7 +23,6 @@ public sealed class LootTrackerService : IDisposable
     private readonly Dictionary<long, LootSource> sources = new();
     private readonly Dictionary<Guid, LootContainer> containers = new();
     private readonly Dictionary<long, DateTime> recordedItemObjectIds = new();
-    private readonly Dictionary<long, PendingLocalPickup> pendingLocalPickups = new();
     private readonly List<RecentPickupCorrelation> recentLocalPickups = new();
     private readonly List<RecentPickupCorrelation> recentBroadcastPickups = new();
     private readonly SettingsManager settingsManager;
@@ -293,8 +292,9 @@ public sealed class LootTrackerService : IDisposable
         }
     }
 
-    public void QueueLocalMoveBySlot(int sourceSlot, Guid sourceContainerId, Guid destinationContainerId)
+    public void RecordLocalMoveBySlot(int sourceSlot, Guid sourceContainerId, Guid destinationContainerId)
     {
+        LootTrackerSnapshot? snapshot = null;
         lock (sync)
         {
             if (!CanCaptureCore()
@@ -307,15 +307,21 @@ public sealed class LootTrackerService : IDisposable
                 return;
             }
 
-            QueuePendingLocalPickupCore(container.SlotItems[sourceSlot], container.SourceObjectId, DateTime.UtcNow);
+            snapshot = RecordLocalItemObjectCore(container.SlotItems[sourceSlot], container.SourceObjectId);
+        }
+
+        if (snapshot is not null)
+        {
+            SnapshotChanged?.Invoke(snapshot);
         }
     }
 
-    public void QueueLocalMoveGivenItems(
+    public void RecordLocalMoveGivenItems(
         Guid sourceContainerId,
         Guid destinationContainerId,
         IReadOnlyList<long> itemObjectIds)
     {
+        LootTrackerSnapshot? snapshot = null;
         lock (sync)
         {
             if (!CanCaptureCore()
@@ -327,8 +333,6 @@ public sealed class LootTrackerService : IDisposable
             }
 
             var containerItems = container.SlotItems.ToHashSet();
-            var nowUtc = DateTime.UtcNow;
-            PruneTransientStateCore(nowUtc);
             foreach (var itemObjectId in itemObjectIds.Distinct())
             {
                 if (!containerItems.Contains(itemObjectId))
@@ -336,52 +340,14 @@ public sealed class LootTrackerService : IDisposable
                     continue;
                 }
 
-                QueuePendingLocalPickupCore(itemObjectId, container.SourceObjectId, nowUtc);
+                snapshot = RecordLocalItemObjectCore(itemObjectId, container.SourceObjectId) ?? snapshot;
             }
-        }
-    }
-
-    public void RecordInventoryPutItem(long itemObjectId)
-    {
-        LootTrackerSnapshot? snapshot = null;
-        lock (sync)
-        {
-            if (!CanCaptureCore()
-                || !discoveredItems.TryGetValue(itemObjectId, out var item))
-            {
-                return;
-            }
-
-            var sourceObjectId = item.SourceObjectId;
-            if (pendingLocalPickups.Remove(itemObjectId, out var pendingPickup))
-            {
-                sourceObjectId = pendingPickup.SourceObjectId;
-                item.SourceObjectId = sourceObjectId;
-            }
-
-            if (sourceObjectId is not { } confirmedSourceObjectId)
-            {
-                return;
-            }
-
-            snapshot = RecordLocalItemObjectCore(itemObjectId, confirmedSourceObjectId);
         }
 
         if (snapshot is not null)
         {
             SnapshotChanged?.Invoke(snapshot);
         }
-    }
-
-    private void QueuePendingLocalPickupCore(long itemObjectId, long sourceObjectId, DateTime nowUtc)
-    {
-        PruneTransientStateCore(nowUtc);
-        if (itemObjectId <= 0 || sourceObjectId <= 0 || recordedItemObjectIds.ContainsKey(itemObjectId))
-        {
-            return;
-        }
-
-        pendingLocalPickups[itemObjectId] = new PendingLocalPickup(sourceObjectId, nowUtc);
     }
 
     private LootTrackerSnapshot? RecordLocalItemObjectCore(long itemObjectId, long sourceObjectId)
@@ -684,7 +650,6 @@ public sealed class LootTrackerService : IDisposable
         sources.Clear();
         containers.Clear();
         recordedItemObjectIds.Clear();
-        pendingLocalPickups.Clear();
         recentLocalPickups.Clear();
         recentBroadcastPickups.Clear();
     }
@@ -721,14 +686,6 @@ public sealed class LootTrackerService : IDisposable
             .ToArray())
         {
             recordedItemObjectIds.Remove(itemObjectId);
-        }
-
-        foreach (var itemObjectId in pendingLocalPickups
-            .Where(entry => nowUtc - entry.Value.SeenAtUtc > TransientRetention)
-            .Select(entry => entry.Key)
-            .ToArray())
-        {
-            pendingLocalPickups.Remove(itemObjectId);
         }
 
         recentLocalPickups.RemoveAll(correlation =>
@@ -790,10 +747,6 @@ public sealed class LootTrackerService : IDisposable
         Guid ContainerId,
         Guid PrivateContainerId,
         IReadOnlyList<long> SlotItems,
-        DateTime SeenAtUtc);
-
-    private sealed record PendingLocalPickup(
-        long SourceObjectId,
         DateTime SeenAtUtc);
 
     private sealed class RecentPickupCorrelation
