@@ -24,6 +24,7 @@ public sealed class LootTrackerService : IDisposable
     private readonly Dictionary<long, LootSource> sources = new();
     private readonly Dictionary<Guid, LootContainer> containers = new();
     private readonly Dictionary<long, RecordedItemObject> recordedItemObjectIds = new();
+    private readonly Dictionary<long, PendingPartyLootItem> pendingPartyLootItems = new();
     private readonly List<RecentPickupCorrelation> recentLocalPickups = new();
     private readonly List<RecentPickupCorrelation> recentBroadcastPickups = new();
     private readonly SettingsManager settingsManager;
@@ -300,6 +301,120 @@ public sealed class LootTrackerService : IDisposable
         }
     }
 
+    public void TrackPartyLootItems(
+        long sourceObjectId,
+        IReadOnlyList<long> itemObjectIds,
+        IReadOnlyList<int> itemIds,
+        IReadOnlyList<int> amounts,
+        IReadOnlyList<string> playerNames)
+    {
+        if (sourceObjectId <= 0 || itemObjectIds.Count == 0)
+        {
+            return;
+        }
+
+        lock (sync)
+        {
+            if (!CanCaptureCore())
+            {
+                return;
+            }
+
+            var nowUtc = DateTime.UtcNow;
+            PruneTransientStateCore(nowUtc);
+            for (var index = 0; index < itemObjectIds.Count; index++)
+            {
+                var itemObjectId = itemObjectIds[index];
+                var itemId = index < itemIds.Count ? itemIds[index] : 0;
+                var amount = index < amounts.Count ? amounts[index] : 0;
+                var playerName = index < playerNames.Count ? playerNames[index]?.Trim() : string.Empty;
+                if (itemObjectId <= 0
+                    || itemId <= 0
+                    || amount <= 0
+                    || string.IsNullOrWhiteSpace(playerName))
+                {
+                    continue;
+                }
+
+                pendingPartyLootItems[itemObjectId] = new PendingPartyLootItem(
+                    sourceObjectId,
+                    itemObjectId,
+                    itemId,
+                    amount,
+                    playerName!,
+                    nowUtc);
+            }
+        }
+    }
+
+    public void RecordPartyLootItemsRemoved(long sourceObjectId, IReadOnlyList<long> itemObjectIds)
+    {
+        if (itemObjectIds.Count == 0)
+        {
+            return;
+        }
+
+        LootTrackerSnapshot? snapshot = null;
+        lock (sync)
+        {
+            if (!CanCaptureCore())
+            {
+                return;
+            }
+
+            var nowUtc = DateTime.UtcNow;
+            PruneTransientStateCore(nowUtc);
+            foreach (var itemObjectId in itemObjectIds.Where(id => id > 0).Distinct())
+            {
+                if (!pendingPartyLootItems.TryGetValue(itemObjectId, out var pendingItem))
+                {
+                    continue;
+                }
+
+                pendingPartyLootItems.Remove(itemObjectId);
+                if (IsRecentlyRecordedCore(itemObjectId, pendingItem.ItemId, pendingItem.Amount, nowUtc)
+                    || HasRecentRecordCore(pendingItem.PlayerName, pendingItem.ItemId, pendingItem.Amount, nowUtc))
+                {
+                    recordedItemObjectIds[itemObjectId] = new RecordedItemObject(
+                        pendingItem.ItemId,
+                        pendingItem.Amount,
+                        nowUtc);
+                    continue;
+                }
+
+                var resolvedSourceObjectId = pendingItem.SourceObjectId > 0
+                    ? pendingItem.SourceObjectId
+                    : sourceObjectId;
+                var source = sources.TryGetValue(resolvedSourceObjectId, out var identifiedSource)
+                    ? identifiedSource
+                    : CreateSource("Loot Chest", LootSourceKind.Chest);
+                discoveredItems.TryGetValue(itemObjectId, out var discoveredItem);
+                var record = CreateRecordCore(
+                    pendingItem.PlayerName,
+                    source,
+                    itemObjectId,
+                    pendingItem.ItemId,
+                    pendingItem.Amount,
+                    discoveredItem?.Quality,
+                    discoveredItem?.UniqueName,
+                    discoveredItem?.Name,
+                    discoveredItem?.EstimatedMarketValue,
+                    nowUtc);
+                records.Add(record);
+                recordedItemObjectIds[itemObjectId] = new RecordedItemObject(
+                    pendingItem.ItemId,
+                    pendingItem.Amount,
+                    nowUtc);
+                snapshot = BuildSnapshot();
+            }
+        }
+
+        if (snapshot is not null)
+        {
+            SnapshotChanged?.Invoke(snapshot);
+        }
+    }
+
     public void RecordLocalMoveBySlot(int sourceSlot, Guid sourceContainerId, Guid destinationContainerId)
     {
         LootTrackerSnapshot? snapshot = null;
@@ -473,10 +588,7 @@ public sealed class LootTrackerService : IDisposable
             return null;
         }
 
-        if (recordedItemObjectIds.TryGetValue(itemObjectId, out var recordedItem)
-            && recordedItem.ItemId == item.ItemId
-            && recordedItem.Amount == item.Amount
-            && nowUtc - recordedItem.RecordedAtUtc <= CorrelationWindow)
+        if (IsRecentlyRecordedCore(itemObjectId, item.ItemId, item.Amount, nowUtc))
         {
             Log.Warning(
                 "Loot tracker skipped local item record because the same item object id was already recorded recently. ItemObjectId: {ItemObjectId}, SourceObjectId: {SourceObjectId}, ItemId: {ItemId}, Amount: {Amount}",
@@ -874,6 +986,23 @@ public sealed class LootTrackerService : IDisposable
         return correlation is not null;
     }
 
+    private bool IsRecentlyRecordedCore(long itemObjectId, int itemId, int amount, DateTime nowUtc)
+    {
+        return recordedItemObjectIds.TryGetValue(itemObjectId, out var recordedItem)
+            && recordedItem.ItemId == itemId
+            && recordedItem.Amount == amount
+            && nowUtc - recordedItem.RecordedAtUtc <= CorrelationWindow;
+    }
+
+    private bool HasRecentRecordCore(string playerName, int itemId, int amount, DateTime nowUtc)
+    {
+        return records.Any(record =>
+            string.Equals(record.PlayerName, playerName, StringComparison.OrdinalIgnoreCase)
+            && record.ItemId == itemId
+            && record.Amount == amount
+            && nowUtc - record.PickedUpAtUtc <= CorrelationWindow);
+    }
+
     private static LootSource CreateSource(string? sourceName, LootSourceKind preferredKind)
     {
         var normalizedName = sourceName?.Trim() ?? string.Empty;
@@ -918,6 +1047,7 @@ public sealed class LootTrackerService : IDisposable
         sources.Clear();
         containers.Clear();
         recordedItemObjectIds.Clear();
+        pendingPartyLootItems.Clear();
         recentLocalPickups.Clear();
         recentBroadcastPickups.Clear();
     }
@@ -954,6 +1084,14 @@ public sealed class LootTrackerService : IDisposable
             .ToArray())
         {
             recordedItemObjectIds.Remove(itemObjectId);
+        }
+
+        foreach (var itemObjectId in pendingPartyLootItems
+            .Where(entry => nowUtc - entry.Value.SeenAtUtc > TransientRetention)
+            .Select(entry => entry.Key)
+            .ToArray())
+        {
+            pendingPartyLootItems.Remove(itemObjectId);
         }
 
         recentLocalPickups.RemoveAll(correlation =>
@@ -1022,6 +1160,14 @@ public sealed class LootTrackerService : IDisposable
         int ItemId,
         int Amount,
         DateTime RecordedAtUtc);
+
+    private sealed record PendingPartyLootItem(
+        long SourceObjectId,
+        long ItemObjectId,
+        int ItemId,
+        int Amount,
+        string PlayerName,
+        DateTime SeenAtUtc);
 
     private sealed class RecentPickupCorrelation
     {

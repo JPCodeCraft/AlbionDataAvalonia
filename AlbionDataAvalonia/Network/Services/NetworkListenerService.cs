@@ -135,6 +135,8 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddEventHandler(new NewLootChestEventHandler(_lootTracker));
                 builder.AddEventHandler(new AttachItemContainerEventHandler(_lootTracker));
                 builder.AddEventHandler(new OtherGrabbedLootEventHandler(_lootTracker));
+                builder.AddEventHandler(new PartyLootItemsEventHandler(_lootTracker));
+                builder.AddEventHandler(new PartyLootItemsRemovedEventHandler(_lootTracker));
                 builder.AddEventHandler(new NewSimpleItemEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _gatheringTracker, _lootTracker, _playerState));
                 builder.AddEventHandler(new NewJournalItemEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _lootTracker, _playerState));
                 builder.AddEventHandler(new NewLaborerItemEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _lootTracker, _playerState));
