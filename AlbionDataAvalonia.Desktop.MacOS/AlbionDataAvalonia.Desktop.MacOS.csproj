@@ -19,28 +19,36 @@
     <PropertyGroup>
       <AppBundlePath>$(PublishDir)$(AssemblyName).app</AppBundlePath>
     </PropertyGroup>
+    <XmlPeek XmlInputPath="..\AlbionDataAvalonia\AlbionDataAvalonia.csproj" Query="/Project/PropertyGroup/Version/text()">
+      <Output TaskParameter="Result" ItemName="AppVersionValue" />
+    </XmlPeek>
+    <PropertyGroup>
+      <MacOSBundleVersion>@(AppVersionValue)</MacOSBundleVersion>
+      <MacOSBundleVersion Condition="'$(MacOSBundleVersion)' == ''">$(Version)</MacOSBundleVersion>
+    </PropertyGroup>
     <ItemGroup>
       <PublishFiles Include="$(PublishDir)**"
         Exclude="$(PublishDir)**/*.app;$(PublishDir)**/*.app/**;$(AppBundlePath)**" />
       <InfoPlist Include="Info.plist" />
       <AppIcon Include="..\AlbionDataAvalonia\Assets\logo.icns" />
+      <CapturePermissionSetupScript Include="setup-capture-permissions.sh" />
     </ItemGroup>
     <MakeDir Directories="$(AppBundlePath)/Contents/MacOS" />
     <MakeDir Directories="$(AppBundlePath)/Contents/Resources" />
     <Copy SourceFiles="@(PublishFiles)"
       DestinationFiles="@(PublishFiles->'$(AppBundlePath)/Contents/MacOS/%(RecursiveDir)%(Filename)%(Extension)')" />
     <Copy SourceFiles="@(InfoPlist)" DestinationFolder="$(AppBundlePath)/Contents" />
+    <XmlPoke XmlInputPath="$(AppBundlePath)/Contents/Info.plist"
+      Query="/plist/dict/key[.='CFBundleVersion']/following-sibling::string[1]"
+      Value="$(MacOSBundleVersion)" />
+    <XmlPoke XmlInputPath="$(AppBundlePath)/Contents/Info.plist"
+      Query="/plist/dict/key[.='CFBundleShortVersionString']/following-sibling::string[1]"
+      Value="$(MacOSBundleVersion)" />
     <Copy SourceFiles="@(AppIcon)" DestinationFolder="$(AppBundlePath)/Contents/Resources" />
+    <Copy SourceFiles="@(CapturePermissionSetupScript)" DestinationFolder="$(AppBundlePath)/Contents/Resources" />
     <Exec Command="chmod +x $(AppBundlePath)/Contents/MacOS/$(AssemblyName)"
       Condition=" '$(OS)' == 'Unix' and Exists('$(AppBundlePath)/Contents/MacOS/$(AssemblyName)') " />
-  </Target>
-  <Target Name="SetWrapperAsEntryPoint" AfterTargets="Publish">
-    <PropertyGroup>
-      <AppBundlePath>$(PublishDir)$(AssemblyName).app</AppBundlePath>
-    </PropertyGroup>
-    <Copy SourceFiles="run.sh"
-      DestinationFiles="$(AppBundlePath)/Contents/MacOS/AlbionDataAvalonia" />
-    <Exec Command="chmod +x $(AppBundlePath)/Contents/MacOS/AlbionDataAvalonia"
-      Condition=" '$(OS)' == 'Unix' " />
+    <Exec Command="chmod +x $(AppBundlePath)/Contents/Resources/setup-capture-permissions.sh"
+      Condition=" '$(OS)' == 'Unix' and Exists('$(AppBundlePath)/Contents/Resources/setup-capture-permissions.sh') " />
   </Target>
 </Project>
