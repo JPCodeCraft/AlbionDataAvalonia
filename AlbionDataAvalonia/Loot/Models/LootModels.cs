@@ -23,7 +23,7 @@ public sealed record LootRecord(
     int ItemId,
     string ItemUniqueName,
     string ItemName,
-    int Quality,
+    int? Quality,
     int Amount,
     long? EstimatedMarketValue,
     long? TotalEstimatedMarketValue);

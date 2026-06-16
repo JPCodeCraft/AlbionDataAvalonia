@@ -114,13 +114,13 @@
                                        Height="32"
                                        Stretch="Uniform"
                                        items:LazyItemImage.ItemUniqueName="{Binding ItemUniqueName}"
-                                       items:LazyItemImage.Quality="{Binding Quality}" />
+                                       items:LazyItemImage.Quality="{Binding ImageQuality}" />
                                 <TextBlock Text="{Binding ItemName}" VerticalAlignment="Center" />
                             </StackPanel>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
-                <DataGridTextColumn Header="Quality" Binding="{Binding Quality}" />
+                <DataGridTextColumn Header="Quality" Binding="{Binding QualityText}" />
                 <DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat='{}{0:N0}'}" />
                 <DataGridTextColumn Header="Unit EMV" Binding="{Binding EstimatedMarketValue, StringFormat='{}{0:N0}'}" />
                 <DataGridTextColumn Header="Total EMV" Binding="{Binding TotalEstimatedMarketValue, StringFormat='{}{0:N0}'}" />

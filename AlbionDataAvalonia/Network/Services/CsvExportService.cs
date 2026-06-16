@@ -222,7 +222,7 @@ public class CsvExportService
                 Escape(record.LocationName, delimiter),
                 Escape(record.ItemUniqueName, delimiter),
                 Escape(record.ItemName, delimiter),
-                record.Quality.ToString(culture),
+                record.Quality?.ToString(culture) ?? string.Empty,
                 record.Amount.ToString(culture),
                 record.EstimatedMarketValue?.ToString(culture) ?? string.Empty,
                 record.TotalEstimatedMarketValue?.ToString(culture) ?? string.Empty

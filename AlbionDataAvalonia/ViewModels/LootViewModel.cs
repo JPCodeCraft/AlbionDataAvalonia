@@ -345,7 +345,8 @@ public sealed class LootRowViewModel
     public string LocationName => Source.LocationName;
     public string ItemUniqueName => Source.ItemUniqueName;
     public string ItemName => Source.ItemName;
-    public int Quality => Source.Quality;
+    public int ImageQuality => Source.Quality ?? 1;
+    public string QualityText => Source.Quality?.ToString() ?? string.Empty;
     public int Amount => Source.Amount;
     public long? EstimatedMarketValue => Source.EstimatedMarketValue;
     public long? TotalEstimatedMarketValue => Source.TotalEstimatedMarketValue;

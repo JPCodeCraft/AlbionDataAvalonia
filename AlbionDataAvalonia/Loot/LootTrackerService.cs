@@ -273,7 +273,7 @@ public sealed class LootTrackerService : IDisposable
                     item?.ObjectId,
                     itemId,
                     amount,
-                    item?.Quality ?? 1,
+                    item?.Quality,
                     item?.UniqueName,
                     item?.Name,
                     item?.EstimatedMarketValue,
@@ -551,17 +551,18 @@ public sealed class LootTrackerService : IDisposable
         long? itemObjectId,
         int itemId,
         int amount,
-        int quality,
+        int? quality,
         string? uniqueName,
         string? name,
         long? discoveredEstimatedMarketValue,
         DateTime nowUtc)
     {
         var itemData = itemsIdsService.GetItemById(itemId);
-        var resolvedQuality = Math.Max(1, quality);
-        var estimatedMarketValue = discoveredEstimatedMarketValue is > 0
-            ? discoveredEstimatedMarketValue
-            : itemEstimatedMarketValues.Get(itemId, resolvedQuality);
+        var resolvedQuality = quality is > 0 ? quality.Value : (int?)null;
+        var estimatedMarketValue = GetEstimatedMarketValue(
+            itemId,
+            resolvedQuality,
+            discoveredEstimatedMarketValue);
         var resolvedUniqueName = IsKnownItemText(uniqueName)
             ? uniqueName!
             : itemData.UniqueName;
@@ -626,9 +627,11 @@ public sealed class LootTrackerService : IDisposable
         }
 
         var record = records[index];
-        var estimatedMarketValue = record.EstimatedMarketValue
-            ?? item.EstimatedMarketValue
-            ?? itemEstimatedMarketValues.Get(item.ItemId, item.Quality);
+        var shouldRefreshEstimatedMarketValue = record.Quality != item.Quality
+            || record.EstimatedMarketValue is null;
+        var estimatedMarketValue = shouldRefreshEstimatedMarketValue
+            ? GetEstimatedMarketValue(item.ItemId, item.Quality, item.EstimatedMarketValue) ?? record.EstimatedMarketValue
+            : record.EstimatedMarketValue;
         records[index] = record with
         {
             ItemObjectId = itemObjectId,
@@ -651,21 +654,39 @@ public sealed class LootTrackerService : IDisposable
                 return;
             }
 
+            var averageEstimatedMarketValue = key.Quality is >= 1 and <= 4
+                ? GetAverageEstimatedMarketValue(key.ItemId)
+                : null;
             var changed = false;
             for (var i = 0; i < records.Count; i++)
             {
                 var record = records[i];
-                if (record.ItemId != key.ItemId
-                    || record.Quality != key.Quality
-                    || record.EstimatedMarketValue is not null)
+                if (record.ItemId != key.ItemId)
+                {
+                    continue;
+                }
+
+                long? recordEstimatedMarketValue = null;
+                if (record.Quality == key.Quality && record.EstimatedMarketValue is null)
+                {
+                    recordEstimatedMarketValue = estimatedMarketValue;
+                }
+                else if (record.Quality is null
+                    && averageEstimatedMarketValue is > 0
+                    && record.EstimatedMarketValue != averageEstimatedMarketValue)
+                {
+                    recordEstimatedMarketValue = averageEstimatedMarketValue;
+                }
+
+                if (recordEstimatedMarketValue is null)
                 {
                     continue;
                 }
 
                 records[i] = record with
                 {
-                    EstimatedMarketValue = estimatedMarketValue,
-                    TotalEstimatedMarketValue = estimatedMarketValue * record.Amount
+                    EstimatedMarketValue = recordEstimatedMarketValue,
+                    TotalEstimatedMarketValue = recordEstimatedMarketValue * record.Amount
                 };
                 changed = true;
             }
@@ -680,6 +701,37 @@ public sealed class LootTrackerService : IDisposable
         {
             SnapshotChanged?.Invoke(snapshot);
         }
+    }
+
+    private long? GetEstimatedMarketValue(
+        int itemId,
+        int? quality,
+        long? discoveredEstimatedMarketValue)
+    {
+        if (discoveredEstimatedMarketValue is > 0)
+        {
+            return discoveredEstimatedMarketValue;
+        }
+
+        return quality is { } knownQuality
+            ? itemEstimatedMarketValues.Get(itemId, knownQuality)
+            : GetAverageEstimatedMarketValue(itemId);
+    }
+
+    private long? GetAverageEstimatedMarketValue(int itemId)
+    {
+        var values = Enumerable.Range(1, 4)
+            .Select(quality => itemEstimatedMarketValues.Get(itemId, quality))
+            .Where(value => value is > 0)
+            .Select(value => value!.Value)
+            .ToArray();
+
+        if (values.Length == 0)
+        {
+            return null;
+        }
+
+        return (long)Math.Round(values.Average());
     }
 
     private void OnUserSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
