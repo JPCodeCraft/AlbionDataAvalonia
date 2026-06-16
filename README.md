@@ -81,34 +81,32 @@ curl -s https://api.github.com/repos/JPCodeCraft/AlbionDataAvalonia/releases/lat
 
 ### MacOS
 
-AFM Data Client should be able to run on MacOS, but it's not very developed. Feel free to contribute to the repository if you can.
 If you are on Apple Silicon, download `AFMDataClient_MacOS_arm64.app.zip`. Intel users should download `AFMDataClient_MacOS_x64.app.zip`.
 
-Since the app is not signed, you'll get a warning like this when you try to run it:
+The macOS app is not signed, so macOS may say `"AFMDataClient_MacOS" is damaged and can't be opened`. Remove the download quarantine flag before opening it:
 
-<img width="384" height="365" alt="Screenshot 2025-12-28 224658" src="https://github.com/user-attachments/assets/9855fd14-59c4-49aa-a7f9-7e392236e853" />
+1. Make sure `AFMDataClient_MacOS.app` is visible in your `Downloads` folder. Safari may extract the zip automatically. If you still see only the `.zip` file, double-click it first.
+2. Open Terminal:
+   - Press `Command + Space` to open Spotlight.
+   - Type `Terminal`.
+   - Press `Return`.
+3. In Terminal, go to your Downloads folder:
 
-If you click the ? button, this is the explanation and instructions shown on how to allow the app to run:
+   ```bash
+   cd ~/Downloads
+   ```
 
-<img width="924" height="779" alt="Screenshot 2025-12-28 224734" src="https://github.com/user-attachments/assets/05d0f10e-ec03-4fc9-b277-36fab9732066" />
+4. Remove the quarantine flag from the app:
 
-So in the Security section, click Open Anyway. You will need to type your password to allow it.
+   ```bash
+   xattr -dr com.apple.quarantine AFMDataClient_MacOS.app
+   ```
 
-<img width="900" height="429" alt="Screenshot 2025-12-28 224836" src="https://github.com/user-attachments/assets/20192951-1cb5-4b21-90fc-4acaa2afe555" />
+5. Double-click `AFMDataClient_MacOS.app` to open it.
 
-After allowing the app, it should open normally and write logs under `~/Library/Application Support/AFMDataClient/logs`.
+   If double-clicking does not open it, run `open AFMDataClient_MacOS.app` in Terminal.
 
-If packet capture is blocked, the app shows a `Capture Blocked` status with an `Install permissions` button. Click it and approve the macOS administrator prompt to run the bundled BPF permission setup.
-
-You can also run the same setup manually:
-
-```bash
-sudo /bin/sh "/path/to/AFMDataClient_MacOS.app/Contents/Resources/setup-capture-permissions.sh"
-```
-
-Replace `/path/to` with the folder where you extracted the app. The setup creates an `afmdataclient_bpf` group, installs a small LaunchDaemon to keep `/dev/bpf*` readable and writable by that group, and adds your user to the group. Restart AFM after setup. If capture is still denied, log out and back in or reboot.
-
-<img width="411" height="110" alt="Screenshot 2025-12-28 225223" src="https://github.com/user-attachments/assets/36249bfa-f19e-40e4-aad1-5e4d50f1fddc" />
+If packet capture is blocked, the app shows a `Capture Blocked` status with an `Install permissions` button. Click it, approve the macOS administrator prompt, and let the app restart.
 
 There's no automatic update feature for MacOS, so you should manually download new versions.
 
