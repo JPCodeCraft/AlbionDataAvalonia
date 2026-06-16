@@ -148,11 +148,24 @@ public partial class MainViewModel : ViewModelBase
     private bool greenBlinking = false;
 
     [ObservableProperty]
+    private bool isInstallingMacOSCapturePermissions = false;
+
+    partial void OnIsInstallingMacOSCapturePermissionsChanged(bool value)
+    {
+        OnPropertyChanged(nameof(MacOSCapturePermissionButtonText));
+    }
+
+    [ObservableProperty]
     private FirebaseAuthResponse? firebaseUser = null;
     [ObservableProperty]
     private bool userLoggedIn = false;
 
     public ObservableCollection<SidebarStatusItem> SidebarStatusItems { get; } = new();
+    public bool ShowMacOSCapturePermissionSetup =>
+        RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
+        && _networkListener?.IsMacOSCapturePermissionSetupRequired == true;
+    public string MacOSCapturePermissionButtonText =>
+        IsInstallingMacOSCapturePermissions ? "Installing..." : "Install permissions";
 
     private int oldUploadQueueSize = 0;
     private int oldRunningTasksCount = 0;
@@ -208,6 +221,8 @@ public partial class MainViewModel : ViewModelBase
         FirebaseUser = _authService.CurrentFirebaseUser;
         UserLoggedIn = FirebaseUser is not null;
         RefreshSidebarStatus();
+
+        _networkListener.MacOSCapturePermissionSetupRequiredChanged += NetworkListener_MacOSCapturePermissionSetupRequiredChanged;
 
         userSettings = _settingsManager.UserSettings;
 
@@ -348,6 +363,13 @@ public partial class MainViewModel : ViewModelBase
                 "Sign in to upload private AFM data."));
         }
 
+        if (ShowMacOSCapturePermissionSetup)
+        {
+            AddSidebarStatus(SidebarStatusItem.Warning(
+                "Capture Blocked",
+                "macOS denied packet capture access. Install capture permissions to allow AFM Data Client to read network packets."));
+        }
+
         if (!_playerState.IsInGame)
         {
             AddSidebarStatus(SidebarStatusItem.Warning(
@@ -390,6 +412,18 @@ public partial class MainViewModel : ViewModelBase
                 "Ready",
                 "Capture state looks ready."));
         }
+    }
+
+    private void NetworkListener_MacOSCapturePermissionSetupRequiredChanged(object? sender, EventArgs e)
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => NetworkListener_MacOSCapturePermissionSetupRequiredChanged(sender, e));
+            return;
+        }
+
+        OnPropertyChanged(nameof(ShowMacOSCapturePermissionSetup));
+        RefreshSidebarStatus();
     }
 
     private void AddSidebarStatus(SidebarStatusItem item)
@@ -549,6 +583,27 @@ public partial class MainViewModel : ViewModelBase
         catch (Exception ex)
         {
             Log.Error($"An error occurred while trying to install NpCap: {ex.Message}");
+        }
+    }
+
+    [RelayCommand]
+    private async Task InstallMacOSCapturePermissions()
+    {
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            return;
+        }
+
+        try
+        {
+            IsInstallingMacOSCapturePermissions = true;
+            await _networkListener.InstallMacOSCapturePermissionsAsync();
+        }
+        finally
+        {
+            IsInstallingMacOSCapturePermissions = false;
+            OnPropertyChanged(nameof(ShowMacOSCapturePermissionSetup));
+            RefreshSidebarStatus();
         }
     }
 

@@ -13,6 +13,8 @@ using Serilog;
 using SharpPcap;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.IO;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
@@ -23,6 +25,7 @@ namespace AlbionDataAvalonia.Network.Services
     {
         private static readonly object deviceCLeanLock = new object();
         private static readonly object listenLock = new object();
+        private const string MacOSCapturePermissionSetupScriptName = "setup-capture-permissions.sh";
         private readonly HashSet<string> _unknownServerIps = new HashSet<string>();
 
         private readonly Uploader _uploader;
@@ -45,6 +48,9 @@ namespace AlbionDataAvalonia.Network.Services
 
         private IPhotonReceiver? receiver;
         private CaptureDeviceList? devices;
+
+        public event EventHandler? MacOSCapturePermissionSetupRequiredChanged;
+        public bool IsMacOSCapturePermissionSetupRequired { get; private set; }
 
         public NetworkListenerService(Uploader uploader, PlayerState playerState, SettingsManager settingsManager, MailService mailService, IdleService idleService, TradeService tradeService, AFMUploader afmUploader, ItemsIdsService itemsIdsService, ItemEstimatedMarketValueService itemEstimatedMarketValues, AchievementsService achievementsService, CombatTrackerService combatTracker, GatheringTrackerService gatheringTracker, MobsService mobsService)
         {
@@ -93,7 +99,7 @@ namespace AlbionDataAvalonia.Network.Services
                     return;
                 }
 
-                var filter = _settingsManager.AppSettings.PacketFilterPortText;
+                var filter = _settingsManager.AppSettings.PacketFilterPortText ?? string.Empty;
 
                 ReceiverBuilder builder = ReceiverBuilder.Create();
 
@@ -173,41 +179,261 @@ namespace AlbionDataAvalonia.Network.Services
                 Log.Debug("Starting network device listening");
 
                 devices = CaptureDeviceList.New();
-
-                foreach (var device in devices)
+                if (!devices.Any())
                 {
-                    await Task.Run(() =>
-                    {
-                        try
-                        {
-                            Log.Debug("Opening network device: {Device}", device.Description);
-
-                            device.OnPacketArrival += new PacketArrivalEventHandler(PacketHandler);
-                            device.Open(new DeviceConfiguration
-                            {
-                                Mode = DeviceModes.None,
-                                ReadTimeout = 5000
-                            });
-                            device.Filter = filter;
-                            device.StartCapture();
-
-                            Log.Debug("Opened network device: {Device} with filter: {Filter}", device.Description, filter);
-                        }
-                        catch (Exception ex)
-                        {
-                            Log.Debug("Error initializing device {Device}: {Message}", device.Name, ex.Message);
-                        }
-                    });
+                    Log.Error("No network capture devices were found.");
+                    isListening = false;
+                    return;
                 }
 
+                var openedDeviceCount = 0;
+                var failedDeviceCount = 0;
+                var sawPermissionDenied = false;
+                foreach (var device in devices)
+                {
+                    var result = await Task.Run(() => TryStartDeviceCapture(device, filter));
+                    if (result.Opened)
+                    {
+                        openedDeviceCount++;
+                    }
+                    else
+                    {
+                        failedDeviceCount++;
+                        sawPermissionDenied |= result.PermissionDenied;
+                    }
+                }
+
+                if (openedDeviceCount == 0)
+                {
+                    hasFinishedStartingDevices = false;
+                    isListening = false;
+                    receiver = null;
+                    LogNoCaptureDevicesOpened(failedDeviceCount, sawPermissionDenied);
+                    return;
+                }
+
+                if (failedDeviceCount > 0)
+                {
+                    Log.Warning(
+                        "Opened {OpenedDeviceCount} network capture device(s), but failed to open {FailedDeviceCount}.",
+                        openedDeviceCount,
+                        failedDeviceCount);
+                }
+
+                SetMacOSCapturePermissionSetupRequired(false);
                 Log.Information("Listening to Albion network packages!");
                 hasFinishedStartingDevices = true;
             }
             catch (Exception ex)
             {
-                Log.Error(ex, "Error starting network listening");
+                if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX) && IsPacketCapturePermissionError(ex))
+                {
+                    SetMacOSCapturePermissionSetupRequired(true);
+                    Log.Error(ex, "Error starting network listening because macOS denied packet capture access.");
+                    LogMacOSCapturePermissionHelp();
+                }
+                else
+                {
+                    SetMacOSCapturePermissionSetupRequired(false);
+                    Log.Error(ex, "Error starting network listening");
+                }
+
                 isListening = false;
             }
+        }
+
+        private CaptureDeviceOpenResult TryStartDeviceCapture(ILiveDevice device, string filter)
+        {
+            try
+            {
+                Log.Debug("Opening network device: {Device}", GetDeviceDisplayName(device));
+
+                device.OnPacketArrival += new PacketArrivalEventHandler(PacketHandler);
+                device.Open(new DeviceConfiguration
+                {
+                    Mode = DeviceModes.None,
+                    ReadTimeout = 5000
+                });
+                device.Filter = filter;
+                device.StartCapture();
+
+                Log.Debug("Opened network device: {Device} with filter: {Filter}", GetDeviceDisplayName(device), filter);
+                return new CaptureDeviceOpenResult(true, false);
+            }
+            catch (Exception ex)
+            {
+                device.OnPacketArrival -= PacketHandler;
+
+                try
+                {
+                    device.Close();
+                }
+                catch
+                {
+                }
+
+                Log.Warning(ex, "Error initializing network device {Device}.", GetDeviceDisplayName(device));
+                return new CaptureDeviceOpenResult(false, IsPacketCapturePermissionError(ex));
+            }
+        }
+
+        public async Task<bool> InstallMacOSCapturePermissionsAsync()
+        {
+            if (!RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                Log.Warning("macOS packet capture permission setup is only available on macOS.");
+                return false;
+            }
+
+            var setupScriptPath = GetMacOSCapturePermissionSetupScriptPath();
+            if (!File.Exists(setupScriptPath))
+            {
+                Log.Error("macOS packet capture permission setup script was not found at {SetupScriptPath}.", setupScriptPath);
+                return false;
+            }
+
+            var shellCommand = "/bin/sh " + QuoteForPosixShell(setupScriptPath);
+            var appleScript = string.Format(
+                "do shell script \"{0}\" with administrator privileges",
+                EscapeForAppleScript(shellCommand));
+
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = "osascript",
+                RedirectStandardError = true,
+                RedirectStandardOutput = true,
+                UseShellExecute = false,
+                CreateNoWindow = true
+            };
+            startInfo.ArgumentList.Add("-e");
+            startInfo.ArgumentList.Add(appleScript);
+
+            try
+            {
+                using var process = Process.Start(startInfo);
+                if (process is null)
+                {
+                    Log.Error("Unable to start macOS packet capture permission setup.");
+                    return false;
+                }
+
+                var outputTask = process.StandardOutput.ReadToEndAsync();
+                var errorTask = process.StandardError.ReadToEndAsync();
+                await process.WaitForExitAsync();
+
+                var output = await outputTask;
+                var error = await errorTask;
+
+                if (process.ExitCode == 0)
+                {
+                    Log.Information("macOS packet capture permission setup completed. Restart AFM Data Client. If capture is still denied, log out and back in or reboot.");
+                    if (!string.IsNullOrWhiteSpace(output))
+                    {
+                        Log.Debug("macOS packet capture permission setup output: {Output}", output.Trim());
+                    }
+
+                    return true;
+                }
+
+                Log.Warning(
+                    "macOS packet capture permission setup did not complete. Exit code: {ExitCode}. Output: {Output}. Error: {Error}",
+                    process.ExitCode,
+                    output.Trim(),
+                    error.Trim());
+                return false;
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error running macOS packet capture permission setup.");
+                return false;
+            }
+        }
+
+        private void LogNoCaptureDevicesOpened(int failedDeviceCount, bool permissionDenied)
+        {
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX) && permissionDenied)
+            {
+                SetMacOSCapturePermissionSetupRequired(true);
+                Log.Error(
+                    "macOS denied packet capture access for all {FailedDeviceCount} network device(s).",
+                    failedDeviceCount);
+                LogMacOSCapturePermissionHelp();
+                return;
+            }
+
+            SetMacOSCapturePermissionSetupRequired(false);
+            Log.Error("No network capture devices could be opened. Failed devices: {FailedDeviceCount}.", failedDeviceCount);
+        }
+
+        private void SetMacOSCapturePermissionSetupRequired(bool isRequired)
+        {
+            var nextValue = RuntimeInformation.IsOSPlatform(OSPlatform.OSX) && isRequired;
+            if (IsMacOSCapturePermissionSetupRequired == nextValue)
+            {
+                return;
+            }
+
+            IsMacOSCapturePermissionSetupRequired = nextValue;
+            MacOSCapturePermissionSetupRequiredChanged?.Invoke(this, EventArgs.Empty);
+        }
+
+        private static void LogMacOSCapturePermissionHelp()
+        {
+            Log.Error(
+                "Run the macOS packet capture permission setup once, then restart AFM Data Client: sudo /bin/sh \"{SetupScriptPath}\". If capture is still denied after setup, log out and back in or reboot.",
+                GetMacOSCapturePermissionSetupScriptPath());
+        }
+
+        private static string GetMacOSCapturePermissionSetupScriptPath()
+        {
+            var bundleScriptPath = Path.GetFullPath(Path.Combine(
+                AppContext.BaseDirectory,
+                "..",
+                "Resources",
+                MacOSCapturePermissionSetupScriptName));
+
+            return File.Exists(bundleScriptPath)
+                ? bundleScriptPath
+                : Path.Combine(
+                    "AFMDataClient_MacOS.app",
+                    "Contents",
+                    "Resources",
+                    MacOSCapturePermissionSetupScriptName);
+        }
+
+        private static string QuoteForPosixShell(string value)
+        {
+            return "'" + value.Replace("'", "'\\''") + "'";
+        }
+
+        private static string EscapeForAppleScript(string value)
+        {
+            return value.Replace("\\", "\\\\").Replace("\"", "\\\"");
+        }
+
+        private static bool IsPacketCapturePermissionError(Exception exception)
+        {
+            for (Exception? current = exception; current is not null; current = current.InnerException)
+            {
+                var message = current.Message;
+                if (message.Contains("permission", StringComparison.OrdinalIgnoreCase)
+                    || message.Contains("denied", StringComparison.OrdinalIgnoreCase)
+                    || message.Contains("not permitted", StringComparison.OrdinalIgnoreCase)
+                    || message.Contains("/dev/bpf", StringComparison.OrdinalIgnoreCase)
+                    || message.Contains("BIOC", StringComparison.OrdinalIgnoreCase))
+                {
+                    return true;
+                }
+            }
+
+            return false;
+        }
+
+        private static string GetDeviceDisplayName(ILiveDevice device)
+        {
+            return string.IsNullOrWhiteSpace(device.Description)
+                ? device.Name
+                : device.Description;
         }
 
         private void PacketHandler(object? sender, PacketCapture e)
@@ -405,5 +631,7 @@ namespace AlbionDataAvalonia.Network.Services
             _idleService.OnDetectedIdle -= RestartNetworkListener;
             Log.Information("Disposed {type}!", nameof(NetworkListenerService));
         }
+
+        private readonly record struct CaptureDeviceOpenResult(bool Opened, bool PermissionDenied);
     }
 }
