@@ -2,8 +2,10 @@
 using AlbionDataAvalonia.Combat;
 using AlbionDataAvalonia.Gathering;
 using AlbionDataAvalonia.Items.Services;
+using AlbionDataAvalonia.Loot;
 using AlbionDataAvalonia.Network.Handlers;
 using AlbionDataAvalonia.Network.Models;
+using AlbionDataAvalonia.Party;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
 using Microsoft.Win32;
@@ -37,6 +39,8 @@ namespace AlbionDataAvalonia.Network.Services
         private readonly AchievementsService _achievementsService;
         private readonly CombatTrackerService _combatTracker;
         private readonly GatheringTrackerService _gatheringTracker;
+        private readonly PartyTrackerService _partyTracker;
+        private readonly LootTrackerService _lootTracker;
         private readonly MobsService _mobsService;
 
         private bool hasCleanedUpDevices = false;
@@ -46,7 +50,7 @@ namespace AlbionDataAvalonia.Network.Services
         private IPhotonReceiver? receiver;
         private CaptureDeviceList? devices;
 
-        public NetworkListenerService(Uploader uploader, PlayerState playerState, SettingsManager settingsManager, MailService mailService, IdleService idleService, TradeService tradeService, AFMUploader afmUploader, ItemsIdsService itemsIdsService, ItemEstimatedMarketValueService itemEstimatedMarketValues, AchievementsService achievementsService, CombatTrackerService combatTracker, GatheringTrackerService gatheringTracker, MobsService mobsService)
+        public NetworkListenerService(Uploader uploader, PlayerState playerState, SettingsManager settingsManager, MailService mailService, IdleService idleService, TradeService tradeService, AFMUploader afmUploader, ItemsIdsService itemsIdsService, ItemEstimatedMarketValueService itemEstimatedMarketValues, AchievementsService achievementsService, CombatTrackerService combatTracker, GatheringTrackerService gatheringTracker, PartyTrackerService partyTracker, LootTrackerService lootTracker, MobsService mobsService)
         {
             _uploader = uploader;
             _playerState = playerState;
@@ -58,6 +62,8 @@ namespace AlbionDataAvalonia.Network.Services
             _achievementsService = achievementsService;
             _combatTracker = combatTracker;
             _gatheringTracker = gatheringTracker;
+            _partyTracker = partyTracker;
+            _lootTracker = lootTracker;
             _mobsService = mobsService;
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
@@ -104,10 +110,10 @@ namespace AlbionDataAvalonia.Network.Services
                 // builder.AddEventHandler(new CharacterStatsEventHandler());
                 builder.AddEventHandler(new NewCharacterEventHandler(_combatTracker));
                 builder.AddEventHandler(new NewMobEventHandler(_combatTracker, _mobsService));
-                builder.AddEventHandler(new PartyJoinedEventHandler(_combatTracker));
-                builder.AddEventHandler(new PartyPlayerJoinedEventHandler(_combatTracker));
-                builder.AddEventHandler(new PartyPlayerLeftEventHandler(_combatTracker));
-                builder.AddEventHandler(new PartyDisbandedEventHandler(_combatTracker));
+                builder.AddEventHandler(new PartyJoinedEventHandler(_partyTracker));
+                builder.AddEventHandler(new PartyPlayerJoinedEventHandler(_partyTracker));
+                builder.AddEventHandler(new PartyPlayerLeftEventHandler(_partyTracker));
+                builder.AddEventHandler(new PartyDisbandedEventHandler(_partyTracker));
                 builder.AddEventHandler(new HealthUpdateEventHandler(_combatTracker));
                 builder.AddEventHandler(new HealthUpdatesEventHandler(_combatTracker));
                 builder.AddEventHandler(new UpdateFameEventHandler(_combatTracker));
@@ -119,14 +125,18 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddEventHandler(new RedZoneWorldMapEventHandler(_playerState, _uploader));
                 builder.AddEventHandler(new HarvestFinishedEventHandler(_gatheringTracker));
                 builder.AddEventHandler(new RewardGrantedEventHandler(_gatheringTracker));
-                // builder.AddEventHandler(new AttachItemContainerEventHandler(_playerState));
-                builder.AddEventHandler(new NewSimpleItemEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _gatheringTracker));
-                builder.AddEventHandler(new NewJournalItemEventHandler(_itemsIdsService, _afmUploader));
-                builder.AddEventHandler(new NewLaborerItemEventHandler(_itemsIdsService, _afmUploader));
-                builder.AddEventHandler(new NewEquipmentItemEventHandler(_itemsIdsService, _afmUploader));
-                builder.AddEventHandler(new NewFurnitureItemEventHandler(_itemsIdsService, _afmUploader));
-                builder.AddEventHandler(new NewKillTrophyItemEventHandler(_itemsIdsService, _afmUploader));
-                builder.AddEventHandler(new NewSiegeBannerItemEventHandler(_itemsIdsService, _afmUploader));
+                builder.AddEventHandler(new NewLootEventHandler(_lootTracker));
+                builder.AddEventHandler(new NewLootChestEventHandler(_lootTracker));
+                builder.AddEventHandler(new AttachItemContainerEventHandler(_lootTracker));
+                builder.AddEventHandler(new InventoryPutItemEventHandler(_lootTracker));
+                builder.AddEventHandler(new OtherGrabbedLootEventHandler(_lootTracker));
+                builder.AddEventHandler(new NewSimpleItemEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _gatheringTracker, _lootTracker));
+                builder.AddEventHandler(new NewJournalItemEventHandler(_itemsIdsService, _afmUploader, _lootTracker));
+                builder.AddEventHandler(new NewLaborerItemEventHandler(_itemsIdsService, _afmUploader, _lootTracker));
+                builder.AddEventHandler(new NewEquipmentItemEventHandler(_itemsIdsService, _afmUploader, _lootTracker));
+                builder.AddEventHandler(new NewFurnitureItemEventHandler(_itemsIdsService, _afmUploader, _lootTracker));
+                builder.AddEventHandler(new NewKillTrophyItemEventHandler(_itemsIdsService, _afmUploader, _lootTracker));
+                builder.AddEventHandler(new NewSiegeBannerItemEventHandler(_itemsIdsService, _afmUploader, _lootTracker));
                 // builder.AddEventHandler(new NewEquipmentItemLegendarySoulEventHandler(_playerState));
                 // builder.AddEventHandler(new BankVaultInfoEventHandler(_playerState));
 #if DEBUG
@@ -137,7 +147,7 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddResponseHandler(new AuctionGetOffersResponseHandler(_uploader, _playerState, _tradeService));
                 builder.AddResponseHandler(new AuctionGetRequestsResponseHandler(_uploader, _playerState, _tradeService));
                 builder.AddResponseHandler(new AuctionGetItemAverageStatsResponseHandler(_uploader, _playerState));
-                builder.AddResponseHandler(new JoinResponseHandler(_playerState, _afmUploader, _combatTracker));
+                builder.AddResponseHandler(new JoinResponseHandler(_playerState, _afmUploader, _partyTracker, _lootTracker));
                 builder.AddResponseHandler(new AuctionGetGoldAverageStatsResponseHandler(_uploader));
                 builder.AddResponseHandler(new GetMailInfosResponseHandler(_playerState, _mailService));
                 builder.AddResponseHandler(new ReadMailResponseHandler(_playerState, _mailService));
@@ -158,6 +168,8 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddRequestHandler(new FishingStartRequestHandler(_gatheringTracker));
                 builder.AddRequestHandler(new FishingFinishRequestHandler(_gatheringTracker));
                 builder.AddRequestHandler(new FishingCancelRequestHandler(_gatheringTracker));
+                builder.AddRequestHandler(new InventoryMoveItemRequestHandler(_lootTracker));
+                builder.AddRequestHandler(new InventoryMoveGivenItemsRequestHandler(_lootTracker));
 #if DEBUG
                 builder.AddRequestHandler(new DebugRequestProbeRequestHandler());
 #endif

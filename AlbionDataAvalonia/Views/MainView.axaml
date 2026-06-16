@@ -148,6 +148,17 @@
 						</StackPanel>
 					</Button>
 
+					<Button Classes="menu" Margin="10" HorizontalAlignment="Stretch"
+						Classes.active="{Binding IsLootSelected}"
+						Command="{Binding ShowLootCommand}">
+						<StackPanel Orientation="Horizontal">
+							<PathIcon
+								Data="M5,4H19L21,8V20A2,2 0 0,1 19,22H5A2,2 0 0,1 3,20V8L5,4M6.24,6L5.24,8H18.76L17.76,6H6.24M5,10V20H19V10H5M9,12H15V14H9V12Z"
+								Width="16" Height="16" Margin="0,0,8,0" />
+							<TextBlock Text="Loot" VerticalAlignment="Center" />
+						</StackPanel>
+					</Button>
+
 					<!-- Trades Button with Icon -->
 					<Button Classes="menu" Margin="10" HorizontalAlignment="Stretch"
 						Classes.active="{Binding IsTradesSelected}"

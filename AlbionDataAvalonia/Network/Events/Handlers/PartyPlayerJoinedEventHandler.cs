@@ -1,6 +1,6 @@
 using Albion.Network;
-using AlbionDataAvalonia.Combat;
 using AlbionDataAvalonia.Network.Events;
+using AlbionDataAvalonia.Party;
 using AlbionDataAvalonia.Shared;
 using System.Threading.Tasks;
 
@@ -8,16 +8,16 @@ namespace AlbionDataAvalonia.Network.Handlers;
 
 public class PartyPlayerJoinedEventHandler : EventPacketHandler<PartyPlayerJoinedEvent>
 {
-    private readonly CombatTrackerService combatTracker;
+    private readonly PartyTrackerService partyTracker;
 
-    public PartyPlayerJoinedEventHandler(CombatTrackerService combatTracker) : base((int)EventCodes.PartyPlayerJoined)
+    public PartyPlayerJoinedEventHandler(PartyTrackerService partyTracker) : base((int)EventCodes.PartyPlayerJoined)
     {
-        this.combatTracker = combatTracker;
+        this.partyTracker = partyTracker;
     }
 
     protected override Task OnActionAsync(PartyPlayerJoinedEvent value)
     {
-        combatTracker.AddPartyMember(value.UserGuid, value.Username);
+        partyTracker.AddPartyMember(value.UserGuid, value.Username);
         return Task.CompletedTask;
     }
 }

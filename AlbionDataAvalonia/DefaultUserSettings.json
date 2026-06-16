@@ -11,6 +11,7 @@
   "UploadSpecsToAfm": true,
   "DisableCombatTracker": false,
   "DisableGatheringTracker": false,
+  "DisableLootTracker": false,
   "CombatEncounterRetentionLimit": 1000,
   "LogLevel": 2
 }

@@ -7,10 +7,10 @@ namespace AlbionDataAvalonia.Network.Events
 {
     public class AttachItemContainerEvent : BaseEvent
     {
-        private readonly long _objectId;
-        private readonly Guid _containerId = Guid.Empty;
-        private readonly Guid _privateContainerId = Guid.Empty;
-        private readonly long[] _slotsItems = new long[128];
+        public long ObjectId { get; private set; }
+        public Guid ContainerId { get; private set; } = Guid.Empty;
+        public Guid PrivateContainerId { get; private set; } = Guid.Empty;
+        public long[] SlotItems { get; private set; } = new long[128];
 
         public AttachItemContainerEvent(Dictionary<byte, object> parameters) : base(parameters)
         {
@@ -19,22 +19,22 @@ namespace AlbionDataAvalonia.Network.Events
             {
                 if (parameters.TryGetValue(0, out object? objectId))
                 {
-                    _objectId = objectId.ToLong();
+                    ObjectId = objectId.ToLong();
                 }
 
                 if (parameters.TryGetValue(1, out object? containerId))
                 {
-                    _containerId = containerId.ToGuid() ?? Guid.Empty;
+                    ContainerId = containerId.ToGuid() ?? Guid.Empty;
                 }
 
                 if (parameters.TryGetValue(2, out object? privateContainerId))
                 {
-                    _privateContainerId = privateContainerId.ToGuid() ?? Guid.Empty;
+                    PrivateContainerId = privateContainerId.ToGuid() ?? Guid.Empty;
                 }
 
                 if (parameters.TryGetValue(3, out object? slotsItems))
                 {
-                    _slotsItems = slotsItems.ToLongArray() ?? new long[128];
+                    SlotItems = slotsItems.ToLongArray() ?? new long[128];
                 }
             }
             catch (Exception e)

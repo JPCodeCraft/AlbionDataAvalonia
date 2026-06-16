@@ -6,7 +6,9 @@ using AlbionDataAvalonia.Items;
 using AlbionDataAvalonia.Items.Services;
 using AlbionDataAvalonia.Locations;
 using AlbionDataAvalonia.Logging;
+using AlbionDataAvalonia.Loot;
 using AlbionDataAvalonia.Network.Services;
+using AlbionDataAvalonia.Party;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
 using AlbionDataAvalonia.ViewModels;
@@ -271,9 +273,11 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<AchievementsService>();
         collection.AddSingleton<AuthService>();
         collection.AddSingleton<CsvExportService>();
+        collection.AddSingleton<PartyTrackerService>();
         collection.AddSingleton<CombatTrackerService>();
         collection.AddSingleton<GatheringSessionPersistenceService>();
         collection.AddSingleton<GatheringTrackerService>();
+        collection.AddSingleton<LootTrackerService>();
         collection.AddSingleton<WindowsStartupService>();
 
         collection.AddSingleton<MainViewModel>();
@@ -283,5 +287,6 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<TradesViewModel>();
         collection.AddSingleton<CombatViewModel>();
         collection.AddSingleton<GatheringViewModel>();
+        collection.AddSingleton<LootViewModel>();
     }
 }

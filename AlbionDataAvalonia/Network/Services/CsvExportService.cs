@@ -1,10 +1,12 @@
 using AlbionDataAvalonia.DB;
 using AlbionDataAvalonia.Items.Services;
 using AlbionDataAvalonia.Locations;
+using AlbionDataAvalonia.Loot.Models;
 using AlbionDataAvalonia.Network.Models;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
@@ -178,6 +180,60 @@ public class CsvExportService
         progress?.Report(100);
 
         Log.Information("Exported {Count} mails to CSV", processed);
+    }
+
+    public async Task ExportLootToCsvAsync(
+        Stream stream,
+        IReadOnlyList<LootRecord> records,
+        CsvExportOptions? options = null,
+        IProgress<int>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        options ??= CsvExportOptions.FromCurrentCulture();
+        var culture = options.CreateFormattingCulture();
+        var delimiter = options.Delimiter;
+
+        using var writer = new StreamWriter(stream, Encoding.UTF8);
+        await writer.WriteLineAsync(string.Join(delimiter, new[]
+        {
+            "Picked Up UTC", "Player", "Party Member At Pickup", "Source Type", "Source",
+            "Item ID", "Item Unique Name", "Item", "Quality", "Amount", "Unit EMV", "Total EMV"
+        }));
+
+        if (records.Count == 0)
+        {
+            await writer.FlushAsync(cancellationToken);
+            progress?.Report(100);
+            return;
+        }
+
+        for (var i = 0; i < records.Count; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var record = records[i];
+            var line = string.Join(delimiter, new[]
+            {
+                Escape(record.PickedUpAtUtc.ToString("O", CultureInfo.InvariantCulture), delimiter),
+                Escape(record.PlayerName, delimiter),
+                record.WasPartyMemberAtPickup ? "true" : "false",
+                Escape(record.SourceKind.ToString(), delimiter),
+                Escape(record.SourceName, delimiter),
+                record.ItemId.ToString(culture),
+                Escape(record.ItemUniqueName, delimiter),
+                Escape(record.ItemName, delimiter),
+                record.Quality.ToString(culture),
+                record.Amount.ToString(culture),
+                record.EstimatedMarketValue?.ToString(culture) ?? string.Empty,
+                record.TotalEstimatedMarketValue?.ToString(culture) ?? string.Empty
+            });
+
+            await writer.WriteLineAsync(line);
+            progress?.Report((int)((i + 1d) / records.Count * 100));
+        }
+
+        await writer.FlushAsync(cancellationToken);
+        progress?.Report(100);
+        Log.Information("Exported {Count} filtered loot pickups to CSV", records.Count);
     }
 
     private static string Escape(string value, string delimiter)

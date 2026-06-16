@@ -1,0 +1,27 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        mc:Ignorable="d"
+        x:Class="AlbionDataAvalonia.Views.ConfirmClearLootWindow"
+        Width="420"
+        SizeToContent="Height"
+        CanResize="False"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Title="Clear loot log?"
+        Icon="/Assets/logo.ico">
+
+    <StackPanel Margin="20" Spacing="14">
+        <TextBlock Text="Clear loot log?"
+                   FontSize="18"
+                   FontWeight="DemiBold" />
+        <TextBlock Text="This permanently removes every pickup currently held in memory."
+                   TextWrapping="Wrap"
+                   Opacity="0.85" />
+        <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button Content="Cancel" Click="CancelButton_Click" />
+            <Button Content="Clear Loot" Click="ClearButton_Click" />
+        </StackPanel>
+    </StackPanel>
+</Window>

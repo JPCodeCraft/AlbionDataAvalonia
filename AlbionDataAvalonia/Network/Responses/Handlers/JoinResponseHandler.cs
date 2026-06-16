@@ -1,8 +1,9 @@
 using Albion.Network;
-using AlbionDataAvalonia.Combat;
+using AlbionDataAvalonia.Loot;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Responses;
 using AlbionDataAvalonia.Network.Services;
+using AlbionDataAvalonia.Party;
 using AlbionDataAvalonia.Shared;
 using AlbionDataAvalonia.State;
 using Serilog;
@@ -14,13 +15,19 @@ public class JoinResponseHandler : ResponsePacketHandler<JoinResponse>
 {
     private readonly PlayerState playerState;
     private readonly AFMUploader afmUploader;
-    private readonly CombatTrackerService combatTracker;
+    private readonly PartyTrackerService partyTracker;
+    private readonly LootTrackerService lootTracker;
 
-    public JoinResponseHandler(PlayerState playerState, AFMUploader afmUploader, CombatTrackerService combatTracker) : base((int)OperationCodes.Join)
+    public JoinResponseHandler(
+        PlayerState playerState,
+        AFMUploader afmUploader,
+        PartyTrackerService partyTracker,
+        LootTrackerService lootTracker) : base((int)OperationCodes.Join)
     {
         this.playerState = playerState;
         this.afmUploader = afmUploader;
-        this.combatTracker = combatTracker;
+        this.partyTracker = partyTracker;
+        this.lootTracker = lootTracker;
     }
 
     protected override async Task OnActionAsync(JoinResponse value)
@@ -28,7 +35,8 @@ public class JoinResponseHandler : ResponsePacketHandler<JoinResponse>
         playerState.UserObjectId = value.userObjectId;
         playerState.PlayerName = value.playerName;
         playerState.Location = value.playerLocation;
-        combatTracker.SetLocalPlayer(value.userObjectId, value.userGuid, value.playerName);
+        partyTracker.SetLocalPlayer(value.userObjectId, value.userGuid, value.playerName);
+        lootTracker.ResetTransientState();
 
         if (value.globalMultiplier.HasValue)
         {

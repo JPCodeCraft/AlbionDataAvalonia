@@ -282,5 +282,15 @@
                 </WrapPanel>
             </ScrollViewer>
         </TabItem>
+
+        <TabItem Header="Loot">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <WrapPanel Orientation="Horizontal" Margin="0,14,0,0">
+                    <CheckBox Content="Disable Loot Tracker"
+                              IsChecked="{Binding UserSettings.DisableLootTracker}"
+                              Margin="0,0,28,8" />
+                </WrapPanel>
+            </ScrollViewer>
+        </TabItem>
     </TabControl>
 </UserControl>

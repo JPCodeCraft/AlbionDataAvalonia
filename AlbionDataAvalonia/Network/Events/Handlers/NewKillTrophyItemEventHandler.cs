@@ -1,5 +1,6 @@
 using Albion.Network;
 using AlbionDataAvalonia.Items.Services;
+using AlbionDataAvalonia.Loot;
 using AlbionDataAvalonia.Network.Events;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Shared;
@@ -11,11 +12,16 @@ public class NewKillTrophyItemEventHandler : EventPacketHandler<NewKillTrophyIte
 {
     private readonly ItemsIdsService itemsIdsService;
     private readonly AFMUploader afmUploader;
+    private readonly LootTrackerService lootTracker;
 
-    public NewKillTrophyItemEventHandler(ItemsIdsService itemsIdsService, AFMUploader afmUploader) : base((int)EventCodes.NewKillTrophyItem)
+    public NewKillTrophyItemEventHandler(
+        ItemsIdsService itemsIdsService,
+        AFMUploader afmUploader,
+        LootTrackerService lootTracker) : base((int)EventCodes.NewKillTrophyItem)
     {
         this.itemsIdsService = itemsIdsService;
         this.afmUploader = afmUploader;
+        this.lootTracker = lootTracker;
     }
 
     protected override Task OnActionAsync(NewKillTrophyItemEvent value)
@@ -33,6 +39,8 @@ public class NewKillTrophyItemEventHandler : EventPacketHandler<NewKillTrophyIte
                     value.Item.EstimatedMarketValue,
                     value.Item.Quality);
             }
+
+            lootTracker.DiscoverItem(value.Item);
         }
 
         return Task.CompletedTask;

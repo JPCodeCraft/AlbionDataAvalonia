@@ -1,0 +1,140 @@
+<UserControl xmlns="https://github.com/avaloniaui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+             xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+             xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
+             xmlns:items="clr-namespace:AlbionDataAvalonia.Items"
+             mc:Ignorable="d"
+             d:DesignWidth="1000"
+             d:DesignHeight="600"
+             x:Class="AlbionDataAvalonia.Views.LootView"
+             x:DataType="vm:LootViewModel">
+
+    <Grid RowDefinitions="Auto,Auto,*,Auto">
+        <Border Grid.RowSpan="4"
+                IsVisible="{Binding IsDisabled}"
+                Padding="24"
+                Background="{DynamicResource ThemeBackgroundBrush}">
+            <StackPanel HorizontalAlignment="Center" VerticalAlignment="Center" Spacing="8">
+                <TextBlock Text="Loot tracker is disabled"
+                           FontSize="20"
+                           FontWeight="DemiBold"
+                           HorizontalAlignment="Center" />
+                <TextBlock Text="Enable it in Settings &gt; Loot. Enabling starts with an empty log."
+                           Opacity="0.75"
+                           TextWrapping="Wrap"
+                           TextAlignment="Center" />
+            </StackPanel>
+        </Border>
+
+        <WrapPanel Grid.Row="0"
+                   IsVisible="{Binding !IsDisabled}"
+                   Margin="0,8,0,8"
+                   VerticalAlignment="Top">
+            <Button Content="{Binding PauseButtonText}"
+                    Command="{Binding TogglePauseCommand}"
+                    Width="90"
+                    Margin="0,0,8,6" />
+            <Button Content="Clear"
+                    Click="ClearButton_Click"
+                    Width="90"
+                    Margin="0,0,8,6" />
+            <Button Content="Export CSV"
+                    Click="ExportCsvButton_Click"
+                    IsEnabled="{Binding !IsExporting}"
+                    Width="100"
+                    Margin="0,0,16,6" />
+
+            <StackPanel Margin="0,0,16,6">
+                <TextBlock Text="Player" FontSize="12" Opacity="0.65" />
+                <ComboBox ItemsSource="{Binding PlayerOptions}"
+                          SelectedItem="{Binding SelectedPlayer}"
+                          Width="180" />
+            </StackPanel>
+
+            <CheckBox Content="Party members only"
+                      IsChecked="{Binding PartyMembersOnly}"
+                      VerticalAlignment="Center"
+                      Margin="0,8,16,6" />
+
+            <StackPanel IsVisible="{Binding IsExporting}"
+                        Margin="0,6,0,6"
+                        VerticalAlignment="Center">
+                <ProgressBar Minimum="0"
+                             Maximum="100"
+                             Value="{Binding ExportProgress}"
+                             Width="150"
+                             Height="18" />
+            </StackPanel>
+        </WrapPanel>
+
+        <Border Grid.Row="1"
+                IsVisible="{Binding IsPaused}"
+                Margin="0,0,0,8"
+                Padding="10,6"
+                CornerRadius="4"
+                Background="rgba(255,165,0,0.15)">
+            <TextBlock Text="Paused. New pickups are being ignored; existing rows are retained." />
+        </Border>
+
+        <DataGrid Grid.Row="2"
+                  IsVisible="{Binding !IsDisabled}"
+                  ItemsSource="{Binding Loot}"
+                  AutoGenerateColumns="False"
+                  IsReadOnly="True"
+                  GridLinesVisibility="None"
+                  BorderThickness="0"
+                  BorderBrush="Gray">
+            <DataGrid.Styles>
+                <Style Selector="DataGridColumnHeader /template/ Grid#PART_ColumnHeaderRoot">
+                    <Setter Property="Background" Value="rgba(255,255,255,0.2)" />
+                </Style>
+                <Style Selector="DataGridColumnHeader:pointerover /template/ Grid#PART_ColumnHeaderRoot">
+                    <Setter Property="Background" Value="rgba(255,255,255,0.4)" />
+                </Style>
+            </DataGrid.Styles>
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Time" Binding="{Binding PickedUpAt}" />
+                <DataGridTextColumn Header="Player" Binding="{Binding PlayerName}" />
+                <DataGridCheckBoxColumn Header="Party" Binding="{Binding WasPartyMemberAtPickup}" />
+                <DataGridTextColumn Header="Source Type" Binding="{Binding SourceKind}" />
+                <DataGridTextColumn Header="Source" Binding="{Binding SourceName}" />
+                <DataGridTemplateColumn Header="Item" SortMemberPath="ItemName" CanUserSort="True">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <Image Width="32"
+                                       Height="32"
+                                       Stretch="Uniform"
+                                       items:LazyItemImage.ItemUniqueName="{Binding ItemUniqueName}"
+                                       items:LazyItemImage.Quality="{Binding Quality}" />
+                                <TextBlock Text="{Binding ItemName}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Quality" Binding="{Binding Quality}" />
+                <DataGridTextColumn Header="Amount" Binding="{Binding Amount, StringFormat='{}{0:N0}'}" />
+                <DataGridTextColumn Header="Unit EMV" Binding="{Binding EstimatedMarketValue, StringFormat='{}{0:N0}'}" />
+                <DataGridTextColumn Header="Total EMV" Binding="{Binding TotalEstimatedMarketValue, StringFormat='{}{0:N0}'}" />
+            </DataGrid.Columns>
+        </DataGrid>
+
+        <Border Grid.Row="3"
+                IsVisible="{Binding !IsDisabled}"
+                BorderThickness="0,1,0,0"
+                BorderBrush="{DynamicResource ThemeBorderMidBrush}"
+                Padding="0,10,0,0"
+                Margin="0,8,0,0">
+            <WrapPanel>
+                <TextBlock Text="{Binding VisiblePickupCount, StringFormat='Pickups: {0:N0}'}" Margin="0,0,18,0" />
+                <TextBlock Text="{Binding VisibleItemCount, StringFormat='Items: {0:N0}'}" Margin="0,0,18,0" />
+                <TextBlock Text="{Binding VisibleEstimatedMarketValue, StringFormat='Total EMV: {0:N0}'}"
+                           FontWeight="DemiBold"
+                           Margin="0,0,18,0" />
+                <TextBlock Text="{Binding VisibleMissingEstimatedMarketValueCount, StringFormat='Missing EMV: {0:N0}'}"
+                           Opacity="0.7" />
+            </WrapPanel>
+        </Border>
+    </Grid>
+</UserControl>

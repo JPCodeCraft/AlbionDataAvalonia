@@ -1,6 +1,6 @@
 using Albion.Network;
-using AlbionDataAvalonia.Combat;
 using AlbionDataAvalonia.Network.Events;
+using AlbionDataAvalonia.Party;
 using AlbionDataAvalonia.Shared;
 using System.Threading.Tasks;
 
@@ -8,16 +8,16 @@ namespace AlbionDataAvalonia.Network.Handlers;
 
 public class PartyDisbandedEventHandler : EventPacketHandler<PartyDisbandedEvent>
 {
-    private readonly CombatTrackerService combatTracker;
+    private readonly PartyTrackerService partyTracker;
 
-    public PartyDisbandedEventHandler(CombatTrackerService combatTracker) : base((int)EventCodes.PartyDisbanded)
+    public PartyDisbandedEventHandler(PartyTrackerService partyTracker) : base((int)EventCodes.PartyDisbanded)
     {
-        this.combatTracker = combatTracker;
+        this.partyTracker = partyTracker;
     }
 
     protected override Task OnActionAsync(PartyDisbandedEvent value)
     {
-        combatTracker.DisbandParty();
+        partyTracker.DisbandParty();
         return Task.CompletedTask;
     }
 }

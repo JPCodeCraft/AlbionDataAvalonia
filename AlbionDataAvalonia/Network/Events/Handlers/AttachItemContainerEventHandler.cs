@@ -1,27 +1,27 @@
-﻿using Albion.Network;
+using Albion.Network;
+using AlbionDataAvalonia.Loot;
 using AlbionDataAvalonia.Network.Events;
 using AlbionDataAvalonia.Shared;
-using AlbionDataAvalonia.State;
 using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.Network.Handlers;
 
 public class AttachItemContainerEventHandler : EventPacketHandler<AttachItemContainerEvent>
 {
-    private readonly PlayerState playerState;
+    private readonly LootTrackerService lootTracker;
 
-    public AttachItemContainerEventHandler(PlayerState playerState) : base((int)EventCodes.AttachItemContainer)
+    public AttachItemContainerEventHandler(LootTrackerService lootTracker) : base((int)EventCodes.AttachItemContainer)
     {
-        this.playerState = playerState;
+        this.lootTracker = lootTracker;
     }
 
-    protected override async Task OnActionAsync(AttachItemContainerEvent value)
+    protected override Task OnActionAsync(AttachItemContainerEvent value)
     {
-        // if (value.userObjectId == playerState.UserObjectId)
-        // {
-        //     playerState.PlayerName = "Not set";
-        //     playerState.Location = AlbionLocations.Unset;
-        // }
-        await Task.CompletedTask;
+        lootTracker.AttachContainer(
+            value.ObjectId,
+            value.ContainerId,
+            value.PrivateContainerId,
+            value.SlotItems);
+        return Task.CompletedTask;
     }
 }

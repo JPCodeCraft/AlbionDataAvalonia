@@ -1,4 +1,6 @@
 using AlbionDataAvalonia.Combat.Models;
+using AlbionDataAvalonia.Party;
+using AlbionDataAvalonia.Party.Models;
 using AlbionDataAvalonia.Settings;
 using Serilog;
 using System;
@@ -43,6 +45,7 @@ public sealed class CombatTrackerService : IDisposable
     private readonly List<CombatPauseInterval> pauseIntervals = new();
     private readonly Dictionary<string, bool> combatStates = new();
     private readonly SettingsManager settingsManager;
+    private readonly PartyTrackerService partyTracker;
     private Timer? encounterIdleTimer;
 
     private CombatTrackedEntity? localEntity;
@@ -58,15 +61,21 @@ public sealed class CombatTrackerService : IDisposable
 
     public event Action<CombatTrackerSnapshot>? SnapshotChanged;
 
-    public CombatTrackerService(SettingsManager settingsManager)
+    public CombatTrackerService(SettingsManager settingsManager, PartyTrackerService partyTracker)
     {
         this.settingsManager = settingsManager;
+        this.partyTracker = partyTracker;
         isDisabled = settingsManager.UserSettings.DisableCombatTracker;
         settingsManager.UserSettings.PropertyChanged += OnUserSettingsPropertyChanged;
+        partyTracker.SnapshotChanged += OnPartySnapshotChanged;
 
         if (isDisabled)
         {
             FullResetCore();
+        }
+        else
+        {
+            ApplyPartySnapshotCore(partyTracker.CurrentSnapshot);
         }
     }
 
@@ -95,6 +104,7 @@ public sealed class CombatTrackerService : IDisposable
     public void Dispose()
     {
         settingsManager.UserSettings.PropertyChanged -= OnUserSettingsPropertyChanged;
+        partyTracker.SnapshotChanged -= OnPartySnapshotChanged;
         lock (sync)
         {
             StopEncounterIdleTimer();
@@ -107,41 +117,6 @@ public sealed class CombatTrackerService : IDisposable
         {
             return BuildStatistics();
         }
-    }
-
-    public void SetLocalPlayer(long objectId, Guid? guid, string name)
-    {
-        CombatTrackerSnapshot snapshot;
-        lock (sync)
-        {
-            if (isDisabled)
-            {
-                return;
-            }
-
-            var nowUtc = DateTime.UtcNow;
-            if (objectId <= 0)
-            {
-                if (localEntity is not null)
-                {
-                    localEntity.IsLocalPlayer = false;
-                    localEntity.IsPartyMember = false;
-                }
-
-                localEntity = null;
-            }
-            else
-            {
-                localEntity = AddOrUpdateEntity(objectId, guid, name, CombatEntityKind.Player);
-                localEntity.IsLocalPlayer = true;
-                localEntity.IsPartyMember = true;
-            }
-
-            PruneUnreferencedEntitiesIfDue(nowUtc);
-            snapshot = BuildSnapshot(nowUtc);
-        }
-
-        SnapshotChanged?.Invoke(snapshot);
     }
 
     public void AddOrUpdatePlayer(long? objectId, Guid? guid, string name)
@@ -199,126 +174,6 @@ public sealed class CombatTrackerService : IDisposable
         {
             SnapshotChanged?.Invoke(snapshot);
         }
-    }
-
-    public void SetPartySnapshot(IReadOnlyDictionary<Guid, string> partyMembers)
-    {
-        CombatTrackerSnapshot snapshot;
-        lock (sync)
-        {
-            if (isDisabled)
-            {
-                return;
-            }
-
-            var nowUtc = DateTime.UtcNow;
-            foreach (var entity in entitiesByKey.Values)
-            {
-                entity.IsPartyMember = false;
-            }
-
-            if (localEntity is not null)
-            {
-                localEntity.IsPartyMember = true;
-            }
-
-            foreach (var (guid, name) in partyMembers)
-            {
-                if (guid == Guid.Empty)
-                {
-                    continue;
-                }
-
-                var entity = AddOrUpdateEntity(null, guid, name, CombatEntityKind.Player);
-                entity.IsPartyMember = true;
-            }
-
-            PruneUnreferencedEntitiesIfDue(nowUtc);
-            snapshot = BuildSnapshot(nowUtc);
-        }
-
-        SnapshotChanged?.Invoke(snapshot);
-    }
-
-    public void AddPartyMember(Guid guid, string name)
-    {
-        CombatTrackerSnapshot snapshot;
-        lock (sync)
-        {
-            if (isDisabled)
-            {
-                return;
-            }
-
-            var nowUtc = DateTime.UtcNow;
-            if (guid != Guid.Empty)
-            {
-                var entity = AddOrUpdateEntity(null, guid, name, CombatEntityKind.Player);
-                entity.IsPartyMember = true;
-            }
-
-            if (localEntity is not null)
-            {
-                localEntity.IsPartyMember = true;
-            }
-
-            PruneUnreferencedEntitiesIfDue(nowUtc);
-            snapshot = BuildSnapshot(nowUtc);
-        }
-
-        SnapshotChanged?.Invoke(snapshot);
-    }
-
-    public void RemovePartyMember(Guid? guid)
-    {
-        CombatTrackerSnapshot snapshot;
-        lock (sync)
-        {
-            if (isDisabled)
-            {
-                return;
-            }
-
-            if (guid is { } value && value != Guid.Empty && entitiesByGuid.TryGetValue(value, out var entity) && entity != localEntity)
-            {
-                entity.IsPartyMember = false;
-            }
-
-            if (localEntity is not null)
-            {
-                localEntity.IsPartyMember = true;
-            }
-
-            snapshot = BuildSnapshot(DateTime.UtcNow);
-        }
-
-        SnapshotChanged?.Invoke(snapshot);
-    }
-
-    public void DisbandParty()
-    {
-        CombatTrackerSnapshot snapshot;
-        lock (sync)
-        {
-            if (isDisabled)
-            {
-                return;
-            }
-
-            foreach (var entity in entitiesByKey.Values)
-            {
-                entity.IsPartyMember = false;
-            }
-
-            if (localEntity is not null)
-            {
-                localEntity.IsPartyMember = true;
-            }
-
-            snapshot = BuildSnapshot(DateTime.UtcNow);
-        }
-
-        SnapshotChanged?.Invoke(snapshot);
     }
 
     public void Record(CombatHealthEvent healthEvent, DateTime receivedAtUtc)
@@ -604,6 +459,7 @@ public sealed class CombatTrackerService : IDisposable
                 }
                 else
                 {
+                    ApplyPartySnapshotCore(partyTracker.CurrentSnapshot);
                     Log.Information("Combat tracker enabled.");
                 }
             }
@@ -616,6 +472,49 @@ public sealed class CombatTrackerService : IDisposable
         }
 
         SnapshotChanged?.Invoke(snapshot);
+    }
+
+    private void OnPartySnapshotChanged(PartyTrackerSnapshot partySnapshot)
+    {
+        CombatTrackerSnapshot snapshot;
+        lock (sync)
+        {
+            if (isDisabled)
+            {
+                return;
+            }
+
+            ApplyPartySnapshotCore(partySnapshot);
+            PruneUnreferencedEntitiesIfDue(DateTime.UtcNow);
+            snapshot = BuildSnapshot(DateTime.UtcNow);
+        }
+
+        SnapshotChanged?.Invoke(snapshot);
+    }
+
+    private void ApplyPartySnapshotCore(PartyTrackerSnapshot partySnapshot)
+    {
+        foreach (var entity in entitiesByKey.Values)
+        {
+            entity.IsPartyMember = false;
+            entity.IsLocalPlayer = false;
+        }
+
+        localEntity = null;
+        foreach (var member in partySnapshot.Members)
+        {
+            var entity = AddOrUpdateEntity(
+                member.ObjectId,
+                member.UserGuid,
+                member.Name,
+                CombatEntityKind.Player);
+            entity.IsPartyMember = true;
+            entity.IsLocalPlayer = member.IsLocalPlayer;
+            if (member.IsLocalPlayer)
+            {
+                localEntity = entity;
+            }
+        }
     }
 
     private void ResetEncounterDataCore()

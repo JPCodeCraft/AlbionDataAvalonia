@@ -226,6 +226,21 @@ public class UserSettings : INotifyPropertyChanged
         }
     }
 
+    private bool disableLootTracker = false;
+    public bool DisableLootTracker
+    {
+        get => disableLootTracker;
+        set
+        {
+            if (disableLootTracker != value)
+            {
+                disableLootTracker = value;
+                OnPropertyChanged(nameof(DisableLootTracker));
+                Log.Information("Disable loot tracker set to {DisableLootTracker}", disableLootTracker);
+            }
+        }
+    }
+
     private int combatEncounterRetentionLimit = DefaultCombatEncounterRetentionLimit;
     public int CombatEncounterRetentionLimit
     {

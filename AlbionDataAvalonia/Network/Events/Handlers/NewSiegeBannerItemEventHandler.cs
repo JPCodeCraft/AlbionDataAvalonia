@@ -1,5 +1,6 @@
 using Albion.Network;
 using AlbionDataAvalonia.Items.Services;
+using AlbionDataAvalonia.Loot;
 using AlbionDataAvalonia.Network.Events;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Shared;
@@ -11,11 +12,16 @@ public class NewSiegeBannerItemEventHandler : EventPacketHandler<NewSiegeBannerI
 {
     private readonly ItemsIdsService itemsIdsService;
     private readonly AFMUploader afmUploader;
+    private readonly LootTrackerService lootTracker;
 
-    public NewSiegeBannerItemEventHandler(ItemsIdsService itemsIdsService, AFMUploader afmUploader) : base((int)EventCodes.NewSiegeBannerItem)
+    public NewSiegeBannerItemEventHandler(
+        ItemsIdsService itemsIdsService,
+        AFMUploader afmUploader,
+        LootTrackerService lootTracker) : base((int)EventCodes.NewSiegeBannerItem)
     {
         this.itemsIdsService = itemsIdsService;
         this.afmUploader = afmUploader;
+        this.lootTracker = lootTracker;
     }
 
     protected override Task OnActionAsync(NewSiegeBannerItemEvent value)
@@ -33,6 +39,8 @@ public class NewSiegeBannerItemEventHandler : EventPacketHandler<NewSiegeBannerI
                     value.Item.EstimatedMarketValue,
                     value.Item.Quality);
             }
+
+            lootTracker.DiscoverItem(value.Item);
         }
 
         return Task.CompletedTask;
