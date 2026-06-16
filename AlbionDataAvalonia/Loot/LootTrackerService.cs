@@ -24,7 +24,7 @@ public sealed class LootTrackerService : IDisposable
     private readonly Dictionary<long, DiscoveredLootItem> discoveredItems = new();
     private readonly Dictionary<long, LootSource> sources = new();
     private readonly Dictionary<Guid, LootContainer> containers = new();
-    private readonly Dictionary<long, DateTime> recordedItemObjectIds = new();
+    private readonly Dictionary<long, RecordedItemObject> recordedItemObjectIds = new();
     private readonly List<RecentPickupCorrelation> recentLocalPickups = new();
     private readonly List<RecentPickupCorrelation> recentBroadcastPickups = new();
     private readonly SettingsManager settingsManager;
@@ -368,41 +368,46 @@ public sealed class LootTrackerService : IDisposable
             if (sourceContainerId == Guid.Empty)
             {
                 Log.Warning(
-                    "Loot tracker skipped local move given items because source container id is empty. ItemObjectIds: {ItemObjectIds}, DestinationContainerId: {DestinationContainerId}",
+                    "Loot tracker will record local move given items with unknown source because source container id is empty. ItemObjectIds: {ItemObjectIds}, DestinationContainerId: {DestinationContainerId}",
                     itemObjectIds,
                     destinationContainerId);
-                return;
             }
 
-            if (sourceContainerId == destinationContainerId)
+            if (sourceContainerId != Guid.Empty && sourceContainerId == destinationContainerId)
             {
                 return;
             }
 
-            if (!containers.TryGetValue(sourceContainerId, out var container))
+            LootContainer? container = null;
+            if (sourceContainerId != Guid.Empty && !containers.TryGetValue(sourceContainerId, out container))
             {
                 Log.Warning(
-                    "Loot tracker skipped local move given items because source container was not known. ItemObjectIds: {ItemObjectIds}, SourceContainerId: {SourceContainerId}, DestinationContainerId: {DestinationContainerId}",
+                    "Loot tracker will record local move given items from discovered item data because source container was not known. ItemObjectIds: {ItemObjectIds}, SourceContainerId: {SourceContainerId}, DestinationContainerId: {DestinationContainerId}",
                     itemObjectIds,
                     sourceContainerId,
                     destinationContainerId);
-                return;
             }
 
-            var containerItems = container.SlotItems.ToHashSet();
+            var containerItems = container?.SlotItems.ToHashSet();
             foreach (var itemObjectId in itemObjectIds.Distinct())
             {
-                if (!containerItems.Contains(itemObjectId))
+                var sourceObjectId = container?.SourceObjectId ?? 0;
+                if (discoveredItems.TryGetValue(itemObjectId, out var discoveredItem)
+                    && discoveredItem.SourceObjectId is { } discoveredSourceObjectId)
                 {
-                    Log.Warning(
-                        "Loot tracker skipped local move given item because item object id was not in the source container. ItemObjectId: {ItemObjectId}, SourceContainerId: {SourceContainerId}, SourceObjectId: {SourceObjectId}",
-                        itemObjectId,
-                        sourceContainerId,
-                        container.SourceObjectId);
-                    continue;
+                    sourceObjectId = discoveredSourceObjectId;
                 }
 
-                snapshot = RecordLocalItemObjectCore(itemObjectId, container.SourceObjectId) ?? snapshot;
+                if (containerItems is not null && !containerItems.Contains(itemObjectId))
+                {
+                    Log.Warning(
+                        "Loot tracker will record local move given item from discovered item data because item object id was not in the source container. ItemObjectId: {ItemObjectId}, SourceContainerId: {SourceContainerId}, SourceObjectId: {SourceObjectId}",
+                        itemObjectId,
+                        sourceContainerId,
+                        sourceObjectId);
+                }
+
+                snapshot = RecordLocalItemObjectCore(itemObjectId, sourceObjectId) ?? snapshot;
             }
         }
 
@@ -425,21 +430,26 @@ public sealed class LootTrackerService : IDisposable
             return null;
         }
 
-        if (recordedItemObjectIds.ContainsKey(itemObjectId))
-        {
-            Log.Warning(
-                "Loot tracker skipped local item record because item object id was already recorded. ItemObjectId: {ItemObjectId}, SourceObjectId: {SourceObjectId}",
-                itemObjectId,
-                sourceObjectId);
-            return null;
-        }
-
         if (!discoveredItems.TryGetValue(itemObjectId, out var item))
         {
             Log.Warning(
                 "Loot tracker skipped local item record because item object id was not discovered. ItemObjectId: {ItemObjectId}, SourceObjectId: {SourceObjectId}",
                 itemObjectId,
                 sourceObjectId);
+            return null;
+        }
+
+        if (recordedItemObjectIds.TryGetValue(itemObjectId, out var recordedItem)
+            && recordedItem.ItemId == item.ItemId
+            && recordedItem.Amount == item.Amount
+            && nowUtc - recordedItem.RecordedAtUtc <= CorrelationWindow)
+        {
+            Log.Warning(
+                "Loot tracker skipped local item record because the same item object id was already recorded recently. ItemObjectId: {ItemObjectId}, SourceObjectId: {SourceObjectId}, ItemId: {ItemId}, Amount: {Amount}",
+                itemObjectId,
+                sourceObjectId,
+                item.ItemId,
+                item.Amount);
             return null;
         }
 
@@ -453,7 +463,6 @@ public sealed class LootTrackerService : IDisposable
                 item.Amount);
         }
 
-        recordedItemObjectIds[itemObjectId] = nowUtc;
         if (TryMatchCorrelation(
             recentBroadcastPickups,
             item.ItemId,
@@ -463,6 +472,7 @@ public sealed class LootTrackerService : IDisposable
         {
             broadcastCorrelation.Matched = true;
             UpdateRecordItemObjectCore(broadcastCorrelation.RecordId, itemObjectId, item);
+            recordedItemObjectIds[itemObjectId] = new RecordedItemObject(item.ItemId, item.Amount, nowUtc);
             return BuildSnapshot();
         }
 
@@ -493,6 +503,7 @@ public sealed class LootTrackerService : IDisposable
             item.EstimatedMarketValue,
             nowUtc);
         records.Add(record);
+        recordedItemObjectIds[itemObjectId] = new RecordedItemObject(item.ItemId, item.Amount, nowUtc);
         recentLocalPickups.Add(new RecentPickupCorrelation(
             record.Id,
             item.ItemId,
@@ -821,7 +832,7 @@ public sealed class LootTrackerService : IDisposable
         }
 
         foreach (var itemObjectId in recordedItemObjectIds
-            .Where(entry => nowUtc - entry.Value > TransientRetention)
+            .Where(entry => nowUtc - entry.Value.RecordedAtUtc > CorrelationWindow)
             .Select(entry => entry.Key)
             .ToArray())
         {
@@ -889,6 +900,11 @@ public sealed class LootTrackerService : IDisposable
         Guid PrivateContainerId,
         IReadOnlyList<long> SlotItems,
         DateTime SeenAtUtc);
+
+    private sealed record RecordedItemObject(
+        int ItemId,
+        int Amount,
+        DateTime RecordedAtUtc);
 
     private sealed class RecentPickupCorrelation
     {
