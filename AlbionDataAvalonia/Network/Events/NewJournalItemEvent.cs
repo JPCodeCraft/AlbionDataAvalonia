@@ -30,12 +30,12 @@ public class NewJournalItemEvent : BaseEvent
 
             if (parameters.TryGetValue(1, out object? itemIdValue))
             {
-                itemId = itemIdValue.ToInt();
+                itemId = checked((int)itemIdValue.ToLong());
             }
 
             if (parameters.TryGetValue(2, out object? quantityValue))
             {
-                quantity = quantityValue.ToInt();
+                quantity = checked((int)quantityValue.ToLong());
             }
 
             if (parameters.TryGetValue(4, out object? estimatedMarketValueValue))

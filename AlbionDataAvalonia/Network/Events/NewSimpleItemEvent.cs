@@ -30,12 +30,12 @@ public class NewSimpleItemEvent : BaseEvent
 
             if (parameters.TryGetValue(1, out object? itemIdValue))
             {
-                itemId = itemIdValue.ToInt();
+                itemId = checked((int)itemIdValue.ToLong());
             }
 
             if (parameters.TryGetValue(2, out object? quantityValue))
             {
-                quantity = quantityValue.ToInt();
+                quantity = checked((int)quantityValue.ToLong());
             }
 
             if (parameters.TryGetValue(4, out object? estimatedMarketValueValue))
@@ -50,7 +50,7 @@ public class NewSimpleItemEvent : BaseEvent
 
             if (parameters.TryGetValue(6, out object? qualityValue))
             {
-                quality = qualityValue.ToInt();
+                quality = checked((int)qualityValue.ToLong());
             }
 
             if (parameters.TryGetValue(7, out object? durabilityValue))

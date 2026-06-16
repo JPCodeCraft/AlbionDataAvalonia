@@ -18,7 +18,7 @@ public sealed class InventoryMoveItemRequest : BaseOperation
         {
             if (parameters.TryGetValue(0, out var sourceSlot))
             {
-                SourceSlot = sourceSlot.ToInt();
+                SourceSlot = checked((int)sourceSlot.ToLong());
             }
 
             if (parameters.TryGetValue(1, out var sourceContainerId))
@@ -28,7 +28,7 @@ public sealed class InventoryMoveItemRequest : BaseOperation
 
             if (parameters.TryGetValue(3, out var destinationSlot))
             {
-                DestinationSlot = destinationSlot.ToInt();
+                DestinationSlot = checked((int)destinationSlot.ToLong());
             }
 
             if (parameters.TryGetValue(4, out var destinationContainerId))

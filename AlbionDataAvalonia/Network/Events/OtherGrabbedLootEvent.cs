@@ -40,12 +40,12 @@ public sealed class OtherGrabbedLootEvent : BaseEvent
 
             if (parameters.TryGetValue(4, out var itemId))
             {
-                ItemId = itemId.ToInt();
+                ItemId = checked((int)itemId.ToLong());
             }
 
             if (parameters.TryGetValue(5, out var amount))
             {
-                Amount = amount.ToInt();
+                Amount = checked((int)amount.ToLong());
             }
         }
         catch (Exception e)
