@@ -68,14 +68,14 @@
             </StackPanel>
         </WrapPanel>
 
-        <Border Grid.Row="1"
-                IsVisible="{Binding IsPaused}"
-                Margin="0,0,0,8"
-                Padding="10,6"
-                CornerRadius="4"
-                Background="rgba(255,165,0,0.15)">
-            <TextBlock Text="Paused. New pickups are being ignored; existing rows are retained." />
-        </Border>
+        <StackPanel Grid.Row="1" Spacing="4" Margin="0,0,0,8">
+            <TextBlock Text="Paused. New pickups are being ignored; existing rows are retained."
+                       Foreground="#FFB74D"
+                       IsVisible="{Binding IsPaused}" />
+            <TextBlock Text="Local player is not registered yet. Local loot pickups will not be tracked until the player is detected."
+                       Foreground="#FFB74D"
+                       IsVisible="{Binding ShowMissingPlayerWarning}" />
+        </StackPanel>
 
         <DataGrid Grid.Row="2"
                   IsVisible="{Binding !IsDisabled}"

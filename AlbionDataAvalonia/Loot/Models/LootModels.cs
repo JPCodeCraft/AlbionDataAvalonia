@@ -30,4 +30,5 @@ public sealed record LootRecord(
 public sealed record LootTrackerSnapshot(
     bool IsDisabled,
     bool IsPaused,
+    bool HasLocalPlayer,
     IReadOnlyList<LootRecord> Records);

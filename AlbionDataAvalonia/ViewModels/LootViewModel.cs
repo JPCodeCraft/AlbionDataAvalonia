@@ -42,6 +42,9 @@ public partial class LootViewModel : ViewModelBase, IDisposable
     private bool isPaused;
 
     [ObservableProperty]
+    private bool showMissingPlayerWarning = true;
+
+    [ObservableProperty]
     private bool isExporting;
 
     [ObservableProperty]
@@ -151,6 +154,7 @@ public partial class LootViewModel : ViewModelBase, IDisposable
     {
         IsDisabled = snapshot.IsDisabled;
         IsPaused = snapshot.IsPaused;
+        ShowMissingPlayerWarning = !snapshot.HasLocalPlayer;
         allRecords = snapshot.Records;
         RefreshPlayerOptions();
         ApplyFilter();

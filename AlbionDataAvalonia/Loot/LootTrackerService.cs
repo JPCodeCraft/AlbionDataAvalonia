@@ -2,8 +2,10 @@ using AlbionDataAvalonia.Gathering.Models;
 using AlbionDataAvalonia.Items.Services;
 using AlbionDataAvalonia.Loot.Models;
 using AlbionDataAvalonia.Party;
+using AlbionDataAvalonia.Party.Models;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
+using AlbionDataAvalonia.State.Events;
 using Serilog;
 using System;
 using System.Collections.Generic;
@@ -52,6 +54,8 @@ public sealed class LootTrackerService : IDisposable
         isDisabled = settingsManager.UserSettings.DisableLootTracker;
         settingsManager.UserSettings.PropertyChanged += OnUserSettingsPropertyChanged;
         itemEstimatedMarketValues.EstimatedMarketValueChanged += OnEstimatedMarketValueChanged;
+        playerState.OnPlayerStateChanged += OnPlayerStateChanged;
+        partyTracker.SnapshotChanged += OnPartySnapshotChanged;
     }
 
     public LootTrackerSnapshot CurrentSnapshot
@@ -69,6 +73,8 @@ public sealed class LootTrackerService : IDisposable
     {
         settingsManager.UserSettings.PropertyChanged -= OnUserSettingsPropertyChanged;
         itemEstimatedMarketValues.EstimatedMarketValueChanged -= OnEstimatedMarketValueChanged;
+        playerState.OnPlayerStateChanged -= OnPlayerStateChanged;
+        partyTracker.SnapshotChanged -= OnPartySnapshotChanged;
     }
 
     public void SetPaused(bool paused)
@@ -297,13 +303,43 @@ public sealed class LootTrackerService : IDisposable
         LootTrackerSnapshot? snapshot = null;
         lock (sync)
         {
-            if (!CanCaptureCore()
-                || sourceContainerId == Guid.Empty
-                || sourceContainerId == destinationContainerId
-                || !containers.TryGetValue(sourceContainerId, out var container)
-                || sourceSlot < 0
-                || sourceSlot >= container.SlotItems.Count)
+            if (!CanCaptureCore())
             {
+                return;
+            }
+
+            if (sourceContainerId == Guid.Empty)
+            {
+                Log.Warning(
+                    "Loot tracker skipped local move by slot because source container id is empty. SourceSlot: {SourceSlot}, DestinationContainerId: {DestinationContainerId}",
+                    sourceSlot,
+                    destinationContainerId);
+                return;
+            }
+
+            if (sourceContainerId == destinationContainerId)
+            {
+                return;
+            }
+
+            if (!containers.TryGetValue(sourceContainerId, out var container))
+            {
+                Log.Warning(
+                    "Loot tracker skipped local move by slot because source container was not known. SourceSlot: {SourceSlot}, SourceContainerId: {SourceContainerId}, DestinationContainerId: {DestinationContainerId}",
+                    sourceSlot,
+                    sourceContainerId,
+                    destinationContainerId);
+                return;
+            }
+
+            if (sourceSlot < 0 || sourceSlot >= container.SlotItems.Count)
+            {
+                Log.Warning(
+                    "Loot tracker skipped local move by slot because source slot was outside the container. SourceSlot: {SourceSlot}, SlotCount: {SlotCount}, SourceContainerId: {SourceContainerId}, SourceObjectId: {SourceObjectId}",
+                    sourceSlot,
+                    container.SlotItems.Count,
+                    sourceContainerId,
+                    container.SourceObjectId);
                 return;
             }
 
@@ -324,11 +360,32 @@ public sealed class LootTrackerService : IDisposable
         LootTrackerSnapshot? snapshot = null;
         lock (sync)
         {
-            if (!CanCaptureCore()
-                || sourceContainerId == Guid.Empty
-                || sourceContainerId == destinationContainerId
-                || !containers.TryGetValue(sourceContainerId, out var container))
+            if (!CanCaptureCore())
             {
+                return;
+            }
+
+            if (sourceContainerId == Guid.Empty)
+            {
+                Log.Warning(
+                    "Loot tracker skipped local move given items because source container id is empty. ItemObjectIds: {ItemObjectIds}, DestinationContainerId: {DestinationContainerId}",
+                    itemObjectIds,
+                    destinationContainerId);
+                return;
+            }
+
+            if (sourceContainerId == destinationContainerId)
+            {
+                return;
+            }
+
+            if (!containers.TryGetValue(sourceContainerId, out var container))
+            {
+                Log.Warning(
+                    "Loot tracker skipped local move given items because source container was not known. ItemObjectIds: {ItemObjectIds}, SourceContainerId: {SourceContainerId}, DestinationContainerId: {DestinationContainerId}",
+                    itemObjectIds,
+                    sourceContainerId,
+                    destinationContainerId);
                 return;
             }
 
@@ -337,6 +394,11 @@ public sealed class LootTrackerService : IDisposable
             {
                 if (!containerItems.Contains(itemObjectId))
                 {
+                    Log.Warning(
+                        "Loot tracker skipped local move given item because item object id was not in the source container. ItemObjectId: {ItemObjectId}, SourceContainerId: {SourceContainerId}, SourceObjectId: {SourceObjectId}",
+                        itemObjectId,
+                        sourceContainerId,
+                        container.SourceObjectId);
                     continue;
                 }
 
@@ -354,11 +416,41 @@ public sealed class LootTrackerService : IDisposable
     {
         var nowUtc = DateTime.UtcNow;
         PruneTransientStateCore(nowUtc);
-        if (itemObjectId <= 0
-            || recordedItemObjectIds.ContainsKey(itemObjectId)
-            || !discoveredItems.TryGetValue(itemObjectId, out var item)
-            || !sources.ContainsKey(sourceObjectId))
+        if (itemObjectId <= 0)
         {
+            Log.Warning(
+                "Loot tracker skipped local item record because item object id was invalid. ItemObjectId: {ItemObjectId}, SourceObjectId: {SourceObjectId}",
+                itemObjectId,
+                sourceObjectId);
+            return null;
+        }
+
+        if (recordedItemObjectIds.ContainsKey(itemObjectId))
+        {
+            Log.Warning(
+                "Loot tracker skipped local item record because item object id was already recorded. ItemObjectId: {ItemObjectId}, SourceObjectId: {SourceObjectId}",
+                itemObjectId,
+                sourceObjectId);
+            return null;
+        }
+
+        if (!discoveredItems.TryGetValue(itemObjectId, out var item))
+        {
+            Log.Warning(
+                "Loot tracker skipped local item record because item object id was not discovered. ItemObjectId: {ItemObjectId}, SourceObjectId: {SourceObjectId}",
+                itemObjectId,
+                sourceObjectId);
+            return null;
+        }
+
+        if (!sources.ContainsKey(sourceObjectId))
+        {
+            Log.Warning(
+                "Loot tracker skipped local item record because source object id was not identified. ItemObjectId: {ItemObjectId}, SourceObjectId: {SourceObjectId}, ItemId: {ItemId}, Amount: {Amount}",
+                itemObjectId,
+                sourceObjectId,
+                item.ItemId,
+                item.Amount);
             return null;
         }
 
@@ -378,6 +470,12 @@ public sealed class LootTrackerService : IDisposable
         var playerName = GetLocalPlayerName();
         if (string.IsNullOrWhiteSpace(playerName))
         {
+            Log.Warning(
+                "Loot tracker skipped local item record because local player was not detected. ItemObjectId: {ItemObjectId}, SourceObjectId: {SourceObjectId}, ItemId: {ItemId}, Amount: {Amount}",
+                itemObjectId,
+                sourceObjectId,
+                item.ItemId,
+                item.Amount);
             return null;
         }
 
@@ -584,9 +682,52 @@ public sealed class LootTrackerService : IDisposable
         var partyLocalName = partyTracker.CurrentSnapshot.Members
             .FirstOrDefault(member => member.IsLocalPlayer)
             ?.Name;
-        return !string.IsNullOrWhiteSpace(partyLocalName)
-            ? partyLocalName
-            : playerState.PlayerName;
+        if (IsKnownPlayerName(partyLocalName))
+        {
+            return partyLocalName!;
+        }
+
+        var playerName = playerState.PlayerName?.Trim();
+        return IsKnownPlayerName(playerName)
+            ? playerName!
+            : string.Empty;
+    }
+
+    private static bool IsKnownPlayerName(string? playerName)
+    {
+        return !string.IsNullOrWhiteSpace(playerName)
+            && !string.Equals(playerName, "Not set", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private bool HasLocalPlayerCore()
+    {
+        var partyLocalName = partyTracker.CurrentSnapshot.Members
+            .FirstOrDefault(member => member.IsLocalPlayer)
+            ?.Name;
+        return IsKnownPlayerName(partyLocalName)
+            || IsKnownPlayerName(playerState.PlayerName);
+    }
+
+    private void OnPlayerStateChanged(object? sender, PlayerStateEventArgs e)
+    {
+        LootTrackerSnapshot snapshot;
+        lock (sync)
+        {
+            snapshot = BuildSnapshot();
+        }
+
+        SnapshotChanged?.Invoke(snapshot);
+    }
+
+    private void OnPartySnapshotChanged(PartyTrackerSnapshot snapshot)
+    {
+        LootTrackerSnapshot lootSnapshot;
+        lock (sync)
+        {
+            lootSnapshot = BuildSnapshot();
+        }
+
+        SnapshotChanged?.Invoke(lootSnapshot);
     }
 
     private static bool TryMatchCorrelation(
@@ -699,6 +840,7 @@ public sealed class LootTrackerService : IDisposable
         return new LootTrackerSnapshot(
             isDisabled,
             isPaused,
+            HasLocalPlayerCore(),
             records.ToArray());
     }
 
