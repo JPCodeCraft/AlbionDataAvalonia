@@ -83,13 +83,23 @@ curl -s https://api.github.com/repos/JPCodeCraft/AlbionDataAvalonia/releases/lat
 
 If you are on Apple Silicon, download `AFMDataClient_MacOS_arm64.app.zip`. Intel users should download `AFMDataClient_MacOS_x64.app.zip`.
 
+<img width="1073" height="643" alt="image" src="https://github.com/user-attachments/assets/ce781ade-d2f9-42c8-ba10-bea77bb0ba13" />
+
 The macOS app is not signed, so macOS may say `"AFMDataClient_MacOS" is damaged and can't be opened`. Remove the download quarantine flag before opening it:
 
+<img width="244" height="218" alt="image" src="https://github.com/user-attachments/assets/6db17f1c-d119-4fd6-b855-d89f40fde348" />
+
 1. Make sure `AFMDataClient_MacOS.app` is visible in your `Downloads` folder. Safari may extract the zip automatically. If you still see only the `.zip` file, double-click it first.
+
+<img width="840" height="256" alt="image" src="https://github.com/user-attachments/assets/4c18543a-7da8-4c8c-b4ec-f20a5831e18c" />
+   
 2. Open Terminal:
    - Press `Command + Space` to open Spotlight.
    - Type `Terminal`.
    - Press `Return`.
+
+<img width="864" height="450" alt="image" src="https://github.com/user-attachments/assets/8e4bcbd0-e3f2-4840-a694-0459d2ab2e86" />
+
 3. In Terminal, go to your Downloads folder:
 
    ```bash
@@ -101,12 +111,23 @@ The macOS app is not signed, so macOS may say `"AFMDataClient_MacOS" is damaged 
    ```bash
    xattr -dr com.apple.quarantine AFMDataClient_MacOS.app
    ```
+<img width="800" height="113" alt="image" src="https://github.com/user-attachments/assets/328bdccf-97a7-4324-974a-68150145ec10" />
 
 5. Double-click `AFMDataClient_MacOS.app` to open it.
 
    If double-clicking does not open it, run `open AFMDataClient_MacOS.app` in Terminal.
 
-If packet capture is blocked, the app shows a `Capture Blocked` status with an `Install permissions` button. Click it, approve the macOS administrator prompt, and let the app restart.
+If packet capture is blocked, the app shows a `Capture Blocked` status.
+
+<img width="177" height="166" alt="image" src="https://github.com/user-attachments/assets/3775d64b-e785-4d9c-a5f9-c08cfb41007c" />
+
+It also shows an `Install permissions` button. Click it, approve the macOS administrator prompt, and let the app restart.
+
+<img width="242" height="296" alt="image" src="https://github.com/user-attachments/assets/35751693-36b9-459e-b9a5-fbef9a356767" />
+
+Once it restarts and you get ingame, you should see the app working.
+
+<img width="930" height="631" alt="image" src="https://github.com/user-attachments/assets/84cfa92a-dc84-431a-ae92-c6815d0dea66" />
 
 There's no automatic update feature for MacOS, so you should manually download new versions.
 
