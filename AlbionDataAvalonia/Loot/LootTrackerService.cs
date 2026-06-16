@@ -754,7 +754,7 @@ public sealed class LootTrackerService : IDisposable
         var kind = preferredKind;
         if (kind == LootSourceKind.Unknown)
         {
-            if (upperName is "MOB" or "@MOB" || upperName.Contains("MOB"))
+            if (upperName is "MOB" or "@MOB" || upperName.StartsWith("@MOB", StringComparison.Ordinal))
             {
                 kind = LootSourceKind.Mob;
             }
