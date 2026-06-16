@@ -535,6 +535,8 @@ public sealed class LootTrackerService : IDisposable
         var resolvedName = IsKnownItemText(name)
             ? name!
             : itemData.UsName;
+        var location = playerState.Location;
+        var locationName = location.FriendlyName;
 
         return new LootRecord(
             Guid.NewGuid(),
@@ -543,6 +545,7 @@ public sealed class LootTrackerService : IDisposable
             partyTracker.IsPartyMember(playerName),
             source.Kind,
             source.Name,
+            locationName,
             itemObjectId,
             itemId,
             resolvedUniqueName,

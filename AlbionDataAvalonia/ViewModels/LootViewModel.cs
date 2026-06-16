@@ -222,6 +222,7 @@ public sealed class LootRowViewModel
     public bool WasPartyMemberAtPickup => Source.WasPartyMemberAtPickup;
     public string SourceKind => Source.SourceKind.ToString();
     public string SourceName => Source.SourceName;
+    public string LocationName => Source.LocationName;
     public string ItemUniqueName => Source.ItemUniqueName;
     public string ItemName => Source.ItemName;
     public int Quality => Source.Quality;

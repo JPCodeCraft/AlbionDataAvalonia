@@ -99,6 +99,7 @@
                 <DataGridCheckBoxColumn Header="Party" Binding="{Binding WasPartyMemberAtPickup}" />
                 <DataGridTextColumn Header="Source Type" Binding="{Binding SourceKind}" />
                 <DataGridTextColumn Header="Source" Binding="{Binding SourceName}" />
+                <DataGridTextColumn Header="Location" Binding="{Binding LocationName}" />
                 <DataGridTemplateColumn Header="Item" SortMemberPath="ItemName" CanUserSort="True">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
