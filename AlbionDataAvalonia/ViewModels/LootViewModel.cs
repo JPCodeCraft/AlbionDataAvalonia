@@ -21,7 +21,7 @@ public partial class LootViewModel : ViewModelBase, IDisposable
     private readonly LootTrackerService? lootTracker;
     private readonly CsvExportService? csvExportService;
     private IReadOnlyList<LootRecord> allRecords = Array.Empty<LootRecord>();
-    private IReadOnlyList<LootRecord> filteredRecords = Array.Empty<LootRecord>();
+    private List<LootRecord> filteredRecords = new();
 
     [ObservableProperty]
     private ObservableCollection<LootRowViewModel> loot = new();
@@ -152,11 +152,22 @@ public partial class LootViewModel : ViewModelBase, IDisposable
 
     private void ApplySnapshot(LootTrackerSnapshot snapshot)
     {
+        var previousRecords = allRecords;
+        var previousSelectedPlayer = SelectedPlayer;
+
         IsDisabled = snapshot.IsDisabled;
         IsPaused = snapshot.IsPaused;
         ShowMissingPlayerWarning = !snapshot.HasLocalPlayer;
         allRecords = snapshot.Records;
         RefreshPlayerOptions();
+
+        if (CanApplyAppendOnlySnapshot(previousRecords, snapshot.Records)
+            && string.Equals(previousSelectedPlayer, SelectedPlayer, StringComparison.OrdinalIgnoreCase))
+        {
+            ApplyAppendedRecord(snapshot.Records[^1]);
+            return;
+        }
+
         ApplyFilter();
     }
 
@@ -198,7 +209,7 @@ public partial class LootViewModel : ViewModelBase, IDisposable
 
         filteredRecords = query
             .OrderByDescending(record => record.PickedUpAtUtc)
-            .ToArray();
+            .ToList();
         Loot = new ObservableCollection<LootRowViewModel>(
             filteredRecords.Select(record => new LootRowViewModel(record)));
         VisiblePickupCount = filteredRecords.Count;
@@ -206,6 +217,57 @@ public partial class LootViewModel : ViewModelBase, IDisposable
         VisibleEstimatedMarketValue = filteredRecords.Sum(record => record.TotalEstimatedMarketValue ?? 0);
         VisibleMissingEstimatedMarketValueCount = filteredRecords.Count(record =>
             record.TotalEstimatedMarketValue is null);
+    }
+
+    private static bool CanApplyAppendOnlySnapshot(
+        IReadOnlyList<LootRecord> previousRecords,
+        IReadOnlyList<LootRecord> nextRecords)
+    {
+        return nextRecords.Count == previousRecords.Count + 1;
+    }
+
+    private void ApplyAppendedRecord(LootRecord record)
+    {
+        if (!MatchesCurrentFilter(record))
+        {
+            return;
+        }
+
+        var insertIndex = GetInsertIndex(record);
+        filteredRecords.Insert(insertIndex, record);
+        Loot.Insert(insertIndex, new LootRowViewModel(record));
+
+        VisiblePickupCount++;
+        VisibleItemCount += record.Amount;
+        VisibleEstimatedMarketValue += record.TotalEstimatedMarketValue ?? 0;
+        if (record.TotalEstimatedMarketValue is null)
+        {
+            VisibleMissingEstimatedMarketValueCount++;
+        }
+    }
+
+    private bool MatchesCurrentFilter(LootRecord record)
+    {
+        if (!string.Equals(SelectedPlayer, AllPlayers, StringComparison.OrdinalIgnoreCase)
+            && !string.Equals(record.PlayerName, SelectedPlayer, StringComparison.OrdinalIgnoreCase))
+        {
+            return false;
+        }
+
+        return !PartyMembersOnly || record.WasPartyMemberAtPickup;
+    }
+
+    private int GetInsertIndex(LootRecord record)
+    {
+        for (var i = 0; i < filteredRecords.Count; i++)
+        {
+            if (record.PickedUpAtUtc >= filteredRecords[i].PickedUpAtUtc)
+            {
+                return i;
+            }
+        }
+
+        return filteredRecords.Count;
     }
 }
 
