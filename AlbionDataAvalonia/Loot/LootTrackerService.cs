@@ -446,12 +446,11 @@ public sealed class LootTrackerService : IDisposable
         if (!sources.ContainsKey(sourceObjectId))
         {
             Log.Warning(
-                "Loot tracker skipped local item record because source object id was not identified. ItemObjectId: {ItemObjectId}, SourceObjectId: {SourceObjectId}, ItemId: {ItemId}, Amount: {Amount}",
+                "Loot tracker will record local item with unknown source because source object id was not identified. ItemObjectId: {ItemObjectId}, SourceObjectId: {SourceObjectId}, ItemId: {ItemId}, Amount: {Amount}",
                 itemObjectId,
                 sourceObjectId,
                 item.ItemId,
                 item.Amount);
-            return null;
         }
 
         recordedItemObjectIds[itemObjectId] = nowUtc;
