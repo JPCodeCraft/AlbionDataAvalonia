@@ -17,7 +17,7 @@ public sealed class InventoryMoveGivenItemsRequestHandler : RequestPacketHandler
 
     protected override Task OnActionAsync(InventoryMoveGivenItemsRequest value)
     {
-        lootTracker.RecordLocalMoveGivenItems(
+        lootTracker.QueueLocalMoveGivenItems(
             value.SourceContainerId,
             value.DestinationContainerId,
             value.ItemObjectIds);
