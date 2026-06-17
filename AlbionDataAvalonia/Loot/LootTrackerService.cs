@@ -31,7 +31,9 @@ public sealed class LootTrackerService : IDisposable
     private readonly List<LootRecord> records = new();
     private readonly Dictionary<long, DiscoveredLootItem> discoveredItems = new();
     private readonly Dictionary<long, LootSource> sources = new();
+    private readonly HashSet<long> confirmedLootChestObjectIds = new();
     private readonly Dictionary<Guid, LootContainer> containers = new();
+    private readonly Dictionary<Guid, PendingLootContainer> pendingContainers = new();
     private readonly Dictionary<long, RecentDetachedLootContainer> recentDetachedLootContainers = new();
     private readonly Dictionary<long, RecordedItemObject> recordedItemObjectIds = new();
     private readonly Dictionary<long, PendingPartyLootItem> pendingPartyLootItems = new();
@@ -153,6 +155,12 @@ public sealed class LootTrackerService : IDisposable
                 return;
             }
 
+            if (IsConfirmedLootChestSourceCore(objectId))
+            {
+                PruneTransientStateCore(DateTime.UtcNow);
+                return;
+            }
+
             sources[objectId] = CreateSource(sourceName, LootSourceKind.Unknown);
             PruneTransientStateCore(DateTime.UtcNow);
         }
@@ -165,6 +173,7 @@ public sealed class LootTrackerService : IDisposable
             return;
         }
 
+        LootTrackerSnapshot? snapshot = null;
         lock (sync)
         {
             if (!CanCaptureCore())
@@ -175,8 +184,13 @@ public sealed class LootTrackerService : IDisposable
             var name = !string.IsNullOrWhiteSpace(uniqueName)
                 ? uniqueName
                 : uniqueNameWithLocation;
-            sources[objectId] = CreateSource(name, LootSourceKind.Chest);
+            snapshot = ConfirmLootChestSourceCore(objectId, name, DateTime.UtcNow);
             PruneTransientStateCore(DateTime.UtcNow);
+        }
+
+        if (snapshot is not null)
+        {
+            SnapshotChanged?.Invoke(snapshot);
         }
     }
 
@@ -187,6 +201,7 @@ public sealed class LootTrackerService : IDisposable
             return;
         }
 
+        LootTrackerSnapshot? snapshot = null;
         lock (sync)
         {
             if (!CanCaptureCore())
@@ -194,12 +209,13 @@ public sealed class LootTrackerService : IDisposable
                 return;
             }
 
-            if (!sources.ContainsKey(objectId))
-            {
-                sources[objectId] = CreateSource("Loot Chest", LootSourceKind.Chest);
-            }
-
+            snapshot = ConfirmLootChestSourceCore(objectId, null, DateTime.UtcNow);
             PruneTransientStateCore(DateTime.UtcNow);
+        }
+
+        if (snapshot is not null)
+        {
+            SnapshotChanged?.Invoke(snapshot);
         }
     }
 
@@ -218,24 +234,22 @@ public sealed class LootTrackerService : IDisposable
                 return;
             }
 
-            if (!sources.ContainsKey(objectId))
-            {
-                sources[objectId] = CreateSource("Loot Chest", LootSourceKind.Chest);
-            }
+            var nowUtc = DateTime.UtcNow;
+            snapshot = ConfirmLootChestSourceCore(objectId, null, nowUtc);
 
             if (playerGuids.Count > 0)
             {
                 recentLootChestUpdates[objectId] = new RecentLootChestUpdate(
                     playerGuids.Where(guid => guid != Guid.Empty).Distinct().ToArray(),
-                    DateTime.UtcNow);
+                    nowUtc);
             }
 
             if (state == EmptyLootChestState)
             {
-                snapshot = RecordDetachedPublicContainerRemainingItemsCore(objectId, DateTime.UtcNow);
+                snapshot = RecordDetachedPublicContainerRemainingItemsCore(objectId, nowUtc) ?? snapshot;
             }
 
-            PruneTransientStateCore(DateTime.UtcNow);
+            PruneTransientStateCore(nowUtc);
         }
 
         if (snapshot is not null)
@@ -259,42 +273,25 @@ public sealed class LootTrackerService : IDisposable
                 return;
             }
 
-            if (!sources.ContainsKey(objectId))
-            {
-                sources[objectId] = CreateSource("Loot Chest", LootSourceKind.Chest);
-            }
-
             var nowUtc = DateTime.UtcNow;
-            if (privateContainerId == Guid.Empty)
+            if (!IsConfirmedLootChestSourceCore(objectId))
             {
-                snapshot = RecordDetachedPublicContainerMissingItemsCore(objectId, slotItems, nowUtc);
+                pendingContainers[containerId] = new PendingLootContainer(
+                    objectId,
+                    containerId,
+                    privateContainerId,
+                    slotItems.ToArray(),
+                    nowUtc);
+                PruneTransientStateCore(nowUtc);
+                return;
             }
 
-            var container = new LootContainer(
+            snapshot = AttachConfirmedContainerCore(
                 objectId,
                 containerId,
                 privateContainerId,
-                slotItems.ToArray(),
+                slotItems,
                 nowUtc);
-            containers[containerId] = container;
-            if (privateContainerId != Guid.Empty)
-            {
-                containers[privateContainerId] = container;
-            }
-
-            foreach (var itemObjectId in slotItems.Where(itemObjectId => itemObjectId > 0))
-            {
-                if (discoveredItems.TryGetValue(itemObjectId, out var item))
-                {
-                    item.SourceObjectId = objectId;
-                }
-            }
-
-            if (privateContainerId == Guid.Empty)
-            {
-                AttachPublicContainerItemTypesCore(objectId, slotItems, nowUtc);
-            }
-
             PruneTransientStateCore(nowUtc);
         }
 
@@ -451,6 +448,7 @@ public sealed class LootTrackerService : IDisposable
             return;
         }
 
+        LootTrackerSnapshot? snapshot = null;
         lock (sync)
         {
             if (!CanCaptureCore())
@@ -461,6 +459,7 @@ public sealed class LootTrackerService : IDisposable
             var nowUtc = DateTime.UtcNow;
             PruneTransientStateCore(nowUtc);
             TrackRecentPartyLootItemTypesCore(sourceObjectId, itemIds, qualities, amounts, nowUtc);
+            snapshot = ConfirmLootChestSourceCore(sourceObjectId, null, nowUtc);
             for (var index = 0; index < itemObjectIds.Count; index++)
             {
                 var itemObjectId = itemObjectIds[index];
@@ -485,6 +484,11 @@ public sealed class LootTrackerService : IDisposable
                 pendingPartyLootItems[itemObjectId] = pendingItem;
             }
         }
+
+        if (snapshot is not null)
+        {
+            SnapshotChanged?.Invoke(snapshot);
+        }
     }
 
     public void RecordPartyLootItemsRemoved(long sourceObjectId, IReadOnlyList<long> itemObjectIds)
@@ -504,6 +508,7 @@ public sealed class LootTrackerService : IDisposable
 
             var nowUtc = DateTime.UtcNow;
             PruneTransientStateCore(nowUtc);
+            snapshot = ConfirmLootChestSourceCore(sourceObjectId, null, nowUtc);
             foreach (var itemObjectId in itemObjectIds.Where(id => id > 0).Distinct())
             {
                 if (!pendingPartyLootItems.TryGetValue(itemObjectId, out var pendingItem))
@@ -576,6 +581,7 @@ public sealed class LootTrackerService : IDisposable
 
             var nowUtc = DateTime.UtcNow;
             PruneTransientStateCore(nowUtc);
+            snapshot = ConfirmLootChestSourceCore(sourceObjectId, null, nowUtc);
             for (var index = 0; index < itemIds.Count; index++)
             {
                 var itemId = itemIds[index];
@@ -805,6 +811,86 @@ public sealed class LootTrackerService : IDisposable
         {
             SnapshotChanged?.Invoke(snapshot);
         }
+    }
+
+    private LootTrackerSnapshot? ConfirmLootChestSourceCore(long objectId, string? sourceName, DateTime nowUtc)
+    {
+        var resolvedName = !string.IsNullOrWhiteSpace(sourceName)
+            ? sourceName
+            : sources.TryGetValue(objectId, out var existingSource) && existingSource.Kind == LootSourceKind.Chest
+                ? existingSource.Name
+                : "Loot Chest";
+        sources[objectId] = CreateSource(resolvedName, LootSourceKind.Chest);
+        confirmedLootChestObjectIds.Add(objectId);
+        return ActivatePendingContainersForSourceCore(objectId, nowUtc);
+    }
+
+    private bool IsConfirmedLootChestSourceCore(long objectId)
+    {
+        return confirmedLootChestObjectIds.Contains(objectId)
+            && sources.TryGetValue(objectId, out var source)
+            && source.Kind == LootSourceKind.Chest;
+    }
+
+    private LootTrackerSnapshot? ActivatePendingContainersForSourceCore(long sourceObjectId, DateTime nowUtc)
+    {
+        LootTrackerSnapshot? snapshot = null;
+        foreach (var pendingContainer in pendingContainers.Values
+            .Where(container => container.SourceObjectId == sourceObjectId)
+            .DistinctBy(container => container.ContainerId)
+            .ToArray())
+        {
+            pendingContainers.Remove(pendingContainer.ContainerId);
+            snapshot = AttachConfirmedContainerCore(
+                pendingContainer.SourceObjectId,
+                pendingContainer.ContainerId,
+                pendingContainer.PrivateContainerId,
+                pendingContainer.SlotItems,
+                nowUtc) ?? snapshot;
+        }
+
+        return snapshot;
+    }
+
+    private LootTrackerSnapshot? AttachConfirmedContainerCore(
+        long objectId,
+        Guid containerId,
+        Guid privateContainerId,
+        IReadOnlyList<long> slotItems,
+        DateTime nowUtc)
+    {
+        LootTrackerSnapshot? snapshot = null;
+        if (privateContainerId == Guid.Empty)
+        {
+            snapshot = RecordDetachedPublicContainerMissingItemsCore(objectId, slotItems, nowUtc);
+        }
+
+        var container = new LootContainer(
+            objectId,
+            containerId,
+            privateContainerId,
+            slotItems.ToArray(),
+            nowUtc);
+        containers[containerId] = container;
+        if (privateContainerId != Guid.Empty)
+        {
+            containers[privateContainerId] = container;
+        }
+
+        foreach (var itemObjectId in slotItems.Where(itemObjectId => itemObjectId > 0))
+        {
+            if (discoveredItems.TryGetValue(itemObjectId, out var item))
+            {
+                item.SourceObjectId = objectId;
+            }
+        }
+
+        if (privateContainerId == Guid.Empty)
+        {
+            AttachPublicContainerItemTypesCore(objectId, slotItems, nowUtc);
+        }
+
+        return snapshot;
     }
 
     private void TrackRecentPartyLootItemTypesCore(
@@ -1040,6 +1126,7 @@ public sealed class LootTrackerService : IDisposable
             || recordedItemObjectIds.ContainsKey(itemObjectId)
             || !discoveredItems.TryGetValue(itemObjectId, out var item)
             || item.SourceObjectId is not { } sourceObjectId
+            || !IsConfirmedLootChestSourceCore(sourceObjectId)
             || !sources.TryGetValue(sourceObjectId, out var source)
             || source.Kind != LootSourceKind.Chest)
         {
@@ -1110,10 +1197,10 @@ public sealed class LootTrackerService : IDisposable
             return null;
         }
 
-        if (!sources.ContainsKey(sourceObjectId))
+        if (!IsConfirmedLootChestSourceCore(sourceObjectId))
         {
             Log.Warning(
-                "Loot tracker skipped local item record because source object id was not identified. ItemObjectId: {ItemObjectId}, SourceObjectId: {SourceObjectId}, ItemId: {ItemId}, Amount: {Amount}",
+                "Loot tracker skipped local item record because source object id was not confirmed as a loot chest. ItemObjectId: {ItemObjectId}, SourceObjectId: {SourceObjectId}, ItemId: {ItemId}, Amount: {Amount}",
                 itemObjectId,
                 sourceObjectId,
                 item.ItemId,
@@ -1634,7 +1721,9 @@ public sealed class LootTrackerService : IDisposable
     {
         discoveredItems.Clear();
         sources.Clear();
+        confirmedLootChestObjectIds.Clear();
         containers.Clear();
+        pendingContainers.Clear();
         recentDetachedLootContainers.Clear();
         recordedItemObjectIds.Clear();
         pendingPartyLootItems.Clear();
@@ -1661,6 +1750,15 @@ public sealed class LootTrackerService : IDisposable
             .ToArray())
         {
             sources.Remove(objectId);
+            confirmedLootChestObjectIds.Remove(objectId);
+        }
+
+        foreach (var containerId in pendingContainers
+            .Where(entry => nowUtc - entry.Value.SeenAtUtc > TransientRetention)
+            .Select(entry => entry.Key)
+            .ToArray())
+        {
+            pendingContainers.Remove(containerId);
         }
 
         foreach (var containerId in containers
@@ -1775,6 +1873,13 @@ public sealed class LootTrackerService : IDisposable
         DateTime SeenAtUtc);
 
     private sealed record LootContainer(
+        long SourceObjectId,
+        Guid ContainerId,
+        Guid PrivateContainerId,
+        IReadOnlyList<long> SlotItems,
+        DateTime SeenAtUtc);
+
+    private sealed record PendingLootContainer(
         long SourceObjectId,
         Guid ContainerId,
         Guid PrivateContainerId,
