@@ -14,7 +14,6 @@ public class DebugEventProbeEventHandler : EventPacketHandler<DebugEventProbeEve
     [
         EventCodes.NewLoot,
         EventCodes.InventoryPutItem,
-        EventCodes.NewCharacter,
         EventCodes.AttachItemContainer,
         EventCodes.DetachItemContainer,
         EventCodes.InvalidateItemContainer,
