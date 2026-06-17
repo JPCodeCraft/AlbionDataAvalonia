@@ -2,6 +2,7 @@ using Albion.Network;
 using AlbionDataAvalonia.Network.Events;
 using AlbionDataAvalonia.Shared;
 using Serilog;
+using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -9,37 +10,68 @@ namespace AlbionDataAvalonia.Network.Handlers;
 
 public class DebugEventProbeEventHandler : EventPacketHandler<DebugEventProbeEvent>
 {
-    // Change this single constant to probe a different event.
-    public const EventCodes ProbeEventCode = EventCodes.UpdateChatSettings;
+    private static readonly EventCodes[] ProbeEventCodes =
+    [
+        EventCodes.NewLoot,
+        EventCodes.InventoryPutItem,
+        EventCodes.NewCharacter,
+        EventCodes.AttachItemContainer,
+        EventCodes.DetachItemContainer,
+        EventCodes.InvalidateItemContainer,
+        EventCodes.InventoryDeleteItem,
+        EventCodes.InventoryState,
+        EventCodes.PartyJoined,
+        EventCodes.PartyDisbanded,
+        EventCodes.PartyPlayerJoined,
+        EventCodes.PartyPlayerLeft,
+        EventCodes.PartyPlayerUpdated,
+        EventCodes.PartyInvitationAnswer,
+        EventCodes.PartyMarkedObjectsUpdated,
+        EventCodes.PartyOnClusterPartyJoined,
+        EventCodes.PartySetRoleFlag,
+        EventCodes.OtherGrabbedLoot,
+        EventCodes.PartyLootItems,
+        EventCodes.PartyLootItemsRemoved,
+        EventCodes.PartyLootItemTypesRemoved,
+        EventCodes.NewLootChest,
+        EventCodes.UpdateLootChest,
+        EventCodes.LootChestOpened
+    ];
 
-    public DebugEventProbeEventHandler() : base((int)ProbeEventCode)
+    private static readonly int[] ProbeEventCodeValues = ProbeEventCodes
+        .Select(code => (int)code)
+        .ToArray();
+
+    public DebugEventProbeEventHandler() : base(ProbeEventCodeValues)
     {
     }
 
     protected override Task OnHandleAsync(EventPacket packet)
     {
-        if (packet.EventCode != (int)ProbeEventCode)
+        if (!ProbeEventCodeValues.Contains(packet.EventCode))
         {
             return NextAsync(packet);
         }
 
         var value = new DebugEventProbeEvent(packet.Parameters);
         Log.Debug(
-            "Debug probe captured event {EventCode} ({EventName}) with {ParameterCount} parameter(s).",
-            (int)ProbeEventCode,
-            ProbeEventCode,
-            value.Parameters.Count);
-
-        foreach (var parameter in value.Parameters.OrderBy(x => x.Key))
-        {
-            Log.Debug(
-                "Debug probe param key={Key} type={Type} value={@Value}",
-                parameter.Key,
-                parameter.Value?.GetType().FullName ?? "null",
-                parameter.Value);
-        }
+            "Debug probe captured event {EventCode} ({EventName}) with {ParameterCount} parameter(s): {Parameters}",
+            packet.EventCode,
+            GetEventName(packet.EventCode),
+            value.Parameters.Count,
+            DebugProbeFormatter.FormatParameters(value.Parameters));
 
         return NextAsync(packet);
+    }
+
+    private static string GetEventName(int eventCode)
+    {
+        var eventName = ProbeEventCodes
+            .FirstOrDefault(code => (int)code == eventCode);
+
+        return (int)eventName == eventCode
+            ? eventName.ToString()
+            : "Unknown";
     }
 
     protected override Task OnActionAsync(DebugEventProbeEvent value)

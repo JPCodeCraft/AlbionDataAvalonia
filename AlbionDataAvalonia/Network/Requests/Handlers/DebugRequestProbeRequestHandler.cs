@@ -7,32 +7,44 @@ using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.Network.Handlers;
 
-public class DebugRequestProbeRequestHandler : RequestPacketHandler<DebugRequestProbeRequest>
+public class DebugRequestProbeRequestHandler : PacketHandler<RequestPacket>
 {
-    // Change this single constant to probe a different request operation.
-    public const OperationCodes ProbeOperationCode = OperationCodes.ActionOnBuildingStart;
+    private static readonly OperationCodes[] ProbeOperationCodes =
+    [
+        OperationCodes.ContainerOpen,
+        OperationCodes.ContainerClose,
+        OperationCodes.InventoryMoveGivenItems
+    ];
 
-    public DebugRequestProbeRequestHandler() : base((int)ProbeOperationCode)
+    private static readonly int[] ProbeOperationCodeValues = ProbeOperationCodes
+        .Select(code => (int)code)
+        .ToArray();
+
+    protected override Task OnHandleAsync(RequestPacket packet)
     {
-    }
-
-    protected override Task OnActionAsync(DebugRequestProbeRequest value)
-    {
-        Log.Debug(
-                "Debug probe captured request {OperationCode} ({OperationName}) with {ParameterCount} parameter(s).",
-                (int)ProbeOperationCode,
-                ProbeOperationCode,
-                value.Parameters.Count);
-
-        foreach (var parameter in value.Parameters.OrderBy(x => x.Key))
+        if (!ProbeOperationCodeValues.Contains(packet.OperationCode))
         {
-            Log.Debug(
-                "Debug probe request param key={Key} type={Type} value={@Value}",
-                parameter.Key,
-                parameter.Value?.GetType().FullName ?? "null",
-                parameter.Value);
+            return NextAsync(packet);
         }
 
-        return Task.CompletedTask;
+        var request = new DebugRequestProbeRequest(packet.Parameters);
+        Log.Debug(
+            "Debug probe captured request {OperationCode} ({OperationName}) with {ParameterCount} parameter(s): {Parameters}",
+            packet.OperationCode,
+            GetOperationName(packet.OperationCode),
+            request.Parameters.Count,
+            DebugProbeFormatter.FormatParameters(request.Parameters));
+
+        return NextAsync(packet);
+    }
+
+    private static string GetOperationName(int operationCode)
+    {
+        var operationName = ProbeOperationCodes
+            .FirstOrDefault(code => (int)code == operationCode);
+
+        return (int)operationName == operationCode
+            ? operationName.ToString()
+            : "Unknown";
     }
 }

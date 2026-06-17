@@ -76,6 +76,7 @@
 			<RowDefinition Height="Auto" />
 			<RowDefinition Height="Auto" />
 			<RowDefinition Height="Auto" />
+			<RowDefinition Height="Auto" />
 		</Grid.RowDefinitions>
 		<Border Grid.Row="0" Classes="Section">
 			<Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="12">
@@ -256,7 +257,35 @@
 			</Grid>
 		</Border>
 
-		<Border Grid.Row="1" Classes="Section" MinHeight="300">
+		<Border Grid.Row="1"
+				Classes="Section"
+				MinHeight="120"
+				MaxHeight="180">
+			<Grid RowDefinitions="Auto,*">
+				<Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
+					<TextBlock Text="Current party" FontWeight="DemiBold" />
+					<TextBlock Grid.Column="1"
+							   Classes="FilterLabel"
+							   Text="{Binding PartyMemberStatusText}"
+							   HorizontalAlignment="Right" />
+				</Grid>
+				<DataGrid Grid.Row="1"
+						  ItemsSource="{Binding PartyMembers}"
+						  AutoGenerateColumns="False"
+						  IsReadOnly="True"
+						  GridLinesVisibility="None"
+						  BorderThickness="0">
+					<DataGrid.Columns>
+						<DataGridTextColumn Header="Role" Binding="{Binding RoleLabel}" Width="90" />
+						<DataGridTextColumn Header="Player" Binding="{Binding Name}" Width="180" />
+						<DataGridTextColumn Header="Object Id" Binding="{Binding ObjectIdText}" Width="110" />
+						<DataGridTextColumn Header="User Guid" Binding="{Binding UserGuidText}" Width="*" />
+					</DataGrid.Columns>
+				</DataGrid>
+			</Grid>
+		</Border>
+
+		<Border Grid.Row="2" Classes="Section" MinHeight="300">
 			<Grid RowDefinitions="Auto,*">
 				<Grid RowDefinitions="Auto,Auto" Margin="0,0,0,8">
 					<StackPanel>
@@ -319,7 +348,7 @@
 			</Grid>
 		</Border>
 
-		<Border Grid.Row="2"
+		<Border Grid.Row="3"
 				Classes="Section"
 				MinHeight="190"
 				MaxHeight="{Binding Bounds.Height, ElementName=CombatRoot, Converter={StaticResource EncounterTableMaxHeightConverter}}">
@@ -438,7 +467,7 @@
 			</Grid>
 		</Border>
 
-		<Border Grid.Row="3"
+		<Border Grid.Row="4"
 				Classes="Section"
 				MinHeight="240"
 				MaxHeight="{Binding Bounds.Height, ElementName=CombatRoot, Converter={StaticResource PlayerTableMaxHeightConverter}}">

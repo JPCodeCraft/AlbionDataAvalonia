@@ -15,7 +15,8 @@ public class PartyJoinedEvent : BaseEvent
         Log.Verbose("Got {PacketType} packet.", GetType());
         try
         {
-            if (!parameters.TryGetValue(5, out object? guidData) || !parameters.TryGetValue(6, out object? nameData))
+            if (!parameters.TryGetValue(5, out object? guidData)
+                || !parameters.TryGetValue(6, out object? nameData))
             {
                 return;
             }

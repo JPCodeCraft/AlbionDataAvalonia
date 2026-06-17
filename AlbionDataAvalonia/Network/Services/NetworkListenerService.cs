@@ -114,12 +114,14 @@ namespace AlbionDataAvalonia.Network.Services
                 // builder.AddEventHandler(new LeaveEventHandler(_playerState));
                 // builder.AddEventHandler(new PlayerCountsEventHandler(_playerState, _afmUploader));
                 // builder.AddEventHandler(new CharacterStatsEventHandler());
-                builder.AddEventHandler(new NewCharacterEventHandler(_combatTracker));
+                builder.AddEventHandler(new NewCharacterEventHandler(_combatTracker, _partyTracker));
                 builder.AddEventHandler(new NewMobEventHandler(_combatTracker, _mobsService));
                 builder.AddEventHandler(new PartyJoinedEventHandler(_partyTracker));
                 builder.AddEventHandler(new PartyPlayerJoinedEventHandler(_partyTracker));
                 builder.AddEventHandler(new PartyPlayerLeftEventHandler(_partyTracker));
                 builder.AddEventHandler(new PartyDisbandedEventHandler(_partyTracker));
+                builder.AddEventHandler(new PartyOnClusterPartyJoinedEventHandler(_partyTracker));
+                builder.AddEventHandler(new PartySetRoleFlagEventHandler(_partyTracker));
                 builder.AddEventHandler(new HealthUpdateEventHandler(_combatTracker));
                 builder.AddEventHandler(new HealthUpdatesEventHandler(_combatTracker));
                 builder.AddEventHandler(new UpdateFameEventHandler(_combatTracker));
@@ -133,10 +135,15 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddEventHandler(new RewardGrantedEventHandler(_gatheringTracker));
                 builder.AddEventHandler(new NewLootEventHandler(_lootTracker));
                 builder.AddEventHandler(new NewLootChestEventHandler(_lootTracker));
+                builder.AddEventHandler(new UpdateLootChestEventHandler(_lootTracker));
+                builder.AddEventHandler(new LootChestOpenedEventHandler(_lootTracker));
                 builder.AddEventHandler(new AttachItemContainerEventHandler(_lootTracker));
+                builder.AddEventHandler(new DetachItemContainerEventHandler(_lootTracker));
+                builder.AddEventHandler(new InventoryDeleteItemEventHandler(_lootTracker));
                 builder.AddEventHandler(new OtherGrabbedLootEventHandler(_lootTracker));
                 builder.AddEventHandler(new PartyLootItemsEventHandler(_lootTracker));
                 builder.AddEventHandler(new PartyLootItemsRemovedEventHandler(_lootTracker));
+                builder.AddEventHandler(new PartyLootItemTypesRemovedEventHandler(_lootTracker));
                 builder.AddEventHandler(new NewSimpleItemEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _gatheringTracker, _lootTracker, _playerState));
                 builder.AddEventHandler(new NewJournalItemEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _lootTracker, _playerState));
                 builder.AddEventHandler(new NewLaborerItemEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _lootTracker, _playerState));
@@ -178,7 +185,7 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddRequestHandler(new InventoryMoveItemRequestHandler(_lootTracker));
                 builder.AddRequestHandler(new InventoryMoveGivenItemsRequestHandler(_lootTracker));
 #if DEBUG
-                builder.AddRequestHandler(new DebugRequestProbeRequestHandler());
+                builder.AddHandler(new DebugRequestProbeRequestHandler());
 #endif
 
                 receiver = builder.Build();

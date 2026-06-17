@@ -2,39 +2,49 @@ using Albion.Network;
 using AlbionDataAvalonia.Network.Responses;
 using AlbionDataAvalonia.Shared;
 using Serilog;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.Network.Handlers;
 
 public class DebugResponseProbeResponseHandler : PacketHandler<ResponsePacket>
 {
-    // Change this single constant to probe a different response operation.
-    public const OperationCodes ProbeOperationCode = OperationCodes.Join;
+    private static readonly OperationCodes[] ProbeOperationCodes =
+    [
+        OperationCodes.ContainerOpen,
+        OperationCodes.ContainerClose,
+        OperationCodes.InventoryMoveGivenItems
+    ];
+
+    private static readonly int[] ProbeOperationCodeValues = ProbeOperationCodes
+        .Select(code => (int)code)
+        .ToArray();
 
     protected override Task OnHandleAsync(ResponsePacket packet)
     {
-        if (packet.OperationCode != (int)ProbeOperationCode)
+        if (!ProbeOperationCodeValues.Contains(packet.OperationCode))
         {
             return NextAsync(packet);
         }
 
         var response = new DebugResponseProbeResponse(packet.Parameters);
         Log.Debug(
-            "Debug probe captured response {OperationCode} ({OperationName}) with {ParameterCount} parameter(s).",
-            (int)ProbeOperationCode,
-            ProbeOperationCode,
-            response.Parameters.Count);
+            "Debug probe captured response {OperationCode} ({OperationName}) with {ParameterCount} parameter(s): {Parameters}",
+            packet.OperationCode,
+            GetOperationName(packet.OperationCode),
+            response.Parameters.Count,
+            DebugProbeFormatter.FormatParameters(response.Parameters));
 
-        foreach (var parameter in response.Parameters)
-        {
-            Log.Debug(
-                "Debug probe response param key={Key} type={Type} value={@Value}",
-                parameter.Key,
-                parameter.Value?.GetType().FullName ?? "null",
-                parameter.Value);
-        }
-
-        // Keep normal response handlers running (e.g., JoinResponseHandler).
         return NextAsync(packet);
+    }
+
+    private static string GetOperationName(int operationCode)
+    {
+        var operationName = ProbeOperationCodes
+            .FirstOrDefault(code => (int)code == operationCode);
+
+        return (int)operationName == operationCode
+            ? operationName.ToString()
+            : "Unknown";
     }
 }

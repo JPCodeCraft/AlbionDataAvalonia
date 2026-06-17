@@ -6,24 +6,22 @@ using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.Network.Handlers;
 
-public sealed class PartyLootItemsEventHandler : EventPacketHandler<PartyLootItemsEvent>
+public sealed class PartyLootItemTypesRemovedEventHandler : EventPacketHandler<PartyLootItemTypesRemovedEvent>
 {
     private readonly LootTrackerService lootTracker;
 
-    public PartyLootItemsEventHandler(LootTrackerService lootTracker) : base((int)EventCodes.PartyLootItems)
+    public PartyLootItemTypesRemovedEventHandler(LootTrackerService lootTracker) : base((int)EventCodes.PartyLootItemTypesRemoved)
     {
         this.lootTracker = lootTracker;
     }
 
-    protected override Task OnActionAsync(PartyLootItemsEvent value)
+    protected override Task OnActionAsync(PartyLootItemTypesRemovedEvent value)
     {
-        lootTracker.TrackPartyLootItems(
+        lootTracker.RecordPartyLootItemTypesRemoved(
             value.SourceObjectId,
-            value.ItemObjectIds,
             value.ItemIds,
-            value.Qualities,
             value.Amounts,
-            value.PlayerNames);
+            value.Qualities);
         return Task.CompletedTask;
     }
 }

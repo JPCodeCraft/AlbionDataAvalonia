@@ -10,6 +10,7 @@ public sealed class PartyLootItemsEvent : BaseEvent
     public long SourceObjectId { get; }
     public IReadOnlyList<long> ItemObjectIds { get; } = Array.Empty<long>();
     public IReadOnlyList<int> ItemIds { get; } = Array.Empty<int>();
+    public IReadOnlyList<int> Qualities { get; } = Array.Empty<int>();
     public IReadOnlyList<int> Amounts { get; } = Array.Empty<int>();
     public IReadOnlyList<string> PlayerNames { get; } = Array.Empty<string>();
 
@@ -30,6 +31,11 @@ public sealed class PartyLootItemsEvent : BaseEvent
             if (parameters.TryGetValue(2, out var itemIds))
             {
                 ItemIds = itemIds.ToIntArray();
+            }
+
+            if (parameters.TryGetValue(4, out var qualities))
+            {
+                Qualities = qualities.ToIntArray();
             }
 
             if (parameters.TryGetValue(9, out var amounts))

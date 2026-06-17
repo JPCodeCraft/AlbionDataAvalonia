@@ -1,5 +1,7 @@
 using AlbionDataAvalonia.Combat;
 using AlbionDataAvalonia.Combat.Models;
+using AlbionDataAvalonia.Party;
+using AlbionDataAvalonia.Party.Models;
 using AlbionDataAvalonia.Settings;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -40,6 +42,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
 
     private readonly CombatTrackerService? combatTracker;
     private readonly SettingsManager? settingsManager;
+    private readonly PartyTrackerService? partyTracker;
     private DispatcherTimer? summaryRefreshTimer;
     private IDisposable? pendingChartRefreshRegistration;
     private CombatTrackerSnapshot currentSnapshot;
@@ -184,6 +187,9 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     private bool useAllPartyStats;
 
+    [ObservableProperty]
+    private string partyMemberStatusText = "No party members detected";
+
     public bool IsCombatTrackerEnabled => !IsCombatTrackerDisabled;
     public bool HasSelectedPlayer => SelectedPlayer is not null;
     public bool HasSelectedEncounter => SelectedEncounter is not null;
@@ -195,6 +201,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     public ObservableCollection<CombatChartWindowOptionViewModel> ChartWindowOptions { get; } = new();
     public ObservableCollection<CombatChartMetricOptionViewModel> ChartMetricOptions { get; } = new();
     public ObservableCollection<CombatPlayerFilterOptionViewModel> PlayerFilterOptions { get; } = new();
+    public ObservableCollection<CombatPartyMemberRowViewModel> PartyMembers { get; } = new();
 
     [ObservableProperty]
     private ISeries[] chartSeries = Array.Empty<ISeries>();
@@ -218,10 +225,11 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         selectedPlayerFilter = InitializePlayerFilterOptions();
     }
 
-    public CombatViewModel(CombatTrackerService combatTracker, SettingsManager settingsManager)
+    public CombatViewModel(CombatTrackerService combatTracker, SettingsManager settingsManager, PartyTrackerService partyTracker)
     {
         this.combatTracker = combatTracker;
         this.settingsManager = settingsManager;
+        this.partyTracker = partyTracker;
         isCombatTrackerDisabled = settingsManager.UserSettings.DisableCombatTracker;
         currentSnapshot = combatTracker.CurrentSnapshot;
         isCombatTrackerPaused = currentSnapshot.IsPaused;
@@ -230,8 +238,10 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         selectedChartMetric = InitializeChartMetricOptions();
         selectedPlayerFilter = InitializePlayerFilterOptions();
         ApplySnapshot(currentSnapshot);
+        ApplyPartyTrackerSnapshot(partyTracker.CurrentSnapshot);
         settingsManager.UserSettings.PropertyChanged += OnUserSettingsPropertyChanged;
         combatTracker.SnapshotChanged += OnSnapshotChanged;
+        partyTracker.SnapshotChanged += OnPartyTrackerSnapshotChanged;
     }
 
     partial void OnIsCombatTrackerDisabledChanged(bool value)
@@ -382,6 +392,11 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         Dispatcher.UIThread.Post(() => ApplySnapshot(snapshot));
     }
 
+    private void OnPartyTrackerSnapshotChanged(PartyTrackerSnapshot snapshot)
+    {
+        Dispatcher.UIThread.Post(() => ApplyPartyTrackerSnapshot(snapshot));
+    }
+
     private void OnUserSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName != nameof(UserSettings.DisableCombatTracker))
@@ -427,6 +442,21 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         }
 
         RequestChartRefresh();
+    }
+
+    private void ApplyPartyTrackerSnapshot(PartyTrackerSnapshot snapshot)
+    {
+        Replace(
+            PartyMembers,
+            snapshot.Members.Select(member => new CombatPartyMemberRowViewModel(
+                string.IsNullOrWhiteSpace(member.Name) ? "Unknown" : member.Name,
+                member.IsLocalPlayer ? "Local" : "Party",
+                member.ObjectId?.ToString() ?? string.Empty,
+                member.UserGuid?.ToString() ?? string.Empty)));
+
+        PartyMemberStatusText = PartyMembers.Count == 0
+            ? "No party members detected"
+            : $"{PartyMembers.Count:N0} tracked";
     }
 
     private void UpdateSummaryRefreshTimer(
@@ -2253,6 +2283,11 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             combatTracker.SnapshotChanged -= OnSnapshotChanged;
         }
 
+        if (partyTracker is not null)
+        {
+            partyTracker.SnapshotChanged -= OnPartyTrackerSnapshotChanged;
+        }
+
         if (settingsManager is not null)
         {
             settingsManager.UserSettings.PropertyChanged -= OnUserSettingsPropertyChanged;
@@ -2295,6 +2330,12 @@ public enum CombatPlayerFilterKind
 }
 
 public sealed record CombatPlayerFilterOptionViewModel(CombatPlayerFilterKind Kind, string Label);
+
+public sealed record CombatPartyMemberRowViewModel(
+    string Name,
+    string RoleLabel,
+    string ObjectIdText,
+    string UserGuidText);
 
 public sealed record AggregatedCombatBucket(
     DateTime StartedAtUtc,

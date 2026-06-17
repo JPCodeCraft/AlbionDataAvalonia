@@ -8,7 +8,8 @@ namespace AlbionDataAvalonia.Party;
 public sealed class PartyTrackerService
 {
     private readonly object sync = new();
-    private readonly Dictionary<Guid, string> partyMembers = new();
+    private readonly Dictionary<Guid, PartyMemberState> partyMembers = new();
+    private readonly Dictionary<Guid, PartyMemberState> knownPlayers = new();
 
     private long? localObjectId;
     private Guid? localUserGuid;
@@ -35,6 +36,11 @@ public sealed class PartyTrackerService
             localObjectId = objectId > 0 ? objectId : null;
             localUserGuid = userGuid is { } guid && guid != Guid.Empty ? guid : null;
             localPlayerName = name?.Trim() ?? string.Empty;
+            if (localUserGuid is { } localGuid)
+            {
+                knownPlayers[localGuid] = new PartyMemberState(localObjectId, localPlayerName);
+            }
+
             snapshot = BuildSnapshot();
         }
 
@@ -49,10 +55,14 @@ public sealed class PartyTrackerService
             partyMembers.Clear();
             foreach (var (guid, name) in members)
             {
-                if (guid != Guid.Empty && !string.IsNullOrWhiteSpace(name))
+                if (guid == Guid.Empty || string.IsNullOrWhiteSpace(name))
                 {
-                    partyMembers[guid] = name.Trim();
+                    continue;
                 }
+
+                var state = GetKnownPlayerState(guid) with { Name = name.Trim() };
+                partyMembers[guid] = state;
+                knownPlayers[guid] = state;
             }
 
             snapshot = BuildSnapshot();
@@ -71,11 +81,123 @@ public sealed class PartyTrackerService
         PartyTrackerSnapshot snapshot;
         lock (sync)
         {
-            partyMembers[userGuid] = name.Trim();
+            var state = GetKnownPlayerState(userGuid) with { Name = name.Trim() };
+            partyMembers[userGuid] = state;
+            knownPlayers[userGuid] = state;
             snapshot = BuildSnapshot();
         }
 
         SnapshotChanged?.Invoke(snapshot);
+    }
+
+    public void EnsurePartyMember(Guid userGuid)
+    {
+        if (userGuid == Guid.Empty)
+        {
+            return;
+        }
+
+        PartyTrackerSnapshot snapshot;
+        lock (sync)
+        {
+            if (localUserGuid == userGuid || partyMembers.ContainsKey(userGuid))
+            {
+                return;
+            }
+
+            partyMembers[userGuid] = GetKnownPlayerState(userGuid);
+            snapshot = BuildSnapshot();
+        }
+
+        SnapshotChanged?.Invoke(snapshot);
+    }
+
+    public void EnsurePartyMembers(IEnumerable<Guid> userGuids)
+    {
+        PartyTrackerSnapshot? snapshot = null;
+        lock (sync)
+        {
+            foreach (var userGuid in userGuids)
+            {
+                if (userGuid == Guid.Empty
+                    || localUserGuid == userGuid
+                    || partyMembers.ContainsKey(userGuid))
+                {
+                    continue;
+                }
+
+                partyMembers[userGuid] = GetKnownPlayerState(userGuid);
+                snapshot = BuildSnapshot();
+            }
+        }
+
+        if (snapshot is not null)
+        {
+            SnapshotChanged?.Invoke(snapshot);
+        }
+    }
+
+    public void UpdatePartyMemberName(Guid? userGuid, string? name, long? objectId = null)
+    {
+        if (userGuid is not { } guid
+            || guid == Guid.Empty)
+        {
+            return;
+        }
+
+        var normalizedName = name?.Trim() ?? string.Empty;
+        var normalizedObjectId = objectId is > 0 ? objectId : null;
+        if (string.IsNullOrWhiteSpace(normalizedName) && normalizedObjectId is null)
+        {
+            return;
+        }
+
+        PartyTrackerSnapshot? snapshot = null;
+        lock (sync)
+        {
+            var knownState = GetKnownPlayerState(guid);
+            var updatedKnownState = knownState with
+            {
+                ObjectId = normalizedObjectId ?? knownState.ObjectId,
+                Name = string.IsNullOrWhiteSpace(normalizedName)
+                    ? knownState.Name
+                    : normalizedName
+            };
+            knownPlayers[guid] = updatedKnownState;
+
+            if (localUserGuid == guid)
+            {
+                var changed = false;
+                if (normalizedObjectId is not null && localObjectId != normalizedObjectId)
+                {
+                    localObjectId = normalizedObjectId;
+                    changed = true;
+                }
+
+                if (!string.IsNullOrWhiteSpace(normalizedName)
+                    && !string.Equals(localPlayerName, normalizedName, StringComparison.Ordinal))
+                {
+                    localPlayerName = normalizedName;
+                    changed = true;
+                }
+
+                if (changed)
+                {
+                    snapshot = BuildSnapshot();
+                }
+            }
+            else if (partyMembers.TryGetValue(guid, out var currentState)
+                && currentState != updatedKnownState)
+            {
+                partyMembers[guid] = updatedKnownState;
+                snapshot = BuildSnapshot();
+            }
+        }
+
+        if (snapshot is not null)
+        {
+            SnapshotChanged?.Invoke(snapshot);
+        }
     }
 
     public void RemovePartyMember(Guid? userGuid)
@@ -88,7 +210,15 @@ public sealed class PartyTrackerService
         PartyTrackerSnapshot snapshot;
         lock (sync)
         {
-            partyMembers.Remove(guid);
+            if (localUserGuid == guid)
+            {
+                partyMembers.Clear();
+            }
+            else
+            {
+                partyMembers.Remove(guid);
+            }
+
             snapshot = BuildSnapshot();
         }
 
@@ -135,7 +265,7 @@ public sealed class PartyTrackerService
             }
 
             return partyMembers.Values.Any(name =>
-                string.Equals(name, playerName, StringComparison.OrdinalIgnoreCase));
+                string.Equals(name.Name, playerName, StringComparison.OrdinalIgnoreCase));
         }
     }
 
@@ -153,16 +283,20 @@ public sealed class PartyTrackerService
                 true));
         }
 
-        foreach (var (guid, name) in partyMembers)
+        foreach (var (guid, state) in partyMembers)
         {
             if (localUserGuid == guid
                 || (!string.IsNullOrWhiteSpace(localPlayerName)
-                    && string.Equals(localPlayerName, name, StringComparison.OrdinalIgnoreCase)))
+                    && string.Equals(localPlayerName, state.Name, StringComparison.OrdinalIgnoreCase)))
             {
                 continue;
             }
 
-            members.Add(new PartyMemberSnapshot(null, guid, name, false));
+            members.Add(new PartyMemberSnapshot(
+                state.ObjectId,
+                guid,
+                string.IsNullOrWhiteSpace(state.Name) ? "Unknown" : state.Name,
+                false));
         }
 
         return new PartyTrackerSnapshot(
@@ -171,4 +305,13 @@ public sealed class PartyTrackerService
                 .ThenBy(member => member.Name, StringComparer.OrdinalIgnoreCase)
                 .ToArray());
     }
+
+    private PartyMemberState GetKnownPlayerState(Guid userGuid)
+    {
+        return knownPlayers.TryGetValue(userGuid, out var state)
+            ? state
+            : new PartyMemberState(null, string.Empty);
+    }
+
+    private sealed record PartyMemberState(long? ObjectId, string Name);
 }

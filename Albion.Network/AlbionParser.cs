@@ -15,13 +15,13 @@ namespace Albion.Network
         private readonly HandlersCollection handlers;
 #if DEBUG
         // Debug packet logging settings.
-        private const bool EnableParserDebugPacketLogging = false;
+        private const bool EnableParserDebugPacketLogging = true;
         private const bool EnableProtocol18CodeDebugLogging = false;
         // Toggle this deep scan on/off as needed. It is expensive on busy streams.
         private const bool EnableDeepParameterValueFilter = false;
         private const bool EnableNoiseCodeFilter = true;
         private static readonly string[] RequiredParameterTexts = new[] { "" };
-        private static readonly EventCodes[] NoiseFilteredEventCodes = new[] { EventCodes.Move };
+        private static readonly EventCodes[] NoiseFilteredEventCodes = new[] { EventCodes.Move, EventCodes.TimeSync, EventCodes.PlayerCounts, EventCodes.EnergyUpdate, EventCodes.Leave, EventCodes.CastSpell, EventCodes.Attack, EventCodes.HealthUpdate, EventCodes.HealthUpdates };
         private static readonly OperationCodes[] NoiseFilteredOperationCodes = new[] { OperationCodes.Move };
 #endif
 

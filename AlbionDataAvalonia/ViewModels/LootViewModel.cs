@@ -270,6 +270,7 @@ public sealed class LootRowViewModel
     public LootRecord Source { get; }
     public DateTime PickedUpAt => Source.PickedUpAtUtc.ToLocalTime();
     public string PlayerName => Source.PlayerName;
+    public string PlayerNameText => Source.OwnerNameGuessed ? $"{Source.PlayerName} *" : Source.PlayerName;
     public bool WasPartyMemberAtPickup => Source.WasPartyMemberAtPickup;
     public string SourceKind => Source.SourceKind.ToString();
     public string SourceName => Source.SourceName;
@@ -277,7 +278,7 @@ public sealed class LootRowViewModel
     public string ItemUniqueName => Source.ItemUniqueName;
     public string ItemName => Source.ItemName;
     public int ImageQuality => Source.Quality ?? 1;
-    public string QualityText => Source.Quality?.ToString() ?? string.Empty;
+    public string QualityText => Source.Quality?.ToString() ?? "Unknown";
     public int Amount => Source.Amount;
     public long? EstimatedMarketValue => Source.EstimatedMarketValue;
     public long? TotalEstimatedMarketValue => Source.TotalEstimatedMarketValue;
