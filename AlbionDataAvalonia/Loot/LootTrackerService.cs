@@ -42,6 +42,7 @@ public sealed class LootTrackerService : IDisposable
     private readonly Dictionary<long, RecentInventoryDelete> recentInventoryDeletes = new();
     private readonly List<RecentPickupCorrelation> recentLocalPickups = new();
     private readonly List<RecentPickupCorrelation> recentBroadcastPickups = new();
+    private readonly List<PendingLocalMoveBySlot> pendingLocalMovesBySlot = new();
     private readonly SettingsManager settingsManager;
     private readonly PartyTrackerService partyTracker;
     private readonly ItemsIdsService itemsIdsService;
@@ -148,6 +149,7 @@ public sealed class LootTrackerService : IDisposable
             return;
         }
 
+        LootTrackerSnapshot? snapshot = null;
         lock (sync)
         {
             if (!CanCaptureCore())
@@ -161,8 +163,15 @@ public sealed class LootTrackerService : IDisposable
                 return;
             }
 
+            var nowUtc = DateTime.UtcNow;
             sources[objectId] = CreateSource(sourceName, LootSourceKind.Unknown);
-            PruneTransientStateCore(DateTime.UtcNow);
+            snapshot = ActivatePendingContainersForSourceCore(objectId, nowUtc);
+            PruneTransientStateCore(nowUtc);
+        }
+
+        if (snapshot is not null)
+        {
+            SnapshotChanged?.Invoke(snapshot);
         }
     }
 
@@ -274,14 +283,20 @@ public sealed class LootTrackerService : IDisposable
             }
 
             var nowUtc = DateTime.UtcNow;
-            if (!IsConfirmedLootChestSourceCore(objectId))
+            if (!IsKnownLootSourceCore(objectId))
             {
-                pendingContainers[containerId] = new PendingLootContainer(
+                var pendingContainer = new PendingLootContainer(
                     objectId,
                     containerId,
                     privateContainerId,
                     slotItems.ToArray(),
                     nowUtc);
+                pendingContainers[containerId] = pendingContainer;
+                if (privateContainerId != Guid.Empty)
+                {
+                    pendingContainers[privateContainerId] = pendingContainer;
+                }
+
                 PruneTransientStateCore(nowUtc);
                 return;
             }
@@ -346,6 +361,7 @@ public sealed class LootTrackerService : IDisposable
             return;
         }
 
+        LootTrackerSnapshot? snapshot = null;
         lock (sync)
         {
             if (!CanCaptureCore())
@@ -353,6 +369,7 @@ public sealed class LootTrackerService : IDisposable
                 return;
             }
 
+            var nowUtc = DateTime.UtcNow;
             var sourceObjectId = containers.Values
                 .FirstOrDefault(container => container.SlotItems.Contains(objectId))
                 ?.SourceObjectId;
@@ -365,8 +382,14 @@ public sealed class LootTrackerService : IDisposable
                 item.ItemUsName,
                 item.EstimatedMarketValue > 0 ? item.EstimatedMarketValue : null,
                 sourceObjectId,
-                DateTime.UtcNow);
-            PruneTransientStateCore(DateTime.UtcNow);
+                nowUtc);
+            snapshot = ReplayPendingLocalMovesForItemCore(objectId, nowUtc);
+            PruneTransientStateCore(nowUtc);
+        }
+
+        if (snapshot is not null)
+        {
+            SnapshotChanged?.Invoke(snapshot);
         }
     }
 
@@ -699,8 +722,15 @@ public sealed class LootTrackerService : IDisposable
 
             if (!containers.TryGetValue(sourceContainerId, out var container))
             {
-                Log.Warning(
-                    "Loot tracker skipped local move by slot because source container was not known. SourceSlot: {SourceSlot}, SourceContainerId: {SourceContainerId}, DestinationContainerId: {DestinationContainerId}",
+                var nowUtc = DateTime.UtcNow;
+                pendingLocalMovesBySlot.Add(new PendingLocalMoveBySlot(
+                    sourceSlot,
+                    sourceContainerId,
+                    destinationContainerId,
+                    nowUtc));
+                PruneTransientStateCore(nowUtc);
+                Log.Debug(
+                    "Loot tracker queued local move by slot because source container is not tied to a known loot source yet. SourceSlot: {SourceSlot}, SourceContainerId: {SourceContainerId}, DestinationContainerId: {DestinationContainerId}",
                     sourceSlot,
                     sourceContainerId,
                     destinationContainerId);
@@ -832,6 +862,11 @@ public sealed class LootTrackerService : IDisposable
             && source.Kind == LootSourceKind.Chest;
     }
 
+    private bool IsKnownLootSourceCore(long objectId)
+    {
+        return sources.ContainsKey(objectId);
+    }
+
     private LootTrackerSnapshot? ActivatePendingContainersForSourceCore(long sourceObjectId, DateTime nowUtc)
     {
         LootTrackerSnapshot? snapshot = null;
@@ -840,7 +875,14 @@ public sealed class LootTrackerService : IDisposable
             .DistinctBy(container => container.ContainerId)
             .ToArray())
         {
-            pendingContainers.Remove(pendingContainer.ContainerId);
+            foreach (var key in pendingContainers
+                .Where(entry => ReferenceEquals(entry.Value, pendingContainer))
+                .Select(entry => entry.Key)
+                .ToArray())
+            {
+                pendingContainers.Remove(key);
+            }
+
             snapshot = AttachConfirmedContainerCore(
                 pendingContainer.SourceObjectId,
                 pendingContainer.ContainerId,
@@ -885,9 +927,71 @@ public sealed class LootTrackerService : IDisposable
             }
         }
 
+        snapshot = ReplayPendingLocalMovesForContainerCore(container, nowUtc) ?? snapshot;
+
         if (privateContainerId == Guid.Empty)
         {
             AttachPublicContainerItemTypesCore(objectId, slotItems, nowUtc);
+        }
+
+        return snapshot;
+    }
+
+    private LootTrackerSnapshot? ReplayPendingLocalMovesForItemCore(long itemObjectId, DateTime nowUtc)
+    {
+        var container = containers.Values
+            .DistinctBy(value => value.ContainerId)
+            .FirstOrDefault(value => value.SlotItems.Contains(itemObjectId));
+        return container is null
+            ? null
+            : ReplayPendingLocalMovesForContainerCore(container, nowUtc);
+    }
+
+    private LootTrackerSnapshot? ReplayPendingLocalMovesForContainerCore(LootContainer container, DateTime nowUtc)
+    {
+        LootTrackerSnapshot? snapshot = null;
+        foreach (var pendingMove in pendingLocalMovesBySlot
+            .Where(move => move.SourceContainerId == container.ContainerId
+                || move.SourceContainerId == container.PrivateContainerId)
+            .ToArray())
+        {
+            if (pendingMove.DestinationContainerId == pendingMove.SourceContainerId)
+            {
+                pendingLocalMovesBySlot.Remove(pendingMove);
+                continue;
+            }
+
+            if (pendingMove.SourceSlot < 0 || pendingMove.SourceSlot >= container.SlotItems.Count)
+            {
+                pendingLocalMovesBySlot.Remove(pendingMove);
+                Log.Warning(
+                    "Loot tracker skipped queued local move by slot because source slot was outside the confirmed loot container. SourceSlot: {SourceSlot}, SlotCount: {SlotCount}, SourceContainerId: {SourceContainerId}, SourceObjectId: {SourceObjectId}",
+                    pendingMove.SourceSlot,
+                    container.SlotItems.Count,
+                    pendingMove.SourceContainerId,
+                    container.SourceObjectId);
+                continue;
+            }
+
+            var itemObjectId = container.SlotItems[pendingMove.SourceSlot];
+            if (itemObjectId <= 0)
+            {
+                pendingLocalMovesBySlot.Remove(pendingMove);
+                continue;
+            }
+
+            if (!discoveredItems.ContainsKey(itemObjectId))
+            {
+                continue;
+            }
+
+            snapshot = RecordLocalItemObjectCore(itemObjectId, container.SourceObjectId) ?? snapshot;
+            pendingLocalMovesBySlot.Remove(pendingMove);
+        }
+
+        if (snapshot is not null)
+        {
+            PruneTransientStateCore(nowUtc);
         }
 
         return snapshot;
@@ -1197,10 +1301,10 @@ public sealed class LootTrackerService : IDisposable
             return null;
         }
 
-        if (!IsConfirmedLootChestSourceCore(sourceObjectId))
+        if (!IsKnownLootSourceCore(sourceObjectId))
         {
             Log.Warning(
-                "Loot tracker skipped local item record because source object id was not confirmed as a loot chest. ItemObjectId: {ItemObjectId}, SourceObjectId: {SourceObjectId}, ItemId: {ItemId}, Amount: {Amount}",
+                "Loot tracker skipped local item record because source object id was not identified as loot. ItemObjectId: {ItemObjectId}, SourceObjectId: {SourceObjectId}, ItemId: {ItemId}, Amount: {Amount}",
                 itemObjectId,
                 sourceObjectId,
                 item.ItemId,
@@ -1751,6 +1855,7 @@ public sealed class LootTrackerService : IDisposable
         recentInventoryDeletes.Clear();
         recentLocalPickups.Clear();
         recentBroadcastPickups.Clear();
+        pendingLocalMovesBySlot.Clear();
     }
 
     private void PruneTransientStateCore(DateTime nowUtc)
@@ -1836,6 +1941,8 @@ public sealed class LootTrackerService : IDisposable
             recentInventoryDeletes.Remove(itemObjectId);
         }
 
+        pendingLocalMovesBySlot.RemoveAll(move =>
+            nowUtc - move.SeenAtUtc > TransientRetention);
         recentLocalPickups.RemoveAll(correlation =>
             nowUtc - correlation.RecordedAtUtc > CorrelationWindow);
         recentBroadcastPickups.RemoveAll(correlation =>
@@ -1933,6 +2040,12 @@ public sealed class LootTrackerService : IDisposable
         DateTime SeenAtUtc);
 
     private sealed record RecentInventoryDelete(DateTime RecordedAtUtc);
+
+    private sealed record PendingLocalMoveBySlot(
+        int SourceSlot,
+        Guid SourceContainerId,
+        Guid DestinationContainerId,
+        DateTime SeenAtUtc);
 
     private sealed class RecentPickupCorrelation
     {
