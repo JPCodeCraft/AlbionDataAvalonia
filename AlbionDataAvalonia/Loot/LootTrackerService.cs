@@ -71,7 +71,7 @@ public sealed class LootTrackerService : IDisposable
 
         isDisabled = settingsManager.UserSettings.DisableLootTracker;
         settingsManager.UserSettings.PropertyChanged += OnUserSettingsPropertyChanged;
-        itemEstimatedMarketValues.EstimatedMarketValueChanged += OnEstimatedMarketValueChanged;
+        itemEstimatedMarketValues.EstimatedMarketValuesChanged += OnEstimatedMarketValuesChanged;
         playerState.OnPlayerStateChanged += OnPlayerStateChanged;
         partyTracker.SnapshotChanged += OnPartySnapshotChanged;
     }
@@ -90,7 +90,7 @@ public sealed class LootTrackerService : IDisposable
     public void Dispose()
     {
         settingsManager.UserSettings.PropertyChanged -= OnUserSettingsPropertyChanged;
-        itemEstimatedMarketValues.EstimatedMarketValueChanged -= OnEstimatedMarketValueChanged;
+        itemEstimatedMarketValues.EstimatedMarketValuesChanged -= OnEstimatedMarketValuesChanged;
         playerState.OnPlayerStateChanged -= OnPlayerStateChanged;
         partyTracker.SnapshotChanged -= OnPartySnapshotChanged;
     }
@@ -1404,39 +1404,56 @@ public sealed class LootTrackerService : IDisposable
         };
     }
 
-    private void OnEstimatedMarketValueChanged(ItemEstimatedMarketValueKey key)
+    private void OnEstimatedMarketValuesChanged(IReadOnlyCollection<ItemEstimatedMarketValueKey> keys)
     {
         LootTrackerSnapshot? snapshot = null;
         lock (sync)
         {
-            var estimatedMarketValue = itemEstimatedMarketValues.Get(key.ServerId, key.ItemId, key.Quality);
-            if (estimatedMarketValue is not > 0)
-            {
-                return;
-            }
-
-            var averageEstimatedMarketValue = key.Quality is >= 1 and <= 4
-                ? GetAverageEstimatedMarketValue(key.ServerId, key.ItemId)
-                : null;
+            var keysByItem = keys
+                .GroupBy(key => new ItemEstimatedMarketValueItemKey(key.ServerId, key.ItemId))
+                .ToDictionary(
+                    group => group.Key,
+                    group => group.Select(key => key.Quality).ToHashSet());
+            var averageEstimatedMarketValues = new Dictionary<ItemEstimatedMarketValueItemKey, long?>();
             var changed = false;
             for (var i = 0; i < records.Count; i++)
             {
                 var record = records[i];
-                if (record.ServerId != key.ServerId || record.ItemId != key.ItemId)
+                if (record.ServerId is null)
+                {
+                    continue;
+                }
+
+                var itemKey = new ItemEstimatedMarketValueItemKey(record.ServerId.Value, record.ItemId);
+                if (!keysByItem.TryGetValue(itemKey, out var qualities))
                 {
                     continue;
                 }
 
                 long? recordEstimatedMarketValue = null;
-                if (record.Quality == key.Quality && record.EstimatedMarketValue is null)
+                if (record.Quality is { } knownQuality
+                    && qualities.Contains(knownQuality)
+                    && record.EstimatedMarketValue is null)
                 {
-                    recordEstimatedMarketValue = estimatedMarketValue;
+                    recordEstimatedMarketValue = itemEstimatedMarketValues.Get(
+                        itemKey.ServerId,
+                        itemKey.ItemId,
+                        knownQuality);
                 }
                 else if (record.Quality is null
-                    && averageEstimatedMarketValue is > 0
-                    && record.EstimatedMarketValue != averageEstimatedMarketValue)
+                    && qualities.Any(quality => quality is >= 1 and <= 4))
                 {
-                    recordEstimatedMarketValue = averageEstimatedMarketValue;
+                    if (!averageEstimatedMarketValues.TryGetValue(itemKey, out var averageEstimatedMarketValue))
+                    {
+                        averageEstimatedMarketValue = GetAverageEstimatedMarketValue(itemKey.ServerId, itemKey.ItemId);
+                        averageEstimatedMarketValues[itemKey] = averageEstimatedMarketValue;
+                    }
+
+                    if (averageEstimatedMarketValue is > 0
+                    && record.EstimatedMarketValue != averageEstimatedMarketValue)
+                    {
+                        recordEstimatedMarketValue = averageEstimatedMarketValue;
+                    }
                 }
 
                 if (recordEstimatedMarketValue is null)
@@ -1463,6 +1480,8 @@ public sealed class LootTrackerService : IDisposable
             SnapshotChanged?.Invoke(snapshot);
         }
     }
+
+    private readonly record struct ItemEstimatedMarketValueItemKey(int ServerId, int ItemId);
 
     private long? GetEstimatedMarketValue(
         int? serverId,

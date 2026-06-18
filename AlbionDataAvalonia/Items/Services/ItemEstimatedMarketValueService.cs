@@ -1,38 +1,49 @@
 using System;
 using System.Collections.Concurrent;
+using System.Collections.Generic;
+using System.Linq;
 
 namespace AlbionDataAvalonia.Items.Services;
 
 public readonly record struct ItemEstimatedMarketValueKey(int ServerId, int ItemId, int Quality);
+public readonly record struct ItemEstimatedMarketValueUpdate(int ServerId, int ItemId, int Quality, long EstimatedMarketValue);
 
 public sealed class ItemEstimatedMarketValueService
 {
     private readonly ConcurrentDictionary<ItemEstimatedMarketValueKey, long> values = new();
     private readonly object updateLock = new();
 
-    public event Action<ItemEstimatedMarketValueKey>? EstimatedMarketValueChanged;
+    public event Action<IReadOnlyCollection<ItemEstimatedMarketValueKey>>? EstimatedMarketValuesChanged;
 
     public void Update(int serverId, int itemId, int quality, long estimatedMarketValue)
     {
-        if (serverId <= 0 || itemId <= 0 || quality <= 0 || estimatedMarketValue <= 0)
-        {
-            return;
-        }
+        UpdateMany(new[] { new ItemEstimatedMarketValueUpdate(serverId, itemId, quality, estimatedMarketValue) });
+    }
 
-        var key = new ItemEstimatedMarketValueKey(serverId, itemId, quality);
-        var changed = false;
+    public void UpdateMany(IEnumerable<ItemEstimatedMarketValueUpdate> updates)
+    {
+        var changedKeys = new List<ItemEstimatedMarketValueKey>();
         lock (updateLock)
         {
-            if (!values.TryGetValue(key, out var existing) || existing != estimatedMarketValue)
+            foreach (var update in updates)
             {
-                values[key] = estimatedMarketValue;
-                changed = true;
+                if (update.ServerId <= 0 || update.ItemId <= 0 || update.Quality <= 0 || update.EstimatedMarketValue <= 0)
+                {
+                    continue;
+                }
+
+                var key = new ItemEstimatedMarketValueKey(update.ServerId, update.ItemId, update.Quality);
+                if (!values.TryGetValue(key, out var existing) || existing != update.EstimatedMarketValue)
+                {
+                    values[key] = update.EstimatedMarketValue;
+                    changedKeys.Add(key);
+                }
             }
         }
 
-        if (changed)
+        if (changedKeys.Count > 0)
         {
-            EstimatedMarketValueChanged?.Invoke(key);
+            EstimatedMarketValuesChanged?.Invoke(changedKeys.Distinct().ToArray());
         }
     }
 

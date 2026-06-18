@@ -340,6 +340,7 @@ public sealed class ItemEstimatedMarketValueBackendLoader : IDisposable
                 StringComparer.OrdinalIgnoreCase);
 
         var returnedKeys = new HashSet<NegativeLookupKey>();
+        var updates = new List<ItemEstimatedMarketValueUpdate>();
         foreach (var value in values.Where(value => value.Emv > 0 && value.Quality is >= 1 and <= 5))
         {
             returnedKeys.Add(new NegativeLookupKey(serverId, value.ItemUniqueName, value.Quality));
@@ -350,9 +351,11 @@ public sealed class ItemEstimatedMarketValueBackendLoader : IDisposable
 
             foreach (var itemId in itemIds)
             {
-                itemEstimatedMarketValues.Update(serverId, itemId, value.Quality, value.Emv);
+                updates.Add(new ItemEstimatedMarketValueUpdate(serverId, itemId, value.Quality, value.Emv));
             }
         }
+
+        itemEstimatedMarketValues.UpdateMany(updates);
 
         var nowUtc = DateTime.UtcNow;
         foreach (var missingKey in requestedKeys.Except(returnedKeys))

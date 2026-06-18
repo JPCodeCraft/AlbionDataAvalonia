@@ -63,7 +63,7 @@ public sealed class GatheringTrackerService : IDisposable
         this.sessionPersistence = sessionPersistence;
         isDisabled = settingsManager.UserSettings.DisableGatheringTracker;
         this.settingsManager.UserSettings.PropertyChanged += OnUserSettingsPropertyChanged;
-        this.estimatedMarketValues.EstimatedMarketValueChanged += OnEstimatedMarketValueChanged;
+        this.estimatedMarketValues.EstimatedMarketValuesChanged += OnEstimatedMarketValuesChanged;
 
         if (isDisabled)
         {
@@ -368,7 +368,7 @@ public sealed class GatheringTrackerService : IDisposable
     public void Dispose()
     {
         settingsManager.UserSettings.PropertyChanged -= OnUserSettingsPropertyChanged;
-        estimatedMarketValues.EstimatedMarketValueChanged -= OnEstimatedMarketValueChanged;
+        estimatedMarketValues.EstimatedMarketValuesChanged -= OnEstimatedMarketValuesChanged;
         lock (sync)
         {
             CancelScheduledFishingFinalizationCore();
@@ -376,26 +376,43 @@ public sealed class GatheringTrackerService : IDisposable
         }
     }
 
-    private void OnEstimatedMarketValueChanged(ItemEstimatedMarketValueKey key)
+    private void OnEstimatedMarketValuesChanged(IReadOnlyCollection<ItemEstimatedMarketValueKey> keys)
     {
         GatheringTrackerSnapshot? snapshot = null;
         GatheringSessionCheckpoint? checkpoint = null;
+        var nowUtc = DateTime.UtcNow;
         lock (sync)
         {
-            if (isDisabled || sessionAlbionServerId != key.ServerId)
+            if (isDisabled)
             {
                 return;
             }
 
-            var itemKey = new GatheringItemKey(key.ItemId, key.Quality);
-            if (!itemAggregates.TryGetValue(itemKey, out var itemAggregate))
+            var changed = false;
+            foreach (var key in keys)
+            {
+                if (sessionAlbionServerId != key.ServerId)
+                {
+                    continue;
+                }
+
+                var itemKey = new GatheringItemKey(key.ItemId, key.Quality);
+                if (!itemAggregates.TryGetValue(itemKey, out var itemAggregate))
+                {
+                    continue;
+                }
+
+                itemAggregate.EstimatedMarketValue = estimatedMarketValues.Get(key.ServerId, key.ItemId, key.Quality);
+                changed = true;
+            }
+
+            if (!changed)
             {
                 return;
             }
 
-            itemAggregate.EstimatedMarketValue = estimatedMarketValues.Get(key.ServerId, key.ItemId, key.Quality);
-            snapshot = BuildSnapshot(DateTime.UtcNow);
-            checkpoint = BuildCheckpoint(DateTime.UtcNow);
+            snapshot = BuildSnapshot(nowUtc);
+            checkpoint = BuildCheckpoint(nowUtc);
         }
 
         SnapshotChanged?.Invoke(snapshot);

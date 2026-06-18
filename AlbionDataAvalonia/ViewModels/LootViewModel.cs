@@ -21,7 +21,10 @@ public partial class LootViewModel : ViewModelBase, IDisposable
     private readonly LootTrackerService? lootTracker;
     private readonly CsvExportService? csvExportService;
     private readonly TimeSpan filterDebounceInterval = TimeSpan.FromMilliseconds(250);
+    private readonly TimeSpan snapshotRefreshInterval = TimeSpan.FromMilliseconds(100);
     private IDisposable? pendingFilterRefreshRegistration;
+    private IDisposable? pendingSnapshotRefreshRegistration;
+    private LootTrackerSnapshot? pendingSnapshot;
     private IReadOnlyList<LootRecord> allRecords = Array.Empty<LootRecord>();
     private List<LootRecord> filteredRecords = new();
     private string appliedFilterText = string.Empty;
@@ -90,6 +93,7 @@ public partial class LootViewModel : ViewModelBase, IDisposable
         }
 
         CancelPendingFilterRefresh();
+        CancelPendingSnapshotRefresh();
     }
 
     partial void OnFilterTextChanged(string? oldValue, string newValue)
@@ -156,11 +160,26 @@ public partial class LootViewModel : ViewModelBase, IDisposable
     {
         if (!Dispatcher.UIThread.CheckAccess())
         {
-            Dispatcher.UIThread.Post(() => ApplySnapshot(snapshot));
+            Dispatcher.UIThread.Post(() => OnSnapshotChanged(snapshot));
             return;
         }
 
-        ApplySnapshot(snapshot);
+        pendingSnapshot = snapshot;
+        if (pendingSnapshotRefreshRegistration is not null)
+        {
+            return;
+        }
+
+        pendingSnapshotRefreshRegistration = DispatcherTimer.RunOnce(() =>
+        {
+            pendingSnapshotRefreshRegistration = null;
+            var snapshotToApply = pendingSnapshot;
+            pendingSnapshot = null;
+            if (snapshotToApply is not null)
+            {
+                ApplySnapshot(snapshotToApply);
+            }
+        }, snapshotRefreshInterval);
     }
 
     private void ApplySnapshot(LootTrackerSnapshot snapshot)
@@ -252,6 +271,13 @@ public partial class LootViewModel : ViewModelBase, IDisposable
     {
         pendingFilterRefreshRegistration?.Dispose();
         pendingFilterRefreshRegistration = null;
+    }
+
+    private void CancelPendingSnapshotRefresh()
+    {
+        pendingSnapshotRefreshRegistration?.Dispose();
+        pendingSnapshotRefreshRegistration = null;
+        pendingSnapshot = null;
     }
 
     private static string NormalizeItemSearchText(string? value)
