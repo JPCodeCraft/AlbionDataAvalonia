@@ -2,6 +2,7 @@ using AlbionDataAvalonia.Combat.Models;
 using AlbionDataAvalonia.Party;
 using AlbionDataAvalonia.Party.Models;
 using AlbionDataAvalonia.Settings;
+using AlbionDataAvalonia.State;
 using Serilog;
 using System;
 using System.Collections.Generic;
@@ -46,6 +47,7 @@ public sealed class CombatTrackerService : IDisposable
     private readonly Dictionary<string, bool> combatStates = new();
     private readonly SettingsManager settingsManager;
     private readonly PartyTrackerService partyTracker;
+    private readonly PlayerState playerState;
     private Timer? encounterIdleTimer;
 
     private CombatTrackedEntity? localEntity;
@@ -61,10 +63,11 @@ public sealed class CombatTrackerService : IDisposable
 
     public event Action<CombatTrackerSnapshot>? SnapshotChanged;
 
-    public CombatTrackerService(SettingsManager settingsManager, PartyTrackerService partyTracker)
+    public CombatTrackerService(SettingsManager settingsManager, PartyTrackerService partyTracker, PlayerState playerState)
     {
         this.settingsManager = settingsManager;
         this.partyTracker = partyTracker;
+        this.playerState = playerState;
         isDisabled = settingsManager.UserSettings.DisableCombatTracker;
         settingsManager.UserSettings.PropertyChanged += OnUserSettingsPropertyChanged;
         partyTracker.SnapshotChanged += OnPartySnapshotChanged;
@@ -386,7 +389,6 @@ public sealed class CombatTrackerService : IDisposable
 
             if (isInCombat)
             {
-                StartActiveEncounter(receivedAtUtc);
                 combatStates[entity.EntityKey] = true;
             }
             else
@@ -602,7 +604,12 @@ public sealed class CombatTrackerService : IDisposable
         }
 
         picker.LastSeenAtUtc = eventUtc;
-        var encounter = EnsureEncounterForMetricEvent(eventUtc, eventUtc, null);
+        var encounter = TryGetAttachableEncounterForMetricEvent(eventUtc, eventUtc);
+        if (encounter is null)
+        {
+            return false;
+        }
+
         var bucket = GetBucket(encounter, eventUtc);
         bucket.AddSilver(picker.EntityKey, silverEvent.Amount);
 
@@ -708,6 +715,38 @@ public sealed class CombatTrackerService : IDisposable
         return StartActiveEncounter(eventUtc, idleResetAtUtcForNewEncounter);
     }
 
+    private CombatEncounter? TryGetAttachableEncounterForMetricEvent(DateTime eventUtc, DateTime receivedAtUtc)
+    {
+        if (activeEncounter is not null)
+        {
+            return activeEncounter;
+        }
+
+        if (startNewEncounterAfterPause || encounters.Count == 0)
+        {
+            return null;
+        }
+
+        var latestEncounter = encounters[^1];
+        if (latestEncounter.IsActive || latestEncounter.EndedAtUtc is not { } endedAtUtc)
+        {
+            return null;
+        }
+
+        var elapsedSinceEnd = receivedAtUtc - endedAtUtc;
+        if (elapsedSinceEnd < TimeSpan.Zero || elapsedSinceEnd >= CombatEncounterIdleTimeout)
+        {
+            return null;
+        }
+
+        if (eventUtc > endedAtUtc)
+        {
+            latestEncounter.EndedAtUtc = eventUtc;
+        }
+
+        return latestEncounter;
+    }
+
     private CombatEncounter StartActiveEncounter(DateTime startedAtUtc, DateTime? idleResetAtUtc = null)
     {
         if (activeEncounter is not null)
@@ -719,6 +758,7 @@ public sealed class CombatTrackerService : IDisposable
         activeEncounter = new CombatEncounter(
             $"encounter:{encounterNumber}",
             encounterNumber,
+            playerState.Location.FriendlyName,
             startedAtUtc,
             idleResetAtUtc ?? startedAtUtc);
         encounters.Add(activeEncounter);
@@ -1105,6 +1145,7 @@ public sealed class CombatTrackerService : IDisposable
             encounter.EncounterKey,
             encounter.EncounterNumber,
             encounter.IsActive,
+            encounter.LocationName,
             encounter.StartedAtUtc,
             encounter.EndedAtUtc,
             elapsed,
@@ -1266,16 +1307,18 @@ public sealed class CombatTrackerService : IDisposable
 
     private sealed class CombatEncounter
     {
-        public CombatEncounter(string encounterKey, int encounterNumber, DateTime startedAtUtc, DateTime idleResetAtUtc)
+        public CombatEncounter(string encounterKey, int encounterNumber, string locationName, DateTime startedAtUtc, DateTime idleResetAtUtc)
         {
             EncounterKey = encounterKey;
             EncounterNumber = encounterNumber;
+            LocationName = locationName;
             StartedAtUtc = startedAtUtc;
             LastIdleResetAtUtc = idleResetAtUtc;
         }
 
         public string EncounterKey { get; }
         public int EncounterNumber { get; }
+        public string LocationName { get; }
         public DateTime StartedAtUtc { get; set; }
         public DateTime LastIdleResetAtUtc { get; set; }
         public DateTime? EndedAtUtc { get; set; }

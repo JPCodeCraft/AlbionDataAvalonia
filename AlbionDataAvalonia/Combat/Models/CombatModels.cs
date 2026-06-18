@@ -142,6 +142,7 @@ public sealed record CombatEncounterSnapshot(
     string EncounterKey,
     int EncounterNumber,
     bool IsActive,
+    string LocationName,
     DateTime StartedAtUtc,
     DateTime? EndedAtUtc,
     TimeSpan Elapsed,

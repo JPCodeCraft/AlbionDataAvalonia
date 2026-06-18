@@ -1,7 +1,5 @@
 using AlbionDataAvalonia.Combat;
 using AlbionDataAvalonia.Combat.Models;
-using AlbionDataAvalonia.Party;
-using AlbionDataAvalonia.Party.Models;
 using AlbionDataAvalonia.Settings;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -42,7 +40,6 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
 
     private readonly CombatTrackerService? combatTracker;
     private readonly SettingsManager? settingsManager;
-    private readonly PartyTrackerService? partyTracker;
     private DispatcherTimer? summaryRefreshTimer;
     private IDisposable? pendingChartRefreshRegistration;
     private CombatTrackerSnapshot currentSnapshot;
@@ -176,6 +173,78 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     private CombatEncounterListItemViewModel? selectedEncounter;
 
     [ObservableProperty]
+    private string selectedEncounterTitleText = string.Empty;
+
+    [ObservableProperty]
+    private string selectedEncounterStatusText = string.Empty;
+
+    [ObservableProperty]
+    private string selectedEncounterLocationText = string.Empty;
+
+    [ObservableProperty]
+    private string selectedEncounterStartedText = string.Empty;
+
+    [ObservableProperty]
+    private string selectedEncounterDurationText = string.Empty;
+
+    [ObservableProperty]
+    private string selectedEncounterFameText = string.Empty;
+
+    [ObservableProperty]
+    private string selectedEncounterSilverText = string.Empty;
+
+    [ObservableProperty]
+    private string selectedEncounterDamageDealtText = string.Empty;
+
+    [ObservableProperty]
+    private string selectedEncounterDamageDealtPerSecondText = string.Empty;
+
+    [ObservableProperty]
+    private string selectedEncounterHealingDoneText = string.Empty;
+
+    [ObservableProperty]
+    private string selectedEncounterHealingDonePerSecondText = string.Empty;
+
+    [ObservableProperty]
+    private string selectedPlayerNameText = string.Empty;
+
+    [ObservableProperty]
+    private string selectedPlayerRoleText = string.Empty;
+
+    [ObservableProperty]
+    private string selectedPlayerSilverText = string.Empty;
+
+    [ObservableProperty]
+    private string selectedPlayerDamageDealtText = string.Empty;
+
+    [ObservableProperty]
+    private string selectedPlayerDamageDealtPerSecondText = string.Empty;
+
+    [ObservableProperty]
+    private string selectedPlayerDamageDealtPartyPercentText = string.Empty;
+
+    [ObservableProperty]
+    private string selectedPlayerDamageReceivedText = string.Empty;
+
+    [ObservableProperty]
+    private string selectedPlayerDamageReceivedPerSecondText = string.Empty;
+
+    [ObservableProperty]
+    private string selectedPlayerHealingDoneText = string.Empty;
+
+    [ObservableProperty]
+    private string selectedPlayerHealingDonePerSecondText = string.Empty;
+
+    [ObservableProperty]
+    private string selectedPlayerHealingDonePartyPercentText = string.Empty;
+
+    [ObservableProperty]
+    private string selectedPlayerHealingReceivedText = string.Empty;
+
+    [ObservableProperty]
+    private string selectedPlayerHealingReceivedPerSecondText = string.Empty;
+
+    [ObservableProperty]
     private bool isCombatTrackerDisabled;
 
     [ObservableProperty]
@@ -183,9 +252,6 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
 
     [ObservableProperty]
     private bool useAllPartyStats;
-
-    [ObservableProperty]
-    private string partyMemberStatusText = "No party members detected";
 
     public bool IsCombatTrackerEnabled => !IsCombatTrackerDisabled;
     public bool HasSelectedPlayer => SelectedPlayer is not null;
@@ -198,7 +264,6 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     public ObservableCollection<CombatChartWindowOptionViewModel> ChartWindowOptions { get; } = new();
     public ObservableCollection<CombatChartMetricOptionViewModel> ChartMetricOptions { get; } = new();
     public ObservableCollection<CombatPlayerFilterOptionViewModel> PlayerFilterOptions { get; } = new();
-    public ObservableCollection<CombatPartyMemberRowViewModel> PartyMembers { get; } = new();
     public ObservableCollection<CombatPlayerRowViewModel> SelectedEncounterParticipants { get; } = new();
 
     [ObservableProperty]
@@ -223,11 +288,10 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         selectedPlayerFilter = InitializePlayerFilterOptions();
     }
 
-    public CombatViewModel(CombatTrackerService combatTracker, SettingsManager settingsManager, PartyTrackerService partyTracker)
+    public CombatViewModel(CombatTrackerService combatTracker, SettingsManager settingsManager)
     {
         this.combatTracker = combatTracker;
         this.settingsManager = settingsManager;
-        this.partyTracker = partyTracker;
         isCombatTrackerDisabled = settingsManager.UserSettings.DisableCombatTracker;
         currentSnapshot = combatTracker.CurrentSnapshot;
         isCombatTrackerPaused = currentSnapshot.IsPaused;
@@ -236,10 +300,8 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         selectedChartMetric = InitializeChartMetricOptions();
         selectedPlayerFilter = InitializePlayerFilterOptions();
         ApplySnapshot(currentSnapshot);
-        ApplyPartyTrackerSnapshot(partyTracker.CurrentSnapshot);
         settingsManager.UserSettings.PropertyChanged += OnUserSettingsPropertyChanged;
         combatTracker.SnapshotChanged += OnSnapshotChanged;
-        partyTracker.SnapshotChanged += OnPartyTrackerSnapshotChanged;
     }
 
     partial void OnIsCombatTrackerDisabledChanged(bool value)
@@ -268,6 +330,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         }
 
         selectedPlayerKey = value?.EntityKey;
+        RefreshSelectedPlayerDetails();
     }
 
     partial void OnSelectedEncounterChanged(CombatEncounterListItemViewModel? value)
@@ -281,6 +344,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
 
         selectedEncounterKey = value?.EncounterKey;
         RefreshSelectedEncounterParticipants();
+        RefreshSelectedEncounterDetails();
     }
 
     partial void OnSelectedAggregationChanged(CombatAggregationOptionViewModel value)
@@ -346,11 +410,6 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         Dispatcher.UIThread.Post(() => ApplySnapshot(snapshot));
     }
 
-    private void OnPartyTrackerSnapshotChanged(PartyTrackerSnapshot snapshot)
-    {
-        Dispatcher.UIThread.Post(() => ApplyPartyTrackerSnapshot(snapshot));
-    }
-
     private void OnUserSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
     {
         if (e.PropertyName != nameof(UserSettings.DisableCombatTracker))
@@ -389,21 +448,6 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         RefreshPlayers();
 
         RequestChartRefresh();
-    }
-
-    private void ApplyPartyTrackerSnapshot(PartyTrackerSnapshot snapshot)
-    {
-        Replace(
-            PartyMembers,
-            snapshot.Members.Select(member => new CombatPartyMemberRowViewModel(
-                string.IsNullOrWhiteSpace(member.Name) ? "Unknown" : member.Name,
-                member.IsLocalPlayer ? "Local" : "Party",
-                member.ObjectId?.ToString() ?? string.Empty,
-                member.UserGuid?.ToString() ?? string.Empty)));
-
-        PartyMemberStatusText = PartyMembers.Count == 0
-            ? "No party members detected"
-            : $"{PartyMembers.Count:N0} tracked";
     }
 
     private void UpdateSummaryRefreshTimer(
@@ -467,6 +511,8 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         {
             applyingSnapshot = false;
         }
+
+        RefreshSelectedEncounterDetails();
     }
 
     private void ClearSelectedPlayerState()
@@ -579,6 +625,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         return new CombatEncounterListItemViewModel(
             encounter.EncounterKey,
             encounter.EncounterNumber,
+            encounter.LocationName,
             encounter.StartedAtUtc,
             encounter.IsActive ? "Active" : "Ended",
             duration,
@@ -636,6 +683,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         }
 
         RefreshSelectedEncounterParticipants();
+        RefreshSelectedEncounterDetails();
     }
 
     private void RefreshPlayers()
@@ -674,6 +722,8 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         {
             applyingPlayerSelection = false;
         }
+
+        RefreshSelectedPlayerDetails();
     }
 
     private void RefreshSelectedEncounterParticipants()
@@ -701,6 +751,72 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             .Select(player => CreatePlayerRow(player, duration, totalPartyDamageDealt, totalPartyHealingDone));
 
         Replace(SelectedEncounterParticipants, participants);
+    }
+
+    private void RefreshSelectedEncounterDetails()
+    {
+        if (SelectedEncounter is not { } encounter)
+        {
+            SelectedEncounterTitleText = string.Empty;
+            SelectedEncounterStatusText = string.Empty;
+            SelectedEncounterLocationText = string.Empty;
+            SelectedEncounterStartedText = string.Empty;
+            SelectedEncounterDurationText = string.Empty;
+            SelectedEncounterFameText = string.Empty;
+            SelectedEncounterSilverText = string.Empty;
+            SelectedEncounterDamageDealtText = string.Empty;
+            SelectedEncounterDamageDealtPerSecondText = string.Empty;
+            SelectedEncounterHealingDoneText = string.Empty;
+            SelectedEncounterHealingDonePerSecondText = string.Empty;
+            return;
+        }
+
+        SelectedEncounterTitleText = $"Combat #{encounter.EncounterNumber}";
+        SelectedEncounterStatusText = encounter.Status;
+        SelectedEncounterLocationText = encounter.LocationName;
+        SelectedEncounterStartedText = FormatUtcTime(encounter.StartedAtUtc);
+        SelectedEncounterDurationText = encounter.DurationDisplay;
+        SelectedEncounterFameText = FormatAmount(encounter.FameGained);
+        SelectedEncounterSilverText = FormatAmount(encounter.SilverGained);
+        SelectedEncounterDamageDealtText = FormatAmount(encounter.DamageDealt);
+        SelectedEncounterDamageDealtPerSecondText = FormatRate(encounter.DamageDealtPerSecond);
+        SelectedEncounterHealingDoneText = FormatAmount(encounter.HealingDone);
+        SelectedEncounterHealingDonePerSecondText = FormatRate(encounter.HealingDonePerSecond);
+    }
+
+    private void RefreshSelectedPlayerDetails()
+    {
+        if (SelectedPlayer is not { } player)
+        {
+            SelectedPlayerNameText = string.Empty;
+            SelectedPlayerRoleText = string.Empty;
+            SelectedPlayerSilverText = string.Empty;
+            SelectedPlayerDamageDealtText = string.Empty;
+            SelectedPlayerDamageDealtPerSecondText = string.Empty;
+            SelectedPlayerDamageDealtPartyPercentText = string.Empty;
+            SelectedPlayerDamageReceivedText = string.Empty;
+            SelectedPlayerDamageReceivedPerSecondText = string.Empty;
+            SelectedPlayerHealingDoneText = string.Empty;
+            SelectedPlayerHealingDonePerSecondText = string.Empty;
+            SelectedPlayerHealingDonePartyPercentText = string.Empty;
+            SelectedPlayerHealingReceivedText = string.Empty;
+            SelectedPlayerHealingReceivedPerSecondText = string.Empty;
+            return;
+        }
+
+        SelectedPlayerNameText = player.Name;
+        SelectedPlayerRoleText = player.RoleLabel;
+        SelectedPlayerSilverText = FormatAmount(player.SilverGained);
+        SelectedPlayerDamageDealtText = FormatAmount(player.DamageDealt);
+        SelectedPlayerDamageDealtPerSecondText = FormatRate(player.DamageDealtPerSecond);
+        SelectedPlayerDamageDealtPartyPercentText = player.DamageDealtPartyPercentText;
+        SelectedPlayerDamageReceivedText = FormatAmount(player.DamageReceived);
+        SelectedPlayerDamageReceivedPerSecondText = FormatRate(player.DamageReceivedPerSecond);
+        SelectedPlayerHealingDoneText = FormatAmount(player.HealingDone);
+        SelectedPlayerHealingDonePerSecondText = FormatRate(player.HealingDonePerSecond);
+        SelectedPlayerHealingDonePartyPercentText = player.HealingDonePartyPercentText;
+        SelectedPlayerHealingReceivedText = FormatAmount(player.HealingReceived);
+        SelectedPlayerHealingReceivedPerSecondText = FormatRate(player.HealingReceivedPerSecond);
     }
 
     private void RequestChartRefresh(bool immediate = false)
@@ -769,7 +885,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             lastChartRenderSignature = CreateChartRenderSignature(emptyBuckets, pauseSections, metricTarget.SignatureKey, includeFame, includeSilver, effectiveAggregationSeconds, displayEndUtc);
             ChartSeries = Array.Empty<ISeries>();
             ChartXAxes = CreateChartXAxes(emptyBuckets, effectiveAggregationSeconds, SelectedChartWindow.Duration, displayEndUtc);
-            ChartYAxes = CreateChartYAxes(0, SelectedChartMetric.Kind);
+            ChartYAxes = CreateChartYAxes(0);
             ChartSections = pauseSections;
             return;
         }
@@ -795,19 +911,19 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         {
             ChartSeries = Array.Empty<ISeries>();
             ChartXAxes = CreateChartXAxes(chartBuckets, effectiveAggregationSeconds, SelectedChartWindow.Duration, displayEndUtc);
-            ChartYAxes = CreateChartYAxes(0, SelectedChartMetric.Kind);
+            ChartYAxes = CreateChartYAxes(0);
             ChartSections = pauseSections;
             return;
         }
 
         var maxValue = chartBuckets
-            .SelectMany(bucket => GetChartValues(bucket, includeFame, includeSilver, SelectedChartMetric.Kind, effectiveAggregationSeconds))
+            .SelectMany(bucket => GetChartValues(bucket, includeFame, includeSilver, SelectedChartMetric.Kind))
             .DefaultIfEmpty(0)
             .Max();
 
-        ChartSeries = CreateChartSeries(chartBuckets, SelectedChartMetric.Kind, effectiveAggregationSeconds, includeFame, includeSilver);
+        ChartSeries = CreateChartSeries(chartBuckets, SelectedChartMetric.Kind, includeFame, includeSilver);
         ChartXAxes = CreateChartXAxes(chartBuckets, effectiveAggregationSeconds, SelectedChartWindow.Duration, displayEndUtc);
-        ChartYAxes = CreateChartYAxes(maxValue, SelectedChartMetric.Kind);
+        ChartYAxes = CreateChartYAxes(maxValue);
         ChartSections = pauseSections;
     }
 
@@ -1166,9 +1282,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         }
 
         return bucket.DamageDealt == 0
-            && bucket.DamageReceived == 0
-            && bucket.HealingDone == 0
-            && bucket.HealingReceived == 0;
+            && bucket.DamageReceived == 0;
     }
 
     private bool ShouldShowFame()
@@ -1534,8 +1648,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         AggregatedCombatBucket bucket,
         bool includeFame,
         bool includeSilver,
-        CombatChartMetricKind metricKind,
-        int aggregationSeconds)
+        CombatChartMetricKind metricKind)
     {
         if (metricKind == CombatChartMetricKind.Fame)
         {
@@ -1557,10 +1670,8 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             yield break;
         }
 
-        yield return GetPerSecondChartValue(bucket.DamageDealt, metricKind, aggregationSeconds);
-        yield return GetPerSecondChartValue(bucket.DamageReceived, metricKind, aggregationSeconds);
-        yield return GetPerSecondChartValue(bucket.HealingDone, metricKind, aggregationSeconds);
-        yield return GetPerSecondChartValue(bucket.HealingReceived, metricKind, aggregationSeconds);
+        yield return bucket.DamageDealt;
+        yield return bucket.DamageReceived;
     }
 
     private IReadOnlyList<AggregatedCombatBucket> GetVisibleBuckets(IReadOnlyList<AggregatedCombatBucket> buckets, DateTime displayEndUtc)
@@ -1694,19 +1805,25 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         foreach (var bucket in buckets)
         {
             builder.Append('|')
-                .Append(bucket.StartedAtUtc.Ticks)
-                .Append(':')
-                .Append(bucket.DamageDealt)
-                .Append(':')
-                .Append(bucket.DamageReceived)
-                .Append(':')
-                .Append(bucket.HealingDone)
-                .Append(':')
-                .Append(bucket.HealingReceived)
-                .Append(':')
-                .Append(bucket.FameGained)
-                .Append(':')
-                .Append(bucket.SilverGained);
+                .Append(bucket.StartedAtUtc.Ticks);
+
+            if (SelectedChartMetric.Kind == CombatChartMetricKind.Damage)
+            {
+                builder.Append(':')
+                    .Append(bucket.DamageDealt)
+                    .Append(':')
+                    .Append(bucket.DamageReceived);
+            }
+            else if (SelectedChartMetric.Kind == CombatChartMetricKind.Fame)
+            {
+                builder.Append(':')
+                    .Append(bucket.FameGained);
+            }
+            else if (SelectedChartMetric.Kind == CombatChartMetricKind.Silver)
+            {
+                builder.Append(':')
+                    .Append(bucket.SilverGained);
+            }
         }
 
         return builder.ToString();
@@ -1747,13 +1864,6 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         string Label,
         Func<string, bool> IncludeEntity,
         bool HasTarget);
-
-    private static double GetPerSecondChartValue(long amount, CombatChartMetricKind metricKind, int aggregationSeconds)
-    {
-        return metricKind == CombatChartMetricKind.PerSecond
-            ? CalculateRate(amount, TimeSpan.FromSeconds(aggregationSeconds))
-            : amount;
-    }
 
     private static RectangularSection[] CreatePauseSections(
         IReadOnlyList<CombatPauseIntervalSnapshot> pauseIntervals,
@@ -1817,7 +1927,6 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     private static ISeries[] CreateChartSeries(
         IReadOnlyList<AggregatedCombatBucket> buckets,
         CombatChartMetricKind metricKind,
-        int aggregationSeconds,
         bool includeFame,
         bool includeSilver)
     {
@@ -1826,7 +1935,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             return includeFame
                 ? new ISeries[]
                 {
-                    CreateLineSeries("Fame", buckets, x => x.FameGained, metricKind, SKColors.Gold)
+                    CreateLineSeries("Fame", buckets, x => x.FameGained, SKColors.Gold)
                 }
                 : Array.Empty<ISeries>();
         }
@@ -1836,18 +1945,15 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             return includeSilver
                 ? new ISeries[]
                 {
-                    CreateLineSeries("Silver", buckets, x => x.SilverGained, metricKind, SKColors.Silver)
+                    CreateLineSeries("Silver", buckets, x => x.SilverGained, SKColors.Silver)
                 }
                 : Array.Empty<ISeries>();
         }
 
-        var perSecondSuffix = metricKind == CombatChartMetricKind.PerSecond ? "/s" : string.Empty;
         return new ISeries[]
         {
-            CreateLineSeries($"Damage dealt{perSecondSuffix}", buckets, x => GetPerSecondChartValue(x.DamageDealt, metricKind, aggregationSeconds), metricKind, SKColors.DeepSkyBlue),
-            CreateLineSeries($"Damage received{perSecondSuffix}", buckets, x => GetPerSecondChartValue(x.DamageReceived, metricKind, aggregationSeconds), metricKind, SKColors.LightCoral),
-            CreateLineSeries($"Healing done{perSecondSuffix}", buckets, x => GetPerSecondChartValue(x.HealingDone, metricKind, aggregationSeconds), metricKind, SKColors.LightGreen),
-            CreateLineSeries($"Healing received{perSecondSuffix}", buckets, x => GetPerSecondChartValue(x.HealingReceived, metricKind, aggregationSeconds), metricKind, SKColors.MediumTurquoise)
+            CreateLineSeries("Damage dealt", buckets, x => x.DamageDealt, SKColors.DeepSkyBlue),
+            CreateLineSeries("Damage received", buckets, x => x.DamageReceived, SKColors.LightCoral)
         };
     }
 
@@ -1855,7 +1961,6 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         string name,
         IReadOnlyList<AggregatedCombatBucket> buckets,
         Func<AggregatedCombatBucket, double> selector,
-        CombatChartMetricKind metricKind,
         SKColor color)
     {
         return new LineSeries<DateTimePoint>
@@ -1866,7 +1971,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
                 .ToArray(),
             XToolTipLabelFormatter = chartPoint => FormatUtcTooltipTime(chartPoint.Model?.DateTime ?? DateTime.MinValue),
             YToolTipLabelFormatter = chartPoint =>
-                FormatChartValue(chartPoint.Coordinate.PrimaryValue, metricKind),
+                FormatChartValue(chartPoint.Coordinate.PrimaryValue),
             AnimationsSpeed = TimeSpan.Zero,
             Fill = null,
             Stroke = new SolidColorPaint(color)
@@ -1912,14 +2017,14 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         };
     }
 
-    private static Axis[] CreateChartYAxes(double maxValue, CombatChartMetricKind metricKind)
+    private static Axis[] CreateChartYAxes(double maxValue)
     {
         return new[]
         {
             new Axis
             {
-                Name = metricKind == CombatChartMetricKind.PerSecond ? "Rate" : "Amount",
-                Labeler = value => FormatChartValue(value, metricKind),
+                Name = "Amount",
+                Labeler = FormatChartValue,
                 NameTextSize = 12,
                 TextSize = 11,
                 MinLimit = 0,
@@ -1957,12 +2062,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             : $"{value.Value:N1}%";
     }
 
-    private static string FormatChartValue(double value, CombatChartMetricKind metricKind)
-    {
-        return metricKind == CombatChartMetricKind.PerSecond
-            ? FormatRate(value)
-            : value.ToString("N0");
-    }
+    private static string FormatChartValue(double value) => value.ToString("N0");
 
     private static double CalculateRate(long amount, TimeSpan duration)
     {
@@ -2037,8 +2137,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     {
         var options = new[]
         {
-            new CombatChartMetricOptionViewModel(CombatChartMetricKind.Total, "Total"),
-            new CombatChartMetricOptionViewModel(CombatChartMetricKind.PerSecond, "Rate"),
+            new CombatChartMetricOptionViewModel(CombatChartMetricKind.Damage, "Damage"),
             new CombatChartMetricOptionViewModel(CombatChartMetricKind.Fame, "Fame"),
             new CombatChartMetricOptionViewModel(CombatChartMetricKind.Silver, "Silver")
         };
@@ -2077,11 +2176,6 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             combatTracker.SnapshotChanged -= OnSnapshotChanged;
         }
 
-        if (partyTracker is not null)
-        {
-            partyTracker.SnapshotChanged -= OnPartyTrackerSnapshotChanged;
-        }
-
         if (settingsManager is not null)
         {
             settingsManager.UserSettings.PropertyChanged -= OnUserSettingsPropertyChanged;
@@ -2107,8 +2201,7 @@ public sealed record CombatChartWindowOptionViewModel(TimeSpan? Duration, string
 
 public enum CombatChartMetricKind
 {
-    Total,
-    PerSecond,
+    Damage,
     Fame,
     Silver
 }
@@ -2124,12 +2217,6 @@ public enum CombatPlayerFilterKind
 }
 
 public sealed record CombatPlayerFilterOptionViewModel(CombatPlayerFilterKind Kind, string Label);
-
-public sealed record CombatPartyMemberRowViewModel(
-    string Name,
-    string RoleLabel,
-    string ObjectIdText,
-    string UserGuidText);
 
 public sealed record AggregatedCombatBucket(
     DateTime StartedAtUtc,
@@ -2163,6 +2250,7 @@ public sealed record CombatPlayerRowViewModel(
 public sealed record CombatEncounterListItemViewModel(
     string EncounterKey,
     int EncounterNumber,
+    string LocationName,
     DateTime StartedAtUtc,
     string Status,
     TimeSpan Duration,

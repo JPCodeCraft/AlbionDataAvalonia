@@ -1,6 +1,7 @@
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+             xmlns:converters="clr-namespace:AlbionDataAvalonia.Converters"
              xmlns:lvc="using:LiveChartsCore.SkiaSharpView.Avalonia"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
@@ -10,6 +11,17 @@
              x:Class="AlbionDataAvalonia.Views.CombatView"
              x:Name="CombatRoot"
              x:DataType="vm:CombatViewModel">
+
+    <UserControl.Resources>
+        <converters:ResponsiveMaxHeightConverter x:Key="EncounterTableMaxHeightConverter"
+                                                 Ratio="0.5"
+                                                 Min="240"
+                                                 Max="520" />
+        <converters:ResponsiveMaxHeightConverter x:Key="PlayerTableMaxHeightConverter"
+                                                 Ratio="0.48"
+                                                 Min="240"
+                                                 Max="520" />
+    </UserControl.Resources>
 
     <UserControl.Styles>
         <Style Selector="TextBlock.FilterLabel">
@@ -309,8 +321,12 @@
             </TabItem>
 
             <TabItem Header="Encounters">
-                <Grid RowDefinitions="*,Auto,Auto" RowSpacing="10" Margin="0,8,0,0">
-                    <Border Grid.Row="0" Classes="Section" MinHeight="240">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="10" Margin="0,8,0,0">
+                    <Border Grid.Row="0"
+                            Classes="Section"
+                            MinHeight="240"
+                            MaxHeight="{Binding Bounds.Height, ElementName=CombatRoot, Converter={StaticResource EncounterTableMaxHeightConverter}}">
                         <Grid RowDefinitions="Auto,*">
                             <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
                                 <TextBlock Text="Encounters" FontWeight="DemiBold" />
@@ -343,6 +359,7 @@
                                             </DataTemplate>
                                         </DataGridTemplateColumn.CellTemplate>
                                     </DataGridTemplateColumn>
+                                    <DataGridTextColumn Header="Location" Binding="{Binding LocationName}" SortMemberPath="LocationName" CanUserSort="True" Width="160" />
                                     <DataGridTextColumn Header="Status" Binding="{Binding Status}" />
                                     <DataGridTemplateColumn Header="Duration" SortMemberPath="Duration" CanUserSort="True">
                                         <DataGridTemplateColumn.CellTemplate>
@@ -430,15 +447,15 @@
                         <TextBlock Classes="FilterLabel" Text="Select an encounter to show details." />
                     </Border>
 
-                    <Border Grid.Row="2" Classes="Section" IsVisible="{Binding HasSelectedEncounter}" MaxHeight="340">
+                    <Border Grid.Row="2" Classes="Section" IsVisible="{Binding HasSelectedEncounter}">
                         <Grid RowDefinitions="Auto,Auto,*" RowSpacing="8">
                             <Grid ColumnDefinitions="*,Auto">
-                                <TextBlock Text="{Binding SelectedEncounter.EncounterNumber, StringFormat='Combat #{0}'}"
+                                <TextBlock Text="{Binding SelectedEncounterTitleText}"
                                            FontWeight="DemiBold"
                                            TextTrimming="CharacterEllipsis" />
                                 <TextBlock Grid.Column="1"
                                            Classes="FilterLabel"
-                                           Text="{Binding SelectedEncounter.Status}"
+                                           Text="{Binding SelectedEncounterStatusText}"
                                            HorizontalAlignment="Right" />
                             </Grid>
 
@@ -446,33 +463,41 @@
                                 <Border Classes="SummaryCard" MinWidth="160">
                                     <StackPanel>
                                         <TextBlock Classes="FilterLabel" Text="Started" />
-                                        <TextBlock Classes="SummaryValue" Text="{Binding SelectedEncounter.StartedAtUtc, StringFormat='{}{0:HH:mm:ss} UTC'}" />
+                                        <TextBlock Classes="SummaryValue" Text="{Binding SelectedEncounterStartedText}" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Classes="SummaryCard" MinWidth="180">
+                                    <StackPanel>
+                                        <TextBlock Classes="FilterLabel" Text="Location" />
+                                        <TextBlock Classes="SummaryValue"
+                                                   Text="{Binding SelectedEncounterLocationText}"
+                                                   TextTrimming="CharacterEllipsis" />
                                     </StackPanel>
                                 </Border>
                                 <Border Classes="SummaryCard" MinWidth="140">
                                     <StackPanel>
                                         <TextBlock Classes="FilterLabel" Text="Duration" />
-                                        <TextBlock Classes="SummaryValue" Text="{Binding SelectedEncounter.DurationDisplay}" />
+                                        <TextBlock Classes="SummaryValue" Text="{Binding SelectedEncounterDurationText}" />
                                     </StackPanel>
                                 </Border>
                                 <Border Classes="SummaryCard" MinWidth="140">
                                     <StackPanel>
                                         <TextBlock Classes="FilterLabel" Text="Fame" />
-                                        <TextBlock Classes="SummaryValue" Text="{Binding SelectedEncounter.FameGained, StringFormat='{}{0:N0}'}" />
+                                        <TextBlock Classes="SummaryValue" Text="{Binding SelectedEncounterFameText}" />
                                     </StackPanel>
                                 </Border>
                                 <Border Classes="SummaryCard" MinWidth="140">
                                     <StackPanel>
                                         <TextBlock Classes="FilterLabel" Text="Silver" />
-                                        <TextBlock Classes="SummaryValue" Text="{Binding SelectedEncounter.SilverGained, StringFormat='{}{0:N0}'}" />
+                                        <TextBlock Classes="SummaryValue" Text="{Binding SelectedEncounterSilverText}" />
                                     </StackPanel>
                                 </Border>
                                 <Border Classes="SummaryCard" MinWidth="180">
                                     <StackPanel>
                                         <TextBlock Classes="FilterLabel" Text="Damage out" />
                                         <Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="6">
-                                            <TextBlock Classes="SummaryValue" Text="{Binding SelectedEncounter.DamageDealt, StringFormat='{}{0:N0}'}" />
-                                            <TextBlock Grid.Column="1" Classes="SummaryRate" Text="{Binding SelectedEncounter.DamageDealtPerSecond, StringFormat='{}{0:N1}'}" />
+                                            <TextBlock Classes="SummaryValue" Text="{Binding SelectedEncounterDamageDealtText}" />
+                                            <TextBlock Grid.Column="1" Classes="SummaryRate" Text="{Binding SelectedEncounterDamageDealtPerSecondText}" />
                                             <TextBlock Grid.Column="2" Classes="RateSuffix" Text="/s" />
                                         </Grid>
                                     </StackPanel>
@@ -481,8 +506,8 @@
                                     <StackPanel>
                                         <TextBlock Classes="FilterLabel" Text="Healing out" />
                                         <Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="6">
-                                            <TextBlock Classes="SummaryValue" Text="{Binding SelectedEncounter.HealingDone, StringFormat='{}{0:N0}'}" />
-                                            <TextBlock Grid.Column="1" Classes="SummaryRate" Text="{Binding SelectedEncounter.HealingDonePerSecond, StringFormat='{}{0:N1}'}" />
+                                            <TextBlock Classes="SummaryValue" Text="{Binding SelectedEncounterHealingDoneText}" />
+                                            <TextBlock Grid.Column="1" Classes="SummaryRate" Text="{Binding SelectedEncounterHealingDonePerSecondText}" />
                                             <TextBlock Grid.Column="2" Classes="RateSuffix" Text="/s" />
                                         </Grid>
                                     </StackPanel>
@@ -495,7 +520,8 @@
                                       IsReadOnly="True"
                                       GridLinesVisibility="None"
                                       BorderThickness="0"
-                                      MinHeight="120">
+                                      MinHeight="120"
+                                      MaxHeight="240">
                                 <DataGrid.Columns>
                                     <DataGridTextColumn Header="Role" Binding="{Binding RoleLabel}" SortMemberPath="RoleSortOrder" CanUserSort="True" Width="115" />
                                     <DataGridTextColumn Header="Participant" Binding="{Binding Name}" Width="*" />
@@ -546,39 +572,16 @@
                         </Grid>
                     </Border>
                 </Grid>
+                </ScrollViewer>
             </TabItem>
 
             <TabItem Header="Players">
-                <Grid RowDefinitions="Auto,*,Auto" RowSpacing="10" Margin="0,8,0,0">
+                <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <Grid RowDefinitions="Auto,Auto" RowSpacing="10" Margin="0,8,0,0">
                     <Border Grid.Row="0"
                             Classes="Section"
-                            MinHeight="120"
-                            MaxHeight="180">
-                        <Grid RowDefinitions="Auto,*">
-                            <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
-                                <TextBlock Text="Current party" FontWeight="DemiBold" />
-                                <TextBlock Grid.Column="1"
-                                           Classes="FilterLabel"
-                                           Text="{Binding PartyMemberStatusText}"
-                                           HorizontalAlignment="Right" />
-                            </Grid>
-                            <DataGrid Grid.Row="1"
-                                      ItemsSource="{Binding PartyMembers}"
-                                      AutoGenerateColumns="False"
-                                      IsReadOnly="True"
-                                      GridLinesVisibility="None"
-                                      BorderThickness="0">
-                                <DataGrid.Columns>
-                                    <DataGridTextColumn Header="Role" Binding="{Binding RoleLabel}" Width="90" />
-                                    <DataGridTextColumn Header="Player" Binding="{Binding Name}" Width="180" />
-                                    <DataGridTextColumn Header="Object Id" Binding="{Binding ObjectIdText}" Width="110" />
-                                    <DataGridTextColumn Header="User Guid" Binding="{Binding UserGuidText}" Width="*" />
-                                </DataGrid.Columns>
-                            </DataGrid>
-                        </Grid>
-                    </Border>
-
-                    <Border Grid.Row="1" Classes="Section" MinHeight="240">
+                            MinHeight="240"
+                            MaxHeight="{Binding Bounds.Height, ElementName=CombatRoot, Converter={StaticResource PlayerTableMaxHeightConverter}}">
                         <Grid RowDefinitions="Auto,*">
                             <Grid ColumnDefinitions="*,Auto" Margin="0,0,0,8">
                                 <TextBlock Text="Players" FontWeight="DemiBold" />
@@ -693,45 +696,45 @@
                         </Grid>
                     </Border>
 
-                    <Border Grid.Row="2" Classes="Section" IsVisible="{Binding !HasSelectedPlayer}">
+                    <Border Grid.Row="1" Classes="Section" IsVisible="{Binding !HasSelectedPlayer}">
                         <TextBlock Classes="FilterLabel" Text="Select a player to show details." />
                     </Border>
 
-                    <Border Grid.Row="2" Classes="Section" IsVisible="{Binding HasSelectedPlayer}">
+                    <Border Grid.Row="1" Classes="Section" IsVisible="{Binding HasSelectedPlayer}">
                         <Grid RowDefinitions="Auto,Auto" RowSpacing="8">
                             <Grid ColumnDefinitions="*,Auto">
-                                <TextBlock Text="{Binding SelectedPlayer.Name}"
+                                <TextBlock Text="{Binding SelectedPlayerNameText}"
                                            FontWeight="DemiBold"
                                            TextTrimming="CharacterEllipsis" />
                                 <TextBlock Grid.Column="1"
                                            Classes="FilterLabel"
-                                           Text="{Binding SelectedPlayer.RoleLabel}"
+                                           Text="{Binding SelectedPlayerRoleText}"
                                            HorizontalAlignment="Right" />
                             </Grid>
                             <WrapPanel Grid.Row="1">
                                 <Border Classes="SummaryCard" MinWidth="160">
                                     <StackPanel>
                                         <TextBlock Classes="FilterLabel" Text="Silver" />
-                                        <TextBlock Classes="SummaryValue" Text="{Binding SelectedPlayer.SilverGained, StringFormat='{}{0:N0}'}" />
+                                        <TextBlock Classes="SummaryValue" Text="{Binding SelectedPlayerSilverText}" />
                                     </StackPanel>
                                 </Border>
                                 <Border Classes="SummaryCard" MinWidth="180">
                                     <StackPanel>
                                         <TextBlock Classes="FilterLabel" Text="Damage out" />
                                         <Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="6">
-                                            <TextBlock Classes="SummaryValue" Text="{Binding SelectedPlayer.DamageDealt, StringFormat='{}{0:N0}'}" />
-                                            <TextBlock Grid.Column="1" Classes="SummaryRate" Text="{Binding SelectedPlayer.DamageDealtPerSecond, StringFormat='{}{0:N1}'}" />
+                                            <TextBlock Classes="SummaryValue" Text="{Binding SelectedPlayerDamageDealtText}" />
+                                            <TextBlock Grid.Column="1" Classes="SummaryRate" Text="{Binding SelectedPlayerDamageDealtPerSecondText}" />
                                             <TextBlock Grid.Column="2" Classes="RateSuffix" Text="/s" />
                                         </Grid>
-                                        <TextBlock Classes="FilterLabel" Text="{Binding SelectedPlayer.DamageDealtPartyPercentText}" />
+                                        <TextBlock Classes="FilterLabel" Text="{Binding SelectedPlayerDamageDealtPartyPercentText}" />
                                     </StackPanel>
                                 </Border>
                                 <Border Classes="SummaryCard" MinWidth="180">
                                     <StackPanel>
                                         <TextBlock Classes="FilterLabel" Text="Damage in" />
                                         <Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="6">
-                                            <TextBlock Classes="SummaryValue" Text="{Binding SelectedPlayer.DamageReceived, StringFormat='{}{0:N0}'}" />
-                                            <TextBlock Grid.Column="1" Classes="SummaryRate" Text="{Binding SelectedPlayer.DamageReceivedPerSecond, StringFormat='{}{0:N1}'}" />
+                                            <TextBlock Classes="SummaryValue" Text="{Binding SelectedPlayerDamageReceivedText}" />
+                                            <TextBlock Grid.Column="1" Classes="SummaryRate" Text="{Binding SelectedPlayerDamageReceivedPerSecondText}" />
                                             <TextBlock Grid.Column="2" Classes="RateSuffix" Text="/s" />
                                         </Grid>
                                     </StackPanel>
@@ -740,19 +743,19 @@
                                     <StackPanel>
                                         <TextBlock Classes="FilterLabel" Text="Healing out" />
                                         <Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="6">
-                                            <TextBlock Classes="SummaryValue" Text="{Binding SelectedPlayer.HealingDone, StringFormat='{}{0:N0}'}" />
-                                            <TextBlock Grid.Column="1" Classes="SummaryRate" Text="{Binding SelectedPlayer.HealingDonePerSecond, StringFormat='{}{0:N1}'}" />
+                                            <TextBlock Classes="SummaryValue" Text="{Binding SelectedPlayerHealingDoneText}" />
+                                            <TextBlock Grid.Column="1" Classes="SummaryRate" Text="{Binding SelectedPlayerHealingDonePerSecondText}" />
                                             <TextBlock Grid.Column="2" Classes="RateSuffix" Text="/s" />
                                         </Grid>
-                                        <TextBlock Classes="FilterLabel" Text="{Binding SelectedPlayer.HealingDonePartyPercentText}" />
+                                        <TextBlock Classes="FilterLabel" Text="{Binding SelectedPlayerHealingDonePartyPercentText}" />
                                     </StackPanel>
                                 </Border>
                                 <Border Classes="SummaryCard" MinWidth="180">
                                     <StackPanel>
                                         <TextBlock Classes="FilterLabel" Text="Healing in" />
                                         <Grid ColumnDefinitions="Auto,Auto,Auto" ColumnSpacing="6">
-                                            <TextBlock Classes="SummaryValue" Text="{Binding SelectedPlayer.HealingReceived, StringFormat='{}{0:N0}'}" />
-                                            <TextBlock Grid.Column="1" Classes="SummaryRate" Text="{Binding SelectedPlayer.HealingReceivedPerSecond, StringFormat='{}{0:N1}'}" />
+                                            <TextBlock Classes="SummaryValue" Text="{Binding SelectedPlayerHealingReceivedText}" />
+                                            <TextBlock Grid.Column="1" Classes="SummaryRate" Text="{Binding SelectedPlayerHealingReceivedPerSecondText}" />
                                             <TextBlock Grid.Column="2" Classes="RateSuffix" Text="/s" />
                                         </Grid>
                                     </StackPanel>
@@ -761,6 +764,7 @@
                         </Grid>
                     </Border>
                 </Grid>
+                </ScrollViewer>
             </TabItem>
         </TabControl>
 
