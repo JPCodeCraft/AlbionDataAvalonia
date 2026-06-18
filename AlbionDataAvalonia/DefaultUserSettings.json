@@ -4,6 +4,7 @@
   "MinimizeButtonMinimizesToTray": false,
   "StartupWindowMode": 0,
   "ShutDownOnClose": false,
+  "JoinBetaProgram": false,
   "DesiredThreadCount": 1,
   "MaxLogCount": 1000,
   "MailsPerPage": 1000,

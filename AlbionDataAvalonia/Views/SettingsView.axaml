@@ -23,6 +23,9 @@
                         <CheckBox Content="Close button hides window to system tray"
                                   IsChecked="{Binding CloseButtonHidesToTray}"
                                   Margin="0,0,28,8" />
+                        <CheckBox Content="Join beta program"
+                                  IsChecked="{Binding UserSettings.JoinBetaProgram}"
+                                  Margin="0,0,28,8" />
                     </WrapPanel>
 
                     <StackPanel Spacing="8">

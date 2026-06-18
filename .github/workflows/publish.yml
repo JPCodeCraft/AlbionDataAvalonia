@@ -2,6 +2,15 @@ name: Build and Release
 
 on:
   workflow_dispatch:
+    inputs:
+      release_channel:
+        description: "Release channel"
+        required: true
+        default: "stable"
+        type: choice
+        options:
+          - stable
+          - beta
 
 jobs:
   build-macos:
@@ -65,8 +74,69 @@ jobs:
         id: get_version
         run: |
           $version = (Select-String -Path ./AlbionDataAvalonia.Desktop/pkg/inno.iss -Pattern '#define MyAppVersion "(.*)"').Matches.Groups[1].Value
+          $channel = "${{ github.event.inputs.release_channel }}"
+          if ([string]::IsNullOrWhiteSpace($channel)) {
+            $channel = "stable"
+          }
+          if ($channel -eq "beta") {
+            $releaseTag = "v.$version-beta"
+            $releaseName = "Albion Free Market Data Client v.$version Beta"
+            $isPrerelease = "true"
+          }
+          else {
+            $releaseTag = "v.$version"
+            $releaseName = "Albion Free Market Data Client v.$version"
+            $isPrerelease = "false"
+          }
           echo "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "RELEASE_CHANNEL=$channel" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "RELEASE_TAG=$releaseTag" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "RELEASE_NAME=$releaseName" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+          echo "IS_PRERELEASE=$isPrerelease" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           echo "Found version: $version"
+          echo "Release channel: $channel"
+          echo "Release tag: $releaseTag"
+        shell: pwsh
+
+      - name: Validate release version
+        run: |
+          $version = "${{ env.VERSION }}"
+          $channel = "${{ env.RELEASE_CHANNEL }}"
+          $path = "./AlbionDataAvalonia.Desktop/LatestVersion.json"
+
+          $newVersion = $null
+          if (-not [version]::TryParse($version, [ref]$newVersion)) {
+            throw "Release version '$version' is not a valid numeric version."
+          }
+
+          $publishedVersions = @()
+          if (Test-Path $path) {
+            $current = Get-Content -Path $path -Raw | ConvertFrom-Json
+
+            if ($current.PSObject.Properties.Name -contains "version" -and $current.version) {
+              $publishedVersions += [version]$current.version
+            }
+
+            if ($current.PSObject.Properties.Name -contains "stable" -and $current.stable -and $current.stable.version) {
+              $publishedVersions += [version]$current.stable.version
+            }
+
+            if ($current.PSObject.Properties.Name -contains "beta" -and $current.beta -and $current.beta.version) {
+              $publishedVersions += [version]$current.beta.version
+            }
+          }
+
+          if ($publishedVersions.Count -eq 0) {
+            echo "No previously published versions found in $path."
+            return
+          }
+
+          $latestPublishedVersion = $publishedVersions | Sort-Object -Descending | Select-Object -First 1
+          if ($newVersion -le $latestPublishedVersion) {
+            throw "Cannot publish $channel version $newVersion because it is not higher than the latest published version $latestPublishedVersion."
+          }
+
+          echo "Release version $newVersion is higher than latest published version $latestPublishedVersion."
         shell: pwsh
 
       - name: Get diff
@@ -133,8 +203,8 @@ jobs:
       - name: Create Tag
         id: create_tag
         run: |
-          git tag v.${{ env.VERSION }}
-          git push origin v.${{ env.VERSION }}
+          git tag ${{ env.RELEASE_TAG }}
+          git push origin ${{ env.RELEASE_TAG }}
         shell: pwsh
 
       - name: Create Release
@@ -143,13 +213,13 @@ jobs:
         env:
           GITHUB_TOKEN: ${{ secrets.AVALONIA_TOKEN }}
         with:
-          tag_name: v.${{ env.VERSION }}
-          release_name: Albion Free Market Data Client v.${{ env.VERSION }}
+          tag_name: ${{ env.RELEASE_TAG }}
+          release_name: ${{ env.RELEASE_NAME }}
           body: |
             Changes since last release:
             ${{ env.COMMIT_LOG }}
           draft: false
-          prerelease: false
+          prerelease: ${{ env.IS_PRERELEASE }}
 
       - name: Upload Release Asset (Windows Installer)
         uses: actions/upload-release-asset@v1
@@ -214,8 +284,70 @@ jobs:
       - name: Create LatestVersion.json
         run: |
           $version = "${{ env.VERSION }}"
-          $json = @{ version = $version } | ConvertTo-Json
-          $json | Out-File -FilePath ./AlbionDataAvalonia.Desktop/LatestVersion.json -Encoding utf8
+          $channel = "${{ env.RELEASE_CHANNEL }}"
+          $tag = "${{ env.RELEASE_TAG }}"
+          $repoUrl = "https://github.com/JPCodeCraft/AlbionDataAvalonia"
+          $path = "./AlbionDataAvalonia.Desktop/LatestVersion.json"
+
+          function New-ReleaseEntry {
+            param(
+              [string]$EntryVersion,
+              [string]$EntryTag
+            )
+
+            return [ordered]@{
+              version = $EntryVersion
+              windowsDownloadUrl = "$repoUrl/releases/download/$EntryTag/AFMDataClientSetup_v_$EntryVersion.exe"
+              releasePageUrl = "$repoUrl/releases/tag/$EntryTag"
+            }
+          }
+
+          $current = $null
+          if (Test-Path $path) {
+            $current = Get-Content -Path $path -Raw | ConvertFrom-Json
+          }
+
+          $stable = $null
+          $beta = $null
+
+          if ($current -ne $null) {
+            if ($current.PSObject.Properties.Name -contains "stable" -and $current.stable -and $current.stable.version) {
+              $stable = $current.stable
+            }
+            elseif ($current.PSObject.Properties.Name -contains "version" -and $current.version) {
+              $stable = New-ReleaseEntry -EntryVersion $current.version -EntryTag "v.$($current.version)"
+            }
+
+            if ($current.PSObject.Properties.Name -contains "beta" -and $current.beta -and $current.beta.version) {
+              $beta = $current.beta
+            }
+          }
+
+          if ($channel -eq "beta") {
+            if ($stable -eq $null -or [string]::IsNullOrWhiteSpace($stable.version)) {
+              throw "Cannot create a beta manifest without an existing stable version."
+            }
+
+            $beta = New-ReleaseEntry -EntryVersion $version -EntryTag $tag
+          }
+          else {
+            $stable = New-ReleaseEntry -EntryVersion $version -EntryTag $tag
+
+            if ($beta -ne $null -and [version]$beta.version -le [version]$version) {
+              $beta = $null
+            }
+          }
+
+          $manifest = [ordered]@{
+            version = $stable.version
+            stable = $stable
+          }
+
+          if ($beta -ne $null) {
+            $manifest["beta"] = $beta
+          }
+
+          $manifest | ConvertTo-Json -Depth 4 | Out-File -FilePath $path -Encoding utf8
         shell: pwsh
 
       - name: Commit and push changes

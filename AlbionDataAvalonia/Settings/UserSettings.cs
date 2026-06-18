@@ -111,6 +111,21 @@ public class UserSettings : INotifyPropertyChanged
         }
     }
 
+    private bool joinBetaProgram = false;
+    public bool JoinBetaProgram
+    {
+        get => joinBetaProgram;
+        set
+        {
+            if (joinBetaProgram != value)
+            {
+                joinBetaProgram = value;
+                OnPropertyChanged(nameof(JoinBetaProgram));
+                Log.Information("Join beta program set to {JoinBetaProgram}", joinBetaProgram);
+            }
+        }
+    }
+
     private int _desiredThreadCount = 1;
     public int DesiredThreadCount
     {

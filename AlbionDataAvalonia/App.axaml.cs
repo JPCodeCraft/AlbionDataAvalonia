@@ -18,11 +18,13 @@ using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
 using Avalonia.Data.Core.Plugins;
 using Avalonia.Markup.Xaml;
+using Avalonia.Threading;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.Extensions.DependencyInjection;
 using Serilog;
 using Serilog.Events;
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
@@ -34,6 +36,8 @@ namespace AlbionDataAvalonia;
 public partial class App : Application
 {
     private System.Timers.Timer? _updateTimer;
+    private readonly HashSet<string> _shownManualUpdateDialogs = new();
+    private readonly object _shownManualUpdateDialogsLock = new();
 
     MainViewModel? vm;
 
@@ -136,7 +140,27 @@ public partial class App : Application
             // Change the interval to one hour after the first run
             _updateTimer.Interval = TimeSpan.FromHours(settings.AppSettings.UpdateCheckIntervalHours).TotalMilliseconds;
 
-            await ClientUpdater.CheckForUpdatesAsync(settings.AppSettings.LatestVersionUrl, settings.AppSettings.LatesVersionDownloadUrl, settings.AppSettings.FileNameFormat);
+            var updateResult = await ClientUpdater.CheckForUpdatesAsync(
+                settings.AppSettings.LatestVersionUrl,
+                settings.AppSettings.LatesVersionDownloadUrl,
+                settings.AppSettings.FileNameFormat,
+                settings.UserSettings.JoinBetaProgram);
+
+            if (!updateResult.UpdateAvailable || updateResult.Update == null)
+            {
+                return;
+            }
+
+            if (OperatingSystem.IsWindows())
+            {
+                await ClientUpdater.InstallUpdateAsync(updateResult.Update);
+                return;
+            }
+
+            if (OperatingSystem.IsLinux() || OperatingSystem.IsMacOS())
+            {
+                await ShowManualUpdateDialogOnceAsync(updateResult.Update);
+            }
         };
         _updateTimer.Start();
 
@@ -246,6 +270,43 @@ public partial class App : Application
 
         base.OnFrameworkInitializationCompleted();
 
+    }
+
+    private Task ShowManualUpdateDialogOnceAsync(ClientUpdateInfo update)
+    {
+        var updateKey = $"{update.Channel}:{update.Version}";
+        lock (_shownManualUpdateDialogsLock)
+        {
+            if (!_shownManualUpdateDialogs.Add(updateKey))
+            {
+                return Task.CompletedTask;
+            }
+        }
+
+        Log.Warning(
+            "There's a new {Channel} version available, but automatic updates are not supported on this platform. Please update manually.",
+            update.Channel);
+
+        Dispatcher.UIThread.Post(() => _ = ShowManualUpdateDialogAsync(update));
+        return Task.CompletedTask;
+    }
+
+    private async Task ShowManualUpdateDialogAsync(ClientUpdateInfo update)
+    {
+        try
+        {
+            if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+            {
+                await UpdateAvailableWindow.ShowAsync(desktop.MainWindow, update);
+                return;
+            }
+
+            Log.Warning("Could not show update dialog because the current application lifetime is not desktop.");
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to show update dialog.");
+        }
     }
 
     private static void TryWriteStartupCrashLog(Exception exception)
