@@ -123,7 +123,7 @@ namespace AlbionDataAvalonia.Network.Services
 
         public void Initialize()
         {
-            httpClient.BaseAddress = new Uri(_settingsManager.AppSettings.AfmTopItemsApiBase);
+            httpClient.BaseAddress = new Uri(_settingsManager.AppSettings.AfmDataClientIngestApiBase);
             httpClient.DefaultRequestHeaders.UserAgent.Clear();
             var version = AlbionDataAvalonia.ClientUpdater.GetVersion() ?? "unknown";
             httpClient.DefaultRequestHeaders.UserAgent.ParseAdd($"afmDataClient-v.{version}");

@@ -20,10 +20,11 @@ public class AppSettings
     public int NetworkDevicesIdleMinutes { get; set; }
     public int NetworkDevicesIdleCheckMinutes { get; set; }
 
-    public string AfmAuthClientId { get; set; }
-    public string AfmAuthRedirectUri { get; set; }
-    public string AfmAuthApiUrl { get; set; }
-    public string AfmTopItemsApiBase { get; set; }
+    public string AfmAuthClientId { get; set; } = string.Empty;
+    public string AfmAuthRedirectUri { get; set; } = string.Empty;
+    public string AfmAuthApiUrl { get; set; } = string.Empty;
+    public string AfmTopItemsApiBase { get; set; } = string.Empty;
+    public string AfmDataClientIngestApiBase { get; set; } = string.Empty;
 
     public List<string> ItemsToUploadToAfm { get; set; } = new List<string>();
 }
