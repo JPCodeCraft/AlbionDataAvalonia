@@ -297,7 +297,6 @@ public sealed class LootRowViewModel
     public LootRecord Source { get; }
     public DateTime PickedUpAt => Source.PickedUpAtUtc.ToLocalTime();
     public string PlayerName => Source.PlayerName;
-    public string PlayerNameText => Source.OwnerNameGuessed ? $"{Source.PlayerName} *" : Source.PlayerName;
     public bool WasPartyMemberAtPickup => Source.WasPartyMemberAtPickup;
     public string SourceKind => Source.SourceKind.ToString();
     public string SourceName => Source.SourceName;

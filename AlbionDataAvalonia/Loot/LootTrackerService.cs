@@ -39,6 +39,7 @@ public sealed class LootTrackerService : IDisposable
     private readonly Dictionary<long, PendingPartyLootItem> pendingPartyLootItems = new();
     private readonly Dictionary<long, List<RecentPartyLootItemType>> recentPartyLootItemTypes = new();
     private readonly Dictionary<long, RecentLootChestUpdate> recentLootChestUpdates = new();
+    private readonly Dictionary<long, RecentEmptyLootChestUpdate> recentEmptyLootChestUpdates = new();
     private readonly Dictionary<long, RecentInventoryDelete> recentInventoryDeletes = new();
     private readonly List<RecentPickupCorrelation> recentLocalPickups = new();
     private readonly List<RecentPickupCorrelation> recentBroadcastPickups = new();
@@ -255,6 +256,7 @@ public sealed class LootTrackerService : IDisposable
 
             if (state == EmptyLootChestState)
             {
+                recentEmptyLootChestUpdates[objectId] = new RecentEmptyLootChestUpdate(nowUtc);
                 snapshot = RecordDetachedPublicContainerRemainingItemsCore(objectId, nowUtc) ?? snapshot;
             }
 
@@ -323,6 +325,7 @@ public sealed class LootTrackerService : IDisposable
             return;
         }
 
+        LootTrackerSnapshot? snapshot = null;
         lock (sync)
         {
             if (!CanCaptureCore())
@@ -337,9 +340,13 @@ public sealed class LootTrackerService : IDisposable
 
             if (container.PrivateContainerId == Guid.Empty)
             {
+                var nowUtc = DateTime.UtcNow;
                 recentDetachedLootContainers[container.SourceObjectId] = new RecentDetachedLootContainer(
                     container,
-                    DateTime.UtcNow);
+                    nowUtc);
+                snapshot = RecordDetachedPublicContainerAfterRecentEmptyUpdateCore(
+                    container.SourceObjectId,
+                    nowUtc);
             }
 
             foreach (var key in containers
@@ -351,6 +358,11 @@ public sealed class LootTrackerService : IDisposable
             }
 
             PruneTransientStateCore(DateTime.UtcNow);
+        }
+
+        if (snapshot is not null)
+        {
+            SnapshotChanged?.Invoke(snapshot);
         }
     }
 
@@ -687,7 +699,7 @@ public sealed class LootTrackerService : IDisposable
 
             var nowUtc = DateTime.UtcNow;
             PruneTransientStateCore(nowUtc);
-            snapshot = RecordGuessedPartyItemObjectCore(itemObjectId, nowUtc);
+            snapshot = RecordUnknownLootOwnerItemObjectCore(itemObjectId, nowUtc);
         }
 
         if (snapshot is not null)
@@ -1164,7 +1176,7 @@ public sealed class LootTrackerService : IDisposable
         var recordedCount = 0;
         foreach (var itemObjectId in missingItemObjectIds)
         {
-            var itemSnapshot = RecordGuessedPartyItemObjectCore(itemObjectId, nowUtc);
+            var itemSnapshot = RecordUnknownLootOwnerItemObjectCore(itemObjectId, nowUtc);
             if (itemSnapshot is not null)
             {
                 snapshot = itemSnapshot;
@@ -1207,7 +1219,7 @@ public sealed class LootTrackerService : IDisposable
             .Where(id => id > 0)
             .Distinct())
         {
-            var itemSnapshot = RecordGuessedPartyItemObjectCore(itemObjectId, nowUtc);
+            var itemSnapshot = RecordUnknownLootOwnerItemObjectCore(itemObjectId, nowUtc);
             if (itemSnapshot is not null)
             {
                 snapshot = itemSnapshot;
@@ -1224,7 +1236,28 @@ public sealed class LootTrackerService : IDisposable
         return snapshot;
     }
 
-    private LootTrackerSnapshot? RecordGuessedPartyItemObjectCore(long itemObjectId, DateTime nowUtc)
+    private LootTrackerSnapshot? RecordDetachedPublicContainerAfterRecentEmptyUpdateCore(long sourceObjectId, DateTime nowUtc)
+    {
+        if (!recentEmptyLootChestUpdates.TryGetValue(sourceObjectId, out var emptyUpdate))
+        {
+            return null;
+        }
+
+        if (nowUtc - emptyUpdate.SeenAtUtc > DetachedPublicContainerEmptyUpdateWindow)
+        {
+            recentEmptyLootChestUpdates.Remove(sourceObjectId);
+            Log.Debug(
+                "Loot tracker skipped remaining public container items after detach because empty chest update was stale. SourceObjectId: {SourceObjectId}, EmptyUpdateAgeSeconds: {EmptyUpdateAgeSeconds}",
+                sourceObjectId,
+                (nowUtc - emptyUpdate.SeenAtUtc).TotalSeconds);
+            return null;
+        }
+
+        recentEmptyLootChestUpdates.Remove(sourceObjectId);
+        return RecordDetachedPublicContainerRemainingItemsCore(sourceObjectId, nowUtc);
+    }
+
+    private LootTrackerSnapshot? RecordUnknownLootOwnerItemObjectCore(long itemObjectId, DateTime nowUtc)
     {
         if (recentInventoryDeletes.ContainsKey(itemObjectId)
             || recordedItemObjectIds.ContainsKey(itemObjectId)
@@ -1237,9 +1270,8 @@ public sealed class LootTrackerService : IDisposable
             return null;
         }
 
-        var playerName = GetGuessedPartyLootOwnerNameCore();
         var record = CreateRecordCore(
-            playerName,
+            "Unknown",
             source,
             itemObjectId,
             item.ItemId,
@@ -1248,9 +1280,7 @@ public sealed class LootTrackerService : IDisposable
             item.UniqueName,
             item.Name,
             item.EstimatedMarketValue,
-            nowUtc,
-            ownerNameGuessed: true,
-            wasPartyMemberOverride: true);
+            nowUtc);
         records.Add(record);
         recordedItemObjectIds[itemObjectId] = new RecordedItemObject(item.ItemId, item.Amount, nowUtc);
         recentInventoryDeletes[itemObjectId] = new RecentInventoryDelete(nowUtc);
@@ -1371,9 +1401,7 @@ public sealed class LootTrackerService : IDisposable
         string? uniqueName,
         string? name,
         long? discoveredEstimatedMarketValue,
-        DateTime nowUtc,
-        bool ownerNameGuessed = false,
-        bool? wasPartyMemberOverride = null)
+        DateTime nowUtc)
     {
         var itemData = itemsIdsService.GetItemById(itemId);
         var resolvedQuality = quality is > 0 ? quality.Value : (int?)null;
@@ -1397,8 +1425,7 @@ public sealed class LootTrackerService : IDisposable
             Guid.NewGuid(),
             nowUtc,
             playerName,
-            ownerNameGuessed,
-            wasPartyMemberOverride ?? partyTracker.IsPartyMember(playerName),
+            partyTracker.IsPartyMember(playerName),
             source.Kind,
             source.Name,
             serverId,
@@ -1736,16 +1763,6 @@ public sealed class LootTrackerService : IDisposable
             : "Unknown";
     }
 
-    private string GetGuessedPartyLootOwnerNameCore()
-    {
-        var nonLocalMembers = partyTracker.CurrentSnapshot.Members
-            .Where(member => !member.IsLocalPlayer)
-            .ToArray();
-        return nonLocalMembers.Length == 1 && IsKnownPlayerName(nonLocalMembers[0].Name)
-            ? nonLocalMembers[0].Name
-            : "Unknown";
-    }
-
     private void OnPlayerStateChanged(object? sender, PlayerStateEventArgs e)
     {
         LootTrackerSnapshot snapshot;
@@ -1852,6 +1869,7 @@ public sealed class LootTrackerService : IDisposable
         pendingPartyLootItems.Clear();
         recentPartyLootItemTypes.Clear();
         recentLootChestUpdates.Clear();
+        recentEmptyLootChestUpdates.Clear();
         recentInventoryDeletes.Clear();
         recentLocalPickups.Clear();
         recentBroadcastPickups.Clear();
@@ -1931,6 +1949,14 @@ public sealed class LootTrackerService : IDisposable
             .ToArray())
         {
             recentLootChestUpdates.Remove(sourceObjectId);
+        }
+
+        foreach (var sourceObjectId in recentEmptyLootChestUpdates
+            .Where(entry => nowUtc - entry.Value.SeenAtUtc > DetachedPublicContainerEmptyUpdateWindow)
+            .Select(entry => entry.Key)
+            .ToArray())
+        {
+            recentEmptyLootChestUpdates.Remove(sourceObjectId);
         }
 
         foreach (var itemObjectId in recentInventoryDeletes
@@ -2038,6 +2064,8 @@ public sealed class LootTrackerService : IDisposable
     private sealed record RecentLootChestUpdate(
         IReadOnlyList<Guid> PlayerGuids,
         DateTime SeenAtUtc);
+
+    private sealed record RecentEmptyLootChestUpdate(DateTime SeenAtUtc);
 
     private sealed record RecentInventoryDelete(DateTime RecordedAtUtc);
 

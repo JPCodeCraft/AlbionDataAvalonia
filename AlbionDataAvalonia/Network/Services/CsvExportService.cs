@@ -197,7 +197,7 @@ public class CsvExportService
         using var writer = new StreamWriter(stream, Encoding.UTF8);
         await writer.WriteLineAsync(string.Join(delimiter, new[]
         {
-            "Picked Up UTC", "Player", "Owner Guessed", "Party Member At Pickup", "Source Type", "Source",
+            "Picked Up UTC", "Player", "Party Member At Pickup", "Source Type", "Source",
             "Location", "Item Unique Name", "Item", "Quality",
             "Amount", "Unit EMV", "Total EMV"
         }));
@@ -217,7 +217,6 @@ public class CsvExportService
             {
                 Escape(record.PickedUpAtUtc.ToString("O", CultureInfo.InvariantCulture), delimiter),
                 Escape(record.PlayerName, delimiter),
-                record.OwnerNameGuessed ? "true" : "false",
                 record.WasPartyMemberAtPickup ? "true" : "false",
                 Escape(record.SourceKind.ToString(), delimiter),
                 Escape(record.SourceName, delimiter),
