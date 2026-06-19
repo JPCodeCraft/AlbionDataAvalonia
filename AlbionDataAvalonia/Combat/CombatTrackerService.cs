@@ -394,10 +394,6 @@ public sealed class CombatTrackerService : IDisposable
             else
             {
                 combatStates[entity.EntityKey] = false;
-                if (activeEncounter is not null && !AnyTrackedEntityInCombat())
-                {
-                    EndActiveEncounter(receivedAtUtc);
-                }
             }
 
             snapshot = BuildSnapshot(receivedAtUtc);
@@ -1056,24 +1052,6 @@ public sealed class CombatTrackerService : IDisposable
         }
 
         return encounter.Buckets[bucketIndex];
-    }
-
-    private bool AnyTrackedEntityInCombat()
-    {
-        foreach (var (entityKey, inCombat) in combatStates)
-        {
-            if (!inCombat)
-            {
-                continue;
-            }
-
-            if (entitiesByKey.TryGetValue(entityKey, out var entity) && IsTracked(entity))
-            {
-                return true;
-            }
-        }
-
-        return false;
     }
 
     private CombatTrackerSnapshot BuildSnapshot(DateTime nowUtc)
