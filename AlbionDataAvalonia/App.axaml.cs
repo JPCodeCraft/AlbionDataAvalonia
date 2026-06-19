@@ -114,7 +114,6 @@ public partial class App : Application
         var uploader = services.GetRequiredService<Uploader>();
         var afmUploader = services.GetRequiredService<AFMUploader>();
         var emvBackendLoader = services.GetRequiredService<ItemEstimatedMarketValueBackendLoader>();
-        var localization = services.GetRequiredService<LocalizationService>();
         var mobsService = services.GetRequiredService<MobsService>();
         var itemsIdsService = services.GetRequiredService<ItemsIdsService>();
         var achievementsService = services.GetRequiredService<AchievementsService>();
@@ -189,9 +188,6 @@ public partial class App : Application
                 Log.Error(t.Exception, "Error in idle service, exception: {exception}", t.Exception);
             }
         });
-
-        //INITIALIZE LOCALIZATION
-        await localization.InitializeAsync();
 
         //INITIALIZE ITEMS IDS
         await itemsIdsService.InitializeAsync();
@@ -376,7 +372,6 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<AFMUploader>();
         collection.AddSingleton<MailService>();
         collection.AddSingleton<TradeService>();
-        collection.AddSingleton<LocalizationService>();
         collection.AddSingleton<MobsService>();
         collection.AddSingleton<ItemsIdsService>();
         collection.AddSingleton<ItemImageService>();

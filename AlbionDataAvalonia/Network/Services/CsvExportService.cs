@@ -1,4 +1,5 @@
 using AlbionDataAvalonia.DB;
+using AlbionDataAvalonia.Items;
 using AlbionDataAvalonia.Items.Services;
 using AlbionDataAvalonia.Locations;
 using AlbionDataAvalonia.Loot.Models;
@@ -18,11 +19,11 @@ namespace AlbionDataAvalonia.Network.Services;
 
 public class CsvExportService
 {
-    private readonly LocalizationService _localizationService;
+    private readonly ItemsIdsService itemsIdsService;
 
-    public CsvExportService(LocalizationService localizationService)
+    public CsvExportService(ItemsIdsService itemsIdsService)
     {
-        _localizationService = localizationService;
+        this.itemsIdsService = itemsIdsService;
     }
 
     public async Task ExportTradesToCsvAsync(Stream stream, CsvExportOptions? options = null, IProgress<int>? progress = null, CancellationToken cancellationToken = default)
@@ -72,7 +73,7 @@ public class CsvExportService
                 var location = AlbionLocations.ResolveStoredLocation(trade.RawLocationId, trade.LocationId);
                 var marketName = location?.MarketLocation?.FriendlyName ?? location?.FriendlyName ?? "";
                 var fullName = location?.FriendlyName ?? "";
-                var itemName = _localizationService.GetUsName(trade.ItemId);
+                var itemName = itemsIdsService.GetUsNameByUniqueName(trade.ItemId);
 
                 var line = string.Join(delimiter, new[]
                 {
@@ -151,7 +152,7 @@ public class CsvExportService
                 var location = AlbionLocations.ResolveStoredLocation(mail.RawLocationId, mail.LocationId);
                 var marketName = location?.MarketLocation?.FriendlyName ?? location?.FriendlyName ?? "";
                 var fullName = location?.FriendlyName ?? "";
-                var itemName = _localizationService.GetUsName(mail.ItemId);
+                var itemName = itemsIdsService.GetUsNameByUniqueName(mail.ItemId);
 
                 var line = string.Join(delimiter, new[]
                 {
@@ -223,7 +224,7 @@ public class CsvExportService
                 Escape(record.LocationName, delimiter),
                 Escape(record.ItemUniqueName, delimiter),
                 Escape(record.ItemName, delimiter),
-                record.Quality?.ToString(culture) ?? string.Empty,
+                Escape(ItemQuality.Format(record.Quality), delimiter),
                 record.Amount.ToString(culture),
                 record.EstimatedMarketValue?.ToString(culture) ?? string.Empty,
                 record.TotalEstimatedMarketValue?.ToString(culture) ?? string.Empty

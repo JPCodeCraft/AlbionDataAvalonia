@@ -15,7 +15,7 @@ namespace AlbionDataAvalonia.Network.Services;
 public class TradeService
 {
     private readonly PlayerState _playerState;
-    private readonly LocalizationService _localizationService;
+    private readonly ItemsIdsService _itemsIdsService;
     private readonly MailService _mailService;
     private List<Trade> Trades { get; set; } = new();
 
@@ -24,10 +24,10 @@ public class TradeService
 
     public Action<Trade>? OnTradeAdded;
 
-    public TradeService(PlayerState playerState, LocalizationService localizationService, MailService mailService)
+    public TradeService(PlayerState playerState, ItemsIdsService itemsIdsService, MailService mailService)
     {
         _playerState = playerState;
-        _localizationService = localizationService;
+        _itemsIdsService = itemsIdsService;
         _mailService = mailService;
 
         _mailService.OnMailDataAdded += async (mail) => await HandleOnMailDataAdded(mail);
@@ -221,6 +221,6 @@ public class TradeService
     {
         trade.Server = AlbionServers.Get(trade.AlbionServerId ?? 0);
         trade.Location = AlbionLocations.ResolveStoredLocation(trade.RawLocationId, trade.LocationId);
-        trade.ItemName = _localizationService.GetUsName(trade.ItemId);
+        trade.ItemName = _itemsIdsService.GetUsNameByUniqueName(trade.ItemId);
     }
 }

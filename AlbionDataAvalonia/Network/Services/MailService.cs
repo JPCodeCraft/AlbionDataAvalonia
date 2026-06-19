@@ -17,17 +17,17 @@ public class MailService
 {
     private readonly PlayerState _playerState;
     private readonly SettingsManager _settingsManager;
-    private readonly LocalizationService _localizationService;
+    private readonly ItemsIdsService _itemsIdsService;
     private List<AlbionMail> Mails { get; set; } = new();
 
     public Action<List<AlbionMail>>? OnMailAdded;
     public Action<AlbionMail>? OnMailDataAdded;
 
-    public MailService(PlayerState playerState, SettingsManager settingsManager, LocalizationService localizationService)
+    public MailService(PlayerState playerState, SettingsManager settingsManager, ItemsIdsService itemsIdsService)
     {
         _playerState = playerState;
         _settingsManager = settingsManager;
-        _localizationService = localizationService;
+        _itemsIdsService = itemsIdsService;
     }
 
     public async Task<List<AlbionMail>> GetMails(int countPerPage, int pageNumber = 0, int? albionServerId = null, bool showDeleted = false, int? locationId = null, AuctionType? auctionType = null)
@@ -100,7 +100,7 @@ public class MailService
         {
             mail.Location = AlbionLocations.ResolveStoredLocation(mail.RawLocationId, mail.LocationId);
             mail.Server = AlbionServers.GetAll().SingleOrDefault(x => x.Id == mail.AlbionServerId);
-            mail.ItemName = _localizationService.GetUsName(mail.ItemId);
+            mail.ItemName = _itemsIdsService.GetUsNameByUniqueName(mail.ItemId);
         }
 
         Log.Verbose("Set mail properties for {count} mails", mails.Count);

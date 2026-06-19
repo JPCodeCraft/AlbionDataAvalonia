@@ -1,3 +1,4 @@
+using AlbionDataAvalonia.Items;
 using AlbionDataAvalonia.Loot;
 using AlbionDataAvalonia.Loot.Models;
 using AlbionDataAvalonia.Network.Services;
@@ -304,7 +305,7 @@ public sealed class LootRowViewModel
     public string ItemUniqueName => Source.ItemUniqueName;
     public string ItemName => Source.ItemName;
     public int ImageQuality => Source.Quality ?? 1;
-    public string QualityText => Source.Quality?.ToString() ?? "Unknown";
+    public string QualityText => ItemQuality.Format(Source.Quality);
     public long Amount => Source.Amount;
     public long? EstimatedMarketValue => Source.EstimatedMarketValue;
     public long? TotalEstimatedMarketValue => Source.TotalEstimatedMarketValue;

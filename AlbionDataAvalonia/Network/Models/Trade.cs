@@ -73,15 +73,7 @@ public class Trade
     {
         get
         {
-            return QualityLevel switch
-            {
-                1 => "Normal",
-                2 => "Good",
-                3 => "Outstanding",
-                4 => "Excellent",
-                8 => "Masterpiece",
-                _ => "Unknown"
-            };
+            return AlbionDataAvalonia.Items.ItemQuality.Format(QualityLevel);
         }
     }
 

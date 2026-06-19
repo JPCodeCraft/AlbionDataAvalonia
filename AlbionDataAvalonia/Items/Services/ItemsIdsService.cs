@@ -2,7 +2,6 @@ using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
-using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.Items.Services
@@ -17,6 +16,7 @@ namespace AlbionDataAvalonia.Items.Services
 
         private const string TxtUrl = "https://cdn.albionfreemarket.com/ao-bin-dumps/formatted/items.txt";
         private Dictionary<int, ItemIdEntry> itemMappings = new();
+        private Dictionary<string, string> itemNamesByUniqueName = new(StringComparer.OrdinalIgnoreCase);
 
         public async Task InitializeAsync()
         {
@@ -34,24 +34,29 @@ namespace AlbionDataAvalonia.Items.Services
                             var trimmedLine = line.Trim();
                             if (string.IsNullOrWhiteSpace(trimmedLine)) continue;
 
-                            // Split by " : " to separate the parts
                             var parts = trimmedLine.Split(new[] { " : " }, 2, StringSplitOptions.None);
-                            if (parts.Length == 2)
+                            var idAndUnique = parts[0].Trim();
+                            var usName = parts.Length == 2
+                                ? parts[1].Trim()
+                                : string.Empty;
+
+                            var colonIndex = idAndUnique.IndexOf(':');
+                            if (colonIndex > 0)
                             {
-                                var idAndUnique = parts[0].Trim();
-                                var usName = parts[1].Trim();
+                                var idStr = idAndUnique.Substring(0, colonIndex).Trim();
+                                var uniqueName = idAndUnique.Substring(colonIndex + 1).Trim();
 
-                                // Find the colon in the first part to separate id and unique name
-                                var colonIndex = idAndUnique.IndexOf(':');
-                                if (colonIndex > 0)
+                                if (int.TryParse(idStr, out int id) && !string.IsNullOrWhiteSpace(uniqueName))
                                 {
-                                    var idStr = idAndUnique.Substring(0, colonIndex).Trim();
-                                    var uniqueName = idAndUnique.Substring(colonIndex + 1).Trim();
-
-                                    if (int.TryParse(idStr, out int id))
+                                    var resolvedUsName = string.IsNullOrWhiteSpace(usName)
+                                        ? uniqueName
+                                        : ItemNameFormatter.FormatUsName(uniqueName, usName);
+                                    itemMappings[id] = new ItemIdEntry
                                     {
-                                        itemMappings[id] = new ItemIdEntry { UniqueName = uniqueName, UsName = usName };
-                                    }
+                                        UniqueName = uniqueName,
+                                        UsName = resolvedUsName
+                                    };
+                                    itemNamesByUniqueName[uniqueName] = resolvedUsName;
                                 }
                             }
                         }
@@ -73,6 +78,16 @@ namespace AlbionDataAvalonia.Items.Services
             }
 
             return ("Unknown Item", $"Unknown Item ({itemId})");
+        }
+
+        public string GetUsNameByUniqueName(string uniqueName)
+        {
+            if (itemNamesByUniqueName.TryGetValue(uniqueName, out var usName))
+            {
+                return usName;
+            }
+
+            return uniqueName;
         }
     }
 }
