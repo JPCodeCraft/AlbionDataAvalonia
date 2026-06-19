@@ -333,13 +333,16 @@
                                 <Button Grid.Column="1"
                                         Content="Clear selection"
                                         Command="{Binding ClearSelectedEncounterCommand}"
+                                        Click="ClearSelectedEncounterButton_Click"
                                         IsVisible="{Binding HasSelectedEncounter}"
                                         Padding="10,6"
                                         MinHeight="34" />
                             </Grid>
-                            <DataGrid Grid.Row="1"
+                            <DataGrid x:Name="EncountersGrid"
+                                      Grid.Row="1"
                                       ItemsSource="{Binding Encounters}"
-                                      SelectedItem="{Binding SelectedEncounter, Mode=TwoWay}"
+                                      SelectionMode="Single"
+                                      SelectionChanged="EncountersGrid_SelectionChanged"
                                       AutoGenerateColumns="False"
                                       IsReadOnly="True"
                                       GridLinesVisibility="None"
@@ -599,14 +602,17 @@
                                     </ComboBox>
                                     <Button Content="Clear selection"
                                             Command="{Binding ClearSelectedPlayerCommand}"
+                                            Click="ClearSelectedPlayerButton_Click"
                                             IsVisible="{Binding HasSelectedPlayer}"
                                             Padding="10,4"
                                             Margin="0,0,0,6" />
                                 </WrapPanel>
                             </Grid>
-                            <DataGrid Grid.Row="1"
+                            <DataGrid x:Name="PlayersGrid"
+                                      Grid.Row="1"
                                       ItemsSource="{Binding Players}"
-                                      SelectedItem="{Binding SelectedPlayer}"
+                                      SelectionMode="Single"
+                                      SelectionChanged="PlayersGrid_SelectionChanged"
                                       AutoGenerateColumns="False"
                                       IsReadOnly="True"
                                       GridLinesVisibility="None"

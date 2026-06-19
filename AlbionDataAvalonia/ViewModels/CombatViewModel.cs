@@ -43,8 +43,6 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     private DispatcherTimer? summaryRefreshTimer;
     private IDisposable? pendingChartRefreshRegistration;
     private CombatTrackerSnapshot currentSnapshot;
-    private bool applyingSnapshot;
-    private bool applyingPlayerSelection;
     private bool applyingAggregationSelection;
     private string? lastChartRenderSignature;
     private DateTime lastChartRefreshUtc = DateTime.MinValue;
@@ -324,11 +322,6 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     {
         OnPropertyChanged(nameof(HasSelectedPlayer));
 
-        if (applyingPlayerSelection)
-        {
-            return;
-        }
-
         selectedPlayerKey = value?.EntityKey;
         RefreshSelectedPlayerDetails();
     }
@@ -336,11 +329,6 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     partial void OnSelectedEncounterChanged(CombatEncounterListItemViewModel? value)
     {
         OnPropertyChanged(nameof(HasSelectedEncounter));
-
-        if (applyingSnapshot)
-        {
-            return;
-        }
 
         selectedEncounterKey = value?.EncounterKey;
         RefreshSelectedEncounterParticipants();
@@ -501,33 +489,13 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
     {
         selectedEncounterKey = null;
         SelectedEncounterParticipants.Clear();
-
-        applyingSnapshot = true;
-        try
-        {
-            SelectedEncounter = null;
-        }
-        finally
-        {
-            applyingSnapshot = false;
-        }
-
-        RefreshSelectedEncounterDetails();
+        SelectedEncounter = null;
     }
 
     private void ClearSelectedPlayerState()
     {
         selectedPlayerKey = null;
-
-        applyingPlayerSelection = true;
-        try
-        {
-            SelectedPlayer = null;
-        }
-        finally
-        {
-            applyingPlayerSelection = false;
-        }
+        SelectedPlayer = null;
     }
 
     private void RefreshDisplayedSummary(DateTime nowUtc)
@@ -665,25 +633,14 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             .Select(CreateEncounterItem)
             .ToArray();
 
-        applyingSnapshot = true;
-        try
-        {
-            Replace(Encounters, encounters);
+        Replace(Encounters, encounters);
 
-            var selectedEncounter = string.IsNullOrEmpty(requestedSelectedEncounterKey)
-                ? null
-                : Encounters.FirstOrDefault(x => x.EncounterKey == requestedSelectedEncounterKey);
+        var selectedEncounter = string.IsNullOrEmpty(requestedSelectedEncounterKey)
+            ? null
+            : Encounters.FirstOrDefault(x => x.EncounterKey == requestedSelectedEncounterKey);
 
-            SelectedEncounter = selectedEncounter;
-            selectedEncounterKey = selectedEncounter?.EncounterKey;
-        }
-        finally
-        {
-            applyingSnapshot = false;
-        }
-
-        RefreshSelectedEncounterParticipants();
-        RefreshSelectedEncounterDetails();
+        SelectedEncounter = selectedEncounter;
+        selectedEncounterKey = selectedEncounter?.EncounterKey;
     }
 
     private void RefreshPlayers()
@@ -708,22 +665,12 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
             .Select(player => CreatePlayerRow(player, duration, totalPartyDamageDealt, totalPartyHealingDone))
             .ToArray();
 
-        applyingPlayerSelection = true;
-        try
-        {
-            Replace(Players, players);
+        Replace(Players, players);
 
-            SelectedPlayer = string.IsNullOrEmpty(requestedSelectedPlayerKey)
-                ? null
-                : Players.FirstOrDefault(x => x.EntityKey == requestedSelectedPlayerKey);
-            selectedPlayerKey = SelectedPlayer?.EntityKey;
-        }
-        finally
-        {
-            applyingPlayerSelection = false;
-        }
-
-        RefreshSelectedPlayerDetails();
+        SelectedPlayer = string.IsNullOrEmpty(requestedSelectedPlayerKey)
+            ? null
+            : Players.FirstOrDefault(x => x.EntityKey == requestedSelectedPlayerKey);
+        selectedPlayerKey = SelectedPlayer?.EntityKey;
     }
 
     private void RefreshSelectedEncounterParticipants()
