@@ -21,7 +21,7 @@ An alternative client for [The Albion Online Data Project](https://www.albion-on
 
 > **Free and Open Source**: This software is completely free, open source (check license) and is not tied to the usage of Albion Free Market website. The data uploaded via this software to AODP can be seen in any Albion Online fansite that consumes AODP and even on your own sheets.
 
-![Main Interface](https://github.com/user-attachments/assets/ba7d2d33-9e80-49b2-aeae-6173892de15e)
+<img width="1200" height="929" alt="market" src="https://github.com/user-attachments/assets/5669bcc4-4a7f-4ea6-abf8-f0ae41694b93" />
 
 ## 🚀 Features
 
@@ -32,6 +32,7 @@ An alternative client for [The Albion Online Data Project](https://www.albion-on
 | Market Mail Tracking   | Collects and displays your market mail data for price tracking                 |
 | Trade History          | Stores instant buy/sell trades for later reference                             |
 | Damage Tracker         | Tracks combat encounters with damage, DPS, healing, fame, and party/player summaries |
+| Loot Tracker         | Tracks loots from the player and others, includes estimated market value |
 | Enhanced Capture       | Captures data from loadout's quick buy screen, market screens, and gold screen |
 | Specs Capture          | Uploads character specs for use with AFM website                               |
 | Launch on Startup      | Automatically starts with your system                                          |
