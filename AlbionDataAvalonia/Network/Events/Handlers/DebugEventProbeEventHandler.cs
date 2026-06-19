@@ -19,6 +19,7 @@ public class DebugEventProbeEventHandler : EventPacketHandler<DebugEventProbeEve
         EventCodes.InvalidateItemContainer,
         EventCodes.InventoryDeleteItem,
         EventCodes.InventoryState,
+        EventCodes.CharacterStats,
         EventCodes.PartyJoined,
         EventCodes.PartyDisbanded,
         EventCodes.PartyPlayerJoined,
