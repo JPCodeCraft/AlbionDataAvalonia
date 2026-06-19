@@ -398,7 +398,7 @@ public sealed class LootTrackerService : IDisposable
         string? playerName,
         bool isSilver,
         int itemId,
-        int amount)
+        long amount)
     {
         if (isSilver || itemId <= 0 || amount <= 0 || string.IsNullOrWhiteSpace(playerName))
         {
@@ -1112,7 +1112,7 @@ public sealed class LootTrackerService : IDisposable
             .ToArray();
     }
 
-    private void RemoveRecentPartyLootItemTypeCore(long sourceObjectId, int itemId, int amount)
+    private void RemoveRecentPartyLootItemTypeCore(long sourceObjectId, int itemId, long amount)
     {
         if (!recentPartyLootItemTypes.TryGetValue(sourceObjectId, out var itemTypes))
         {
@@ -1366,7 +1366,7 @@ public sealed class LootTrackerService : IDisposable
         LootSource source,
         long? itemObjectId,
         int itemId,
-        int amount,
+        long amount,
         int? quality,
         string? uniqueName,
         string? name,
@@ -1413,7 +1413,7 @@ public sealed class LootTrackerService : IDisposable
             estimatedMarketValue * amount);
     }
 
-    private DiscoveredLootItem? FindBestDiscoveredItemCore(int itemId, int amount)
+    private DiscoveredLootItem? FindBestDiscoveredItemCore(int itemId, long amount)
     {
         return discoveredItems.Values
             .Where(item => item.ItemId == itemId && item.Amount == amount)
@@ -1425,7 +1425,7 @@ public sealed class LootTrackerService : IDisposable
                 .FirstOrDefault();
     }
 
-    private DiscoveredLootItem? FindBestDiscoveredItemCore(long sourceObjectId, int itemId, int amount)
+    private DiscoveredLootItem? FindBestDiscoveredItemCore(long sourceObjectId, int itemId, long amount)
     {
         if (sourceObjectId <= 0)
         {
@@ -1771,7 +1771,7 @@ public sealed class LootTrackerService : IDisposable
     private static bool TryMatchCorrelation(
         IEnumerable<RecentPickupCorrelation> correlations,
         int itemId,
-        int amount,
+        long amount,
         DateTime nowUtc,
         out RecentPickupCorrelation correlation)
     {
@@ -1785,7 +1785,7 @@ public sealed class LootTrackerService : IDisposable
         return correlation is not null;
     }
 
-    private bool IsRecentlyRecordedCore(long itemObjectId, int itemId, int amount, DateTime nowUtc)
+    private bool IsRecentlyRecordedCore(long itemObjectId, int itemId, long amount, DateTime nowUtc)
     {
         return recordedItemObjectIds.TryGetValue(itemObjectId, out var recordedItem)
             && recordedItem.ItemId == itemId
@@ -1793,7 +1793,7 @@ public sealed class LootTrackerService : IDisposable
             && nowUtc - recordedItem.RecordedAtUtc <= CorrelationWindow;
     }
 
-    private bool HasRecentRecordCore(string playerName, int itemId, int amount, DateTime nowUtc)
+    private bool HasRecentRecordCore(string playerName, int itemId, long amount, DateTime nowUtc)
     {
         return records.Any(record =>
             string.Equals(record.PlayerName, playerName, StringComparison.OrdinalIgnoreCase)
@@ -1963,7 +1963,7 @@ public sealed class LootTrackerService : IDisposable
         public DiscoveredLootItem(
             long objectId,
             int itemId,
-            int amount,
+            long amount,
             int quality,
             string uniqueName,
             string name,
@@ -1984,7 +1984,7 @@ public sealed class LootTrackerService : IDisposable
 
         public long ObjectId { get; }
         public int ItemId { get; }
-        public int Amount { get; }
+        public long Amount { get; }
         public int Quality { get; }
         public string UniqueName { get; }
         public string Name { get; }
@@ -2018,20 +2018,20 @@ public sealed class LootTrackerService : IDisposable
 
     private sealed record RecordedItemObject(
         int ItemId,
-        int Amount,
+        long Amount,
         DateTime RecordedAtUtc);
 
     private sealed record PendingPartyLootItem(
         long SourceObjectId,
         long ItemObjectId,
         int ItemId,
-        int Amount,
+        long Amount,
         string PlayerName,
         DateTime SeenAtUtc);
 
     private sealed record RecentPartyLootItemType(
         int ItemId,
-        int Amount,
+        long Amount,
         int? Quality,
         DateTime SeenAtUtc);
 
@@ -2049,7 +2049,7 @@ public sealed class LootTrackerService : IDisposable
 
     private sealed class RecentPickupCorrelation
     {
-        public RecentPickupCorrelation(Guid recordId, int itemId, int amount, DateTime recordedAtUtc)
+        public RecentPickupCorrelation(Guid recordId, int itemId, long amount, DateTime recordedAtUtc)
         {
             RecordId = recordId;
             ItemId = itemId;
@@ -2059,7 +2059,7 @@ public sealed class LootTrackerService : IDisposable
 
         public Guid RecordId { get; }
         public int ItemId { get; }
-        public int Amount { get; }
+        public long Amount { get; }
         public DateTime RecordedAtUtc { get; }
         public bool Matched { get; set; }
     }

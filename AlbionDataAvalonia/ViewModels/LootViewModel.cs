@@ -305,7 +305,7 @@ public sealed class LootRowViewModel
     public string ItemName => Source.ItemName;
     public int ImageQuality => Source.Quality ?? 1;
     public string QualityText => Source.Quality?.ToString() ?? "Unknown";
-    public int Amount => Source.Amount;
+    public long Amount => Source.Amount;
     public long? EstimatedMarketValue => Source.EstimatedMarketValue;
     public long? TotalEstimatedMarketValue => Source.TotalEstimatedMarketValue;
 }

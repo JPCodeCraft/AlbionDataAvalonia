@@ -12,7 +12,7 @@ public sealed class OtherGrabbedLootEvent : BaseEvent
     public string PlayerName { get; } = string.Empty;
     public bool IsSilver { get; }
     public int ItemId { get; }
-    public int Amount { get; }
+    public long Amount { get; }
 
     public OtherGrabbedLootEvent(Dictionary<byte, object> parameters) : base(parameters)
     {
@@ -45,7 +45,8 @@ public sealed class OtherGrabbedLootEvent : BaseEvent
 
             if (parameters.TryGetValue(5, out var amount))
             {
-                Amount = checked((int)amount.ToLong());
+                var rawAmount = amount.ToLong();
+                Amount = IsSilver ? rawAmount / 10000 : rawAmount;
             }
         }
         catch (Exception e)

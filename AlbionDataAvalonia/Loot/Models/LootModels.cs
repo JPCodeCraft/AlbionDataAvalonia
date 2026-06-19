@@ -26,7 +26,7 @@ public sealed record LootRecord(
     string ItemUniqueName,
     string ItemName,
     int? Quality,
-    int Amount,
+    long Amount,
     long? EstimatedMarketValue,
     long? TotalEstimatedMarketValue);
 
