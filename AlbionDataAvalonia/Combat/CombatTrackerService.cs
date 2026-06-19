@@ -394,6 +394,10 @@ public sealed class CombatTrackerService : IDisposable
             else
             {
                 combatStates[entity.EntityKey] = false;
+                if (activeEncounter is not null && !AnyTrackedEntityInCombat())
+                {
+                    EndActiveEncounter(receivedAtUtc);
+                }
             }
 
             snapshot = BuildSnapshot(receivedAtUtc);
@@ -551,7 +555,7 @@ public sealed class CombatTrackerService : IDisposable
             return false;
         }
 
-        var encounter = EnsureEncounterForMetricEvent(eventUtc, seenAtUtc, seenAtUtc);
+        var encounter = EnsureEncounterForHealthEvent(source, target, eventUtc, seenAtUtc);
         if (encounter == activeEncounter && encounter.Buckets.Count == 0 && eventUtc < encounter.StartedAtUtc)
         {
             encounter.StartedAtUtc = eventUtc;
@@ -709,6 +713,42 @@ public sealed class CombatTrackerService : IDisposable
         }
 
         return StartActiveEncounter(eventUtc, idleResetAtUtcForNewEncounter);
+    }
+
+    private CombatEncounter EnsureEncounterForHealthEvent(
+        CombatTrackedEntity source,
+        CombatTrackedEntity target,
+        DateTime eventUtc,
+        DateTime receivedAtUtc)
+    {
+        if (activeEncounter is not null)
+        {
+            return activeEncounter;
+        }
+
+        if (!startNewEncounterAfterPause && encounters.Count > 0)
+        {
+            var latestEncounter = encounters[^1];
+            if (!latestEncounter.IsActive
+                && latestEncounter.EndedAtUtc is { } endedAtUtc)
+            {
+                var elapsedSinceEnd = receivedAtUtc - endedAtUtc;
+                if (elapsedSinceEnd >= TimeSpan.Zero
+                    && elapsedSinceEnd < CombatEncounterIdleTimeout
+                    && EncounterHasParticipant(latestEncounter, source.EntityKey)
+                    && EncounterHasParticipant(latestEncounter, target.EntityKey))
+                {
+                    if (eventUtc > endedAtUtc)
+                    {
+                        latestEncounter.EndedAtUtc = eventUtc;
+                    }
+
+                    return latestEncounter;
+                }
+            }
+        }
+
+        return StartActiveEncounter(eventUtc, receivedAtUtc);
     }
 
     private CombatEncounter? TryGetAttachableEncounterForMetricEvent(DateTime eventUtc, DateTime receivedAtUtc)
@@ -1052,6 +1092,29 @@ public sealed class CombatTrackerService : IDisposable
         }
 
         return encounter.Buckets[bucketIndex];
+    }
+
+    private bool AnyTrackedEntityInCombat()
+    {
+        foreach (var (entityKey, inCombat) in combatStates)
+        {
+            if (!inCombat)
+            {
+                continue;
+            }
+
+            if (entitiesByKey.TryGetValue(entityKey, out var entity) && IsTracked(entity))
+            {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private static bool EncounterHasParticipant(CombatEncounter encounter, string entityKey)
+    {
+        return encounter.Buckets.Any(bucket => bucket.PlayerTotals.ContainsKey(entityKey));
     }
 
     private CombatTrackerSnapshot BuildSnapshot(DateTime nowUtc)
