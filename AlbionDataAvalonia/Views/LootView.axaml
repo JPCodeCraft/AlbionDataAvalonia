@@ -102,7 +102,7 @@
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Time" Binding="{Binding PickedUpAt}" />
                 <DataGridTextColumn Header="Player" Binding="{Binding PlayerName}" />
-                <DataGridCheckBoxColumn Header="Party" Binding="{Binding WasPartyMemberAtPickup}" />
+                <DataGridTextColumn Header="Party" Binding="{Binding PartyText}" />
                 <DataGridTextColumn Header="Source Type" Binding="{Binding SourceKind}" />
                 <DataGridTextColumn Header="Source" Binding="{Binding SourceName}" />
                 <DataGridTextColumn Header="Location" Binding="{Binding LocationName}" />

@@ -229,7 +229,7 @@ public partial class LootViewModel : ViewModelBase, IDisposable
 
         if (PartyMembersOnly)
         {
-            query = query.Where(record => record.WasPartyMemberAtPickup);
+            query = query.Where(record => record.WasPartyMemberAtPickup == true);
         }
 
         var normalizedFilterText = NormalizeItemSearchText(appliedFilterText);
@@ -297,7 +297,12 @@ public sealed class LootRowViewModel
     public LootRecord Source { get; }
     public DateTime PickedUpAt => Source.PickedUpAtUtc.ToLocalTime();
     public string PlayerName => Source.PlayerName;
-    public bool WasPartyMemberAtPickup => Source.WasPartyMemberAtPickup;
+    public string PartyText => Source.WasPartyMemberAtPickup switch
+    {
+        true => "Yes",
+        false => "No",
+        _ => "Unknown"
+    };
     public string SourceKind => Source.SourceKind.ToString();
     public string SourceName => Source.SourceName;
     public string LocationName => Source.LocationName;

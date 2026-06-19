@@ -1425,7 +1425,9 @@ public sealed class LootTrackerService : IDisposable
             Guid.NewGuid(),
             nowUtc,
             playerName,
-            partyTracker.IsPartyMember(playerName),
+            string.Equals(playerName, "Unknown", StringComparison.OrdinalIgnoreCase)
+                ? null
+                : partyTracker.IsPartyMember(playerName),
             source.Kind,
             source.Name,
             serverId,

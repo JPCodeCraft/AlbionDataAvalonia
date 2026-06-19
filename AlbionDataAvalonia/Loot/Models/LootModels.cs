@@ -15,7 +15,7 @@ public sealed record LootRecord(
     Guid Id,
     DateTime PickedUpAtUtc,
     string PlayerName,
-    bool WasPartyMemberAtPickup,
+    bool? WasPartyMemberAtPickup,
     LootSourceKind SourceKind,
     string SourceName,
     int? ServerId,

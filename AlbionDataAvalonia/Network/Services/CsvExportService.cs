@@ -217,7 +217,12 @@ public class CsvExportService
             {
                 Escape(record.PickedUpAtUtc.ToString("O", CultureInfo.InvariantCulture), delimiter),
                 Escape(record.PlayerName, delimiter),
-                record.WasPartyMemberAtPickup ? "true" : "false",
+                record.WasPartyMemberAtPickup switch
+                {
+                    true => "true",
+                    false => "false",
+                    _ => "Unknown"
+                },
                 Escape(record.SourceKind.ToString(), delimiter),
                 Escape(record.SourceName, delimiter),
                 Escape(record.LocationName, delimiter),
