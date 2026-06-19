@@ -13,7 +13,12 @@ public class DebugResponseProbeResponseHandler : PacketHandler<ResponsePacket>
     [
         OperationCodes.ContainerOpen,
         OperationCodes.ContainerClose,
-        OperationCodes.InventoryMoveGivenItems
+        OperationCodes.InventoryAddToStacks,
+        OperationCodes.InventoryStack,
+        OperationCodes.InventoryMoveGivenItems,
+        OperationCodes.TreasureChestUsingStart,
+        OperationCodes.TreasureChestUsingCancel,
+        OperationCodes.UseLootChest
     ];
 
     private static readonly int[] ProbeOperationCodeValues = ProbeOperationCodes

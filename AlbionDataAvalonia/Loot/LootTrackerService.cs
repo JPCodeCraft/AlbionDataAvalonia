@@ -127,8 +127,12 @@ public sealed class LootTrackerService : IDisposable
         LootTrackerSnapshot snapshot;
         lock (sync)
         {
+            // Clear only the visible log. Active loot containers can stay open after
+            // the user clears the table, and wiping them makes later pickups look
+            // like unknown bank/container moves.
             records.Clear();
-            ClearTransientStateCore();
+            recentLocalPickups.Clear();
+            recentBroadcastPickups.Clear();
             snapshot = BuildSnapshot();
         }
 
