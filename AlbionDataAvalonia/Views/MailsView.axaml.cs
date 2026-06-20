@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.Views
 {
@@ -49,6 +50,44 @@ namespace AlbionDataAvalonia.Views
             if (sender is not DataGrid grid) return;
 
             vm.UpdateSelectedMails(grid.SelectedItems.OfType<MailRowViewModel>());
+        }
+
+        private async void CleanupButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        {
+            if (DataContext is not MailsViewModel vm) return;
+            if (TopLevel.GetTopLevel(this) is not Window owner) return;
+
+            var preview = await vm.GetCleanupPreviewAsync();
+            var selectedOption = await CleanupSelectionWindow.ShowAsync(owner, "mails", preview);
+            if (selectedOption == null)
+            {
+                return;
+            }
+
+            var confirmed = await CleanupConfirmWindow.ShowAsync(owner, "mails", selectedOption.Count);
+            if (!confirmed)
+            {
+                return;
+            }
+
+            await vm.CleanupMailsAsync(selectedOption);
+        }
+
+        private async void DeleteButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        {
+            if (DataContext is not MailsViewModel vm) return;
+            if (TopLevel.GetTopLevel(this) is not Window owner) return;
+
+            var selectedRows = MailsGrid.SelectedItems.OfType<MailRowViewModel>().ToList();
+            if (selectedRows.Count == 0) return;
+
+            var confirmed = await CleanupConfirmWindow.ShowAsync(owner, "mails", selectedRows.Count);
+            if (!confirmed)
+            {
+                return;
+            }
+
+            await vm.DeleteSelectedMailsAsync(selectedRows);
         }
 
         private async void CopyValuePointerPressed(object? sender, PointerPressedEventArgs e)

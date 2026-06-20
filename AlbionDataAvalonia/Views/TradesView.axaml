@@ -52,6 +52,7 @@
 
         <WrapPanel VerticalAlignment="Top" Margin="0,8,0,8">
             <StackPanel Orientation="Vertical" Spacing="0" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
+                <TextBlock Classes="FilterLabel" Text="Data"/>
                 <Button Classes="Filter ActionButton" Width="100" Content="Load" Command="{Binding LoadTradesCommand}" />
                 <Button Classes="Filter ActionButton" Width="100" Content="Export CSV" Name="ExportCsvButton" Click="ExportCsvButton_Click" IsEnabled="{Binding !IsExporting}" />
             </StackPanel>
@@ -123,6 +124,12 @@
                 <TextBlock Classes="FilterLabel" Text="Portfolio"/>
                 <Button Classes="Filter ActionButton" Width="130" Content="Add to Portfolio" Name="AddToPortfolioButton" Click="AddToPortfolioButton_Click" IsEnabled="{Binding CanAddSelectedTradesToPortfolio}" />
                 <TextBlock Classes="PortfolioHelperText" Text="{Binding PortfolioPostLimitHelperText}" IsVisible="{Binding IsSelectedPortfolioPostLimitExceeded}" />
+            </StackPanel>
+
+            <StackPanel Orientation="Vertical" Spacing="0" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
+                <TextBlock Classes="FilterLabel" Text="Cleanup"/>
+                <Button Classes="Filter ActionButton" Width="100" Content="Cleanup" Name="CleanupButton" Click="CleanupButton_Click" />
+                <Button Classes="Filter ActionButton" Width="100" Content="Delete" Name="DeleteButton" Click="DeleteButton_Click" IsEnabled="{Binding HasSelectedRows}" />
             </StackPanel>
 
             <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top" IsVisible="{Binding HasSelectedRows}">

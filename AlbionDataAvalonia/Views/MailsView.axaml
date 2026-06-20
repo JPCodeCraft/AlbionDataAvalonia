@@ -42,11 +42,12 @@
         </Style>
 	</UserControl.Styles>
 
-	<Grid ColumnDefinitions="*" RowDefinitions="Auto, *">
+	<Grid ColumnDefinitions="*" RowDefinitions="Auto, Auto, *">
 
 		<WrapPanel VerticalAlignment="Top" Margin="0,8,0,8">
 
             <StackPanel Orientation="Vertical" Spacing="0" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
+                <TextBlock Classes="FilterLabel" Text="Data"/>
                 <Button Classes="Filter ActionButton" Width="100" Content="Load" Command="{Binding LoadMailsCommand}" />
                 <Button Classes="Filter ActionButton" Width="100" Content="Export CSV" Name="ExportCsvButton" Click="ExportCsvButton_Click" IsEnabled="{Binding !IsExporting}" />
             </StackPanel>
@@ -98,6 +99,12 @@
                 </ComboBox>
             </StackPanel>
 
+            <StackPanel Orientation="Vertical" Spacing="0" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
+                <TextBlock Classes="FilterLabel" Text="Cleanup"/>
+                <Button Classes="Filter ActionButton" Width="100" Content="Cleanup" Name="CleanupButton" Click="CleanupButton_Click" />
+                <Button Classes="Filter ActionButton" Width="100" Content="Delete" Name="DeleteButton" Click="DeleteButton_Click" IsEnabled="{Binding HasSelectedRows}" />
+            </StackPanel>
+
             <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top" IsVisible="{Binding HasSelectedRows}">
                 <TextBlock Classes="FilterLabel" Text="Selected Totals"/>
                 <StackPanel Orientation="Vertical" Spacing="2" VerticalAlignment="Top">
@@ -118,7 +125,15 @@
 
         </WrapPanel>
 
-		<DataGrid Grid.Row="1" Margin="0" ItemsSource="{Binding Mails}"
+        <StackPanel Grid.Row="1"
+                    Orientation="Horizontal"
+                    Margin="4,0,0,8"
+                    IsVisible="{Binding HasCleanupStatus}">
+            <TextBlock Text="{Binding CleanupStatus}" TextWrapping="Wrap" FontSize="12" />
+        </StackPanel>
+
+		<DataGrid Grid.Row="2" Margin="0" ItemsSource="{Binding Mails}"
+                  Name="MailsGrid"
 				  AutoGenerateColumns="False" IsReadOnly="True"
                   SelectionMode="Extended"
                   SelectionChanged="MailsGrid_SelectionChanged"

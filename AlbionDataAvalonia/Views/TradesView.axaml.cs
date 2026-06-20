@@ -110,6 +110,44 @@ namespace AlbionDataAvalonia.Views
             await vm.SetSelectedTradesQualityAsync(selectedRows, selectedQuality.Value);
         }
 
+        private async void CleanupButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        {
+            if (DataContext is not TradesViewModel vm) return;
+            if (TopLevel.GetTopLevel(this) is not Window owner) return;
+
+            var preview = await vm.GetCleanupPreviewAsync();
+            var selectedOption = await CleanupSelectionWindow.ShowAsync(owner, "trades", preview);
+            if (selectedOption == null)
+            {
+                return;
+            }
+
+            var confirmed = await CleanupConfirmWindow.ShowAsync(owner, "trades", selectedOption.Count);
+            if (!confirmed)
+            {
+                return;
+            }
+
+            await vm.CleanupTradesAsync(selectedOption);
+        }
+
+        private async void DeleteButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        {
+            if (DataContext is not TradesViewModel vm) return;
+            if (TopLevel.GetTopLevel(this) is not Window owner) return;
+
+            var selectedRows = TradesGrid.SelectedItems.OfType<TradeRowViewModel>().ToList();
+            if (selectedRows.Count == 0) return;
+
+            var confirmed = await CleanupConfirmWindow.ShowAsync(owner, "trades", selectedRows.Count);
+            if (!confirmed)
+            {
+                return;
+            }
+
+            await vm.DeleteSelectedTradesAsync(selectedRows);
+        }
+
         private static async Task<IReadOnlyDictionary<PortfolioTradeQualityKey, int>?> GetUnknownQualityOverridesAsync(
             Window owner,
             IReadOnlyList<TradeRowViewModel> selectedRows)

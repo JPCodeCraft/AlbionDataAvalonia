@@ -490,6 +490,43 @@ public partial class TradesViewModel : ViewModelBase
         return false;
     }
 
+    public async Task<CleanupPreview> GetCleanupPreviewAsync(CancellationToken cancellationToken = default)
+    {
+        return await _tradeService.GetCleanupPreviewAsync(cancellationToken);
+    }
+
+    public async Task<int> CleanupTradesAsync(CleanupCountOption option, CancellationToken cancellationToken = default)
+    {
+        SetPortfolioImportStatus("Cleaning up trades...");
+        var deletedCount = await _tradeService.CleanupTradesOlderThanAsync(option.CutoffUtc, cancellationToken);
+        await LoadTrades();
+        await RefreshLocationOptionsAsync();
+        SetPortfolioImportStatus($"Cleanup: {deletedCount:N0} trade{(deletedCount == 1 ? string.Empty : "s")} deleted.");
+        return deletedCount;
+    }
+
+    public async Task<int> DeleteSelectedTradesAsync(
+        IEnumerable<TradeRowViewModel> selected,
+        CancellationToken cancellationToken = default)
+    {
+        var selectedTrades = selected?.ToList() ?? new List<TradeRowViewModel>();
+        if (selectedTrades.Count == 0)
+        {
+            return 0;
+        }
+
+        SetPortfolioImportStatus("Deleting selected trades...");
+        var deletedCount = await _tradeService.DeleteTradesAsync(
+            selectedTrades.Select(row => row.Source.Id),
+            cancellationToken);
+
+        await LoadTrades();
+        await RefreshLocationOptionsAsync();
+        UpdateSelectedTrades([]);
+        SetPortfolioImportStatus($"Delete: {deletedCount:N0} trade{(deletedCount == 1 ? string.Empty : "s")} deleted.");
+        return deletedCount;
+    }
+
     public async Task SetSelectedTradesQualityAsync(
         IEnumerable<TradeRowViewModel> selected,
         int qualityLevel,

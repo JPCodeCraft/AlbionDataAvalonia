@@ -44,6 +44,12 @@ public partial class MailsViewModel : ViewModelBase
     private bool hasSelectedRows;
 
     [ObservableProperty]
+    private string cleanupStatus = string.Empty;
+
+    [ObservableProperty]
+    private bool hasCleanupStatus;
+
+    [ObservableProperty]
     private long selectedAmountTotal;
 
     [ObservableProperty]
@@ -353,6 +359,49 @@ public partial class MailsViewModel : ViewModelBase
         {
             IsExporting = false;
         }
+    }
+
+    public async Task<CleanupPreview> GetCleanupPreviewAsync(CancellationToken cancellationToken = default)
+    {
+        return await _mailService.GetCleanupPreviewAsync(cancellationToken);
+    }
+
+    public async Task<int> CleanupMailsAsync(CleanupCountOption option, CancellationToken cancellationToken = default)
+    {
+        SetCleanupStatus("Cleaning up mails...");
+        var deletedCount = await _mailService.CleanupMailsOlderThanAsync(option.CutoffUtc, cancellationToken);
+        await LoadMails();
+        await RefreshLocationOptionsAsync();
+        SetCleanupStatus($"Cleanup: {deletedCount:N0} mail{(deletedCount == 1 ? string.Empty : "s")} deleted.");
+        return deletedCount;
+    }
+
+    public async Task<int> DeleteSelectedMailsAsync(
+        IEnumerable<MailRowViewModel> selected,
+        CancellationToken cancellationToken = default)
+    {
+        var selectedMails = selected?.ToList() ?? new List<MailRowViewModel>();
+        if (selectedMails.Count == 0)
+        {
+            return 0;
+        }
+
+        SetCleanupStatus("Deleting selected mails...");
+        var deletedCount = await _mailService.DeleteMailsAsync(
+            selectedMails.Select(row => row.Source.Id),
+            cancellationToken);
+
+        await LoadMails();
+        await RefreshLocationOptionsAsync();
+        UpdateSelectedMails([]);
+        SetCleanupStatus($"Delete: {deletedCount:N0} mail{(deletedCount == 1 ? string.Empty : "s")} deleted.");
+        return deletedCount;
+    }
+
+    private void SetCleanupStatus(string status)
+    {
+        CleanupStatus = status;
+        HasCleanupStatus = !string.IsNullOrWhiteSpace(status);
     }
 
     private void OnUserSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)

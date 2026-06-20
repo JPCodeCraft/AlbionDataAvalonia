@@ -8,6 +8,7 @@ using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.Network.Services;
@@ -102,6 +103,57 @@ public class TradeService
         }
     }
 
+    public async Task<CleanupPreview> GetCleanupPreviewAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var db = new LocalContext();
+            var totalCount = await db.Trades.CountAsync(x => !x.Deleted, cancellationToken);
+            var options = new List<CleanupCountOption>();
+
+            foreach (var threshold in CleanupThresholds.Create(DateTime.UtcNow))
+            {
+                var count = await db.Trades.CountAsync(
+                    x => !x.Deleted && x.DateTime < threshold.CutoffUtc,
+                    cancellationToken);
+                options.Add(new CleanupCountOption(threshold.Label, threshold.CutoffUtc, count));
+            }
+
+            return new CleanupPreview(totalCount, options);
+        }
+        catch (Exception e)
+        {
+            Log.Error(e, e.Message);
+            return new CleanupPreview(0, []);
+        }
+    }
+
+    public async Task<int> CleanupTradesOlderThanAsync(DateTime cutoffUtc, CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var db = new LocalContext();
+            var trades = await db.Trades
+                .Where(x => !x.Deleted && x.DateTime < cutoffUtc)
+                .ToListAsync(cancellationToken);
+
+            foreach (var trade in trades)
+            {
+                trade.Deleted = true;
+            }
+
+            await db.SaveChangesAsync(cancellationToken);
+
+            Log.Information("Cleaned up {Count} trades older than {CutoffUtc:O}", trades.Count, cutoffUtc);
+            return trades.Count;
+        }
+        catch (Exception e)
+        {
+            Log.Error(e, e.Message);
+            return 0;
+        }
+    }
+
     private async Task AddTradeToDb(Trade trade)
     {
         try
@@ -144,6 +196,38 @@ public class TradeService
         catch (Exception e)
         {
             Log.Error(e, e.Message);
+        }
+    }
+
+    public async Task<int> DeleteTradesAsync(IEnumerable<Guid> tradeIds, CancellationToken cancellationToken = default)
+    {
+        var ids = tradeIds.Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return 0;
+        }
+
+        try
+        {
+            using var db = new LocalContext();
+            var trades = await db.Trades
+                .Where(x => !x.Deleted && ids.Contains(x.Id))
+                .ToListAsync(cancellationToken);
+
+            foreach (var trade in trades)
+            {
+                trade.Deleted = true;
+            }
+
+            await db.SaveChangesAsync(cancellationToken);
+
+            Log.Information("Deleted {Count} selected trades", trades.Count);
+            return trades.Count;
+        }
+        catch (Exception e)
+        {
+            Log.Error(e, e.Message);
+            return 0;
         }
     }
 
