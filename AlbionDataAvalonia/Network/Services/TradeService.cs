@@ -147,6 +147,43 @@ public class TradeService
         }
     }
 
+    public async Task<int> UpdateTradeQualityLevelsAsync(IEnumerable<Guid> tradeIds, byte qualityLevel)
+    {
+        if (qualityLevel > 5)
+        {
+            throw new ArgumentOutOfRangeException(nameof(qualityLevel), "Quality level must be between 0 and 5.");
+        }
+
+        var ids = tradeIds.Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return 0;
+        }
+
+        try
+        {
+            using var db = new LocalContext();
+            var trades = await db.Trades
+                .Where(x => ids.Contains(x.Id))
+                .ToListAsync();
+
+            foreach (var trade in trades)
+            {
+                trade.QualityLevel = qualityLevel;
+            }
+
+            await db.SaveChangesAsync();
+
+            Log.Debug("Updated {Count} trade quality levels to {QualityLevel}", trades.Count, qualityLevel);
+            return trades.Count;
+        }
+        catch (Exception e)
+        {
+            Log.Error(e, e.Message);
+            return 0;
+        }
+    }
+
     public void AddMarketOrdersToCache(List<MarketOrder> orders)
     {
         foreach (var order in orders)

@@ -92,6 +92,24 @@ namespace AlbionDataAvalonia.Views
             await vm.AddTradesToPortfolioAsync(selectedRows, qualityOverrides, allowReupload);
         }
 
+        private async void SetQualityButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        {
+            if (DataContext is not TradesViewModel vm) return;
+            if (TopLevel.GetTopLevel(this) is not Window owner) return;
+
+            var selectedRows = TradesGrid.SelectedItems.OfType<TradeRowViewModel>().ToList();
+            if (selectedRows.Count == 0) return;
+            if (!vm.CanSetSelectedTradeQuality) return;
+
+            var selectedQuality = await TradeQualitySelectionWindow.ShowAsync(owner, selectedRows.Count(row => !row.UploadedToPortfolio));
+            if (selectedQuality == null)
+            {
+                return;
+            }
+
+            await vm.SetSelectedTradesQualityAsync(selectedRows, selectedQuality.Value);
+        }
+
         private static async Task<IReadOnlyDictionary<PortfolioTradeQualityKey, int>?> GetUnknownQualityOverridesAsync(
             Window owner,
             IReadOnlyList<TradeRowViewModel> selectedRows)

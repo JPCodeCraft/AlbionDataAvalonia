@@ -115,6 +115,11 @@
             </StackPanel>
 
             <StackPanel Orientation="Vertical" Spacing="0" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
+                <TextBlock Classes="FilterLabel" Text="Quality"/>
+                <Button Classes="Filter ActionButton" Width="110" Content="Set Quality" Name="SetQualityButton" Click="SetQualityButton_Click" IsEnabled="{Binding CanSetSelectedTradeQuality}" />
+            </StackPanel>
+
+            <StackPanel Orientation="Vertical" Spacing="0" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
                 <TextBlock Classes="FilterLabel" Text="Portfolio"/>
                 <Button Classes="Filter ActionButton" Width="130" Content="Add to Portfolio" Name="AddToPortfolioButton" Click="AddToPortfolioButton_Click" IsEnabled="{Binding CanAddSelectedTradesToPortfolio}" />
                 <TextBlock Classes="PortfolioHelperText" Text="{Binding PortfolioPostLimitHelperText}" IsVisible="{Binding IsSelectedPortfolioPostLimitExceeded}" />

@@ -1,4 +1,5 @@
 using AlbionDataAvalonia.Network.Models;
+using AlbionDataAvalonia.Items;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -17,15 +18,6 @@ public sealed record PortfolioQualitySelectionGroup(
 
 public sealed class PortfolioQualitySelectionWindow : Window
 {
-    private static readonly IReadOnlyList<PortfolioQualityOption> QualityOptions =
-    [
-        new(1, "Normal"),
-        new(2, "Good"),
-        new(3, "Outstanding"),
-        new(4, "Excellent"),
-        new(5, "Masterpiece")
-    ];
-
     private readonly List<PortfolioQualitySelectionRow> _rows;
 
     public IReadOnlyDictionary<PortfolioTradeQualityKey, int>? SelectedQualities { get; private set; }
@@ -128,7 +120,7 @@ public sealed class PortfolioQualitySelectionWindow : Window
 
         var comboBox = new ComboBox
         {
-            ItemsSource = QualityOptions,
+            ItemsSource = ItemQuality.Options,
             SelectedIndex = 0,
             Width = 160,
             HorizontalAlignment = HorizontalAlignment.Right,
@@ -136,7 +128,7 @@ public sealed class PortfolioQualitySelectionWindow : Window
         };
         comboBox.SelectionChanged += (_, _) =>
         {
-            if (comboBox.SelectedItem is PortfolioQualityOption quality)
+            if (comboBox.SelectedItem is ItemQualityOption quality)
             {
                 row.SelectedQuality = quality.Index;
             }
@@ -170,10 +162,5 @@ public sealed class PortfolioQualitySelectionWindow : Window
         public int SelectedQuality { get; set; } = 1;
         public string Label => Group.ItemName;
         public string Detail => $"{Group.ServerName} - {Group.Count:N0} trade{(Group.Count == 1 ? string.Empty : "s")}";
-    }
-
-    private sealed record PortfolioQualityOption(int Index, string Name)
-    {
-        public override string ToString() => Name;
     }
 }

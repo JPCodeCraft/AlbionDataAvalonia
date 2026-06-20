@@ -1,5 +1,6 @@
 ﻿using AlbionDataAvalonia.Locations;
 using AlbionDataAvalonia.Locations.Models;
+using AlbionDataAvalonia.Items;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Settings;
@@ -46,7 +47,13 @@ public partial class TradesViewModel : ViewModelBase
     private bool hasSelectedRows;
 
     [ObservableProperty]
+    private bool hasSelectedQualityEditableRows;
+
+    [ObservableProperty]
     private bool isAddingToPortfolio;
+
+    [ObservableProperty]
+    private bool isSettingQuality;
 
     [ObservableProperty]
     private string portfolioImportStatus = string.Empty;
@@ -74,6 +81,7 @@ public partial class TradesViewModel : ViewModelBase
     }
 
     private List<Trade> UnfilteredTrades { get; set; } = new();
+    private List<TradeRowViewModel> SelectedTrades { get; set; } = new();
     private HashSet<Guid> PortfolioUploadedTradeIds { get; set; } = new();
 
     private List<string> _locations = ["Any"];
@@ -136,6 +144,8 @@ public partial class TradesViewModel : ViewModelBase
         ? PortfolioUploadService.CreatePostLimitMessage(SelectedPortfolioPostCount)
         : string.Empty;
 
+    public bool CanSetSelectedTradeQuality => HasSelectedQualityEditableRows && !IsSettingQuality;
+
     public bool CanAddSelectedTradesToPortfolio => HasSelectedRows && !IsAddingToPortfolio && !IsSelectedPortfolioPostLimitExceeded;
 
     public NumericOption SelectedTradesToLoad
@@ -180,7 +190,11 @@ public partial class TradesViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanAddSelectedTradesToPortfolio));
     }
 
+    partial void OnHasSelectedQualityEditableRowsChanged(bool value) => OnPropertyChanged(nameof(CanSetSelectedTradeQuality));
+
     partial void OnIsAddingToPortfolioChanged(bool value) => OnPropertyChanged(nameof(CanAddSelectedTradesToPortfolio));
+
+    partial void OnIsSettingQualityChanged(bool value) => OnPropertyChanged(nameof(CanSetSelectedTradeQuality));
 
     partial void OnSelectedPortfolioPostCountChanged(int value)
     {
@@ -347,6 +361,8 @@ public partial class TradesViewModel : ViewModelBase
         {
             row.SetUploadedToPortfolio(PortfolioUploadedTradeIds.Contains(row.Source.Id));
         }
+
+        HasSelectedQualityEditableRows = SelectedTrades.Any(trade => !trade.UploadedToPortfolio);
     }
 
     private void QueueLoadTradesForSelectionChange(string? oldValue, string? newValue)
@@ -420,9 +436,11 @@ public partial class TradesViewModel : ViewModelBase
     public void UpdateSelectedTrades(IEnumerable<TradeRowViewModel> selected)
     {
         var selectedTrades = selected?.ToList() ?? new List<TradeRowViewModel>();
+        SelectedTrades = selectedTrades;
         if (selectedTrades.Count == 0)
         {
             HasSelectedRows = false;
+            HasSelectedQualityEditableRows = false;
             SelectedAmountTotal = 0;
             SelectedTotalSilver = 0;
             SelectedAverageSilver = 0;
@@ -439,6 +457,7 @@ public partial class TradesViewModel : ViewModelBase
         }
 
         HasSelectedRows = true;
+        HasSelectedQualityEditableRows = selectedTrades.Any(trade => !trade.UploadedToPortfolio);
         SelectedAmountTotal = amountTotal;
         SelectedTotalSilver = totalSilver;
         SelectedAverageSilver = amountTotal == 0 ? 0 : totalSilver / amountTotal;
@@ -471,6 +490,65 @@ public partial class TradesViewModel : ViewModelBase
         return false;
     }
 
+    public async Task SetSelectedTradesQualityAsync(
+        IEnumerable<TradeRowViewModel> selected,
+        int qualityLevel,
+        CancellationToken cancellationToken = default)
+    {
+        var selectedTrades = selected?.ToList() ?? new List<TradeRowViewModel>();
+        var editableTrades = selectedTrades.Where(row => !row.UploadedToPortfolio).ToList();
+        if (selectedTrades.Count == 0 || editableTrades.Count == 0 || IsSettingQuality)
+        {
+            return;
+        }
+
+        if (qualityLevel is < 0 or > 5)
+        {
+            SetPortfolioImportStatus("Quality update failed. Select a quality between Unknown and Masterpiece.");
+            return;
+        }
+
+        IsSettingQuality = true;
+        SetPortfolioImportStatus("Updating selected trade quality...");
+
+        try
+        {
+            var updatedCount = await _tradeService.UpdateTradeQualityLevelsAsync(
+                editableTrades.Select(row => row.Source.Id),
+                (byte)qualityLevel);
+
+            if (updatedCount != editableTrades.Count)
+            {
+                SetPortfolioImportStatus("Quality update failed. Check logs for details.");
+                return;
+            }
+
+            foreach (var row in editableTrades)
+            {
+                row.SetQualityLevel((byte)qualityLevel);
+            }
+
+            UpdateSelectedTrades(selectedTrades);
+            var status = $"Quality: {updatedCount:N0} trade{(updatedCount == 1 ? string.Empty : "s")} updated to {ItemQuality.Format(qualityLevel)}.";
+            var skippedCount = selectedTrades.Count - editableTrades.Count;
+            if (skippedCount > 0)
+            {
+                status += $" {skippedCount:N0} uploaded trade{(skippedCount == 1 ? string.Empty : "s")} skipped.";
+            }
+
+            SetPortfolioImportStatus(status);
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to update selected trade quality");
+            SetPortfolioImportStatus("Quality update failed. Check logs for details.");
+        }
+        finally
+        {
+            IsSettingQuality = false;
+        }
+    }
+
     public async Task AddTradesToPortfolioAsync(
         IEnumerable<TradeRowViewModel> selected,
         IReadOnlyDictionary<PortfolioTradeQualityKey, int> qualityOverrides,
@@ -496,6 +574,8 @@ public partial class TradesViewModel : ViewModelBase
 
         try
         {
+            await SavePortfolioQualityOverridesAsync(selectedTrades, qualityOverrides, cancellationToken);
+
             var requests = new List<PortfolioTradeImportRequest>();
             var invalidTrades = 0;
 
@@ -581,6 +661,46 @@ public partial class TradesViewModel : ViewModelBase
         {
             IsAddingToPortfolio = false;
         }
+    }
+
+    private async Task SavePortfolioQualityOverridesAsync(
+        IReadOnlyCollection<TradeRowViewModel> selectedTrades,
+        IReadOnlyDictionary<PortfolioTradeQualityKey, int> qualityOverrides,
+        CancellationToken cancellationToken)
+    {
+        var rowsToUpdate = selectedTrades
+            .Where(row => row.QualityLevel == 0
+                && !row.UploadedToPortfolio
+                && qualityOverrides.TryGetValue(CreateQualityKey(row), out var quality)
+                && quality is >= 1 and <= 5)
+            .ToList();
+
+        if (rowsToUpdate.Count == 0)
+        {
+            return;
+        }
+
+        foreach (var group in rowsToUpdate.GroupBy(row => qualityOverrides[CreateQualityKey(row)]))
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var qualityLevel = (byte)group.Key;
+            var groupRows = group.ToList();
+            var updatedCount = await _tradeService.UpdateTradeQualityLevelsAsync(
+                groupRows.Select(row => row.Source.Id),
+                qualityLevel);
+
+            if (updatedCount != groupRows.Count)
+            {
+                throw new InvalidOperationException("Failed to save selected Portfolio trade qualities.");
+            }
+
+            foreach (var row in groupRows)
+            {
+                row.SetQualityLevel(qualityLevel);
+            }
+        }
+
+        UpdateSelectedTrades(selectedTrades);
     }
 
     public static PortfolioTradeQualityKey CreateQualityKey(TradeRowViewModel row)
@@ -713,6 +833,14 @@ public sealed class TradeRowViewModel : ObservableObject
     public void SetUploadedToPortfolio(bool uploadedToPortfolio)
     {
         UploadedToPortfolio = uploadedToPortfolio;
+    }
+
+    public void SetQualityLevel(byte qualityLevel)
+    {
+        Source.QualityLevel = qualityLevel;
+        OnPropertyChanged(nameof(QualityLevel));
+        OnPropertyChanged(nameof(QualityLevelFormatted));
+        OnPropertyChanged(nameof(ImageQuality));
     }
 
     private static string FormatUtc(DateTime dateTime)
