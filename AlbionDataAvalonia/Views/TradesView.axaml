@@ -40,9 +40,15 @@
         <Style Selector="TextBlock.SelectedSummaryValue">
             <Setter Property="FontSize" Value="11"/>
         </Style>
+        <Style Selector="TextBlock.PortfolioHelperText">
+            <Setter Property="FontSize" Value="11"/>
+            <Setter Property="Foreground" Value="#d99"/>
+            <Setter Property="TextWrapping" Value="Wrap"/>
+            <Setter Property="Width" Value="170"/>
+        </Style>
 	</UserControl.Styles>
 
-	<Grid ColumnDefinitions="*" RowDefinitions="Auto, *">
+	<Grid ColumnDefinitions="*" RowDefinitions="Auto, Auto, *">
 
         <WrapPanel VerticalAlignment="Top" Margin="0,8,0,8">
             <StackPanel Orientation="Vertical" Spacing="0" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
@@ -108,6 +114,12 @@
                 </ComboBox>
             </StackPanel>
 
+            <StackPanel Orientation="Vertical" Spacing="0" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
+                <TextBlock Classes="FilterLabel" Text="Portfolio"/>
+                <Button Classes="Filter ActionButton" Width="130" Content="Add to Portfolio" Name="AddToPortfolioButton" Click="AddToPortfolioButton_Click" IsEnabled="{Binding CanAddSelectedTradesToPortfolio}" />
+                <TextBlock Classes="PortfolioHelperText" Text="{Binding PortfolioPostLimitHelperText}" IsVisible="{Binding IsSelectedPortfolioPostLimitExceeded}" />
+            </StackPanel>
+
             <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top" IsVisible="{Binding HasSelectedRows}">
                 <TextBlock Classes="FilterLabel" Text="Selected Totals"/>
                 <StackPanel Orientation="Vertical" Spacing="2" VerticalAlignment="Top">
@@ -127,7 +139,15 @@
             </StackPanel>
         </WrapPanel>
 
-		<DataGrid Grid.Row="1" Margin="0" ItemsSource="{Binding Trades}"
+        <StackPanel Grid.Row="1"
+                    Orientation="Horizontal"
+                    Margin="4,0,0,8"
+                    IsVisible="{Binding HasPortfolioImportStatus}">
+            <TextBlock Text="{Binding PortfolioImportStatus}" TextWrapping="Wrap" FontSize="12" />
+        </StackPanel>
+
+		<DataGrid Grid.Row="2" Margin="0" ItemsSource="{Binding Trades}"
+                  Name="TradesGrid"
 				  AutoGenerateColumns="False" IsReadOnly="True"
                   SelectionMode="Extended"
                   SelectionChanged="TradesGrid_SelectionChanged"
@@ -146,10 +166,11 @@
 			<DataGrid.Columns>
 				<DataGridTextColumn Header="Server" Binding="{Binding Server.Name}" />
 				<DataGridTextColumn Header="Player" Binding="{Binding PlayerName}" />
-				<DataGridTextColumn Header="Received" Binding="{Binding DateTime}" />
+				<DataGridTextColumn Header="Received" Binding="{Binding DateTimeUtcFormatted}" SortMemberPath="DateTime" />
 				<DataGridTextColumn Header="Type" Binding="{Binding TradeTypeFormatted}" />
 				<DataGridTextColumn Header="Operation" Binding="{Binding TradeOperationFormatted}" />
 				<DataGridTextColumn Header="Quality" Binding="{Binding QualityLevelFormatted}" />
+				<DataGridTextColumn Header="Portfolio" Binding="{Binding UploadedToPortfolioFormatted}" />
 				<DataGridTemplateColumn Header="Item" SortMemberPath="ItemName" CanUserSort="True">
 					<DataGridTemplateColumn.CellTemplate>
 						<DataTemplate>

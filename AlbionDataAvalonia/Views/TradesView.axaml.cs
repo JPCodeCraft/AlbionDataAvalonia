@@ -7,6 +7,7 @@ using System;
 using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
+using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.Views
 {
@@ -49,6 +50,74 @@ namespace AlbionDataAvalonia.Views
             if (sender is not DataGrid grid) return;
 
             vm.UpdateSelectedTrades(grid.SelectedItems.OfType<TradeRowViewModel>());
+        }
+
+        private async void AddToPortfolioButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        {
+            if (DataContext is not TradesViewModel vm) return;
+            if (TopLevel.GetTopLevel(this) is not Window owner) return;
+
+            var selectedRows = TradesGrid.SelectedItems.OfType<TradeRowViewModel>().ToList();
+            if (selectedRows.Count == 0) return;
+            if (!vm.CanAddSelectedTradesToPortfolio) return;
+
+            if (!await vm.EnsurePortfolioSignedInAsync())
+            {
+                await PortfolioSignInRequiredWindow.ShowAsync(owner);
+                return;
+            }
+
+            if (!await vm.RefreshPortfolioUploadedTradeIdsAsync(showStatusOnFailure: true))
+            {
+                return;
+            }
+
+            var alreadyUploadedCount = selectedRows.Count(row => row.UploadedToPortfolio);
+            var allowReupload = false;
+            if (alreadyUploadedCount > 0)
+            {
+                allowReupload = await ConfirmPortfolioReuploadWindow.ShowAsync(owner, alreadyUploadedCount, selectedRows.Count);
+                if (!allowReupload)
+                {
+                    return;
+                }
+            }
+
+            var qualityOverrides = await GetUnknownQualityOverridesAsync(owner, selectedRows);
+            if (qualityOverrides == null)
+            {
+                return;
+            }
+
+            await vm.AddTradesToPortfolioAsync(selectedRows, qualityOverrides, allowReupload);
+        }
+
+        private static async Task<IReadOnlyDictionary<PortfolioTradeQualityKey, int>?> GetUnknownQualityOverridesAsync(
+            Window owner,
+            IReadOnlyList<TradeRowViewModel> selectedRows)
+        {
+            var unknownQualityGroups = selectedRows
+                .Where(row => row.QualityLevel == 0)
+                .GroupBy(TradesViewModel.CreateQualityKey)
+                .Select(group =>
+                {
+                    var first = group.First();
+                    return new PortfolioQualitySelectionGroup(
+                        group.Key,
+                        first.ItemName,
+                        first.Server?.Name ?? "Unknown server",
+                        group.Count());
+                })
+                .OrderBy(group => group.ItemName)
+                .ThenBy(group => group.ServerName)
+                .ToList();
+
+            if (unknownQualityGroups.Count == 0)
+            {
+                return new Dictionary<PortfolioTradeQualityKey, int>();
+            }
+
+            return await PortfolioQualitySelectionWindow.ShowAsync(owner, unknownQualityGroups);
         }
 
         private async void CopyValuePointerPressed(object? sender, PointerPressedEventArgs e)
