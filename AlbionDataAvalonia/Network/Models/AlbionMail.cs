@@ -134,14 +134,18 @@ public class AlbionMail
                     unitSilverData = NormalizeUnitSilver(long.Parse(parts[3]) / 10000.0);
                     totalTaxesData = 0;
                     break;
+                // Completed buy orders include the actual total paid, so derive the unit price
+                // from total silver / amount instead of the original order limit price.
                 case AlbionMailInfoType.MARKETPLACE_BUYORDER_FINISHED_SUMMARY:
                     partialAmountData = int.Parse(parts[0]);
                     totalAmountData = partialAmountData;
                     itemIdData = parts[1];
                     totalSilverData = long.Parse(parts[2]) / 10000;
-                    unitSilverData = NormalizeUnitSilver(long.Parse(parts[3]) / 10000.0);
+                    unitSilverData = NormalizeUnitSilver(partialAmountData == 0 ? 0 : totalSilverData / (double)partialAmountData);
                     totalTaxesData = 0;
                     break;
+                // Expired buy orders do not expose the real paid price for filled items.
+                // Use the returned silver to infer the original order limit price.
                 case AlbionMailInfoType.MARKETPLACE_BUYORDER_EXPIRED_SUMMARY:
                     partialAmountData = int.Parse(parts[0]);
                     totalAmountData = int.Parse(parts[1]);
