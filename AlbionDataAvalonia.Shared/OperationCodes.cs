@@ -544,5 +544,9 @@
         RequestLoreSnippetStates,
         RetrieveCarriableObjectStart,
         RetrieveCarriableObjectCancel,
+        ForfeitCustomMatch,
+        GetPartyMemberCluster,
+        SetPartyNavigation,
+        EndPartyNavigation,
     }
 }
