@@ -3,6 +3,7 @@ using System;
 using AlbionDataAvalonia.DB;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 
 #nullable disable
@@ -10,9 +11,11 @@ using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 namespace AlbionDataAvalonia.Migrations
 {
     [DbContext(typeof(LocalContext))]
-    partial class LocalContextModelSnapshot : ModelSnapshot
+    [Migration("20260630172356_AddLegendaryItemAttunedToPlayerName")]
+    partial class AddLegendaryItemAttunedToPlayerName
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.8");
@@ -170,9 +173,6 @@ namespace AlbionDataAvalonia.Migrations
                     b.Property<long?>("Attunement")
                         .HasColumnType("INTEGER");
 
-                    b.Property<long?>("AttunementSpent")
-                        .HasColumnType("INTEGER");
-
                     b.Property<int?>("ContainerColor")
                         .HasColumnType("INTEGER");
 
@@ -194,9 +194,6 @@ namespace AlbionDataAvalonia.Migrations
                         .HasColumnType("TEXT");
 
                     b.Property<long>("CurrentDurability")
-                        .HasColumnType("INTEGER");
-
-                    b.Property<int?>("Era")
                         .HasColumnType("INTEGER");
 
                     b.Property<long>("EstimatedMarketValue")
@@ -238,9 +235,6 @@ namespace AlbionDataAvalonia.Migrations
                     b.Property<Guid?>("PrivateContainerId")
                         .HasColumnType("TEXT");
 
-                    b.Property<long?>("PvPFameGained")
-                        .HasColumnType("INTEGER");
-
                     b.Property<int>("Quality")
                         .HasColumnType("INTEGER");
 
@@ -255,12 +249,6 @@ namespace AlbionDataAvalonia.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
-                    b.Property<Guid?>("SoulId")
-                        .HasColumnType("TEXT");
-
-                    b.Property<string>("SoulName")
-                        .HasColumnType("TEXT");
-
                     b.Property<double?>("Strain")
                         .HasColumnType("REAL");
 
@@ -268,9 +256,7 @@ namespace AlbionDataAvalonia.Migrations
 
                     b.HasIndex("LastSeenAtUtc");
 
-                    b.HasIndex("AlbionServerId", "ObjectId");
-
-                    b.HasIndex("AlbionServerId", "SoulId")
+                    b.HasIndex("AlbionServerId", "ObjectId")
                         .IsUnique();
 
                     b.ToTable("LegendaryItems");

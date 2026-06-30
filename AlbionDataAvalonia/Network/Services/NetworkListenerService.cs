@@ -3,6 +3,7 @@ using AlbionDataAvalonia.Combat;
 using AlbionDataAvalonia.Gathering;
 using AlbionDataAvalonia.Items.Services;
 using AlbionDataAvalonia.Loot;
+using AlbionDataAvalonia.Legendary;
 using AlbionDataAvalonia.Network.Handlers;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Party;
@@ -45,6 +46,7 @@ namespace AlbionDataAvalonia.Network.Services
         private readonly PartyTrackerService _partyTracker;
         private readonly LootTrackerService _lootTracker;
         private readonly MobsService _mobsService;
+        private readonly LegendaryItemTrackerService _legendaryTracker;
 
         private bool hasCleanedUpDevices = false;
         private bool hasFinishedStartingDevices = false;
@@ -56,7 +58,7 @@ namespace AlbionDataAvalonia.Network.Services
         public event EventHandler? MacOSCapturePermissionSetupRequiredChanged;
         public bool IsMacOSCapturePermissionSetupRequired { get; private set; }
 
-        public NetworkListenerService(Uploader uploader, PlayerState playerState, SettingsManager settingsManager, MailService mailService, IdleService idleService, TradeService tradeService, AFMUploader afmUploader, ItemsIdsService itemsIdsService, ItemEstimatedMarketValueService itemEstimatedMarketValues, AchievementsService achievementsService, CombatTrackerService combatTracker, GatheringTrackerService gatheringTracker, PartyTrackerService partyTracker, LootTrackerService lootTracker, MobsService mobsService)
+        public NetworkListenerService(Uploader uploader, PlayerState playerState, SettingsManager settingsManager, MailService mailService, IdleService idleService, TradeService tradeService, AFMUploader afmUploader, ItemsIdsService itemsIdsService, ItemEstimatedMarketValueService itemEstimatedMarketValues, AchievementsService achievementsService, CombatTrackerService combatTracker, GatheringTrackerService gatheringTracker, PartyTrackerService partyTracker, LootTrackerService lootTracker, MobsService mobsService, LegendaryItemTrackerService legendaryTracker)
         {
             _uploader = uploader;
             _playerState = playerState;
@@ -71,6 +73,7 @@ namespace AlbionDataAvalonia.Network.Services
             _partyTracker = partyTracker;
             _lootTracker = lootTracker;
             _mobsService = mobsService;
+            _legendaryTracker = legendaryTracker;
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
@@ -137,9 +140,10 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddEventHandler(new NewLootChestEventHandler(_lootTracker));
                 builder.AddEventHandler(new UpdateLootChestEventHandler(_lootTracker));
                 builder.AddEventHandler(new LootChestOpenedEventHandler(_lootTracker));
-                builder.AddEventHandler(new AttachItemContainerEventHandler(_lootTracker));
-                builder.AddEventHandler(new DetachItemContainerEventHandler(_lootTracker));
-                builder.AddEventHandler(new InventoryDeleteItemEventHandler(_lootTracker));
+                builder.AddEventHandler(new AttachItemContainerEventHandler(_lootTracker, _legendaryTracker));
+                builder.AddEventHandler(new DetachItemContainerEventHandler(_lootTracker, _legendaryTracker));
+                builder.AddEventHandler(new InventoryDeleteItemEventHandler(_lootTracker, _legendaryTracker));
+                builder.AddEventHandler(new InventoryPutItemEventHandler(_legendaryTracker));
                 builder.AddEventHandler(new OtherGrabbedLootEventHandler(_lootTracker));
                 builder.AddEventHandler(new PartyLootItemsEventHandler(_lootTracker));
                 builder.AddEventHandler(new PartyLootItemsRemovedEventHandler(_lootTracker));
@@ -147,12 +151,13 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddEventHandler(new NewSimpleItemEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _gatheringTracker, _lootTracker, _playerState));
                 builder.AddEventHandler(new NewJournalItemEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _lootTracker, _playerState));
                 builder.AddEventHandler(new NewLaborerItemEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _lootTracker, _playerState));
-                builder.AddEventHandler(new NewEquipmentItemEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _lootTracker, _playerState));
+                builder.AddEventHandler(new NewEquipmentItemEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _lootTracker, _playerState, _legendaryTracker));
                 builder.AddEventHandler(new NewFurnitureItemEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _lootTracker, _playerState));
                 builder.AddEventHandler(new NewKillTrophyItemEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _lootTracker, _playerState));
                 builder.AddEventHandler(new NewSiegeBannerItemEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _lootTracker, _playerState));
-                // builder.AddEventHandler(new NewEquipmentItemLegendarySoulEventHandler(_playerState));
-                // builder.AddEventHandler(new BankVaultInfoEventHandler(_playerState));
+                builder.AddEventHandler(new NewEquipmentItemLegendarySoulEventHandler(_legendaryTracker));
+                builder.AddEventHandler(new BankVaultInfoEventHandler(_legendaryTracker));
+                builder.AddEventHandler(new GuildVaultInfoEventHandler(_legendaryTracker));
 #if DEBUG
                 builder.AddEventHandler(new DebugEventProbeEventHandler());
 #endif
@@ -161,7 +166,7 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddResponseHandler(new AuctionGetOffersResponseHandler(_uploader, _playerState, _tradeService));
                 builder.AddResponseHandler(new AuctionGetRequestsResponseHandler(_uploader, _playerState, _tradeService));
                 builder.AddResponseHandler(new AuctionGetItemAverageStatsResponseHandler(_uploader, _playerState));
-                builder.AddResponseHandler(new JoinResponseHandler(_playerState, _afmUploader, _partyTracker, _lootTracker));
+                builder.AddResponseHandler(new JoinResponseHandler(_playerState, _afmUploader, _partyTracker, _lootTracker, _legendaryTracker));
                 builder.AddResponseHandler(new AuctionGetGoldAverageStatsResponseHandler(_uploader));
                 builder.AddResponseHandler(new GetMailInfosResponseHandler(_playerState, _mailService));
                 builder.AddResponseHandler(new ReadMailResponseHandler(_playerState, _mailService));

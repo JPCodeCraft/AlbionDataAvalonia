@@ -1,5 +1,6 @@
 using Albion.Network;
 using AlbionDataAvalonia.Items.Services;
+using AlbionDataAvalonia.Legendary;
 using AlbionDataAvalonia.Loot;
 using AlbionDataAvalonia.Network.Events;
 using AlbionDataAvalonia.Network.Services;
@@ -17,22 +18,25 @@ public class NewEquipmentItemEventHandler : EventPacketHandler<NewEquipmentItemE
     private readonly ItemEstimatedMarketValueService itemEstimatedMarketValues;
     private readonly LootTrackerService lootTracker;
     private readonly PlayerState playerState;
+    private readonly LegendaryItemTrackerService legendaryTracker;
 
     public NewEquipmentItemEventHandler(
         ItemsIdsService itemsIdsService,
         AFMUploader afmUploader,
         ItemEstimatedMarketValueService itemEstimatedMarketValues,
         LootTrackerService lootTracker,
-        PlayerState playerState) : base((int)EventCodes.NewEquipmentItem)
+        PlayerState playerState,
+        LegendaryItemTrackerService legendaryTracker) : base((int)EventCodes.NewEquipmentItem)
     {
         this.itemsIdsService = itemsIdsService;
         this.afmUploader = afmUploader;
         this.itemEstimatedMarketValues = itemEstimatedMarketValues;
         this.lootTracker = lootTracker;
         this.playerState = playerState;
+        this.legendaryTracker = legendaryTracker;
     }
 
-    protected override Task OnActionAsync(NewEquipmentItemEvent value)
+    protected override async Task OnActionAsync(NewEquipmentItemEvent value)
     {
         if (value.Item is not null)
         {
@@ -63,8 +67,10 @@ public class NewEquipmentItemEventHandler : EventPacketHandler<NewEquipmentItemE
             }
 
             lootTracker.DiscoverItem(value.Item);
+            if (value.Item.IsAwakened)
+            {
+                await legendaryTracker.ObserveItemAsync(value.Item);
+            }
         }
-
-        return Task.CompletedTask;
     }
 }

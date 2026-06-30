@@ -1,26 +1,24 @@
 ﻿using Albion.Network;
-using AlbionDataAvalonia.Locations;
+using AlbionDataAvalonia.Legendary;
 using AlbionDataAvalonia.Network.Events;
 using AlbionDataAvalonia.Shared;
-using AlbionDataAvalonia.State;
 using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.Network.Handlers;
 
 public class NewEquipmentItemLegendarySoulEventHandler : EventPacketHandler<NewEquipmentItemLegendarySoulEvent>
 {
-    private readonly PlayerState playerState;
+    private readonly LegendaryItemTrackerService legendaryTracker;
 
-    public NewEquipmentItemLegendarySoulEventHandler(PlayerState playerState) : base((int)EventCodes.NewEquipmentItemLegendarySoul)
+    public NewEquipmentItemLegendarySoulEventHandler(LegendaryItemTrackerService legendaryTracker) : base((int)EventCodes.NewEquipmentItemLegendarySoul)
     {
-        this.playerState = playerState;
+        this.legendaryTracker = legendaryTracker;
     }
 
-    protected override async Task OnActionAsync(NewEquipmentItemLegendarySoulEvent value)
+    protected override Task OnActionAsync(NewEquipmentItemLegendarySoulEvent value)
     {
-        if (value.LegendarySoul is not null)
-        {
-        }
-        await Task.CompletedTask;
+        return value.LegendarySoul is null
+            ? Task.CompletedTask
+            : legendaryTracker.ObserveSoulAsync(value.LegendarySoul);
     }
 }

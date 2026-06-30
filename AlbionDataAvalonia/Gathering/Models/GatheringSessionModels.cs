@@ -1,3 +1,4 @@
+using Microsoft.EntityFrameworkCore;
 using System;
 using System.Collections.Generic;
 
@@ -11,6 +12,7 @@ public enum GatheringSessionSource
     Mixed = 3
 }
 
+[Index(nameof(EndedAtUtc))]
 public sealed class GatheringCompletedSession
 {
     public Guid Id { get; set; }
@@ -42,6 +44,8 @@ public sealed class GatheringCompletedSessionItem
     public GatheringSessionSource Source { get; set; }
 }
 
+[Index(nameof(SessionId), IsUnique = true)]
+[Index(nameof(UpdatedAtUtc))]
 public sealed class GatheringUnfinishedSessionCheckpoint
 {
     public Guid Id { get; set; }

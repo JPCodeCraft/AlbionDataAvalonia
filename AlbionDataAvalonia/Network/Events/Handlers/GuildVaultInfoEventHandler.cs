@@ -1,4 +1,4 @@
-﻿using Albion.Network;
+using Albion.Network;
 using AlbionDataAvalonia.Legendary;
 using AlbionDataAvalonia.Network.Events;
 using AlbionDataAvalonia.Shared;
@@ -6,19 +6,19 @@ using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.Network.Handlers;
 
-public class BankVaultInfoEventHandler : EventPacketHandler<BankVaultInfoEvent>
+public sealed class GuildVaultInfoEventHandler : EventPacketHandler<GuildVaultInfoEvent>
 {
     private readonly LegendaryItemTrackerService legendaryTracker;
 
-    public BankVaultInfoEventHandler(LegendaryItemTrackerService legendaryTracker) : base((int)EventCodes.BankVaultInfo)
+    public GuildVaultInfoEventHandler(LegendaryItemTrackerService legendaryTracker) : base((int)EventCodes.GuildVaultInfo)
     {
         this.legendaryTracker = legendaryTracker;
     }
 
-    protected override Task OnActionAsync(BankVaultInfoEvent value)
+    protected override Task OnActionAsync(GuildVaultInfoEvent value)
     {
         return legendaryTracker.ObserveVaultAsync(
-            false,
+            true,
             value.ObjectId,
             value.LocationGuid,
             value.VaultGuidList,
