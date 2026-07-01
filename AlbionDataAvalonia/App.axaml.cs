@@ -98,6 +98,18 @@ public partial class App : Application
         {
             try
             {
+                var knownMigrations = db.Database.GetMigrations().ToHashSet(StringComparer.Ordinal);
+                var unknownAppliedMigrations = (await db.Database.GetAppliedMigrationsAsync())
+                    .Where(migration => !knownMigrations.Contains(migration))
+                    .ToArray();
+
+                if (unknownAppliedMigrations.Length > 0)
+                {
+                    throw new InvalidOperationException(
+                        $"The local database was upgraded by a newer application version. " +
+                        $"This version cannot safely use it. Unknown migrations: {string.Join(", ", unknownAppliedMigrations)}");
+                }
+
                 await db.Database.MigrateAsync();
                 Log.Information("Migrations [if any] completed successfully");
             }
