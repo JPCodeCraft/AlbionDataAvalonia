@@ -37,6 +37,7 @@ public partial class LegendaryViewModel : ViewModelBase
 
     public ObservableCollection<LegendaryItemRowViewModel> Items { get; } = new();
     public IReadOnlyList<string> Servers { get; } = ["Any", .. AlbionServers.GetAll().Select(server => server.Name)];
+    public IReadOnlyList<string> SaleStatuses { get; } = ["All", "Active", "Sold", "Canceled", "Not listed"];
 
     [ObservableProperty]
     private string filterText = string.Empty;
@@ -48,7 +49,7 @@ public partial class LegendaryViewModel : ViewModelBase
     private bool onlyAttunedToMe;
 
     [ObservableProperty]
-    private bool onlyActiveSales;
+    private string selectedSaleStatus = "All";
 
     [ObservableProperty]
     private LegendaryItemRowViewModel? selectedItem;
@@ -257,7 +258,7 @@ public partial class LegendaryViewModel : ViewModelBase
     partial void OnFilterTextChanged(string value) => ApplyFilter();
     partial void OnSelectedServerChanged(string value) => ApplyFilter();
     partial void OnOnlyAttunedToMeChanged(bool value) => ApplyFilter();
-    partial void OnOnlyActiveSalesChanged(bool value) => ApplyFilter();
+    partial void OnSelectedSaleStatusChanged(string value) => ApplyFilter();
     partial void OnSelectedItemChanged(LegendaryItemRowViewModel? value)
     {
         OnPropertyChanged(nameof(HasSelectedItem));
@@ -402,7 +403,7 @@ public partial class LegendaryViewModel : ViewModelBase
             && (!OnlyAttunedToMe
                 || (IsDefinedPlayerName(playerName)
                     && string.Equals(row.Source.AttunedToPlayerName, playerName, StringComparison.OrdinalIgnoreCase)))
-            && (!OnlyActiveSales || row.IsActiveListing)
+            && MatchesSaleStatus(row, SelectedSaleStatus)
             && (string.IsNullOrWhiteSpace(filter) || row.SearchText.Contains(filter, StringComparison.OrdinalIgnoreCase)))
             .ToList();
         Items.Clear();
@@ -416,6 +417,18 @@ public partial class LegendaryViewModel : ViewModelBase
     {
         return !string.IsNullOrWhiteSpace(playerName)
             && !string.Equals(playerName, "Not set", StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static bool MatchesSaleStatus(LegendaryItemRowViewModel row, string status)
+    {
+        return status switch
+        {
+            "Active" => row.IsActiveListing,
+            "Sold" => row.IsSold,
+            "Canceled" => row.IsCanceled,
+            "Not listed" => !row.HasListing,
+            _ => true
+        };
     }
 
 }

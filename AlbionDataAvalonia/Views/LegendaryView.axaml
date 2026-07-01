@@ -26,9 +26,13 @@
                           IsChecked="{Binding OnlyAttunedToMe}"
                           IsEnabled="{Binding CanFilterAttunedToMe}"
                           Padding="0,4" />
-                <CheckBox Content="Only active sales"
-                          IsChecked="{Binding OnlyActiveSales}"
-                          Padding="0,4" />
+            </StackPanel>
+            <StackPanel Margin="0,0,10,0">
+                <TextBlock Text="Sale status" FontSize="12" Foreground="#888" />
+                <ComboBox ItemsSource="{Binding SaleStatuses}"
+                          SelectedItem="{Binding SelectedSaleStatus}"
+                          Width="140"
+                          Padding="8" />
             </StackPanel>
             <StackPanel Margin="0,0,10,0">
                 <TextBlock Text="Data" FontSize="12" Foreground="#888" />
@@ -61,8 +65,12 @@
                       IsReadOnly="True"
                       SelectionMode="Extended"
                       GridLinesVisibility="None"
-                      BorderThickness="0">
+                      BorderThickness="0"
+                      FontSize="11">
                 <DataGrid.Styles>
+                    <Style Selector="DataGridColumnHeader">
+                        <Setter Property="FontSize" Value="11" />
+                    </Style>
                     <Style Selector="DataGridColumnHeader /template/ Grid#PART_ColumnHeaderRoot">
                         <Setter Property="Background" Value="rgba(255,255,255,0.2)" />
                     </Style>
@@ -75,18 +83,18 @@
                     <DataGridTemplateColumn Header="Item" SortMemberPath="ItemName" CanUserSort="True">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate x:DataType="vm:LegendaryItemRowViewModel">
-                                <StackPanel Orientation="Horizontal" Spacing="8">
-                                    <Image Width="34" Height="34" Stretch="Uniform"
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <Image Width="28" Height="28" Stretch="Uniform"
                                            items:LazyItemImage.ItemUniqueName="{Binding ItemUniqueName}"
                                            items:LazyItemImage.Quality="{Binding ImageQuality}" />
                                     <StackPanel VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding ItemName}" />
+                                        <TextBlock Text="{Binding ItemName}" FontSize="11" />
                                         <TextBlock Text="{Binding Quality}"
-                                                   FontSize="11"
+                                                   FontSize="10"
                                                    Opacity="0.65" />
                                         <TextBlock Text="{Binding SoulName}"
                                                    IsVisible="{Binding HasSoulName}"
-                                                   FontSize="11"
+                                                   FontSize="10"
                                                    Opacity="0.65" />
                                     </StackPanel>
                                 </StackPanel>
@@ -141,7 +149,7 @@
                                 <TextBlock Grid.Row="2" Text="Crafter" Opacity="0.65" /><TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Source.CrafterName, TargetNullValue=Unknown}" />
                                 <TextBlock Grid.Row="3" Text="Attuned to" Opacity="0.65" /><TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding AttunedTo}" />
                                 <TextBlock Grid.Row="4" Text="Attunement" Opacity="0.65" /><TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Attunement}" />
-                                <TextBlock Grid.Row="5" Text="Awakened rating" Opacity="0.65" /><TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding LegendaryRating}" />
+                                <TextBlock Grid.Row="5" Text="Legendary rating" Opacity="0.65" /><TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding LegendaryRating}" />
                                 <TextBlock Grid.Row="6" Text="Strain" Opacity="0.65" /><TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding Strain}" />
                                 <TextBlock Grid.Row="7" Text="PvP fame gained" Opacity="0.65" /><TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding PvPFameGained}" />
                                 <TextBlock Grid.Row="8" Text="Attunement spent" Opacity="0.65" /><TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding AttunementSpent}" />
@@ -243,7 +251,7 @@
                                FontSize="18"
                                FontWeight="DemiBold"
                                TextAlignment="Center" />
-                    <TextBlock Text="Enable it in Settings &gt; Awakening to resume detecting and storing awakened items."
+                    <TextBlock Text="Enable it in Settings &gt; Awakened to resume detecting and storing awakened items."
                                TextWrapping="Wrap"
                                TextAlignment="Center"
                                Opacity="0.8" />

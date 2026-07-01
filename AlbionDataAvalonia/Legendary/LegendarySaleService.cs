@@ -91,7 +91,7 @@ public sealed class LegendarySaleService : IDisposable
             item.Traits.Select(trait => trait.Value));
         if (legendaryRating is null)
         {
-            return LegendarySaleOperationResult.Failed("This item's awakened rating could not be calculated.");
+            return LegendarySaleOperationResult.Failed("This item's Legendary Rating could not be calculated.");
         }
 
         var requestId = Guid.NewGuid().ToString();
