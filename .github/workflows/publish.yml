@@ -2,21 +2,27 @@ name: Build and Release
 
 on:
   workflow_dispatch:
-    inputs:
-      release_channel:
-        description: "Release channel"
-        required: true
-        default: "stable"
-        type: choice
-        options:
-          - stable
-          - beta
+
+permissions:
+  contents: write
+
+concurrency:
+  group: publish-release
+  cancel-in-progress: false
 
 jobs:
   build-macos:
     runs-on: macos-latest
 
     steps:
+      - name: Validate release branch
+        run: |
+          if [[ "${{ github.ref_name }}" != "master" && "${{ github.ref_name }}" != "beta" ]]; then
+            echo "Releases can only be published from master or beta."
+            exit 1
+          fi
+        shell: bash
+
       - name: Checkout code
         uses: actions/checkout@v4
         with:
@@ -74,20 +80,29 @@ jobs:
         id: get_version
         run: |
           $version = (Select-String -Path ./AlbionDataAvalonia.Desktop/pkg/inno.iss -Pattern '#define MyAppVersion "(.*)"').Matches.Groups[1].Value
-          $channel = "${{ github.event.inputs.release_channel }}"
-          if ([string]::IsNullOrWhiteSpace($channel)) {
-            $channel = "stable"
+          $project = [xml](Get-Content -Path ./AlbionDataAvalonia/AlbionDataAvalonia.csproj -Raw)
+          $projectVersion = [string]$project.Project.PropertyGroup.Version
+          if ($version -ne $projectVersion) {
+            throw "Installer version '$version' does not match project version '$projectVersion'."
           }
-          if ($channel -eq "beta") {
+
+          $branch = "${{ github.ref_name }}"
+          if ($branch -eq "beta") {
+            $channel = "beta"
             $releaseTag = "v.$version-beta"
             $releaseName = "Albion Free Market Data Client v.$version Beta"
             $isPrerelease = "true"
           }
-          else {
+          elseif ($branch -eq "master") {
+            $channel = "stable"
             $releaseTag = "v.$version"
             $releaseName = "Albion Free Market Data Client v.$version"
             $isPrerelease = "false"
           }
+          else {
+            throw "Releases can only be published from master or beta. Current branch: $branch"
+          }
+
           echo "VERSION=$version" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           echo "RELEASE_CHANNEL=$channel" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
           echo "RELEASE_TAG=$releaseTag" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
@@ -98,53 +113,70 @@ jobs:
           echo "Release tag: $releaseTag"
         shell: pwsh
 
+      - name: Load published release manifest
+        run: |
+          git fetch origin master
+          $manifestPath = Join-Path $env:RUNNER_TEMP "LatestVersion.json"
+          git show origin/master:AlbionDataAvalonia.Desktop/LatestVersion.json | Out-File -FilePath $manifestPath -Encoding utf8
+          echo "MANIFEST_PATH=$manifestPath" | Out-File -FilePath $env:GITHUB_ENV -Encoding utf8 -Append
+        shell: pwsh
+
       - name: Validate release version
         run: |
           $version = "${{ env.VERSION }}"
           $channel = "${{ env.RELEASE_CHANNEL }}"
-          $path = "./AlbionDataAvalonia.Desktop/LatestVersion.json"
+          $path = "${{ env.MANIFEST_PATH }}"
 
           $newVersion = $null
           if (-not [version]::TryParse($version, [ref]$newVersion)) {
             throw "Release version '$version' is not a valid numeric version."
           }
 
-          $publishedVersions = @()
-          if (Test-Path $path) {
-            $current = Get-Content -Path $path -Raw | ConvertFrom-Json
+          if (-not (Test-Path $path)) {
+            throw "Published release manifest was not found at '$path'."
+          }
 
-            if ($current.PSObject.Properties.Name -contains "version" -and $current.version) {
-              $publishedVersions += [version]$current.version
+          $current = Get-Content -Path $path -Raw | ConvertFrom-Json
+          $stableVersion = $null
+          $betaVersion = $null
+
+          if ($current.PSObject.Properties.Name -contains "stable" -and $current.stable -and $current.stable.version) {
+            $stableVersion = [version]$current.stable.version
+          }
+          elseif ($current.PSObject.Properties.Name -contains "version" -and $current.version) {
+            $stableVersion = [version]$current.version
+          }
+
+          if ($current.PSObject.Properties.Name -contains "beta" -and $current.beta -and $current.beta.version) {
+            $betaVersion = [version]$current.beta.version
+          }
+
+          if ($channel -eq "stable") {
+            if ($stableVersion -ne $null -and $newVersion -le $stableVersion) {
+              throw "Cannot publish stable version $newVersion because it is not higher than stable version $stableVersion."
             }
-
-            if ($current.PSObject.Properties.Name -contains "stable" -and $current.stable -and $current.stable.version) {
-              $publishedVersions += [version]$current.stable.version
+          }
+          else {
+            if ($stableVersion -ne $null -and $newVersion -le $stableVersion) {
+              throw "Cannot publish beta version $newVersion because it is not higher than stable version $stableVersion."
             }
-
-            if ($current.PSObject.Properties.Name -contains "beta" -and $current.beta -and $current.beta.version) {
-              $publishedVersions += [version]$current.beta.version
+            if ($betaVersion -ne $null -and $newVersion -le $betaVersion) {
+              throw "Cannot publish beta version $newVersion because it is not higher than beta version $betaVersion."
             }
           }
 
-          if ($publishedVersions.Count -eq 0) {
-            echo "No previously published versions found in $path."
-            return
-          }
-
-          $latestPublishedVersion = $publishedVersions | Sort-Object -Descending | Select-Object -First 1
-          if ($newVersion -le $latestPublishedVersion) {
-            throw "Cannot publish $channel version $newVersion because it is not higher than the latest published version $latestPublishedVersion."
-          }
-
-          echo "Release version $newVersion is higher than latest published version $latestPublishedVersion."
+          echo "Release version $newVersion is valid for the $channel channel."
         shell: pwsh
 
       - name: Get diff
         id: get_diff
         run: |
           git fetch --tags
-          # Try to get latest tag, but don't fail if none exists
-          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+          if [ "${{ env.RELEASE_CHANNEL }}" = "beta" ]; then
+            LATEST_TAG=$(git tag --merged HEAD --list "v.*-beta" --sort=-version:refname | head -n 1)
+          else
+            LATEST_TAG=$(git tag --merged HEAD --list "v.*" --sort=-version:refname | grep -v -- "-beta$" | head -n 1)
+          fi
           CURRENT_COMMIT=$(git rev-parse HEAD)
           REPO_URL="https://github.com/JPCodeCraft/AlbionDataAvalonia"
 
@@ -281,13 +313,21 @@ jobs:
           asset_name: AFMDataClient_MacOS_arm64.app.zip
           asset_content_type: application/zip
 
+      - name: Checkout release metadata
+        uses: actions/checkout@v4
+        with:
+          ref: master
+          path: release-metadata
+          token: ${{ secrets.GITHUB_TOKEN }}
+          fetch-depth: 0
+
       - name: Create LatestVersion.json
         run: |
           $version = "${{ env.VERSION }}"
           $channel = "${{ env.RELEASE_CHANNEL }}"
           $tag = "${{ env.RELEASE_TAG }}"
           $repoUrl = "https://github.com/JPCodeCraft/AlbionDataAvalonia"
-          $path = "./AlbionDataAvalonia.Desktop/LatestVersion.json"
+          $path = "./release-metadata/AlbionDataAvalonia.Desktop/LatestVersion.json"
 
           function New-ReleaseEntry {
             param(
@@ -352,8 +392,15 @@ jobs:
 
       - name: Commit and push changes
         run: |
+          Set-Location ./release-metadata
           git config --local user.email "action@github.com"
           git config --local user.name "GitHub Action"
           git add ./AlbionDataAvalonia.Desktop/LatestVersion.json
+          git diff --cached --quiet
+          if ($LASTEXITCODE -eq 0) {
+            echo "LatestVersion.json is already current."
+            exit 0
+          }
           git commit -m "Update LatestVersion.json"
-          git push
+          git push origin HEAD:master
+        shell: pwsh
