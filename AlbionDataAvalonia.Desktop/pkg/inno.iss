@@ -46,6 +46,79 @@ Filename: "{sys}\taskkill.exe"; Parameters: "/F /IM {#MyAppExeName}"; Flags: run
 var
   DeleteConfigFiles: Boolean;
 
+function NextVersionPart(var Version: String): Integer;
+var
+  DotPosition: Integer;
+  Part: String;
+begin
+  DotPosition := Pos('.', Version);
+  if DotPosition = 0 then
+  begin
+    Part := Version;
+    Version := '';
+  end
+  else
+  begin
+    Part := Copy(Version, 1, DotPosition - 1);
+    Delete(Version, 1, DotPosition);
+  end;
+
+  Result := StrToIntDef(Part, 0);
+end;
+
+function CompareVersions(LeftVersion, RightVersion: String): Integer;
+var
+  Index: Integer;
+  LeftPart: Integer;
+  RightPart: Integer;
+begin
+  Result := 0;
+  for Index := 1 to 4 do
+  begin
+    LeftPart := NextVersionPart(LeftVersion);
+    RightPart := NextVersionPart(RightVersion);
+
+    if LeftPart < RightPart then
+    begin
+      Result := -1;
+      Exit;
+    end;
+
+    if LeftPart > RightPart then
+    begin
+      Result := 1;
+      Exit;
+    end;
+  end;
+end;
+
+function GetInstalledVersion(var InstalledVersion: String): Boolean;
+var
+  UninstallKey: String;
+begin
+  UninstallKey := 'Software\Microsoft\Windows\CurrentVersion\Uninstall\{#MyAppId}_is1';
+  Result := RegQueryStringValue(HKCU, UninstallKey, 'DisplayVersion', InstalledVersion);
+  if not Result then
+    Result := RegQueryStringValue(HKLM, UninstallKey, 'DisplayVersion', InstalledVersion);
+end;
+
+function InitializeSetup(): Boolean;
+var
+  InstalledVersion: String;
+begin
+  Result := True;
+  if GetInstalledVersion(InstalledVersion) and
+     (CompareVersions(InstalledVersion, '{#MyAppVersion}') > 0) then
+  begin
+    MsgBox(
+      'A newer version (' + InstalledVersion + ') is already installed. ' +
+      'Downgrading to {#MyAppVersion} is blocked to protect the local database.',
+      mbError,
+      MB_OK);
+    Result := False;
+  end;
+end;
+
 function IsWinPcapInstalled: Boolean;
 begin
   Result := RegKeyExists(HKLM, 'SOFTWARE\WOW6432Node\WinPcap') or RegKeyExists(HKLM, 'SOFTWARE\WOW6432Node\Npcap') or RegKeyExists(HKLM, 'SYSTEM\CurrentControlSet\Services\Win10Pcap');
