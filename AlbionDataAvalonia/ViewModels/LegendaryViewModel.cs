@@ -490,7 +490,7 @@ public sealed class LegendaryItemRowViewModel
     public string Attunement => Source.Attunement?.ToString("N0", CultureInfo.CurrentCulture) ?? "Unknown";
     public long? LegendaryRatingValue { get; }
     public string LegendaryRating => LegendaryRatingValue?.ToString("N0", CultureInfo.CurrentCulture) ?? "Unknown";
-    public string Strain => Source.Strain?.ToString("N4", CultureInfo.CurrentCulture) ?? "Unknown";
+    public string Strain => Source.Strain?.ToString("N2", CultureInfo.CurrentCulture) ?? "Unknown";
     public string PvPFameGained => Source.PvPFameGained?.ToString("N0", CultureInfo.CurrentCulture) ?? "Unknown";
     public string AttunementSpent => Source.AttunementSpent?.ToString("N0", CultureInfo.CurrentCulture) ?? "Unknown";
     public string TraitsSummary => Traits.Count == 0 ? "No traits" : string.Join("; ", Traits.Select(trait => $"{trait.Value} {trait.Name}"));
@@ -575,7 +575,7 @@ public sealed class LegendaryTraitRowViewModel
     {
         Id = source.TraitId;
         Name = string.IsNullOrWhiteSpace(definition?.UsName) ? source.TraitId : definition.UsName;
-        Value = calculatedValue.FormattedText;
+        Value = FormatDisplayValue(calculatedValue.FormattedText);
         RollPercentage = calculatedValue.RollPercentage;
         Rarity = definition?.Rarity.ToLowerInvariant() switch
         {
@@ -590,4 +590,13 @@ public sealed class LegendaryTraitRowViewModel
     public string Value { get; }
     public double RollPercentage { get; }
     public string Rarity { get; }
+
+    private static string FormatDisplayValue(string value)
+    {
+        var suffix = value.EndsWith('%') ? "%" : string.Empty;
+        var numericText = suffix.Length == 0 ? value : value[..^1];
+        return double.TryParse(numericText, NumberStyles.Number, CultureInfo.CurrentCulture, out var numericValue)
+            ? $"{numericValue.ToString("+0.00;-0.00;+0.00", CultureInfo.CurrentCulture)}{suffix}"
+            : value;
+    }
 }
