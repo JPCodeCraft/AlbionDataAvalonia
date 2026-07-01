@@ -61,6 +61,11 @@ public partial class LegendaryViewModel : ViewModelBase
         && IsSignedIn
         && !IsPosting;
 
+    public bool CanCancelSelectedListing =>
+        SelectedItem?.IsActiveListing == true
+        && IsSignedIn
+        && !IsPosting;
+
     public bool HasSelectedItem => SelectedItem is not null;
 
     public bool CanFilterAttunedToMe => IsDefinedPlayerName(playerState?.PlayerName);
@@ -211,6 +216,33 @@ public partial class LegendaryViewModel : ViewModelBase
         }
     }
 
+    public async Task<LegendarySaleOperationResult> CancelSelectedListingAsync()
+    {
+        var selected = SelectedItem;
+        if (selected?.Source.SoulId is not { } soulId || !selected.IsActiveListing)
+        {
+            return LegendarySaleOperationResult.Failed("This item does not have an active sale listing.");
+        }
+
+        IsPosting = true;
+        SaleStatus = "Canceling awakened sale listing...";
+        try
+        {
+            var result = await saleService.CancelAsync(selected.Source.AlbionServerId, soulId);
+            SaleStatus = result.Message;
+            if (result.Listing is not null)
+            {
+                StoreListing(result.Listing);
+                await LoadItemsAsync();
+            }
+            return result;
+        }
+        finally
+        {
+            IsPosting = false;
+        }
+    }
+
     partial void OnFilterTextChanged(string value) => ApplyFilter();
     partial void OnSelectedServerChanged(string value) => ApplyFilter();
     partial void OnOnlyAttunedToMeChanged(bool value) => ApplyFilter();
@@ -219,9 +251,14 @@ public partial class LegendaryViewModel : ViewModelBase
     {
         OnPropertyChanged(nameof(HasSelectedItem));
         OnPropertyChanged(nameof(CanListSelectedItem));
+        OnPropertyChanged(nameof(CanCancelSelectedListing));
         UpdateSaleStatus();
     }
-    partial void OnIsPostingChanged(bool value) => OnPropertyChanged(nameof(CanListSelectedItem));
+    partial void OnIsPostingChanged(bool value)
+    {
+        OnPropertyChanged(nameof(CanListSelectedItem));
+        OnPropertyChanged(nameof(CanCancelSelectedListing));
+    }
 
     private async Task InitializeAsync()
     {
@@ -239,6 +276,7 @@ public partial class LegendaryViewModel : ViewModelBase
         currentUserId = userId;
         OnPropertyChanged(nameof(IsSignedIn));
         OnPropertyChanged(nameof(CanListSelectedItem));
+        OnPropertyChanged(nameof(CanCancelSelectedListing));
         if (loaded)
         {
             await LoadSaleListingsAsync();
@@ -310,6 +348,7 @@ public partial class LegendaryViewModel : ViewModelBase
             { CanPost: false } => "This item is missing data required for a sale listing.",
             _ when !IsSignedIn => "Sign in to AFM to list awakened items.",
             { HasListing: true, IsSold: true } => "This item's AFM sale listing is marked as sold.",
+            { HasListing: true, IsCanceled: true } => "This item's AFM sale listing is canceled.",
             { HasListing: true } => "This item is currently listed for sale on AFM.",
             _ => "This item is ready to list for sale on AFM."
         };
@@ -343,7 +382,7 @@ public partial class LegendaryViewModel : ViewModelBase
             && (!OnlyAttunedToMe
                 || (IsDefinedPlayerName(playerName)
                     && string.Equals(row.Source.AttunedToPlayerName, playerName, StringComparison.OrdinalIgnoreCase)))
-            && (!OnlyActiveSales || (row.HasListing && !row.IsSold))
+            && (!OnlyActiveSales || row.IsActiveListing)
             && (string.IsNullOrWhiteSpace(filter) || row.SearchText.Contains(filter, StringComparison.OrdinalIgnoreCase)))
             .ToList();
         Items.Clear();
@@ -426,7 +465,10 @@ public sealed class LegendaryItemRowViewModel
     public string Location => string.IsNullOrWhiteSpace(Source.LocationName) ? "Unknown" : Source.LocationName;
     public bool HasListing => Listing is not null;
     public bool IsSold => Listing?.Sold == true;
-    public string SaleState => Listing is null ? "-" : IsSold ? "Sold" : "Active";
+    public bool IsCanceled => Listing?.Canceled == true;
+    public bool IsActiveListing => HasListing && !IsSold && !IsCanceled;
+    public bool CanChangeSold => HasListing && !IsCanceled;
+    public string SaleState => Listing is null ? "-" : IsSold ? "Sold" : IsCanceled ? "Canceled" : "Active";
     public string LatestPrice => Listing is null ? "-" : FormatPrice(Listing.LatestPriceSilver);
     public string LastListed => Listing is { } listing
         ? FormatUtc(listing.LastListedAt)

@@ -76,6 +76,20 @@ public partial class LegendaryView : UserControl
         checkBox.IsEnabled = true;
     }
 
+    private async void CancelListingButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is not Button button
+            || DataContext is not LegendaryViewModel viewModel
+            || !viewModel.CanCancelSelectedListing)
+        {
+            return;
+        }
+
+        button.IsEnabled = false;
+        await viewModel.CancelSelectedListingAsync();
+        button.IsEnabled = true;
+    }
+
     private void OpenDiscordPostButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (sender is Button { Tag: string url }

@@ -93,7 +93,7 @@
                     <DataGridTextColumn Header="PvP fame" Binding="{Binding PvPFameGained}" SortMemberPath="Source.PvPFameGained" />
                     <DataGridTextColumn Header="Attunement spent" Binding="{Binding AttunementSpent}" SortMemberPath="Source.AttunementSpent" />
                     <DataGridTextColumn Header="Last seen" Binding="{Binding LastSeen}" SortMemberPath="Source.LastSeenAtUtc" />
-                    <DataGridTextColumn Header="Sale status" Binding="{Binding SaleState}" SortMemberPath="Listing.Sold" />
+                    <DataGridTextColumn Header="Sale status" Binding="{Binding SaleState}" SortMemberPath="SaleState" />
                 </DataGrid.Columns>
             </DataGrid>
 
@@ -180,10 +180,17 @@
                                     <TextBlock Grid.Row="2" Text="Last listed" Opacity="0.65" />
                                     <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding LastListed}" />
                                 </Grid>
-                                <CheckBox Name="SoldCheckBox"
-                                          Content="Sold"
-                                          IsChecked="{Binding IsSold, Mode=OneWay}"
-                                          Click="SoldCheckBox_Click" />
+                                <StackPanel Orientation="Horizontal" Spacing="8">
+                                    <CheckBox Name="SoldCheckBox"
+                                              Content="Sold"
+                                              IsChecked="{Binding IsSold, Mode=OneWay}"
+                                              IsEnabled="{Binding CanChangeSold}"
+                                              Click="SoldCheckBox_Click" />
+                                    <Button Content="Cancel listing"
+                                            IsVisible="{Binding IsActiveListing}"
+                                            Click="CancelListingButton_Click"
+                                            Padding="8,4" />
+                                </StackPanel>
                                 <TextBlock Text="Sell orders" FontWeight="DemiBold" Margin="0,4,0,0" />
                                 <ItemsControl ItemsSource="{Binding SellOrders}">
                                     <ItemsControl.ItemTemplate>

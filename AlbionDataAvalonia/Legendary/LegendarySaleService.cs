@@ -169,6 +169,23 @@ public sealed class LegendarySaleService : IDisposable
         bool sold,
         CancellationToken cancellationToken = default)
     {
+        return await UpdateListingAsync(serverId, soulId, new { sold }, cancellationToken);
+    }
+
+    public async Task<LegendarySaleOperationResult> CancelAsync(
+        int serverId,
+        Guid soulId,
+        CancellationToken cancellationToken = default)
+    {
+        return await UpdateListingAsync(serverId, soulId, new { canceled = true }, cancellationToken);
+    }
+
+    private async Task<LegendarySaleOperationResult> UpdateListingAsync(
+        int serverId,
+        Guid soulId,
+        object state,
+        CancellationToken cancellationToken)
+    {
         if (!await EnsureValidAuthAsync(cancellationToken))
         {
             return LegendarySaleOperationResult.Failed("Sign in to AFM before updating an awakened listing.");
@@ -177,7 +194,7 @@ public sealed class LegendarySaleService : IDisposable
         try
         {
             using var response = await SendWithUnauthorizedRecoveryAsync(
-                () => SendSoldRequestAsync(serverId, soulId, sold, cancellationToken),
+                () => SendListingUpdateRequestAsync(serverId, soulId, state, cancellationToken),
                 cancellationToken);
             if (!response.IsSuccessStatusCode)
             {
@@ -204,17 +221,17 @@ public sealed class LegendarySaleService : IDisposable
         httpClient.Dispose();
     }
 
-    private Task<HttpResponseMessage> SendSoldRequestAsync(
+    private Task<HttpResponseMessage> SendListingUpdateRequestAsync(
         int serverId,
         Guid soulId,
-        bool sold,
+        object state,
         CancellationToken cancellationToken)
     {
         var request = new HttpRequestMessage(
             HttpMethod.Patch,
             new Uri(GetBackendBaseUri(), $"legendary-sales/{serverId}/{soulId}"))
         {
-            Content = JsonContent.Create(new { sold }, options: JsonOptions)
+            Content = JsonContent.Create(state, options: JsonOptions)
         };
         return httpClient.SendAsync(request, cancellationToken);
     }
@@ -311,6 +328,7 @@ public sealed record LegendarySaleListing(
     string SoulId,
     bool Sold,
     DateTimeOffset? SoldAt,
+    bool Canceled,
     string LatestPriceSilver,
     string LatestInGameName,
     string? LatestDiscordUsername,
@@ -359,7 +377,16 @@ public sealed record LegendarySaleOperationResult(
     }
 
     public static LegendarySaleOperationResult Updated(LegendarySaleListing listing) =>
-        new(true, listing.Sold ? "Awakened item marked as sold." : "Awakened item marked as available.", listing, null, null);
+        new(
+            true,
+            listing.Sold
+                ? "Awakened item marked as sold."
+                : listing.Canceled
+                    ? "Awakened sale listing canceled."
+                    : "Awakened item marked as available.",
+            listing,
+            null,
+            null);
 
     public static LegendarySaleOperationResult Failed(string message) =>
         new(false, message, null, null, null);
