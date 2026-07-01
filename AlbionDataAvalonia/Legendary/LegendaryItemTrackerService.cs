@@ -14,6 +14,7 @@ namespace AlbionDataAvalonia.Legendary;
 
 public sealed class LegendaryItemTrackerService : IDisposable
 {
+    private static readonly TimeSpan LastSeenUpdateInterval = TimeSpan.FromMinutes(5);
     private readonly SemaphoreSlim gate = new(1, 1);
     private readonly PlayerState playerState;
     private readonly Dictionary<long, PendingObservation> pending = new();
@@ -361,8 +362,8 @@ public sealed class LegendaryItemTrackerService : IDisposable
         }
 
         var previousObjectId = item.ObjectId;
+        var previousLastSeenAtUtc = item.LastSeenAtUtc;
         item.ObjectId = objectId;
-        item.LastSeenAtUtc = seenAtUtc;
         item.SeenByPlayerName = playerState.PlayerName;
         ApplyItem(item, observation.Item);
         ApplySoul(db, item, observation.Soul);
@@ -372,6 +373,15 @@ public sealed class LegendaryItemTrackerService : IDisposable
             ApplyLocation(item, context);
         }
         ApplyLocalAttunedToFallback(item);
+
+        db.ChangeTracker.DetectChanges();
+        var hasMeaningfulChanges = db.ChangeTracker.HasChanges();
+        if (!hasMeaningfulChanges && !IsLastSeenUpdateDue(previousLastSeenAtUtc, seenAtUtc))
+        {
+            RememberObservedObject(objectId, previousObjectId);
+            return;
+        }
+        item.LastSeenAtUtc = seenAtUtc;
 
         try
         {
@@ -383,12 +393,7 @@ public sealed class LegendaryItemTrackerService : IDisposable
             return;
         }
 
-        pending.Remove(objectId);
-        if (previousObjectId != objectId)
-        {
-            knownLegendaryObjects.Remove(previousObjectId);
-        }
-        knownLegendaryObjects.Add(objectId);
+        RememberObservedObject(objectId, previousObjectId);
         Log.Debug(
             "Saved legendary item {LegendaryItemId} for server {ServerId}, soul {SoulId}, object {ObjectId} with {TraitCount} traits",
             item.Id,
@@ -549,12 +554,25 @@ public sealed class LegendaryItemTrackerService : IDisposable
         foreach (var item in items)
         {
             knownLegendaryObjects.Add(item.ObjectId);
-            item.LastSeenAtUtc = seenAtUtc;
             item.SeenByPlayerName = playerState.PlayerName;
             ApplyLocation(item, context);
             ApplyLocalAttunedToFallback(item);
         }
         if (items.Count == 0)
+        {
+            return;
+        }
+
+        db.ChangeTracker.DetectChanges();
+        foreach (var item in items)
+        {
+            if (db.Entry(item).State == EntityState.Modified
+                || IsLastSeenUpdateDue(item.LastSeenAtUtc, seenAtUtc))
+            {
+                item.LastSeenAtUtc = seenAtUtc;
+            }
+        }
+        if (!db.ChangeTracker.HasChanges())
         {
             return;
         }
@@ -591,10 +609,31 @@ public sealed class LegendaryItemTrackerService : IDisposable
         {
             return;
         }
-        item.LastSeenAtUtc = seenAtUtc;
         item.SeenByPlayerName = playerState.PlayerName;
+        db.ChangeTracker.DetectChanges();
+        if (db.Entry(item).State != EntityState.Modified
+            && !IsLastSeenUpdateDue(item.LastSeenAtUtc, seenAtUtc))
+        {
+            return;
+        }
+        item.LastSeenAtUtc = seenAtUtc;
         await db.SaveChangesAsync();
         NotifyItemsChanged();
+    }
+
+    private void RememberObservedObject(long objectId, long previousObjectId)
+    {
+        pending.Remove(objectId);
+        if (previousObjectId != objectId)
+        {
+            knownLegendaryObjects.Remove(previousObjectId);
+        }
+        knownLegendaryObjects.Add(objectId);
+    }
+
+    private static bool IsLastSeenUpdateDue(DateTime previous, DateTime current)
+    {
+        return previous == default || current - previous >= LastSeenUpdateInterval;
     }
 
     private void NotifyItemsChanged()

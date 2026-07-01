@@ -19,6 +19,13 @@
                 <ComboBox ItemsSource="{Binding Servers}" SelectedItem="{Binding SelectedServer}" Width="140" Padding="8" />
             </StackPanel>
             <StackPanel Margin="0,0,10,0">
+                <TextBlock Text="Attunement" FontSize="12" Foreground="#888" />
+                <CheckBox Content="Only Attuned to Me"
+                          IsChecked="{Binding OnlyAttunedToMe}"
+                          IsEnabled="{Binding CanFilterAttunedToMe}"
+                          Padding="0,8" />
+            </StackPanel>
+            <StackPanel Margin="0,0,10,0">
                 <TextBlock Text="Data" FontSize="12" Foreground="#888" />
                 <Button Content="Refresh" Command="{Binding RefreshCommand}" Padding="12,8" />
             </StackPanel>
@@ -84,12 +91,10 @@
                     </DataGridTemplateColumn>
                     <DataGridTextColumn Header="Quality" Binding="{Binding Quality}" />
                     <DataGridTextColumn Header="Attuned to" Binding="{Binding AttunedTo}" SortMemberPath="Source.AttunedToPlayerName" />
-                    <DataGridTextColumn Header="Attunement" Binding="{Binding Attunement}" SortMemberPath="Source.Attunement" />
                     <DataGridTextColumn Header="Rating" Binding="{Binding LegendaryRating}" SortMemberPath="LegendaryRatingValue" />
                     <DataGridTextColumn Header="Strain" Binding="{Binding Strain}" SortMemberPath="Source.Strain" />
                     <DataGridTextColumn Header="PvP fame" Binding="{Binding PvPFameGained}" SortMemberPath="Source.PvPFameGained" />
                     <DataGridTextColumn Header="Attunement spent" Binding="{Binding AttunementSpent}" SortMemberPath="Source.AttunementSpent" />
-                    <DataGridTextColumn Header="Location" Binding="{Binding Location}" />
                     <DataGridTextColumn Header="Last seen" Binding="{Binding LastSeen}" SortMemberPath="Source.LastSeenAtUtc" />
                     <DataGridTextColumn Header="Discord Post" Binding="{Binding DiscordPost}" SortMemberPath="DiscordPostedAt" />
                 </DataGrid.Columns>

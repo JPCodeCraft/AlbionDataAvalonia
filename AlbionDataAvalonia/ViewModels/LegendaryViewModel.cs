@@ -46,6 +46,9 @@ public partial class LegendaryViewModel : ViewModelBase
     private string selectedServer = "Any";
 
     [ObservableProperty]
+    private bool onlyAttunedToMe;
+
+    [ObservableProperty]
     private LegendaryItemRowViewModel? selectedItem;
 
     [ObservableProperty]
@@ -62,6 +65,8 @@ public partial class LegendaryViewModel : ViewModelBase
         && !IsPosting;
 
     public bool HasSelectedItem => SelectedItem is not null;
+
+    public bool CanFilterAttunedToMe => IsDefinedPlayerName(playerState?.PlayerName);
 
     public LegendaryViewModel()
     {
@@ -85,6 +90,21 @@ public partial class LegendaryViewModel : ViewModelBase
         eligibilityUserId = authService.FirebaseUserId;
         tracker.ItemsChanged += HandleItemsChanged;
         authService.FirebaseUserChanged += user => Dispatcher.UIThread.Post(() => HandleAuthChanged(user?.LocalId));
+        playerState.OnPlayerStateChanged += (_, _) =>
+        {
+            Dispatcher.UIThread.Post(() =>
+            {
+                OnPropertyChanged(nameof(CanFilterAttunedToMe));
+                if (!CanFilterAttunedToMe)
+                {
+                    OnlyAttunedToMe = false;
+                }
+                else if (OnlyAttunedToMe)
+                {
+                    ApplyFilter();
+                }
+            });
+        };
     }
 
     public void EnsureLoaded()
@@ -197,6 +217,7 @@ public partial class LegendaryViewModel : ViewModelBase
 
     partial void OnFilterTextChanged(string value) => ApplyFilter();
     partial void OnSelectedServerChanged(string value) => ApplyFilter();
+    partial void OnOnlyAttunedToMeChanged(bool value) => ApplyFilter();
     partial void OnSelectedItemChanged(LegendaryItemRowViewModel? value)
     {
         OnPropertyChanged(nameof(HasSelectedItem));
@@ -331,8 +352,12 @@ public partial class LegendaryViewModel : ViewModelBase
             return;
         }
         var filter = FilterText.Trim();
+        var playerName = playerState.PlayerName;
         var rows = unfilteredItems.Where(row =>
             (SelectedServer == "Any" || string.Equals(row.ServerName, SelectedServer, StringComparison.OrdinalIgnoreCase))
+            && (!OnlyAttunedToMe
+                || (IsDefinedPlayerName(playerName)
+                    && string.Equals(row.Source.AttunedToPlayerName, playerName, StringComparison.OrdinalIgnoreCase)))
             && (string.IsNullOrWhiteSpace(filter) || row.SearchText.Contains(filter, StringComparison.OrdinalIgnoreCase)))
             .ToList();
         Items.Clear();
@@ -340,6 +365,12 @@ public partial class LegendaryViewModel : ViewModelBase
         {
             Items.Add(row);
         }
+    }
+
+    private static bool IsDefinedPlayerName(string? playerName)
+    {
+        return !string.IsNullOrWhiteSpace(playerName)
+            && !string.Equals(playerName, "Not set", StringComparison.OrdinalIgnoreCase);
     }
 
     private sealed record CachedSaleEligibility(
