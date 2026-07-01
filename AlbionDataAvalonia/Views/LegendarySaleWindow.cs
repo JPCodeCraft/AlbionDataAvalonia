@@ -15,10 +15,10 @@ public sealed class LegendarySaleWindow : Window
 
     private LegendarySaleWindow(
         LegendaryItemRowViewModel item,
-        string? discordUsername,
+        string discordDescription,
         string defaultInGameName)
     {
-        Title = "Post legendary item for sale";
+        Title = "List awakened item for sale";
         Width = 520;
         SizeToContent = SizeToContent.Height;
         CanResize = false;
@@ -35,11 +35,15 @@ public sealed class LegendarySaleWindow : Window
             Watermark = "Albion character name",
             HorizontalAlignment = HorizontalAlignment.Stretch
         };
-        var validation = new TextBlock { Foreground = Avalonia.Media.Brushes.IndianRed, TextWrapping = Avalonia.Media.TextWrapping.Wrap };
+        var validation = new TextBlock
+        {
+            Foreground = Avalonia.Media.Brushes.IndianRed,
+            TextWrapping = Avalonia.Media.TextWrapping.Wrap
+        };
         var cancel = new Button { Content = "Cancel", MinWidth = 90 };
-        var post = new Button { Content = "Post to Discord", MinWidth = 130 };
+        var list = new Button { Content = "List for sale", MinWidth = 130 };
         cancel.Click += (_, _) => Close();
-        post.Click += (_, _) =>
+        list.Click += (_, _) =>
         {
             var normalized = (priceBox.Text ?? string.Empty).Trim();
             if (normalized.Length is < 1 or > 18
@@ -70,12 +74,41 @@ public sealed class LegendarySaleWindow : Window
             Spacing = 10,
             Children =
             {
-                new TextBlock { Text = "Post legendary item for sale", FontSize = 20, FontWeight = Avalonia.Media.FontWeight.DemiBold },
-                new TextBlock { Text = item.ItemName, FontSize = 16, FontWeight = Avalonia.Media.FontWeight.DemiBold, TextWrapping = Avalonia.Media.TextWrapping.Wrap },
-                new TextBlock { Text = $"{item.ServerName} • {item.Quality} • Rating {item.LegendaryRating}", TextWrapping = Avalonia.Media.TextWrapping.Wrap },
-                new TextBlock { Text = $"Attunement {item.Attunement} • Strain {item.Strain} • PvP fame {item.PvPFameGained} • Attunement spent {item.AttunementSpent}", TextWrapping = Avalonia.Media.TextWrapping.Wrap },
-                new TextBlock { Text = item.TraitsSummary, TextWrapping = Avalonia.Media.TextWrapping.Wrap, Opacity = 0.8 },
-                new TextBlock { Text = $"Discord seller: {discordUsername ?? "linked account"}" },
+                new TextBlock
+                {
+                    Text = "List awakened item for sale",
+                    FontSize = 20,
+                    FontWeight = Avalonia.Media.FontWeight.DemiBold
+                },
+                new TextBlock
+                {
+                    Text = item.ItemName,
+                    FontSize = 16,
+                    FontWeight = Avalonia.Media.FontWeight.DemiBold,
+                    TextWrapping = Avalonia.Media.TextWrapping.Wrap
+                },
+                new TextBlock
+                {
+                    Text = $"{item.ServerName} • {item.Quality} • Rating {item.LegendaryRating}",
+                    TextWrapping = Avalonia.Media.TextWrapping.Wrap
+                },
+                new TextBlock
+                {
+                    Text = $"Attunement {item.Attunement} • Strain {item.Strain} • PvP fame {item.PvPFameGained} • Attunement spent {item.AttunementSpent}",
+                    TextWrapping = Avalonia.Media.TextWrapping.Wrap
+                },
+                new TextBlock
+                {
+                    Text = item.TraitsSummary,
+                    TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                    Opacity = 0.8
+                },
+                new TextBlock
+                {
+                    Text = discordDescription,
+                    TextWrapping = Avalonia.Media.TextWrapping.Wrap,
+                    Opacity = 0.8
+                },
                 new TextBlock { Text = "In-game contact", FontWeight = Avalonia.Media.FontWeight.DemiBold },
                 inGameNameBox,
                 new TextBlock { Text = "Asking price", FontWeight = Avalonia.Media.FontWeight.DemiBold },
@@ -83,7 +116,7 @@ public sealed class LegendarySaleWindow : Window
                 validation,
                 new TextBlock
                 {
-                    Text = "The AFM bot will mention your linked Discord account and show this character as an in-game contact option. Item data is reported by this Data Client.",
+                    Text = "The item will be listed for sale on AFM. If Discord delivery is available, the AFM bot will also announce it and mention your linked account.",
                     TextWrapping = Avalonia.Media.TextWrapping.Wrap,
                     FontSize = 11,
                     Opacity = 0.7
@@ -93,7 +126,7 @@ public sealed class LegendarySaleWindow : Window
                     Orientation = Orientation.Horizontal,
                     HorizontalAlignment = HorizontalAlignment.Right,
                     Spacing = 8,
-                    Children = { cancel, post }
+                    Children = { cancel, list }
                 }
             }
         };
@@ -102,19 +135,19 @@ public sealed class LegendarySaleWindow : Window
     public static async Task<LegendarySaleInput?> ShowAsync(
         Window owner,
         LegendaryItemRowViewModel item,
-        string? discordUsername,
+        string discordDescription,
         string defaultInGameName)
     {
-        var window = new LegendarySaleWindow(item, discordUsername, defaultInGameName);
+        var window = new LegendarySaleWindow(item, discordDescription, defaultInGameName);
         await window.ShowDialog(owner);
         return window.saleInput;
     }
 
-    public static async Task ShowResultAsync(Window owner, string message, string? messageUrl, string? inviteUrl)
+    public static async Task ShowResultAsync(Window owner, string message, string? messageUrl)
     {
         var window = new Window
         {
-            Title = messageUrl is null ? "Legendary Discord sale" : "Legendary item posted",
+            Title = "Awakened sale listing",
             Width = 460,
             SizeToContent = SizeToContent.Height,
             CanResize = false,
@@ -122,12 +155,16 @@ public sealed class LegendarySaleWindow : Window
         };
         var close = new Button { Content = "Close", MinWidth = 90 };
         close.Click += (_, _) => window.Close();
-        var buttons = new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Spacing = 8 };
-        var targetUrl = messageUrl ?? inviteUrl;
-        if (!string.IsNullOrWhiteSpace(targetUrl))
+        var buttons = new StackPanel
         {
-            var open = new Button { Content = messageUrl is null ? "Join AFM Discord" : "Open Discord post" };
-            open.Click += (_, _) => OpenUrl(targetUrl);
+            Orientation = Orientation.Horizontal,
+            HorizontalAlignment = HorizontalAlignment.Right,
+            Spacing = 8
+        };
+        if (!string.IsNullOrWhiteSpace(messageUrl))
+        {
+            var open = new Button { Content = "Open Discord post" };
+            open.Click += (_, _) => OpenUrl(messageUrl);
             buttons.Children.Add(open);
         }
         buttons.Children.Add(close);
@@ -146,11 +183,10 @@ public sealed class LegendarySaleWindow : Window
 
     private static void OpenUrl(string url)
     {
-        if (!Uri.TryCreate(url, UriKind.Absolute, out _))
+        if (Uri.TryCreate(url, UriKind.Absolute, out _))
         {
-            return;
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
         }
-        Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
     }
 }
 

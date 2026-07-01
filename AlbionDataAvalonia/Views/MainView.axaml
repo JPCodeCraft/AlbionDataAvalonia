@@ -166,7 +166,7 @@
 							<PathIcon
 								Data="M12,2L15,8L22,9L17,14L18,21L12,18L6,21L7,14L2,9L9,8L12,2Z"
 								Width="16" Height="16" Margin="0,0,8,0" />
-							<TextBlock Text="Legendary" VerticalAlignment="Center" />
+							<TextBlock Text="Awakened" VerticalAlignment="Center" />
 						</StackPanel>
 					</Button>
 

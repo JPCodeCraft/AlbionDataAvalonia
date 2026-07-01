@@ -389,7 +389,7 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<LootTrackerService>();
         collection.AddSingleton<LegendaryDefinitionsService>();
         collection.AddSingleton<LegendaryItemTrackerService>();
-        collection.AddSingleton<LegendaryDiscordSaleService>();
+        collection.AddSingleton<LegendarySaleService>();
         collection.AddSingleton<WindowsStartupService>();
 
         collection.AddSingleton<MainViewModel>();

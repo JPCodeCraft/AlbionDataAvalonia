@@ -19,11 +19,14 @@
                 <ComboBox ItemsSource="{Binding Servers}" SelectedItem="{Binding SelectedServer}" Width="140" Padding="8" />
             </StackPanel>
             <StackPanel Margin="0,0,10,0">
-                <TextBlock Text="Attunement" FontSize="12" Foreground="#888" />
+                <TextBlock Text="Filters" FontSize="12" Foreground="#888" />
                 <CheckBox Content="Only Attuned to Me"
                           IsChecked="{Binding OnlyAttunedToMe}"
                           IsEnabled="{Binding CanFilterAttunedToMe}"
-                          Padding="0,8" />
+                          Padding="0,4" />
+                <CheckBox Content="Only active sales"
+                          IsChecked="{Binding OnlyActiveSales}"
+                          Padding="0,4" />
             </StackPanel>
             <StackPanel Margin="0,0,10,0">
                 <TextBlock Text="Data" FontSize="12" Foreground="#888" />
@@ -33,14 +36,6 @@
                 <TextBlock Text="Entries" FontSize="12" Foreground="#888" />
                 <Button Content="Delete selected"
                         Click="DeleteSelectedButton_Click"
-                        Padding="12,8" />
-            </StackPanel>
-            <StackPanel Margin="0,0,10,0">
-                <TextBlock Text="Discord" FontSize="12" Foreground="#888" />
-                <Button Name="SellOnDiscordButton"
-                        Content="Sell on AFM Discord"
-                        IsEnabled="{Binding CanSellSelectedItem}"
-                        Click="SellOnDiscordButton_Click"
                         Padding="12,8" />
             </StackPanel>
         </WrapPanel>
@@ -80,6 +75,9 @@
                                            items:LazyItemImage.Quality="{Binding ImageQuality}" />
                                     <StackPanel VerticalAlignment="Center">
                                         <TextBlock Text="{Binding ItemName}" />
+                                        <TextBlock Text="{Binding Quality}"
+                                                   FontSize="11"
+                                                   Opacity="0.65" />
                                         <TextBlock Text="{Binding SoulName}"
                                                    IsVisible="{Binding HasSoulName}"
                                                    FontSize="11"
@@ -89,14 +87,13 @@
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
-                    <DataGridTextColumn Header="Quality" Binding="{Binding Quality}" />
                     <DataGridTextColumn Header="Attuned to" Binding="{Binding AttunedTo}" SortMemberPath="Source.AttunedToPlayerName" />
                     <DataGridTextColumn Header="Rating" Binding="{Binding LegendaryRating}" SortMemberPath="LegendaryRatingValue" />
                     <DataGridTextColumn Header="Strain" Binding="{Binding Strain}" SortMemberPath="Source.Strain" />
                     <DataGridTextColumn Header="PvP fame" Binding="{Binding PvPFameGained}" SortMemberPath="Source.PvPFameGained" />
                     <DataGridTextColumn Header="Attunement spent" Binding="{Binding AttunementSpent}" SortMemberPath="Source.AttunementSpent" />
                     <DataGridTextColumn Header="Last seen" Binding="{Binding LastSeen}" SortMemberPath="Source.LastSeenAtUtc" />
-                    <DataGridTextColumn Header="Discord Post" Binding="{Binding DiscordPost}" SortMemberPath="DiscordPostedAt" />
+                    <DataGridTextColumn Header="Sale status" Binding="{Binding SaleState}" SortMemberPath="Listing.Sold" />
                 </DataGrid.Columns>
             </DataGrid>
 
@@ -112,8 +109,17 @@
                                TextAlignment="Center"
                                Opacity="0.7" />
                     <ScrollViewer IsVisible="{Binding HasSelectedItem}">
-                        <StackPanel Spacing="8" DataContext="{Binding SelectedItem}">
-                            <TextBlock Text="Legendary item details" FontSize="18" FontWeight="DemiBold" />
+                        <StackPanel Spacing="8" Margin="0,0,14,0">
+                            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                <TextBlock Text="Awakened item details" FontSize="18" FontWeight="DemiBold" />
+                                <Button Grid.Column="1"
+                                        Name="ListForSaleButton"
+                                        Content="List for sale"
+                                        IsEnabled="{Binding CanListSelectedItem}"
+                                        Click="ListForSaleButton_Click"
+                                        Padding="10,6" />
+                            </Grid>
+                            <StackPanel Spacing="8" DataContext="{Binding SelectedItem}">
                             <Image Width="90" Height="90" HorizontalAlignment="Left" Stretch="Uniform"
                                    items:LazyItemImage.ItemUniqueName="{Binding ItemUniqueName}"
                                    items:LazyItemImage.Quality="{Binding ImageQuality}" />
@@ -129,7 +135,7 @@
                                 <TextBlock Grid.Row="2" Text="Crafter" Opacity="0.65" /><TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding Source.CrafterName, TargetNullValue=Unknown}" />
                                 <TextBlock Grid.Row="3" Text="Attuned to" Opacity="0.65" /><TextBlock Grid.Row="3" Grid.Column="1" Text="{Binding AttunedTo}" />
                                 <TextBlock Grid.Row="4" Text="Attunement" Opacity="0.65" /><TextBlock Grid.Row="4" Grid.Column="1" Text="{Binding Attunement}" />
-                                <TextBlock Grid.Row="5" Text="Legendary rating" Opacity="0.65" /><TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding LegendaryRating}" />
+                                <TextBlock Grid.Row="5" Text="Awakened rating" Opacity="0.65" /><TextBlock Grid.Row="5" Grid.Column="1" Text="{Binding LegendaryRating}" />
                                 <TextBlock Grid.Row="6" Text="Strain" Opacity="0.65" /><TextBlock Grid.Row="6" Grid.Column="1" Text="{Binding Strain}" />
                                 <TextBlock Grid.Row="7" Text="PvP fame gained" Opacity="0.65" /><TextBlock Grid.Row="7" Grid.Column="1" Text="{Binding PvPFameGained}" />
                                 <TextBlock Grid.Row="8" Text="Attunement spent" Opacity="0.65" /><TextBlock Grid.Row="8" Grid.Column="1" Text="{Binding AttunementSpent}" />
@@ -160,6 +166,47 @@
                                     </DataTemplate>
                                 </ItemsControl.ItemTemplate>
                             </ItemsControl>
+                            <TextBlock Text="Sale listing" FontSize="15" FontWeight="DemiBold" Margin="0,8,0,0" />
+                            <TextBlock Text="This item has not been listed for sale."
+                                       IsVisible="{Binding !HasListing}"
+                                       Opacity="0.65"
+                                       TextWrapping="Wrap" />
+                            <StackPanel IsVisible="{Binding HasListing}" Spacing="6">
+                                <Grid ColumnDefinitions="Auto,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="4">
+                                    <TextBlock Grid.Row="0" Text="Status" Opacity="0.65" />
+                                    <TextBlock Grid.Row="0" Grid.Column="1" Text="{Binding SaleState}" />
+                                    <TextBlock Grid.Row="1" Text="Latest price" Opacity="0.65" />
+                                    <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding LatestPrice}" />
+                                    <TextBlock Grid.Row="2" Text="Last listed" Opacity="0.65" />
+                                    <TextBlock Grid.Row="2" Grid.Column="1" Text="{Binding LastListed}" />
+                                </Grid>
+                                <CheckBox Name="SoldCheckBox"
+                                          Content="Sold"
+                                          IsChecked="{Binding IsSold, Mode=OneWay}"
+                                          Click="SoldCheckBox_Click" />
+                                <TextBlock Text="Sell orders" FontWeight="DemiBold" Margin="0,4,0,0" />
+                                <ItemsControl ItemsSource="{Binding SellOrders}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:LegendarySellOrderRowViewModel">
+                                            <Border BorderBrush="rgba(255,255,255,0.12)" BorderThickness="0,0,0,1" Padding="0,7">
+                                                <StackPanel Spacing="3">
+                                                    <TextBlock Text="{Binding Price}" FontWeight="DemiBold" />
+                                                    <TextBlock Text="{Binding ListedAt}" FontSize="11" Opacity="0.7" />
+                                                    <TextBlock Text="{Binding Contact}" FontSize="11" TextWrapping="Wrap" />
+                                                    <TextBlock Text="{Binding DiscordStatus}" FontSize="11" Opacity="0.7" />
+                                                    <Button Content="Open Discord post"
+                                                            Tag="{Binding MessageUrl}"
+                                                            IsVisible="{Binding HasDiscordPost}"
+                                                            Click="OpenDiscordPostButton_Click"
+                                                            HorizontalAlignment="Left"
+                                                            Padding="8,4" />
+                                                </StackPanel>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                            </StackPanel>
+                            </StackPanel>
                         </StackPanel>
                     </ScrollViewer>
                 </Grid>

@@ -20,21 +20,17 @@ namespace AlbionDataAvalonia.ViewModels;
 
 public partial class LegendaryViewModel : ViewModelBase
 {
-    private static readonly TimeSpan EligibilityCacheDuration = TimeSpan.FromMinutes(1);
     private readonly LegendaryItemTrackerService tracker;
     private readonly LegendaryDefinitionsService definitions;
-    private readonly LegendaryDiscordSaleService discordSaleService;
+    private readonly LegendarySaleService saleService;
+    private readonly AuthService authService;
     private readonly PlayerState playerState;
     private List<LegendaryItemRowViewModel> unfilteredItems = new();
-    private IReadOnlyDictionary<(int ServerId, Guid SoulId), DateTimeOffset> discordPostDates =
-        new Dictionary<(int ServerId, Guid SoulId), DateTimeOffset>();
-    private readonly Dictionary<int, CachedSaleEligibility> eligibilityCache = new();
-    private readonly Dictionary<(long Generation, int ServerId), Task<LegendarySaleEligibility>> eligibilityRequests = new();
+    private IReadOnlyDictionary<(int ServerId, Guid SoulId), LegendarySaleListing> saleListings =
+        new Dictionary<(int ServerId, Guid SoulId), LegendarySaleListing>();
     private bool loaded;
     private int refreshQueued;
-    private long eligibilityVersion;
-    private long eligibilityCacheGeneration;
-    private string? eligibilityUserId;
+    private string? currentUserId;
 
     public ObservableCollection<LegendaryItemRowViewModel> Items { get; } = new();
     public IReadOnlyList<string> Servers { get; } = ["Any", .. AlbionServers.GetAll().Select(server => server.Name)];
@@ -49,47 +45,52 @@ public partial class LegendaryViewModel : ViewModelBase
     private bool onlyAttunedToMe;
 
     [ObservableProperty]
+    private bool onlyActiveSales;
+
+    [ObservableProperty]
     private LegendaryItemRowViewModel? selectedItem;
 
     [ObservableProperty]
-    private string saleStatus = "Select a complete legendary item to check Discord posting eligibility.";
+    private string saleStatus = "Select a complete awakened item to list it for sale.";
 
     [ObservableProperty]
     private bool isPosting;
 
-    private LegendarySaleEligibility? saleEligibility;
-
-    public bool CanSellSelectedItem =>
+    public bool CanListSelectedItem =>
         SelectedItem?.CanPost == true
-        && saleEligibility?.CanPost == true
+        && IsSignedIn
         && !IsPosting;
 
     public bool HasSelectedItem => SelectedItem is not null;
 
     public bool CanFilterAttunedToMe => IsDefinedPlayerName(playerState?.PlayerName);
 
+    public bool IsSignedIn => !string.IsNullOrWhiteSpace(authService?.FirebaseUserId);
+
     public LegendaryViewModel()
     {
         tracker = null!;
         definitions = null!;
-        discordSaleService = null!;
+        saleService = null!;
+        authService = null!;
         playerState = null!;
     }
 
     public LegendaryViewModel(
         LegendaryItemTrackerService tracker,
         LegendaryDefinitionsService definitions,
-        LegendaryDiscordSaleService discordSaleService,
+        LegendarySaleService saleService,
         AuthService authService,
         PlayerState playerState)
     {
         this.tracker = tracker;
         this.definitions = definitions;
-        this.discordSaleService = discordSaleService;
+        this.saleService = saleService;
+        this.authService = authService;
         this.playerState = playerState;
-        eligibilityUserId = authService.FirebaseUserId;
+        currentUserId = authService.FirebaseUserId;
         tracker.ItemsChanged += HandleItemsChanged;
-        authService.FirebaseUserChanged += user => Dispatcher.UIThread.Post(() => HandleAuthChanged(user?.LocalId));
+        authService.FirebaseUserChanged += user => Dispatcher.UIThread.Post(async () => await HandleAuthChangedAsync(user?.LocalId));
         playerState.OnPlayerStateChanged += (_, _) =>
         {
             Dispatcher.UIThread.Post(() =>
@@ -120,10 +121,8 @@ public partial class LegendaryViewModel : ViewModelBase
     [RelayCommand]
     public async Task RefreshAsync()
     {
-        InvalidateEligibilityCache();
-        await LoadDiscordPostsAsync();
+        await LoadSaleListingsAsync();
         await LoadItemsAsync();
-        await RefreshEligibilityAsync();
     }
 
     public async Task<int> DeleteSelectedItemsAsync(
@@ -140,71 +139,68 @@ public partial class LegendaryViewModel : ViewModelBase
             selectedItems.Select(item => item.Source.Id),
             cancellationToken);
         await LoadItemsAsync();
-        SaleStatus = $"Deleted {deletedCount:N0} legendary item{(deletedCount == 1 ? string.Empty : "s")}.";
+        SaleStatus = $"Deleted {deletedCount:N0} awakened item{(deletedCount == 1 ? string.Empty : "s")}.";
         return deletedCount;
-    }
-
-    public async Task<LegendarySaleEligibility> RefreshEligibilityAsync()
-    {
-        var version = Interlocked.Increment(ref eligibilityVersion);
-        var item = SelectedItem;
-        if (item is null || !item.CanPost)
-        {
-            saleEligibility = null;
-            SaleStatus = item is null
-                ? "Select a complete legendary item to check Discord posting eligibility."
-                : "This item needs a known server, item identity, and legendary details before it can be posted.";
-            OnPropertyChanged(nameof(CanSellSelectedItem));
-            return new LegendarySaleEligibility(false, "invalid_server", null, null);
-        }
-
-        SaleStatus = "Checking linked Discord account...";
-        OnPropertyChanged(nameof(CanSellSelectedItem));
-        var eligibility = await GetEligibilityAsync(item.Source.AlbionServerId);
-        if (version != Interlocked.Read(ref eligibilityVersion) || !ReferenceEquals(item, SelectedItem))
-        {
-            return eligibility;
-        }
-        saleEligibility = eligibility;
-        SaleStatus = eligibility.Description;
-        OnPropertyChanged(nameof(CanSellSelectedItem));
-        return eligibility;
     }
 
     public string DefaultInGameName => !string.IsNullOrWhiteSpace(playerState?.PlayerName)
         ? playerState.PlayerName
         : SelectedItem?.Source.SeenByPlayerName ?? string.Empty;
 
-    public async Task<LegendarySalePostResult> PostToDiscordAsync(string priceSilver, string inGameName)
+    public async Task<LegendarySaleOperationResult> CreateSellOrderAsync(string priceSilver, string inGameName)
     {
         var selectedItem = SelectedItem;
         if (selectedItem is null)
         {
-            return LegendarySalePostResult.Failed("Select a legendary item first.");
+            return LegendarySaleOperationResult.Failed("Select an awakened item first.");
         }
-        if (!CanSellSelectedItem)
+        if (!IsSignedIn)
         {
-            var eligibility = await RefreshEligibilityAsync();
-            if (!eligibility.CanPost)
-            {
-                return LegendarySalePostResult.Failed(eligibility.Description, inviteUrl: eligibility.InviteUrl);
-            }
+            return LegendarySaleOperationResult.Failed("Sign in to AFM before listing an awakened item.");
+        }
+        if (!selectedItem.CanPost)
+        {
+            return LegendarySaleOperationResult.Failed("This item is missing data required for a sale listing.");
         }
 
         IsPosting = true;
-        SaleStatus = "Posting legendary item to AFM Discord...";
+        SaleStatus = "Listing awakened item for sale...";
         try
         {
-            var result = await discordSaleService.PostAsync(selectedItem.Source, priceSilver, inGameName);
+            var result = await saleService.CreateSellOrderAsync(selectedItem.Source, priceSilver, inGameName);
             SaleStatus = result.RetryAfterSeconds is { } retry
-                ? $"{result.Message} Try again in {TimeSpan.FromSeconds(retry):g}."
+                ? $"{result.Message} Discord can be tried again in {TimeSpan.FromSeconds(retry):g}."
                 : result.Message;
-            if (result.PostedAt is { } postedAt)
+            if (result.Listing is not null)
             {
-                discordPostDates = new Dictionary<(int ServerId, Guid SoulId), DateTimeOffset>(discordPostDates)
-                {
-                    [(selectedItem.Source.AlbionServerId, selectedItem.Source.SoulId!.Value)] = postedAt
-                };
+                StoreListing(result.Listing);
+                await LoadItemsAsync();
+            }
+            return result;
+        }
+        finally
+        {
+            IsPosting = false;
+        }
+    }
+
+    public async Task<LegendarySaleOperationResult> SetSelectedSoldAsync(bool sold)
+    {
+        var selected = SelectedItem;
+        if (selected?.Source.SoulId is not { } soulId || !selected.HasListing)
+        {
+            return LegendarySaleOperationResult.Failed("This item does not have a sale listing.");
+        }
+
+        IsPosting = true;
+        SaleStatus = sold ? "Marking awakened item as sold..." : "Marking awakened item as available...";
+        try
+        {
+            var result = await saleService.SetSoldAsync(selected.Source.AlbionServerId, soulId, sold);
+            SaleStatus = result.Message;
+            if (result.Listing is not null)
+            {
+                StoreListing(result.Listing);
                 await LoadItemsAsync();
             }
             return result;
@@ -218,89 +214,65 @@ public partial class LegendaryViewModel : ViewModelBase
     partial void OnFilterTextChanged(string value) => ApplyFilter();
     partial void OnSelectedServerChanged(string value) => ApplyFilter();
     partial void OnOnlyAttunedToMeChanged(bool value) => ApplyFilter();
+    partial void OnOnlyActiveSalesChanged(bool value) => ApplyFilter();
     partial void OnSelectedItemChanged(LegendaryItemRowViewModel? value)
     {
         OnPropertyChanged(nameof(HasSelectedItem));
-        _ = RefreshEligibilityAsync();
+        OnPropertyChanged(nameof(CanListSelectedItem));
+        UpdateSaleStatus();
     }
-    partial void OnIsPostingChanged(bool value) => OnPropertyChanged(nameof(CanSellSelectedItem));
+    partial void OnIsPostingChanged(bool value) => OnPropertyChanged(nameof(CanListSelectedItem));
 
     private async Task InitializeAsync()
     {
         await definitions.InitializeAsync();
-        await LoadDiscordPostsAsync();
+        await LoadSaleListingsAsync();
         await LoadItemsAsync();
     }
 
-    private async Task<LegendarySaleEligibility> GetEligibilityAsync(int serverId)
+    private async Task HandleAuthChangedAsync(string? userId)
     {
-        var now = DateTimeOffset.UtcNow;
-        if (eligibilityCache.TryGetValue(serverId, out var cached) && cached.ExpiresAt > now)
+        if (string.Equals(currentUserId, userId, StringComparison.Ordinal))
         {
-            return cached.Eligibility;
+            return;
         }
-
-        var generation = eligibilityCacheGeneration;
-        var requestKey = (generation, serverId);
-        if (!eligibilityRequests.TryGetValue(requestKey, out var request))
+        currentUserId = userId;
+        OnPropertyChanged(nameof(IsSignedIn));
+        OnPropertyChanged(nameof(CanListSelectedItem));
+        if (loaded)
         {
-            request = discordSaleService.GetEligibilityAsync(serverId);
-            eligibilityRequests[requestKey] = request;
+            await LoadSaleListingsAsync();
+            await LoadItemsAsync();
         }
-
-        try
-        {
-            var eligibility = await request;
-            if (generation == eligibilityCacheGeneration)
-            {
-                eligibilityCache[serverId] = new CachedSaleEligibility(
-                    eligibility,
-                    DateTimeOffset.UtcNow.Add(EligibilityCacheDuration));
-            }
-            return eligibility;
-        }
-        finally
-        {
-            if (eligibilityRequests.TryGetValue(requestKey, out var currentRequest)
-                && ReferenceEquals(request, currentRequest))
-            {
-                eligibilityRequests.Remove(requestKey);
-            }
-        }
+        UpdateSaleStatus();
     }
 
-    private void HandleAuthChanged(string? userId)
+    private async Task LoadSaleListingsAsync()
     {
-        if (!string.Equals(eligibilityUserId, userId, StringComparison.Ordinal))
+        var listings = new Dictionary<(int ServerId, Guid SoulId), LegendarySaleListing>();
+        if (IsSignedIn)
         {
-            eligibilityUserId = userId;
-            InvalidateEligibilityCache();
-        }
-        _ = RefreshEligibilityAsync();
-    }
-
-    private void InvalidateEligibilityCache()
-    {
-        eligibilityCache.Clear();
-        eligibilityCacheGeneration++;
-    }
-
-    private async Task LoadDiscordPostsAsync()
-    {
-        var latestPosts = new Dictionary<(int ServerId, Guid SoulId), DateTimeOffset>();
-        foreach (var post in await discordSaleService.GetPostsAsync())
-        {
-            if (!Guid.TryParse(post.SoulId, out var soulId) || soulId == Guid.Empty)
+            foreach (var listing in await saleService.GetListingsAsync())
             {
-                continue;
-            }
-            var key = (post.ServerId, soulId);
-            if (!latestPosts.TryGetValue(key, out var existing) || post.CreatedAt > existing)
-            {
-                latestPosts[key] = post.CreatedAt;
+                if (Guid.TryParse(listing.SoulId, out var soulId) && soulId != Guid.Empty)
+                {
+                    listings[(listing.ServerId, soulId)] = listing;
+                }
             }
         }
-        discordPostDates = latestPosts;
+        saleListings = listings;
+    }
+
+    private void StoreListing(LegendarySaleListing listing)
+    {
+        if (!Guid.TryParse(listing.SoulId, out var soulId) || soulId == Guid.Empty)
+        {
+            return;
+        }
+        saleListings = new Dictionary<(int ServerId, Guid SoulId), LegendarySaleListing>(saleListings)
+        {
+            [(listing.ServerId, soulId)] = listing
+        };
     }
 
     private async Task LoadItemsAsync()
@@ -308,13 +280,13 @@ public partial class LegendaryViewModel : ViewModelBase
         try
         {
             var items = await tracker.GetItemsAsync().ConfigureAwait(false);
-            var postDates = discordPostDates;
+            var listings = saleListings;
             var rows = items.Select(item => new LegendaryItemRowViewModel(
                 item,
                 definitions,
                 item.SoulId is { } soulId
-                    && postDates.TryGetValue((item.AlbionServerId, soulId), out var postedAt)
-                    ? postedAt
+                    && listings.TryGetValue((item.AlbionServerId, soulId), out var listing)
+                    ? listing
                     : null)).ToList();
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
@@ -328,6 +300,19 @@ public partial class LegendaryViewModel : ViewModelBase
         {
             Log.Warning(ex, "Failed to load legendary items");
         }
+    }
+
+    private void UpdateSaleStatus()
+    {
+        SaleStatus = SelectedItem switch
+        {
+            null => "Select a complete awakened item to list it for sale.",
+            { CanPost: false } => "This item is missing data required for a sale listing.",
+            _ when !IsSignedIn => "Sign in to AFM to list awakened items.",
+            { HasListing: true, IsSold: true } => "This item's AFM sale listing is marked as sold.",
+            { HasListing: true } => "This item is currently listed for sale on AFM.",
+            _ => "This item is ready to list for sale on AFM."
+        };
     }
 
     private void HandleItemsChanged()
@@ -358,6 +343,7 @@ public partial class LegendaryViewModel : ViewModelBase
             && (!OnlyAttunedToMe
                 || (IsDefinedPlayerName(playerName)
                     && string.Equals(row.Source.AttunedToPlayerName, playerName, StringComparison.OrdinalIgnoreCase)))
+            && (!OnlyActiveSales || (row.HasListing && !row.IsSold))
             && (string.IsNullOrWhiteSpace(filter) || row.SearchText.Contains(filter, StringComparison.OrdinalIgnoreCase)))
             .ToList();
         Items.Clear();
@@ -373,9 +359,6 @@ public partial class LegendaryViewModel : ViewModelBase
             && !string.Equals(playerName, "Not set", StringComparison.OrdinalIgnoreCase);
     }
 
-    private sealed record CachedSaleEligibility(
-        LegendarySaleEligibility Eligibility,
-        DateTimeOffset ExpiresAt);
 }
 
 public sealed class LegendaryItemRowViewModel
@@ -383,10 +366,12 @@ public sealed class LegendaryItemRowViewModel
     public LegendaryItemRowViewModel(
         LegendaryItem source,
         LegendaryDefinitionsService definitions,
-        DateTimeOffset? discordPostedAt)
+        LegendarySaleListing? listing)
     {
         Source = source;
-        DiscordPostedAt = discordPostedAt;
+        Listing = listing;
+        SellOrders = listing?.SellOrders.Select(order => new LegendarySellOrderRowViewModel(order)).ToList()
+            ?? [];
         var itemNameFallback = string.IsNullOrWhiteSpace(source.ItemName) ? source.ItemUniqueName : source.ItemName;
         ItemName = ItemNameFormatter.FormatUsName(
             source.ItemUniqueName,
@@ -409,20 +394,16 @@ public sealed class LegendaryItemRowViewModel
         SearchText = string.Join(' ', new[]
         {
             ItemName,
-            source.SoulName,
-            source.ItemUniqueName,
-            source.CrafterName,
+            Quality,
             source.AttunedToPlayerName,
-            source.LocationName,
-            source.ContainerName,
-            source.SeenByPlayerName,
-            LegendaryRating,
-            string.Join(' ', Traits.Select(trait => $"{trait.Id} {trait.Name} {trait.Value}"))
+            string.Join(' ', Traits.Select(trait => trait.Name))
         }.Where(value => !string.IsNullOrWhiteSpace(value)));
     }
 
     public LegendaryItem Source { get; }
+    public LegendarySaleListing? Listing { get; }
     public IReadOnlyList<LegendaryTraitRowViewModel> Traits { get; }
+    public IReadOnlyList<LegendarySellOrderRowViewModel> SellOrders { get; }
     public string SearchText { get; }
     public string ItemName { get; }
     public string SoulName => Source.SoulName ?? string.Empty;
@@ -443,9 +424,12 @@ public sealed class LegendaryItemRowViewModel
     public string TraitsSummary => Traits.Count == 0 ? "No traits" : string.Join("; ", Traits.Select(trait => $"{trait.Value} {trait.Name}"));
     public bool HasTraits => Traits.Count > 0;
     public string Location => string.IsNullOrWhiteSpace(Source.LocationName) ? "Unknown" : Source.LocationName;
-    public DateTimeOffset? DiscordPostedAt { get; }
-    public string DiscordPost => DiscordPostedAt is { } postedAt
-        ? $"{postedAt.ToUniversalTime().ToString("g", CultureInfo.CurrentCulture)} UTC"
+    public bool HasListing => Listing is not null;
+    public bool IsSold => Listing?.Sold == true;
+    public string SaleState => Listing is null ? "-" : IsSold ? "Sold" : "Active";
+    public string LatestPrice => Listing is null ? "-" : FormatPrice(Listing.LatestPriceSilver);
+    public string LastListed => Listing is { } listing
+        ? FormatUtc(listing.LastListedAt)
         : "-";
     public string LastSeen => FormatUtc(Source.LastSeenAtUtc);
     public string FirstSeen => FormatUtc(Source.FirstSeenAtUtc);
@@ -464,6 +448,47 @@ public sealed class LegendaryItemRowViewModel
     {
         return $"{DateTime.SpecifyKind(value, DateTimeKind.Utc).ToString("g", CultureInfo.CurrentCulture)} UTC";
     }
+
+    private static string FormatUtc(DateTimeOffset value)
+    {
+        return $"{value.UtcDateTime.ToString("g", CultureInfo.CurrentCulture)} UTC";
+    }
+
+    private static string FormatPrice(string value)
+    {
+        return long.TryParse(value, NumberStyles.None, CultureInfo.InvariantCulture, out var price)
+            ? $"{price.ToString("N0", CultureInfo.CurrentCulture)} silver"
+            : $"{value} silver";
+    }
+}
+
+public sealed class LegendarySellOrderRowViewModel
+{
+    public LegendarySellOrderRowViewModel(LegendarySellOrder source)
+    {
+        Source = source;
+    }
+
+    public LegendarySellOrder Source { get; }
+    public string ListedAt => $"{Source.CreatedAt.UtcDateTime.ToString("g", CultureInfo.CurrentCulture)} UTC";
+    public string Price => long.TryParse(Source.PriceSilver, NumberStyles.None, CultureInfo.InvariantCulture, out var price)
+        ? $"{price.ToString("N0", CultureInfo.CurrentCulture)} silver"
+        : $"{Source.PriceSilver} silver";
+    public string Contact => string.IsNullOrWhiteSpace(Source.DiscordUsername)
+        ? Source.InGameName
+        : $"{Source.InGameName} · Discord: {Source.DiscordUsername}";
+    public string DiscordStatus => Source.Discord.Status switch
+    {
+        "posted" => "Posted to Discord",
+        "not_linked" => "Discord not linked",
+        "not_member" => "Not in AFM Discord",
+        "rate_limited" => "Discord rate-limited",
+        "failed" => "Discord post failed",
+        "pending" => "Discord post pending",
+        _ => "Discord unavailable"
+    };
+    public string? MessageUrl => Source.Discord.MessageUrl;
+    public bool HasDiscordPost => !string.IsNullOrWhiteSpace(MessageUrl);
 }
 
 public sealed class LegendaryTraitRowViewModel
