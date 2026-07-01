@@ -127,6 +127,7 @@
 					</Button>
 
 					<Button Classes="menu" Margin="10" HorizontalAlignment="Stretch"
+						IsVisible="{Binding !UserSettings.DisableCombatTracker}"
 						Classes.active="{Binding IsCombatSelected}"
 						Command="{Binding ShowCombatCommand}">
 						<StackPanel Orientation="Horizontal">
@@ -138,6 +139,7 @@
 					</Button>
 
 					<Button Classes="menu" Margin="10" HorizontalAlignment="Stretch"
+						IsVisible="{Binding !UserSettings.DisableGatheringTracker}"
 						Classes.active="{Binding IsGatheringSelected}"
 						Command="{Binding ShowGatheringCommand}">
 						<StackPanel Orientation="Horizontal">
@@ -149,6 +151,7 @@
 					</Button>
 
 					<Button Classes="menu" Margin="10" HorizontalAlignment="Stretch"
+						IsVisible="{Binding !UserSettings.DisableLootTracker}"
 						Classes.active="{Binding IsLootSelected}"
 						Command="{Binding ShowLootCommand}">
 						<StackPanel Orientation="Horizontal">
@@ -160,6 +163,7 @@
 					</Button>
 
 					<Button Classes="menu" Margin="10" HorizontalAlignment="Stretch"
+						IsVisible="{Binding !UserSettings.DisableAwakeningItemsTracker}"
 						Classes.active="{Binding IsLegendarySelected}"
 						Command="{Binding ShowLegendaryCommand}">
 						<StackPanel Orientation="Horizontal">

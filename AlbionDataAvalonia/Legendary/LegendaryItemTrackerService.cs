@@ -1,11 +1,13 @@
 using AlbionDataAvalonia.DB;
 using AlbionDataAvalonia.Legendary.Models;
 using AlbionDataAvalonia.Locations;
+using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using System;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -17,22 +19,27 @@ public sealed class LegendaryItemTrackerService : IDisposable
     private static readonly TimeSpan LastSeenUpdateInterval = TimeSpan.FromMinutes(5);
     private readonly SemaphoreSlim gate = new(1, 1);
     private readonly PlayerState playerState;
+    private readonly SettingsManager settingsManager;
     private readonly Dictionary<long, PendingObservation> pending = new();
     private readonly Dictionary<Guid, ContainerContext> containers = new();
     private readonly Dictionary<long, ContainerContext> itemLocations = new();
     private readonly Dictionary<Guid, VaultTabMetadata> vaultTabs = new();
     private readonly HashSet<long> knownLegendaryObjects = new();
+    private volatile bool isDisabled;
 
     public event Action? ItemsChanged;
 
-    public LegendaryItemTrackerService(PlayerState playerState)
+    public LegendaryItemTrackerService(PlayerState playerState, SettingsManager settingsManager)
     {
         this.playerState = playerState;
+        this.settingsManager = settingsManager;
+        isDisabled = settingsManager.UserSettings.DisableAwakeningItemsTracker;
+        settingsManager.UserSettings.PropertyChanged += OnUserSettingsPropertyChanged;
     }
 
     public async Task ObserveItemAsync(NewItem item)
     {
-        if (item.ObjectId is not { } objectId || objectId <= 0 || !item.IsAwakened)
+        if (isDisabled || item.ObjectId is not { } objectId || objectId <= 0 || !item.IsAwakened)
         {
             return;
         }
@@ -40,6 +47,11 @@ public sealed class LegendaryItemTrackerService : IDisposable
         await gate.WaitAsync();
         try
         {
+            if (isDisabled)
+            {
+                return;
+            }
+
             var observation = GetPending(objectId);
             observation.Item = item;
             if (observation.Soul is not null)
@@ -55,7 +67,7 @@ public sealed class LegendaryItemTrackerService : IDisposable
 
     public async Task ObserveSoulAsync(LegendarySoul soul)
     {
-        if (soul.ObjectId <= 0)
+        if (isDisabled || soul.ObjectId <= 0)
         {
             return;
         }
@@ -63,6 +75,11 @@ public sealed class LegendaryItemTrackerService : IDisposable
         await gate.WaitAsync();
         try
         {
+            if (isDisabled)
+            {
+                return;
+            }
+
             if (soul.TraitsIds.Length != soul.TraitsValues.Length)
             {
                 pending.Remove(soul.ObjectId);
@@ -89,7 +106,7 @@ public sealed class LegendaryItemTrackerService : IDisposable
 
     public async Task ObserveContainerAsync(long objectId, Guid containerId, Guid privateContainerId, IReadOnlyList<long> slotItems)
     {
-        if (containerId == Guid.Empty)
+        if (isDisabled || containerId == Guid.Empty)
         {
             return;
         }
@@ -97,6 +114,11 @@ public sealed class LegendaryItemTrackerService : IDisposable
         await gate.WaitAsync();
         try
         {
+            if (isDisabled)
+            {
+                return;
+            }
+
             if (containers.TryGetValue(containerId, out var existingContext))
             {
                 RemoveContainerContext(existingContext);
@@ -134,9 +156,19 @@ public sealed class LegendaryItemTrackerService : IDisposable
         IReadOnlyList<string> tabIcons,
         IReadOnlyList<int> tabColors)
     {
+        if (isDisabled)
+        {
+            return;
+        }
+
         await gate.WaitAsync();
         try
         {
+            if (isDisabled)
+            {
+                return;
+            }
+
             var locationName = AlbionLocations.ResolveLocation(rawLocationId).FriendlyName;
             for (var index = 0; index < tabIds.Count; index++)
             {
@@ -173,7 +205,7 @@ public sealed class LegendaryItemTrackerService : IDisposable
 
     public async Task ObserveInventoryPutAsync(long itemObjectId, Guid containerId)
     {
-        if (itemObjectId <= 0 || containerId == Guid.Empty)
+        if (isDisabled || itemObjectId <= 0 || containerId == Guid.Empty)
         {
             return;
         }
@@ -181,6 +213,11 @@ public sealed class LegendaryItemTrackerService : IDisposable
         await gate.WaitAsync();
         try
         {
+            if (isDisabled)
+            {
+                return;
+            }
+
             if (itemLocations.TryGetValue(itemObjectId, out var previousContext)
                 && !ReferenceEquals(previousContext, containers.GetValueOrDefault(containerId)))
             {
@@ -209,7 +246,7 @@ public sealed class LegendaryItemTrackerService : IDisposable
 
     public async Task ObserveInventoryDeleteAsync(long itemObjectId)
     {
-        if (itemObjectId <= 0)
+        if (isDisabled || itemObjectId <= 0)
         {
             return;
         }
@@ -217,6 +254,11 @@ public sealed class LegendaryItemTrackerService : IDisposable
         await gate.WaitAsync();
         try
         {
+            if (isDisabled)
+            {
+                return;
+            }
+
             if (itemLocations.Remove(itemObjectId, out var context))
             {
                 context.SlotItems = context.SlotItems.Where(value => value != itemObjectId).ToArray();
@@ -234,7 +276,7 @@ public sealed class LegendaryItemTrackerService : IDisposable
 
     public async Task DetachContainerAsync(Guid containerId)
     {
-        if (containerId == Guid.Empty)
+        if (isDisabled || containerId == Guid.Empty)
         {
             return;
         }
@@ -242,6 +284,11 @@ public sealed class LegendaryItemTrackerService : IDisposable
         await gate.WaitAsync();
         try
         {
+            if (isDisabled)
+            {
+                return;
+            }
+
             if (containers.TryGetValue(containerId, out var context))
             {
                 RemoveContainerContext(context);
@@ -313,7 +360,38 @@ public sealed class LegendaryItemTrackerService : IDisposable
 
     public void Dispose()
     {
+        settingsManager.UserSettings.PropertyChanged -= OnUserSettingsPropertyChanged;
         gate.Dispose();
+    }
+
+    private async void OnUserSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName != nameof(UserSettings.DisableAwakeningItemsTracker))
+        {
+            return;
+        }
+
+        var disabled = settingsManager.UserSettings.DisableAwakeningItemsTracker;
+        if (isDisabled == disabled)
+        {
+            return;
+        }
+
+        isDisabled = disabled;
+        try
+        {
+            if (disabled)
+            {
+                await ResetTransientStateAsync();
+            }
+            Log.Information(disabled
+                ? "Awakening items tracker disabled; transient tracking data was reset."
+                : "Awakening items tracker enabled.");
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to apply the awakening items tracker setting");
+        }
     }
 
     private PendingObservation GetPending(long objectId)

@@ -3,6 +3,7 @@ using AlbionDataAvalonia.Items;
 using AlbionDataAvalonia.Legendary;
 using AlbionDataAvalonia.Legendary.Models;
 using AlbionDataAvalonia.Network.Models;
+using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -11,6 +12,7 @@ using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Globalization;
 using System.Linq;
 using System.Threading;
@@ -25,6 +27,7 @@ public partial class LegendaryViewModel : ViewModelBase
     private readonly LegendarySaleService saleService;
     private readonly AuthService authService;
     private readonly PlayerState playerState;
+    private readonly SettingsManager settingsManager;
     private List<LegendaryItemRowViewModel> unfilteredItems = new();
     private IReadOnlyDictionary<(int ServerId, Guid SoulId), LegendarySaleListing> saleListings =
         new Dictionary<(int ServerId, Guid SoulId), LegendarySaleListing>();
@@ -56,6 +59,9 @@ public partial class LegendaryViewModel : ViewModelBase
     [ObservableProperty]
     private bool isPosting;
 
+    [ObservableProperty]
+    private bool isAwakeningItemsTrackerDisabled;
+
     public bool CanListSelectedItem =>
         SelectedItem?.CanPost == true
         && IsSignedIn
@@ -79,6 +85,7 @@ public partial class LegendaryViewModel : ViewModelBase
         saleService = null!;
         authService = null!;
         playerState = null!;
+        settingsManager = null!;
     }
 
     public LegendaryViewModel(
@@ -86,15 +93,19 @@ public partial class LegendaryViewModel : ViewModelBase
         LegendaryDefinitionsService definitions,
         LegendarySaleService saleService,
         AuthService authService,
-        PlayerState playerState)
+        PlayerState playerState,
+        SettingsManager settingsManager)
     {
         this.tracker = tracker;
         this.definitions = definitions;
         this.saleService = saleService;
         this.authService = authService;
         this.playerState = playerState;
+        this.settingsManager = settingsManager;
+        isAwakeningItemsTrackerDisabled = settingsManager.UserSettings.DisableAwakeningItemsTracker;
         currentUserId = authService.FirebaseUserId;
         tracker.ItemsChanged += HandleItemsChanged;
+        settingsManager.UserSettings.PropertyChanged += OnUserSettingsPropertyChanged;
         authService.FirebaseUserChanged += user => Dispatcher.UIThread.Post(async () => await HandleAuthChangedAsync(user?.LocalId));
         playerState.OnPlayerStateChanged += (_, _) =>
         {
@@ -366,6 +377,15 @@ public partial class LegendaryViewModel : ViewModelBase
             Interlocked.Exchange(ref refreshQueued, 0);
             await LoadItemsAsync();
         });
+    }
+
+    private void OnUserSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName == nameof(UserSettings.DisableAwakeningItemsTracker))
+        {
+            Dispatcher.UIThread.Post(() =>
+                IsAwakeningItemsTrackerDisabled = settingsManager.UserSettings.DisableAwakeningItemsTracker);
+        }
     }
 
     private void ApplyFilter()
