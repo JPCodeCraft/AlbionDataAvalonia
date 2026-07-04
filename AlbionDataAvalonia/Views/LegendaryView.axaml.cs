@@ -98,4 +98,13 @@ public partial class LegendaryView : UserControl
             Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
         }
     }
+
+    private void OpenCalculatorButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (sender is Button { Tag: string url }
+            && Uri.TryCreate(url, UriKind.Absolute, out _))
+        {
+            Process.Start(new ProcessStartInfo(url) { UseShellExecute = true });
+        }
+    }
 }

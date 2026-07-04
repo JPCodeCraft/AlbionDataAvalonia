@@ -47,21 +47,39 @@ public sealed class NewEquipmentItemLegendarySoulEvent : BaseEvent
             var strain = parameters.TryGetValue(6, out var strainValue)
                 ? strainValue.ToFixedPointDouble()
                 : 0d;
-            var attunement = parameters.TryGetValue(7, out var attunementValue)
+            long? attunement = parameters.TryGetValue(7, out var attunementValue)
                 ? (long)Math.Round(attunementValue.ToLong() / 10000d, MidpointRounding.AwayFromZero)
-                : 0L;
+                : null;
+            var hasTraitSnapshot = parameters.ContainsKey(8) && parameters.ContainsKey(9);
             var traitIds = parameters.TryGetValue(8, out var traitIdsValue)
                 ? traitIdsValue.ToStringArray()
                 : Array.Empty<string>();
             var traitValues = parameters.TryGetValue(9, out var traitValuesValue)
                 ? traitValuesValue.ToDoubleArray()
                 : Array.Empty<double>();
-            var attunementSpent = parameters.TryGetValue(12, out var attunementSpentValue)
+            if (traitIds.Length == traitValues.Length)
+            {
+                var actualTraitIds = new List<string>(traitIds.Length);
+                var actualTraitValues = new List<double>(traitValues.Length);
+                for (var index = 0; index < traitIds.Length; index++)
+                {
+                    if (string.IsNullOrWhiteSpace(traitIds[index]))
+                    {
+                        continue;
+                    }
+
+                    actualTraitIds.Add(traitIds[index]);
+                    actualTraitValues.Add(traitValues[index]);
+                }
+                traitIds = actualTraitIds.ToArray();
+                traitValues = actualTraitValues.ToArray();
+            }
+            long? attunementSpent = parameters.TryGetValue(12, out var attunementSpentValue)
                 ? ToFixedPointWhole(attunementSpentValue)
-                : 0L;
-            var pvpFameGained = parameters.TryGetValue(13, out var pvpFameGainedValue)
+                : null;
+            long? pvpFameGained = parameters.TryGetValue(13, out var pvpFameGainedValue)
                 ? ToFixedPointWhole(pvpFameGainedValue)
-                : 0L;
+                : null;
 
             LegendarySoul = new LegendarySoul(
                 objectId,
@@ -74,6 +92,7 @@ public sealed class NewEquipmentItemLegendarySoulEvent : BaseEvent
                 strain,
                 pvpFameGained,
                 attunementSpent,
+                hasTraitSnapshot,
                 traitIds,
                 traitValues);
         }

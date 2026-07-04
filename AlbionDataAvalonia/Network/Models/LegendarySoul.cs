@@ -8,10 +8,11 @@ public class LegendarySoul
     public int Era { get; set; }
     public bool AttunedToMe { get; set; }
     public string? AttunedToPlayerName { get; set; }
-    public long Attunement { get; set; }
+    public long? Attunement { get; set; }
     public double Strain { get; set; }
-    public long PvPFameGained { get; set; }
-    public long AttunementSpent { get; set; }
+    public long? PvPFameGained { get; set; }
+    public long? AttunementSpent { get; set; }
+    public bool HasTraitSnapshot { get; set; }
     public string[] TraitsIds { get; set; } = Array.Empty<string>();
     public double[] TraitsValues { get; set; } = Array.Empty<double>();
 
@@ -22,10 +23,11 @@ public class LegendarySoul
         int era,
         bool attunedToMe,
         string? attunedToPlayerName,
-        long attunement,
+        long? attunement,
         double strain,
-        long pvpFameGained,
-        long attunementSpent,
+        long? pvpFameGained,
+        long? attunementSpent,
+        bool hasTraitSnapshot,
         string[] traitsIds,
         double[] traitsValues)
     {
@@ -39,6 +41,7 @@ public class LegendarySoul
         Strain = strain;
         PvPFameGained = pvpFameGained;
         AttunementSpent = attunementSpent;
+        HasTraitSnapshot = hasTraitSnapshot;
         TraitsIds = traitsIds;
         TraitsValues = traitsValues;
     }

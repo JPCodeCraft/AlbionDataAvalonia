@@ -96,6 +96,7 @@ public sealed class LegendarySaleService : IDisposable
 
         var requestId = Guid.NewGuid().ToString();
         var itemNameFallback = string.IsNullOrWhiteSpace(item.ItemName) ? item.ItemUniqueName : item.ItemName;
+        var awakenedItemPowerBonus = definitions.CalculateAwakenedItemPowerBonus(item.Traits);
         var request = new LegendarySaleRequest(
             requestId,
             item.AlbionServerId,
@@ -122,7 +123,8 @@ public sealed class LegendarySaleService : IDisposable
                     item.Quality,
                     trait.TraitId,
                     trait.Value,
-                    CultureInfo.GetCultureInfo("en-US"));
+                    CultureInfo.GetCultureInfo("en-US"),
+                    awakenedItemPowerBonus);
                 return new LegendarySaleTraitRequest(
                     trait.TraitId,
                     definitions.FindTrait(trait.TraitId)?.UsName,

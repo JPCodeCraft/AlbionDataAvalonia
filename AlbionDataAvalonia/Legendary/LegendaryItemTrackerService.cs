@@ -406,10 +406,42 @@ public sealed class LegendaryItemTrackerService : IDisposable
 
     private async Task UpsertAsync(long objectId, PendingObservation observation, DateTime seenAtUtc)
     {
-        if (observation.Item is null || observation.Soul is null)
+        var observedItem = observation.Item;
+        var observedSoul = observation.Soul;
+        if (observedItem is null || observedSoul is null)
         {
             return;
         }
+
+        for (var attempt = 1; attempt <= 2; attempt++)
+        {
+            try
+            {
+                await UpsertOnceAsync(objectId, observedItem, observedSoul, seenAtUtc);
+                return;
+            }
+            catch (DbUpdateConcurrencyException ex) when (attempt == 1)
+            {
+                Log.Warning(
+                    ex,
+                    "Legendary item save encountered concurrent database changes for object {ObjectId}; retrying with a fresh context. Entries: {Entries}",
+                    objectId,
+                    DescribeConcurrencyEntries(ex));
+            }
+            catch (Exception ex)
+            {
+                Log.Error(
+                    ex,
+                    "Failed to save legendary item for server {ServerId}, object {ObjectId}",
+                    playerState.AlbionServer?.Id,
+                    objectId);
+                return;
+            }
+        }
+    }
+
+    private async Task UpsertOnceAsync(long objectId, NewItem observedItem, LegendarySoul observedSoul, DateTime seenAtUtc)
+    {
         var serverId = playerState.AlbionServer?.Id;
         if (serverId is null or <= 0)
         {
@@ -421,7 +453,7 @@ public sealed class LegendaryItemTrackerService : IDisposable
         var items = db.LegendaryItems.Include(candidate => candidate.Traits);
         var item = await items.FirstOrDefaultAsync(candidate =>
             candidate.AlbionServerId == serverId.Value
-            && candidate.SoulId == observation.Soul.SoulId);
+            && candidate.SoulId == observedSoul.SoulId);
         item ??= await items.FirstOrDefaultAsync(candidate =>
             candidate.AlbionServerId == serverId.Value
             && candidate.ObjectId == objectId
@@ -443,9 +475,9 @@ public sealed class LegendaryItemTrackerService : IDisposable
         var previousLastSeenAtUtc = item.LastSeenAtUtc;
         item.ObjectId = objectId;
         item.SeenByPlayerName = playerState.PlayerName;
-        ApplyItem(item, observation.Item);
-        ApplySoul(db, item, observation.Soul);
-        ApplyAttunedToPlayerName(item, observation.Soul);
+        ApplyItem(item, observedItem);
+        ApplySoul(db, item, observedSoul);
+        ApplyAttunedToPlayerName(item, observedSoul);
         if (itemLocations.TryGetValue(objectId, out var context))
         {
             ApplyLocation(item, context);
@@ -461,15 +493,7 @@ public sealed class LegendaryItemTrackerService : IDisposable
         }
         item.LastSeenAtUtc = seenAtUtc;
 
-        try
-        {
-            await db.SaveChangesAsync();
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Failed to save legendary item for server {ServerId}, object {ObjectId}", serverId, objectId);
-            return;
-        }
+        await db.SaveChangesAsync();
 
         RememberObservedObject(objectId, previousObjectId);
         Log.Debug(
@@ -503,11 +527,33 @@ public sealed class LegendaryItemTrackerService : IDisposable
             target.SoulName = soul.SoulName;
         }
         target.Era = soul.Era;
-        target.PvPFameGained = soul.PvPFameGained;
-        target.AttunementSpent = soul.AttunementSpent;
-        target.Attunement = soul.Attunement;
+        if (soul.PvPFameGained is { } pvpFameGained)
+        {
+            target.PvPFameGained = pvpFameGained;
+        }
+        else
+        {
+            target.PvPFameGained ??= 0;
+        }
+        if (soul.AttunementSpent is { } attunementSpent)
+        {
+            target.AttunementSpent = attunementSpent;
+        }
+        else
+        {
+            target.AttunementSpent ??= 0;
+        }
+        if (soul.Attunement is { } attunement)
+        {
+            target.Attunement = attunement;
+        }
         target.Strain = soul.Strain;
         target.HasLegendaryDetails = true;
+        if (!soul.HasTraitSnapshot)
+        {
+            return;
+        }
+
         var existingTraits = target.Traits.OrderBy(trait => trait.Position).ToArray();
         var traitsUnchanged = existingTraits.Length == soul.TraitsIds.Length
             && !existingTraits.Where((trait, index) =>
@@ -518,18 +564,30 @@ public sealed class LegendaryItemTrackerService : IDisposable
             return;
         }
 
-        db.LegendaryItemTraits.RemoveRange(existingTraits);
-        target.Traits.Clear();
-        for (var index = 0; index < soul.TraitsIds.Length; index++)
+        var sharedCount = Math.Min(existingTraits.Length, soul.TraitsIds.Length);
+        for (var index = 0; index < sharedCount; index++)
         {
-            target.Traits.Add(new LegendaryItemTrait
+            existingTraits[index].Position = index;
+            existingTraits[index].TraitId = soul.TraitsIds[index];
+            existingTraits[index].Value = soul.TraitsValues[index];
+        }
+        for (var index = existingTraits.Length - 1; index >= soul.TraitsIds.Length; index--)
+        {
+            db.LegendaryItemTraits.Remove(existingTraits[index]);
+            target.Traits.Remove(existingTraits[index]);
+        }
+        for (var index = existingTraits.Length; index < soul.TraitsIds.Length; index++)
+        {
+            var trait = new LegendaryItemTrait
             {
                 Id = Guid.NewGuid(),
                 LegendaryItemId = target.Id,
+                LegendaryItem = target,
                 Position = index,
                 TraitId = soul.TraitsIds[index],
                 Value = soul.TraitsValues[index]
-            });
+            };
+            db.LegendaryItemTraits.Add(trait);
         }
     }
 
@@ -701,12 +759,27 @@ public sealed class LegendaryItemTrackerService : IDisposable
 
     private void RememberObservedObject(long objectId, long previousObjectId)
     {
-        pending.Remove(objectId);
         if (previousObjectId != objectId)
         {
             knownLegendaryObjects.Remove(previousObjectId);
         }
         knownLegendaryObjects.Add(objectId);
+    }
+
+    private static string DescribeConcurrencyEntries(DbUpdateConcurrencyException exception)
+    {
+        return string.Join(
+            "; ",
+            exception.Entries.Select(entry =>
+            {
+                var key = entry.Metadata.FindPrimaryKey();
+                var keyValues = key is null
+                    ? "unknown key"
+                    : string.Join(
+                        ", ",
+                        key.Properties.Select(property => $"{property.Name}={entry.Property(property.Name).CurrentValue}"));
+                return $"{entry.Metadata.ClrType.Name} ({keyValues}, state {entry.State})";
+            }));
     }
 
     private static bool IsLastSeenUpdateDue(DateTime previous, DateTime current)

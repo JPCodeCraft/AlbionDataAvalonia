@@ -448,6 +448,7 @@ public sealed class LegendaryItemRowViewModel
         ItemName = ItemNameFormatter.FormatUsName(
             source.ItemUniqueName,
             definitions.FindItemUsName(source.ItemUniqueName, itemNameFallback));
+        var awakenedItemPowerBonus = definitions.CalculateAwakenedItemPowerBonus(source.Traits);
         Traits = source.Traits
             .OrderBy(trait => trait.Position)
             .Select(trait => new LegendaryTraitRowViewModel(
@@ -458,11 +459,13 @@ public sealed class LegendaryItemRowViewModel
                     source.Quality,
                     trait.TraitId,
                     trait.Value,
-                    CultureInfo.CurrentCulture)))
+                    CultureInfo.CurrentCulture,
+                    awakenedItemPowerBonus)))
             .ToList();
         LegendaryRatingValue = definitions.CalculateLegendaryRating(
             source.ItemUniqueName,
             source.Traits.Select(trait => trait.Value));
+        CalculatorUrl = AwakenedCalculatorUrlBuilder.Build(source);
         SearchText = string.Join(' ', new[]
         {
             ItemName,
@@ -481,6 +484,8 @@ public sealed class LegendaryItemRowViewModel
     public string SoulName => Source.SoulName ?? string.Empty;
     public bool HasSoulName => !string.IsNullOrWhiteSpace(Source.SoulName);
     public string ItemUniqueName => Source.ItemUniqueName;
+    public string? CalculatorUrl { get; }
+    public bool CanViewInCalculator => CalculatorUrl is not null;
     public string ServerName => AlbionServers.Get(Source.AlbionServerId)?.Name ?? "Unknown";
     public string Quality => ItemQuality.Format(Source.Quality);
     public int ImageQuality => Source.Quality <= 0 ? 1 : Source.Quality;

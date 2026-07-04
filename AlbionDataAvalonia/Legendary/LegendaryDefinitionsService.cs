@@ -106,11 +106,14 @@ public sealed class LegendaryDefinitionsService : IDisposable
         int quality,
         string traitId,
         double rawValue,
-        CultureInfo culture)
+        CultureInfo culture,
+        double awakenedItemPowerBonus = 0d)
     {
         var fallback = new LegendaryCalculatedValue(
             FormatRawValue(rawValue, culture),
-            Math.Clamp(rawValue * 100d, 0d, 100d));
+            Math.Clamp(rawValue * 100d, 0d, 100d),
+            rawValue,
+            false);
         if (!snapshot.Traits.TryGetValue(traitId, out var trait)
             || trait.Effect is null
             || !snapshot.TraitVariables.TryGetValue(trait.VariableConfig, out var variable)
@@ -119,7 +122,8 @@ public sealed class LegendaryDefinitionsService : IDisposable
             return fallback;
         }
 
-        var rollFactor = variable.MinFactor + rawValue * (variable.MaxFactor - variable.MinFactor);
+        var rollFactor = variable.MinFactor
+            + Math.Pow(rawValue, variable.RollScaler) * (variable.MaxFactor - variable.MinFactor);
         var progression = GetProgression(trait.Effect.Type);
         var isReduction = ReductionEffectTypes.Contains(trait.Effect.Type);
         var isEnergyCostReduction = string.Equals(
@@ -129,7 +133,10 @@ public sealed class LegendaryDefinitionsService : IDisposable
         var baseValue = isReduction
             ? trait.Effect.BaseValue / (1d - trait.Effect.BaseValue)
             : trait.Effect.BaseValue;
-        var scaledValue = baseValue * rollFactor * Math.Pow(progression, itemPower / 100d);
+        var scalingItemPower = string.Equals(trait.Effect.Type, "itempower", StringComparison.OrdinalIgnoreCase)
+            ? itemPower
+            : itemPower + awakenedItemPowerBonus;
+        var scaledValue = baseValue * rollFactor * Math.Pow(progression, scalingItemPower / 100d);
         var isDefense = DefenseEffectTypes.Contains(trait.Effect.Type);
         var isFlat = FlatEffectTypes.Contains(trait.Effect.Type);
         var numericValue = isReduction
@@ -147,7 +154,30 @@ public sealed class LegendaryDefinitionsService : IDisposable
                 isReduction,
                 isEnergyCostReduction,
                 culture),
-            fallback.RollPercentage);
+            fallback.RollPercentage,
+            numericValue,
+            true);
+    }
+
+    public double CalculateAwakenedItemPowerBonus(IEnumerable<LegendaryItemTrait> traits)
+    {
+        foreach (var observedTrait in traits)
+        {
+            if (!string.Equals(observedTrait.TraitId, "TRAIT_ITEM_POWER", StringComparison.OrdinalIgnoreCase)
+                || !snapshot.Traits.TryGetValue(observedTrait.TraitId, out var definition)
+                || definition.Effect is null
+                || !string.Equals(definition.Effect.Type, "itempower", StringComparison.OrdinalIgnoreCase)
+                || !snapshot.TraitVariables.TryGetValue(definition.VariableConfig, out var variable))
+            {
+                continue;
+            }
+
+            var rollFactor = variable.MinFactor
+                + Math.Pow(observedTrait.Value, variable.RollScaler) * (variable.MaxFactor - variable.MinFactor);
+            return definition.Effect.BaseValue * rollFactor;
+        }
+
+        return 0d;
     }
 
     public long? CalculateLegendaryRating(string itemUniqueName, IEnumerable<double> traitValues)
@@ -272,7 +302,10 @@ public sealed class LegendaryDefinitionsService : IDisposable
                 && TryGetDouble(variableElement, "@minfactor", out var minFactor)
                 && TryGetDouble(variableElement, "@maxfactor", out var maxFactor))
             {
-                traitVariables[id] = new LegendaryTraitVariableDefinition(minFactor, maxFactor);
+                var rollScaler = TryGetDouble(variableElement, "@rollscaler", out var configuredRollScaler)
+                    ? configuredRollScaler
+                    : 1d;
+                traitVariables[id] = new LegendaryTraitVariableDefinition(minFactor, maxFactor, rollScaler);
             }
         }
 

@@ -11,7 +11,7 @@ public sealed record LegendaryTraitDefinition(
 
 public sealed record LegendaryTraitEffectDefinition(string Type, double BaseValue);
 
-public sealed record LegendaryTraitVariableDefinition(double MinFactor, double MaxFactor);
+public sealed record LegendaryTraitVariableDefinition(double MinFactor, double MaxFactor, double RollScaler);
 
 public sealed record LegendaryItemPowerDefinition(
     int BaseItemPower,
@@ -19,7 +19,11 @@ public sealed record LegendaryItemPowerDefinition(
 
 public sealed record LegendaryRatingScalingDefinition(double MaxRating, double RatingScaler);
 
-public sealed record LegendaryCalculatedValue(string FormattedText, double RollPercentage);
+public sealed record LegendaryCalculatedValue(
+    string FormattedText,
+    double RollPercentage,
+    double NumericValue,
+    bool CalculationSucceeded);
 
 public sealed record LegendaryDefinitionsSnapshot(
     IReadOnlyDictionary<string, LegendaryTraitDefinition> Traits,
