@@ -127,6 +127,7 @@
 					</Button>
 
 					<Button Classes="menu" Margin="10" HorizontalAlignment="Stretch"
+						IsVisible="{Binding !UserSettings.DisableCombatTracker}"
 						Classes.active="{Binding IsCombatSelected}"
 						Command="{Binding ShowCombatCommand}">
 						<StackPanel Orientation="Horizontal">
@@ -138,6 +139,7 @@
 					</Button>
 
 					<Button Classes="menu" Margin="10" HorizontalAlignment="Stretch"
+						IsVisible="{Binding !UserSettings.DisableGatheringTracker}"
 						Classes.active="{Binding IsGatheringSelected}"
 						Command="{Binding ShowGatheringCommand}">
 						<StackPanel Orientation="Horizontal">
@@ -149,6 +151,7 @@
 					</Button>
 
 					<Button Classes="menu" Margin="10" HorizontalAlignment="Stretch"
+						IsVisible="{Binding !UserSettings.DisableLootTracker}"
 						Classes.active="{Binding IsLootSelected}"
 						Command="{Binding ShowLootCommand}">
 						<StackPanel Orientation="Horizontal">
@@ -156,6 +159,18 @@
 								Data="M5,4H19L21,8V20A2,2 0 0,1 19,22H5A2,2 0 0,1 3,20V8L5,4M6.24,6L5.24,8H18.76L17.76,6H6.24M5,10V20H19V10H5M9,12H15V14H9V12Z"
 								Width="16" Height="16" Margin="0,0,8,0" />
 							<TextBlock Text="Loot" VerticalAlignment="Center" />
+						</StackPanel>
+					</Button>
+
+					<Button Classes="menu" Margin="10" HorizontalAlignment="Stretch"
+						IsVisible="{Binding !UserSettings.DisableAwakeningItemsTracker}"
+						Classes.active="{Binding IsLegendarySelected}"
+						Command="{Binding ShowLegendaryCommand}">
+						<StackPanel Orientation="Horizontal">
+							<PathIcon
+								Data="M12,2L15,8L22,9L17,14L18,21L12,18L6,21L7,14L2,9L9,8L12,2Z"
+								Width="16" Height="16" Margin="0,0,8,0" />
+							<TextBlock Text="Awakened" VerticalAlignment="Center" />
 						</StackPanel>
 					</Button>
 

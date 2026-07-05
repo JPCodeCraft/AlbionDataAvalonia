@@ -295,5 +295,17 @@
                 </WrapPanel>
             </ScrollViewer>
         </TabItem>
+
+        <TabItem Header="Awakened">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="0,14,0,0" Spacing="8">
+                    <CheckBox Content="Disable Awakened Items Tracker"
+                              IsChecked="{Binding UserSettings.DisableAwakeningItemsTracker}" />
+                    <TextBlock Text="Stops detecting and storing awakened items. Existing records are kept."
+                               TextWrapping="Wrap"
+                               Opacity="0.65" />
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
     </TabControl>
 </UserControl>

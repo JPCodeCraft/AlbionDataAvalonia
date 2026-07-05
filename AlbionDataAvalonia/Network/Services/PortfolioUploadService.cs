@@ -19,6 +19,8 @@ namespace AlbionDataAvalonia.Network.Services;
 public sealed class PortfolioUploadService : IDisposable
 {
     public const int MaxPortfolioImportPostCount = 5;
+    private const string MasterpieceRequiredMessage = "Portfolio requires AFM Masterpiece entitlement.";
+    private static readonly TimeSpan MasterpieceDenialCacheDuration = TimeSpan.FromMinutes(30);
 
     private static readonly JsonSerializerOptions SerializerOptions = new()
     {
@@ -30,6 +32,7 @@ public sealed class PortfolioUploadService : IDisposable
     private readonly SettingsManager _settingsManager;
     private readonly AuthService _authService;
     private readonly HttpClient _httpClient = new();
+    private CachedEntitlementDenial? _masterpieceDenial;
 
     public PortfolioUploadService(SettingsManager settingsManager, AuthService authService)
     {
@@ -79,6 +82,11 @@ public sealed class PortfolioUploadService : IDisposable
             const string message = "Sign in to AFM before adding trades to Portfolio.";
             Log.Warning("Portfolio uploaded trade id refresh skipped because the user is not signed in");
             return PortfolioUploadedTradeIdsResult.Failed(message);
+        }
+        if (HasCachedMasterpieceDenial())
+        {
+            Log.Debug("Portfolio uploaded trade id refresh skipped because the Masterpiece denial is cached");
+            return PortfolioUploadedTradeIdsResult.Failed(MasterpieceRequiredMessage);
         }
 
         try
@@ -145,6 +153,12 @@ public sealed class PortfolioUploadService : IDisposable
             const string message = "Sign in to AFM before adding trades to Portfolio.";
             Log.Warning("Portfolio import failed before upload: {Reason}. TradeCount={TradeCount}", message, requests.Count);
             FailAll(result, requests, message);
+            return result;
+        }
+        if (HasCachedMasterpieceDenial())
+        {
+            Log.Debug("Portfolio import skipped because the Masterpiece denial is cached. TradeCount={TradeCount}", requests.Count);
+            FailAll(result, requests, MasterpieceRequiredMessage);
             return result;
         }
 
@@ -382,7 +396,8 @@ public sealed class PortfolioUploadService : IDisposable
     {
         return await SendWithUnauthorizedRecoveryAsync(
             () => _httpClient.GetAsync(GetPortfolioPositionsUri(), cancellationToken),
-            response => response.Content.ReadFromJsonAsync<List<PortfolioPositionDto>>(SerializerOptions, cancellationToken)) ?? new List<PortfolioPositionDto>();
+            response => response.Content.ReadFromJsonAsync<List<PortfolioPositionDto>>(SerializerOptions, cancellationToken),
+            cacheMasterpieceDenial: true) ?? new List<PortfolioPositionDto>();
     }
 
     private static Dictionary<PositionKey, PortfolioPositionDto> CreatePositionLookup(IEnumerable<PortfolioPositionDto> positions)
@@ -418,9 +433,14 @@ public sealed class PortfolioUploadService : IDisposable
 
     private async Task<T?> SendWithUnauthorizedRecoveryAsync<T>(
         Func<Task<HttpResponseMessage>> sendAsync,
-        Func<HttpResponseMessage, Task<T?>> readAsync)
+        Func<HttpResponseMessage, Task<T?>> readAsync,
+        bool cacheMasterpieceDenial = false)
     {
         using var response = await SendWithUnauthorizedRecoveryAsync(sendAsync);
+        if (cacheMasterpieceDenial && response.StatusCode == HttpStatusCode.Forbidden)
+        {
+            CacheMasterpieceDenial();
+        }
         if (!response.IsSuccessStatusCode)
         {
             throw new PortfolioUploadException(await CreateFailureMessageAsync(response));
@@ -457,24 +477,28 @@ public sealed class PortfolioUploadService : IDisposable
         return new Uri(GetBackendApiBaseUri(), "portfolio/positions");
     }
 
+    private bool HasCachedMasterpieceDenial()
+    {
+        var denial = _masterpieceDenial;
+        return denial is not null
+            && denial.ExpiresAt > DateTimeOffset.UtcNow
+            && string.Equals(denial.UserId, _authService.FirebaseUserId, StringComparison.Ordinal);
+    }
+
+    private void CacheMasterpieceDenial()
+    {
+        if (_authService.FirebaseUserId is not { Length: > 0 } userId)
+        {
+            return;
+        }
+        _masterpieceDenial = new CachedEntitlementDenial(
+            userId,
+            DateTimeOffset.UtcNow.Add(MasterpieceDenialCacheDuration));
+    }
+
     private Uri GetBackendApiBaseUri()
     {
-        var rawBase = _settingsManager.AppSettings.AfmBackendApiBase;
-        if (string.IsNullOrWhiteSpace(rawBase))
-        {
-            rawBase = _settingsManager.AppSettings.AfmAuthApiUrl;
-            if (rawBase.EndsWith("/api", StringComparison.OrdinalIgnoreCase))
-            {
-                rawBase = rawBase[..^"/api".Length];
-            }
-        }
-
-        if (string.IsNullOrWhiteSpace(rawBase))
-        {
-            rawBase = "https://api.albionfreemarket.com/be";
-        }
-
-        return new Uri(rawBase.TrimEnd('/') + "/");
+        return _settingsManager.AppSettings.GetAfmBackendApiBaseUri();
     }
 
     private static PositionKey? CreatePositionKey(PortfolioTradeImportRequest request)
@@ -552,7 +576,7 @@ public sealed class PortfolioUploadService : IDisposable
         var body = await SafeReadResponseBodyAsync(response);
         if (response.StatusCode == HttpStatusCode.Forbidden)
         {
-            return "Portfolio requires AFM Masterpiece entitlement.";
+            return MasterpieceRequiredMessage;
         }
 
         return $"Portfolio upload failed with {(int)response.StatusCode} {response.ReasonPhrase}: {body}";
@@ -598,6 +622,8 @@ public sealed class PortfolioUploadService : IDisposable
     }
 
     private readonly record struct PositionKey(string UniqueName, string Server, int QualityIndex);
+
+    private sealed record CachedEntitlementDenial(string UserId, DateTimeOffset ExpiresAt);
 
     private sealed class PortfolioUploadException : Exception
     {

@@ -30,6 +30,7 @@ public partial class MainViewModel : ViewModelBase
         Combat,
         Gathering,
         Loot,
+        Legendary,
         Trades,
         Mails,
         Settings,
@@ -46,6 +47,7 @@ public partial class MainViewModel : ViewModelBase
     private readonly CombatViewModel _combatViewModel;
     private readonly GatheringViewModel _gatheringViewModel;
     private readonly LootViewModel _lootViewModel;
+    private readonly LegendaryViewModel _legendaryViewModel;
     private readonly Uploader _uploader;
     private readonly AuthService _authService;
 
@@ -179,7 +181,7 @@ public partial class MainViewModel : ViewModelBase
         SidebarStatusItems.Add(SidebarStatusItem.Ok("Ready", "Capture state looks ready."));
     }
 
-    public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, SettingsManager settingsManager, SettingsViewModel settingsViewModel, LogsViewModel logsViewModel, MailsViewModel mailsViewModel, TradesViewModel tradesViewModel, CombatViewModel combatViewModel, GatheringViewModel gatheringViewModel, LootViewModel lootViewModel, Uploader uploader, AuthService authService)
+    public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, SettingsManager settingsManager, SettingsViewModel settingsViewModel, LogsViewModel logsViewModel, MailsViewModel mailsViewModel, TradesViewModel tradesViewModel, CombatViewModel combatViewModel, GatheringViewModel gatheringViewModel, LootViewModel lootViewModel, LegendaryViewModel legendaryViewModel, Uploader uploader, AuthService authService)
     {
         _playerState = playerState;
         _networkListener = networkListener;
@@ -191,6 +193,7 @@ public partial class MainViewModel : ViewModelBase
         _combatViewModel = combatViewModel;
         _gatheringViewModel = gatheringViewModel;
         _lootViewModel = lootViewModel;
+        _legendaryViewModel = legendaryViewModel;
         _uploader = uploader;
         _authService = authService;
 
@@ -237,6 +240,7 @@ public partial class MainViewModel : ViewModelBase
     public bool IsCombatSelected => _selectedPage == MainPage.Combat;
     public bool IsGatheringSelected => _selectedPage == MainPage.Gathering;
     public bool IsLootSelected => _selectedPage == MainPage.Loot;
+    public bool IsLegendarySelected => _selectedPage == MainPage.Legendary;
     public bool IsTradesSelected => _selectedPage == MainPage.Trades;
     public bool IsMailsSelected => _selectedPage == MainPage.Mails;
     public bool IsSettingsSelected => _selectedPage == MainPage.Settings;
@@ -251,6 +255,7 @@ public partial class MainViewModel : ViewModelBase
             OnPropertyChanged(nameof(IsCombatSelected));
             OnPropertyChanged(nameof(IsGatheringSelected));
             OnPropertyChanged(nameof(IsLootSelected));
+            OnPropertyChanged(nameof(IsLegendarySelected));
             OnPropertyChanged(nameof(IsTradesSelected));
             OnPropertyChanged(nameof(IsMailsSelected));
             OnPropertyChanged(nameof(IsSettingsSelected));
@@ -263,6 +268,7 @@ public partial class MainViewModel : ViewModelBase
             MainPage.Combat => new CombatView(_combatViewModel),
             MainPage.Gathering => new GatheringView(_gatheringViewModel),
             MainPage.Loot => new LootView(_lootViewModel),
+            MainPage.Legendary => new LegendaryView(_legendaryViewModel),
             MainPage.Trades => new TradesView(_tradesViewModel),
             MainPage.Mails => new MailsView(_mailsViewModel),
             MainPage.Settings => new SettingsView(_settingsViewModel),
@@ -270,7 +276,11 @@ public partial class MainViewModel : ViewModelBase
             _ => NpCapInstallationChecker.IsNpCapInstalled() ? new DashboardView() : new PCapView()
         };
 
-        if (page == MainPage.Trades)
+        if (page == MainPage.Legendary)
+        {
+            _legendaryViewModel.EnsureLoaded();
+        }
+        else if (page == MainPage.Trades)
         {
             _tradesViewModel.EnsureLoaded();
         }
@@ -536,6 +546,12 @@ public partial class MainViewModel : ViewModelBase
     private void ShowLoot()
     {
         NavigateTo(MainPage.Loot);
+    }
+
+    [RelayCommand]
+    private void ShowLegendary()
+    {
+        NavigateTo(MainPage.Legendary);
     }
 
     [RelayCommand]

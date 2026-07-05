@@ -13,8 +13,6 @@ public class NewItem
     public long EstimatedMarketValue { get; set; }
     public int Quality { get; set; }
     public bool IsAwakened { get; set; }
-    public LegendarySoul? LegendarySoul { get; set; }
-
     public NewItem(long? objectId, int itemIndex, int quantity, long currentDurability, long estimatedMarketValue, int quality, string? crafterName, bool isAwakened)
     {
         ObjectId = objectId;

@@ -9,21 +9,13 @@ namespace AlbionDataAvalonia.Network.Handlers;
 
 public class DebugRequestProbeRequestHandler : PacketHandler<RequestPacket>
 {
-    private static readonly OperationCodes[] ProbeOperationCodes =
+    private static readonly int[] ProbeOperationCodeValues =
     [
-        OperationCodes.ContainerOpen,
-        OperationCodes.ContainerClose,
-        OperationCodes.InventoryAddToStacks,
-        OperationCodes.InventoryStack,
-        OperationCodes.InventoryMoveGivenItems,
-        OperationCodes.TreasureChestUsingStart,
-        OperationCodes.TreasureChestUsingCancel,
-        OperationCodes.UseLootChest
+        (int)OperationCodes.ContainerOpen,
+        (int)OperationCodes.ContainerClose,
+        (int)OperationCodes.InventoryMoveItem,
+        (int)OperationCodes.InventoryMoveGivenItems
     ];
-
-    private static readonly int[] ProbeOperationCodeValues = ProbeOperationCodes
-        .Select(code => (int)code)
-        .ToArray();
 
     protected override Task OnHandleAsync(RequestPacket packet)
     {
@@ -36,20 +28,11 @@ public class DebugRequestProbeRequestHandler : PacketHandler<RequestPacket>
         Log.Debug(
             "Debug probe captured request {OperationCode} ({OperationName}) with {ParameterCount} parameter(s): {Parameters}",
             packet.OperationCode,
-            GetOperationName(packet.OperationCode),
+            System.Enum.GetName(typeof(OperationCodes), packet.OperationCode) ?? "Unknown",
             request.Parameters.Count,
             DebugProbeFormatter.FormatParameters(request.Parameters));
 
         return NextAsync(packet);
     }
 
-    private static string GetOperationName(int operationCode)
-    {
-        var operationName = ProbeOperationCodes
-            .FirstOrDefault(code => (int)code == operationCode);
-
-        return (int)operationName == operationCode
-            ? operationName.ToString()
-            : "Unknown";
-    }
 }

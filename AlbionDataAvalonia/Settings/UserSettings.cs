@@ -256,6 +256,23 @@ public class UserSettings : INotifyPropertyChanged
         }
     }
 
+    private bool disableAwakeningItemsTracker;
+    public bool DisableAwakeningItemsTracker
+    {
+        get => disableAwakeningItemsTracker;
+        set
+        {
+            if (disableAwakeningItemsTracker != value)
+            {
+                disableAwakeningItemsTracker = value;
+                OnPropertyChanged(nameof(DisableAwakeningItemsTracker));
+                Log.Information(
+                    "Disable awakening items tracker set to {DisableAwakeningItemsTracker}",
+                    disableAwakeningItemsTracker);
+            }
+        }
+    }
+
     private int combatEncounterRetentionLimit = DefaultCombatEncounterRetentionLimit;
     public int CombatEncounterRetentionLimit
     {

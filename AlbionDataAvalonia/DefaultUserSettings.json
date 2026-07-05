@@ -13,6 +13,7 @@
   "DisableCombatTracker": false,
   "DisableGatheringTracker": false,
   "DisableLootTracker": false,
+  "DisableAwakeningItemsTracker": false,
   "CombatEncounterRetentionLimit": 1000,
   "LogLevel": 2
 }

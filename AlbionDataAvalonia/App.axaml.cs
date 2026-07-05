@@ -2,6 +2,7 @@
 using AlbionDataAvalonia.Combat;
 using AlbionDataAvalonia.DB;
 using AlbionDataAvalonia.Gathering;
+using AlbionDataAvalonia.Legendary;
 using AlbionDataAvalonia.Items;
 using AlbionDataAvalonia.Items.Services;
 using AlbionDataAvalonia.Locations;
@@ -398,6 +399,9 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<GatheringSessionPersistenceService>();
         collection.AddSingleton<GatheringTrackerService>();
         collection.AddSingleton<LootTrackerService>();
+        collection.AddSingleton<LegendaryDefinitionsService>();
+        collection.AddSingleton<LegendaryItemTrackerService>();
+        collection.AddSingleton<LegendarySaleService>();
         collection.AddSingleton<WindowsStartupService>();
 
         collection.AddSingleton<MainViewModel>();
@@ -408,5 +412,6 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<CombatViewModel>();
         collection.AddSingleton<GatheringViewModel>();
         collection.AddSingleton<LootViewModel>();
+        collection.AddSingleton<LegendaryViewModel>();
     }
 }
