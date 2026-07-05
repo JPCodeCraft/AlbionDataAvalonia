@@ -44,6 +44,11 @@ public static class AwakenedCalculatorUrlBuilder
             parameters.Add(new($"g{index + 1}", traits[index].Value.ToString("R", CultureInfo.InvariantCulture)));
         }
 
+        if (item.Strain is >= 1 && double.IsFinite(item.Strain.Value))
+        {
+            parameters.Add(new("strain", item.Strain.Value.ToString("R", CultureInfo.InvariantCulture)));
+        }
+
         return $"{CalculatorUrl}?{string.Join('&', parameters.Select(parameter => $"{Uri.EscapeDataString(parameter.Key)}={Uri.EscapeDataString(parameter.Value)}"))}";
     }
 }
