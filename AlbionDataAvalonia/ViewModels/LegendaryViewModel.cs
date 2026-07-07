@@ -465,7 +465,7 @@ public sealed class LegendaryItemRowViewModel
         LegendaryRatingValue = definitions.CalculateLegendaryRating(
             source.ItemUniqueName,
             source.Traits.Select(trait => trait.Value));
-        CalculatorUrl = AwakenedCalculatorUrlBuilder.Build(source);
+        CalculatorUrl = AwakenedCalculatorUrlBuilder.Build(source, listing);
         SearchText = string.Join(' ', new[]
         {
             ItemName,

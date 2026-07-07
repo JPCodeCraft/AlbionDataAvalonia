@@ -10,7 +10,7 @@ public static class AwakenedCalculatorUrlBuilder
 {
     private const string CalculatorUrl = "https://albionfreemarket.com/awakened-calculator";
 
-    public static string? Build(LegendaryItem item)
+    public static string? Build(LegendaryItem item, LegendarySaleListing? listing = null)
     {
         var server = item.AlbionServerId switch
         {
@@ -47,6 +47,18 @@ public static class AwakenedCalculatorUrlBuilder
         if (item.Strain is >= 1 && double.IsFinite(item.Strain.Value))
         {
             parameters.Add(new("strain", item.Strain.Value.ToString("R", CultureInfo.InvariantCulture)));
+        }
+
+        if (item.AttunementSpent is >= 0)
+        {
+            parameters.Add(new("attunementSpent", item.AttunementSpent.Value.ToString(CultureInfo.InvariantCulture)));
+        }
+
+        if (listing is { Sold: false, Canceled: false }
+            && long.TryParse(listing.LatestPriceSilver, NumberStyles.None, CultureInfo.InvariantCulture, out var askingPrice)
+            && askingPrice >= 0)
+        {
+            parameters.Add(new("askingPrice", askingPrice.ToString(CultureInfo.InvariantCulture)));
         }
 
         return $"{CalculatorUrl}?{string.Join('&', parameters.Select(parameter => $"{Uri.EscapeDataString(parameter.Key)}={Uri.EscapeDataString(parameter.Value)}"))}";
