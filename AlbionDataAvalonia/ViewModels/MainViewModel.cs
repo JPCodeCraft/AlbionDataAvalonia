@@ -64,6 +64,9 @@ public partial class MainViewModel : ViewModelBase
     private string albionServerName;
 
     [ObservableProperty]
+    private bool isInitializing = true;
+
+    [ObservableProperty]
     private bool uploadToAfmOnly = false;
 
     partial void OnUploadToAfmOnlyChanged(bool value)
@@ -234,6 +237,11 @@ public partial class MainViewModel : ViewModelBase
         userSettings = _settingsManager.UserSettings;
 
         NavigateTo(MainPage.Dashboard);
+    }
+
+    public void CompleteInitialization()
+    {
+        IsInitializing = false;
     }
 
     public bool IsDashboardSelected => _selectedPage == MainPage.Dashboard;

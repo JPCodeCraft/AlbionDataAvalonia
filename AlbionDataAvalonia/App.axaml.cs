@@ -39,6 +39,7 @@ public partial class App : Application
     private System.Timers.Timer? _updateTimer;
     private readonly HashSet<string> _shownManualUpdateDialogs = new();
     private readonly object _shownManualUpdateDialogsLock = new();
+    private bool _showMainWindowWhenReady;
 
     MainViewModel? vm;
 
@@ -81,6 +82,8 @@ public partial class App : Application
 
     private async Task OnFrameworkInitializationCompletedAsync()
     {
+        var startupStopwatch = Stopwatch.StartNew();
+
         // Line below is needed to remove Avalonia data validation.
         // Without this line you will get duplicate validations from both Avalonia and CT
         BindingPlugins.DataValidators.RemoveAt(0);
@@ -121,8 +124,11 @@ public partial class App : Application
             }
         }
 
-        //GETTING SERVICES
+        //INITIALIZE SETTINGS
         var settings = services.GetRequiredService<SettingsManager>();
+        await settings.InitializeSettings();
+
+        //GETTING SERVICES
         var listener = services.GetRequiredService<NetworkListenerService>();
         var uploader = services.GetRequiredService<Uploader>();
         var afmUploader = services.GetRequiredService<AFMUploader>();
@@ -134,11 +140,72 @@ public partial class App : Application
         var authService = services.GetRequiredService<AuthService>();
         var gatheringTracker = services.GetRequiredService<GatheringTrackerService>();
 
-        //INITIALIZE SETTINGS
-        await settings.InitializeSettings();
+        //CONFIGURE AUTHENTICATED BACKENDS BEFORE VIEWMODELS SUBSCRIBE TO LOGIN CHANGES
+        afmUploader.Initialize();
+        emvBackendLoader.Initialize();
 
-        //AUTH SERVICE
-        await authService.TryAutoLoginAsync();
+        //VIEWMODEL AND SHELL
+        vm = services.GetRequiredService<MainViewModel>();
+        DataContext = vm;
+
+        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
+        {
+            desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+
+            if (desktop.MainWindow == null)
+            {
+                desktop.MainWindow = new MainWindow(settings)
+                {
+                    DataContext = vm
+                };
+            }
+
+            if (!NpCapInstallationChecker.IsNpCapInstalled())
+            {
+                desktop.MainWindow.Show();
+                desktop.MainWindow.Activate();
+            }
+            else
+            {
+                switch (settings.UserSettings.StartupWindowMode)
+                {
+                    case StartupWindowMode.ShowMainWindow:
+                        desktop.MainWindow.Show();
+                        desktop.MainWindow.Activate();
+                        break;
+                    case StartupWindowMode.MinimizedToTaskbar:
+                        if (desktop.MainWindow is MainWindow mainWindow)
+                        {
+                            mainWindow.ShowMinimizedToTaskbar();
+                        }
+                        else
+                        {
+                            desktop.MainWindow.Show();
+                            desktop.MainWindow.WindowState = WindowState.Minimized;
+                        }
+
+                        break;
+                    case StartupWindowMode.HiddenToTray:
+                        break;
+                }
+            }
+
+            if (_showMainWindowWhenReady)
+            {
+                _showMainWindowWhenReady = false;
+                vm.ShowMainWindow();
+            }
+        }
+        else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
+        {
+            singleViewPlatform.MainView = new MainView
+            {
+                DataContext = vm
+            };
+        }
+
+        base.OnFrameworkInitializationCompleted();
+        Log.Information("Startup shell created in {ElapsedMilliseconds} ms", startupStopwatch.ElapsedMilliseconds);
 
         //UPDATER
         _updateTimer = new System.Timers.Timer
@@ -176,109 +243,52 @@ public partial class App : Application
         };
         _updateTimer.Start();
 
-        //INITIALIZE MOBS
-        await mobsService.InitializeAsync();
-
-        //UPLOADER
-        var uploaderCancellationToken = new CancellationTokenSource();
-        _ = uploader.ProcessItemsAsync(uploaderCancellationToken.Token).ContinueWith(t =>
+        try
         {
-            if (t.IsFaulted)
+            //AUTH AND REFERENCE DATA
+            await Task.WhenAll(
+                authService.TryAutoLoginAsync(),
+                Task.Run(mobsService.InitializeAsync),
+                Task.Run(itemsIdsService.InitializeAsync),
+                Task.Run(achievementsService.InitializeAsync),
+                Task.Run(AlbionLocations.InitializeAsync));
+
+            //RESTORE GATHERING SESSION BEFORE PACKETS ARRIVE
+            await gatheringTracker.InitializeSessionRecoveryAsync();
+
+            //UPLOADER
+            var uploaderCancellationToken = new CancellationTokenSource();
+            _ = uploader.ProcessItemsAsync(uploaderCancellationToken.Token).ContinueWith(t =>
             {
-                Log.Error(t.Exception, "Error in uploader, exception: {exception}", t.Exception);
-            }
-        });
-
-        //AFM UPLOADER
-        afmUploader.Initialize();
-        emvBackendLoader.Initialize();
-
-        //IDLE SERVICE
-        _ = idleService.ExecuteAsync().ContinueWith(t =>
-        {
-            if (t.IsFaulted)
-            {
-                Log.Error(t.Exception, "Error in idle service, exception: {exception}", t.Exception);
-            }
-        });
-
-        //INITIALIZE ITEMS IDS
-        await itemsIdsService.InitializeAsync();
-
-        //INITIALIZE ACHIEVEMENTS
-        await achievementsService.InitializeAsync();
-
-        //INITIALIZE LOCATIONS
-        await AlbionLocations.InitializeAsync();
-
-        //RESTORE GATHERING SESSION BEFORE PACKETS ARRIVE
-        await gatheringTracker.InitializeSessionRecoveryAsync();
-
-        //VIEWMODEL
-        vm = services.GetRequiredService<MainViewModel>();
-
-        //LISTENER
-        _ = listener.StartNetworkListeningAsync().ContinueWith(t =>
-        {
-            if (t.IsFaulted)
-            {
-                Log.Error(t.Exception, "Error in listener, exception: {exception}", t.Exception);
-            }
-        });
-
-        this.DataContext = vm;
-
-        if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-        {
-            desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
-
-            if (desktop.MainWindow == null)
-            {
-                desktop.MainWindow = new MainWindow(settings);
-                desktop.MainWindow.DataContext = vm;
-            }
-
-            if (!NpCapInstallationChecker.IsNpCapInstalled())
-            {
-                desktop.MainWindow.Show();
-                desktop.MainWindow.Activate();
-            }
-            else
-            {
-                switch (settings.UserSettings.StartupWindowMode)
+                if (t.IsFaulted)
                 {
-                    case StartupWindowMode.ShowMainWindow:
-                        desktop.MainWindow.Show();
-                        desktop.MainWindow.Activate();
-                        break;
-                    case StartupWindowMode.MinimizedToTaskbar:
-                        if (desktop.MainWindow is MainWindow mainWindow)
-                        {
-                            mainWindow.ShowMinimizedToTaskbar();
-                        }
-                        else
-                        {
-                            desktop.MainWindow.Show();
-                            desktop.MainWindow.WindowState = WindowState.Minimized;
-                        }
-
-                        break;
-                    case StartupWindowMode.HiddenToTray:
-                        break;
+                    Log.Error(t.Exception, "Error in uploader, exception: {exception}", t.Exception);
                 }
-            }
-        }
+            });
 
-        else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
-        {
-            singleViewPlatform.MainView = new MainView
+            //IDLE SERVICE
+            _ = idleService.ExecuteAsync().ContinueWith(t =>
             {
-                DataContext = vm
-            };
+                if (t.IsFaulted)
+                {
+                    Log.Error(t.Exception, "Error in idle service, exception: {exception}", t.Exception);
+                }
+            });
+
+            //LISTENER
+            _ = listener.StartNetworkListeningAsync().ContinueWith(t =>
+            {
+                if (t.IsFaulted)
+                {
+                    Log.Error(t.Exception, "Error in listener, exception: {exception}", t.Exception);
+                }
+            });
         }
-
-        base.OnFrameworkInitializationCompleted();
-
+        finally
+        {
+            vm.CompleteInitialization();
+            Log.Information("Startup initialization completed in {ElapsedMilliseconds} ms", startupStopwatch.ElapsedMilliseconds);
+        }
     }
 
     private Task ShowManualUpdateDialogOnceAsync(ClientUpdateInfo update)
@@ -356,7 +366,13 @@ public partial class App : Application
     }
     public void OnTrayClicked(object sender, EventArgs e)
     {
-        vm?.ShowMainWindow();
+        if (vm == null)
+        {
+            _showMainWindowWhenReady = true;
+            return;
+        }
+
+        vm.ShowMainWindow();
     }
 
     private void CheckAppAlreadyRunning()
