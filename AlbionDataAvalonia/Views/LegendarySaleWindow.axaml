@@ -1,0 +1,241 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
+        xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
+        xmlns:items="clr-namespace:AlbionDataAvalonia.Items"
+        xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
+        mc:Ignorable="d"
+        d:DesignWidth="500"
+        d:DesignHeight="760"
+        x:Class="AlbionDataAvalonia.Views.LegendarySaleWindow"
+        x:DataType="vm:LegendaryItemRowViewModel"
+        Width="500"
+        MaxHeight="820"
+        SizeToContent="Height"
+        CanResize="False"
+        ShowInTaskbar="False"
+        WindowStartupLocation="CenterOwner"
+        Title="List awakened item for sale"
+        Icon="/Assets/logo.ico">
+    <Window.Styles>
+        <Style Selector="Border.CardSection">
+            <Setter Property="Background" Value="#252525" />
+            <Setter Property="BorderBrush" Value="#4A4A4A" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="Padding" Value="12" />
+        </Style>
+        <Style Selector="TextBox.CardInput">
+            <Setter Property="Background" Value="#1B1B1B" />
+            <Setter Property="BorderBrush" Value="#505050" />
+            <Setter Property="BorderThickness" Value="1" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="10,8" />
+        </Style>
+        <Style Selector="TextBlock.FieldLabel">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="Foreground" Value="#BDBDBD" />
+        </Style>
+        <Style Selector="Button.CardAction">
+            <Setter Property="HorizontalContentAlignment" Value="Center" />
+            <Setter Property="Padding" Value="10,7" />
+        </Style>
+        <Style Selector="Button">
+            <Setter Property="Background" Value="#3A3A3A" />
+            <Setter Property="BorderBrush" Value="#505050" />
+        </Style>
+        <Style Selector="Button:pointerover">
+            <Setter Property="Background" Value="#484848" />
+        </Style>
+    </Window.Styles>
+
+    <Grid Margin="16" RowDefinitions="*,Auto" RowSpacing="12">
+        <ScrollViewer VerticalScrollBarVisibility="Auto"
+                      HorizontalScrollBarVisibility="Disabled">
+            <StackPanel Spacing="10" Margin="0,0,8,0">
+                <Border Classes="CardSection"
+                        Background="#202020"
+                        Padding="12">
+                    <StackPanel Spacing="12">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                            <TextBox x:Name="PriceTextBox"
+                                     Classes="CardInput"
+                                     FontSize="20"
+                                     FontWeight="DemiBold"
+                                     Watermark="Asking price"
+                                     MaxLength="18" />
+                            <TextBlock Grid.Column="1"
+                                       Text="silver"
+                                       FontSize="16"
+                                       FontWeight="DemiBold"
+                                       VerticalAlignment="Center" />
+                        </Grid>
+
+                        <TextBlock x:Name="ListingSubtitleTextBlock"
+                                   FontSize="12"
+                                   Foreground="#C7C7C7" />
+
+                        <Grid ColumnDefinitions="68,*,Auto" ColumnSpacing="10">
+                            <Border Width="64"
+                                    Height="64"
+                                    Background="#1B1B1B"
+                                    BorderBrush="#505050"
+                                    BorderThickness="1"
+                                    CornerRadius="7">
+                                <Image Margin="2"
+                                       Stretch="Uniform"
+                                       items:LazyItemImage.ItemUniqueName="{Binding ItemUniqueName}"
+                                       items:LazyItemImage.Quality="{Binding ImageQuality}" />
+                            </Border>
+                            <StackPanel Grid.Column="1"
+                                        VerticalAlignment="Center"
+                                        Spacing="2">
+                                <TextBlock Text="{Binding ItemName}"
+                                           FontWeight="DemiBold"
+                                           TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding Quality}"
+                                           FontSize="12"
+                                           Foreground="#F0B94A" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2"
+                                        Orientation="Horizontal"
+                                        VerticalAlignment="Center"
+                                        Spacing="5">
+                                <TextBlock Text="★"
+                                           FontSize="18"
+                                           Foreground="#F0A21B" />
+                                <TextBlock Text="{Binding LegendaryRating}"
+                                           FontSize="18"
+                                           FontWeight="DemiBold" />
+                            </StackPanel>
+                        </Grid>
+
+                        <Grid ColumnDefinitions="*,*,*" ColumnSpacing="12">
+                            <StackPanel>
+                                <TextBlock Classes="FieldLabel" Text="Attuned to" />
+                                <TextBlock Text="{Binding AttunedTo}"
+                                           FontWeight="DemiBold"
+                                           TextWrapping="Wrap" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="1">
+                                <TextBlock Classes="FieldLabel" Text="Strain" />
+                                <TextBlock Text="{Binding Strain}"
+                                           FontWeight="DemiBold" />
+                            </StackPanel>
+                            <StackPanel Grid.Column="2">
+                                <TextBlock Classes="FieldLabel" Text="PvP Fame" />
+                                <TextBlock Text="{Binding PvPFameGained}"
+                                           FontWeight="DemiBold" />
+                            </StackPanel>
+                        </Grid>
+
+                        <StackPanel Spacing="7">
+                            <TextBlock Text="Traits"
+                                       FontSize="15"
+                                       FontWeight="DemiBold" />
+                            <TextBlock Text="No traits"
+                                       IsVisible="{Binding !HasTraits}"
+                                       Opacity="0.65" />
+                            <ItemsControl ItemsSource="{Binding Traits}">
+                                <ItemsControl.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:LegendaryTraitRowViewModel">
+                                        <StackPanel Spacing="4" Margin="0,0,0,7">
+                                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="5">
+                                                <TextBlock Text="{Binding Value}" />
+                                                <TextBlock Grid.Column="1"
+                                                           Text="{Binding Name}"
+                                                           TextWrapping="Wrap" />
+                                                <TextBlock Grid.Column="2"
+                                                           Text="{Binding Rarity}"
+                                                           Foreground="#C8C8C8" />
+                                            </Grid>
+                                            <ProgressBar Minimum="0"
+                                                         Maximum="100"
+                                                         Value="{Binding RollPercentage}"
+                                                         Height="5"
+                                                         Foreground="#79B83A"
+                                                         Background="#4A4A4A" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ItemsControl.ItemTemplate>
+                            </ItemsControl>
+                        </StackPanel>
+
+                        <Button x:Name="CalculatorButton"
+                                Classes="CardAction"
+                                Content="View in calculator"
+                                Click="CalculatorButton_Click" />
+
+                        <StackPanel Spacing="4">
+                            <TextBlock Classes="FieldLabel" Text="In-game contact" />
+                            <TextBox x:Name="InGameNameTextBox"
+                                     Classes="CardInput"
+                                     Watermark="Albion character name"
+                                     MaxLength="100" />
+                        </StackPanel>
+                    </StackPanel>
+                </Border>
+
+                <Border Classes="CardSection">
+                    <StackPanel Spacing="7">
+                        <TextBlock x:Name="DeliveryTitleTextBlock"
+                                   Text="Where this listing will appear"
+                                   FontSize="15"
+                                   FontWeight="DemiBold" />
+                        <TextBlock x:Name="WebsiteStatusTextBlock"
+                                   Text="AFM website — Will be listed"
+                                   FontWeight="DemiBold"
+                                   TextWrapping="Wrap" />
+                        <TextBlock x:Name="DiscordStatusTextBlock"
+                                   Text="Discord — AFM will attempt an automatic post"
+                                   FontWeight="DemiBold"
+                                   TextWrapping="Wrap" />
+                        <TextBlock x:Name="DiscordHelpTextBlock"
+                                   Text="For the automatic Discord post, make sure Discord is linked on your AFM account and that you have joined the AFM Discord server."
+                                   FontSize="12"
+                                   Opacity="0.8"
+                                   TextWrapping="Wrap" />
+                        <WrapPanel x:Name="DiscordSetupButtonsPanel">
+                            <Button x:Name="AccountLinkButton"
+                                    Content="Check AFM account"
+                                    Margin="0,0,8,0"
+                                    Padding="9,6"
+                                    Click="AccountLinkButton_Click" />
+                            <Button x:Name="DiscordInviteButton"
+                                    Content="Open AFM Discord"
+                                    Padding="9,6"
+                                    Click="DiscordInviteButton_Click" />
+                        </WrapPanel>
+                        <Button x:Name="OpenDiscordPostButton"
+                                Content="Open Discord post"
+                                HorizontalAlignment="Left"
+                                Padding="9,6"
+                                IsVisible="False"
+                                Click="OpenDiscordPostButton_Click" />
+                    </StackPanel>
+                </Border>
+
+                <TextBlock x:Name="ValidationTextBlock"
+                           Foreground="IndianRed"
+                           TextWrapping="Wrap" />
+                <ProgressBar x:Name="PostingProgressBar"
+                             IsIndeterminate="True"
+                             IsVisible="False" />
+            </StackPanel>
+        </ScrollViewer>
+
+        <StackPanel Grid.Row="1"
+                    Orientation="Horizontal"
+                    HorizontalAlignment="Right"
+                    Spacing="8">
+            <Button x:Name="CancelButton"
+                    Content="Cancel"
+                    MinWidth="90"
+                    Click="CancelButton_Click" />
+            <Button x:Name="SubmitButton"
+                    Content="List for sale"
+                    MinWidth="130"
+                    Click="SubmitButton_Click" />
+        </StackPanel>
+    </Grid>
+</Window>

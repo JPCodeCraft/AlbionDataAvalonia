@@ -41,21 +41,11 @@ public partial class LegendaryView : UserControl
             return;
         }
 
-        var saleInput = await LegendarySaleWindow.ShowAsync(
+        await LegendarySaleWindow.ShowAsync(
             owner,
             viewModel.SelectedItem,
-            "The listing will also be announced on Discord when your AFM account is linked and Discord delivery is available.",
-            viewModel.DefaultInGameName);
-        if (saleInput is null)
-        {
-            return;
-        }
-
-        var result = await viewModel.CreateSellOrderAsync(saleInput.PriceSilver, saleInput.InGameName);
-        var message = result.RetryAfterSeconds is { } retryAfter
-            ? $"{result.Message}\nDiscord can be tried again in {TimeSpan.FromSeconds(retryAfter):g}."
-            : result.Message;
-        await LegendarySaleWindow.ShowResultAsync(owner, message, result.MessageUrl);
+            viewModel.DefaultInGameName,
+            input => viewModel.CreateSellOrderAsync(input.PriceSilver, input.InGameName));
     }
 
     private async void SoldCheckBox_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

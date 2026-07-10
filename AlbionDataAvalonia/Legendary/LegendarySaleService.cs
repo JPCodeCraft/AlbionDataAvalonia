@@ -359,6 +359,7 @@ public sealed record LegendarySaleOperationResult(
     bool Success,
     string Message,
     LegendarySaleListing? Listing,
+    string? DiscordStatus,
     string? MessageUrl,
     int? RetryAfterSeconds)
 {
@@ -369,13 +370,20 @@ public sealed record LegendarySaleOperationResult(
         var message = sellOrder?.Discord.Status switch
         {
             "posted" => "Awakened item listed on AFM and posted to Discord.",
-            "not_linked" => "Awakened item listed on AFM. Link Discord at https://albionfreemarket.com/account to also announce it there.",
-            "not_member" => "Awakened item listed on AFM. Join the AFM Discord server to also announce it there.",
+            "not_linked" => "Awakened item listed on AFM but not posted to Discord. Make sure Discord is linked on your AFM account and that you have joined the AFM Discord server.",
+            "not_member" => "Awakened item listed on AFM but not posted to Discord. Make sure the Discord account linked to AFM has joined the AFM Discord server.",
             "rate_limited" => "Awakened item listed on AFM. The Discord announcement was rate-limited.",
             "failed" => "Awakened item listed on AFM, but the Discord announcement failed.",
+            "pending" => "Awakened item listed on AFM. The Discord announcement is pending.",
             _ => "Awakened item listed on AFM. Discord delivery is currently unavailable."
         };
-        return new(true, message, listing, sellOrder?.Discord.MessageUrl, sellOrder?.Discord.RetryAfterSeconds);
+        return new(
+            true,
+            message,
+            listing,
+            sellOrder?.Discord.Status,
+            sellOrder?.Discord.MessageUrl,
+            sellOrder?.Discord.RetryAfterSeconds);
     }
 
     public static LegendarySaleOperationResult Updated(LegendarySaleListing listing) =>
@@ -388,8 +396,9 @@ public sealed record LegendarySaleOperationResult(
                     : "Awakened item marked as available.",
             listing,
             null,
+            null,
             null);
 
     public static LegendarySaleOperationResult Failed(string message) =>
-        new(false, message, null, null, null);
+        new(false, message, null, null, null, null);
 }

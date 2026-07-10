@@ -442,7 +442,10 @@ public sealed class LegendaryItemRowViewModel
     {
         Source = source;
         Listing = listing;
-        SellOrders = listing?.SellOrders.Select(order => new LegendarySellOrderRowViewModel(order)).ToList()
+        SellOrders = listing?.SellOrders
+            .OrderByDescending(order => order.CreatedAt)
+            .Select((order, index) => new LegendarySellOrderRowViewModel(order, index == 0))
+            .ToList()
             ?? [];
         var itemNameFallback = string.IsNullOrWhiteSpace(source.ItemName) ? source.ItemUniqueName : source.ItemName;
         ItemName = ItemNameFormatter.FormatUsName(
@@ -507,6 +510,22 @@ public sealed class LegendaryItemRowViewModel
     public bool IsActiveListing => HasListing && !IsSold && !IsCanceled;
     public bool CanChangeSold => HasListing && !IsCanceled;
     public string SaleState => Listing is null ? "-" : IsSold ? "Sold" : IsCanceled ? "Canceled" : "Active";
+    public string SaleStatusSummary => Listing is null
+        ? "This item is not currently listed on AFM."
+        : IsSold
+            ? "This listing is marked as sold and is no longer active."
+            : IsCanceled
+                ? "This listing was canceled and is no longer active."
+                : "This listing is live on AFM and can receive price updates.";
+    public string SaleActionText => !HasListing
+        ? "List for sale"
+        : IsActiveListing
+            ? "Update price"
+            : "Relist item";
+    public bool HasSellOrders => SellOrders.Count > 0;
+    public string SellOrdersHeading => SellOrders.Count == 1
+        ? "Order history · 1 order"
+        : $"Order history · {SellOrders.Count:N0} orders";
     public string LatestPrice => Listing is null ? "-" : FormatPrice(Listing.LatestPriceSilver);
     public string LastListed => Listing is { } listing
         ? FormatUtc(listing.LastListedAt)
@@ -544,12 +563,15 @@ public sealed class LegendaryItemRowViewModel
 
 public sealed class LegendarySellOrderRowViewModel
 {
-    public LegendarySellOrderRowViewModel(LegendarySellOrder source)
+    public LegendarySellOrderRowViewModel(LegendarySellOrder source, bool isLatest)
     {
         Source = source;
+        IsLatest = isLatest;
     }
 
     public LegendarySellOrder Source { get; }
+    public bool IsLatest { get; }
+    public string OrderLabel => IsLatest ? "Latest order" : "Previous order";
     public string ListedAt => $"{Source.CreatedAt.UtcDateTime.ToString("g", CultureInfo.CurrentCulture)} UTC";
     public string Price => long.TryParse(Source.PriceSilver, NumberStyles.None, CultureInfo.InvariantCulture, out var price)
         ? $"{price.ToString("N0", CultureInfo.CurrentCulture)} silver"
