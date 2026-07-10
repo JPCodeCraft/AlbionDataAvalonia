@@ -196,9 +196,24 @@ This application:
 - ✅ Does NOT display overlays on the game
 - 🛜 Does passively capture network packets to collect market data
 
-### How do I back up or migrate my local data (SQLite + settings)?
+### How do I restore an automatic SQLite backup?
 
-All local data (SQLite database, settings, cached files) is stored under the app data folder.
+AFM creates a compressed database backup every 24 hours. It keeps the three newest backups plus recovery points closest to 5, 10, and 15 days old. You can open the backup folder and see the same restore instructions in **Settings > Backup**.
+
+Automatic backups are stored under the app data folder in `backups`. Each ZIP contains `afmdataclient.db`. Stored history and player data are included, but the saved sign-in token is removed.
+
+To restore a backup:
+
+1. Exit AFM from the system tray and confirm that it is no longer running.
+2. Copy the current `data` folder somewhere safe.
+3. Extract the selected backup ZIP.
+4. In the `data` folder, move aside `afmdataclient.db` and any `afmdataclient.db-wal` or `afmdataclient.db-shm` files.
+5. Copy the extracted `afmdataclient.db` into the `data` folder.
+6. Start AFM, verify the restored history, and sign in again.
+
+### How do I migrate all local data, including settings?
+
+All local data (SQLite database, settings, cached files, and automatic backups) is stored under the app data folder.
 
 **Windows path**
 

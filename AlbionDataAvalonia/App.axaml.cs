@@ -37,6 +37,7 @@ namespace AlbionDataAvalonia;
 public partial class App : Application
 {
     private System.Timers.Timer? _updateTimer;
+    private DatabaseBackupService? _databaseBackupService;
     private readonly HashSet<string> _shownManualUpdateDialogs = new();
     private readonly object _shownManualUpdateDialogsLock = new();
     private bool _showMainWindowWhenReady;
@@ -65,6 +66,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
+            _databaseBackupService?.Dispose();
             TryWriteStartupCrashLog(ex);
 
             try
@@ -124,6 +126,9 @@ public partial class App : Application
             }
         }
 
+        _databaseBackupService = services.GetRequiredService<DatabaseBackupService>();
+        _databaseBackupService.Start();
+
         //INITIALIZE SETTINGS
         var settings = services.GetRequiredService<SettingsManager>();
         await settings.InitializeSettings();
@@ -151,6 +156,7 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
+            desktop.Exit += (_, _) => _databaseBackupService?.Dispose();
 
             if (desktop.MainWindow == null)
             {
@@ -419,6 +425,7 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<LegendaryItemTrackerService>();
         collection.AddSingleton<LegendarySaleService>();
         collection.AddSingleton<WindowsStartupService>();
+        collection.AddSingleton<DatabaseBackupService>();
 
         collection.AddSingleton<MainViewModel>();
         collection.AddSingleton<SettingsViewModel>();

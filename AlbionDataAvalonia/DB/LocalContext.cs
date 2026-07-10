@@ -2,6 +2,7 @@ using AlbionDataAvalonia.Auth.Models;
 using AlbionDataAvalonia.Gathering.Models;
 using AlbionDataAvalonia.Legendary.Models;
 using AlbionDataAvalonia.Network.Models;
+using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
 using System.IO;
 
@@ -20,13 +21,14 @@ namespace AlbionDataAvalonia.DB
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)
         {
-            string folderPath = AppData.LocalPath + "/data";
-            if (!Directory.Exists(folderPath))
-            {
-                Directory.CreateDirectory(folderPath);
-            }
+            Directory.CreateDirectory(AppData.DataDirectoryPath);
 
-            optionsBuilder.UseSqlite($"Data Source={folderPath}/afmdataclient.db");
+            var connectionString = new SqliteConnectionStringBuilder
+            {
+                DataSource = AppData.DatabasePath
+            }.ToString();
+
+            optionsBuilder.UseSqlite(connectionString);
         }
 
     }

@@ -8,6 +8,7 @@ using System.Threading.Tasks;
 using AlbionDataAvalonia.Auth.Models;
 using AlbionDataAvalonia.Auth.Services;
 using AlbionDataAvalonia.Combat;
+using AlbionDataAvalonia.DB;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Settings;
@@ -27,6 +28,7 @@ public partial class SettingsViewModel : ViewModelBase
     private readonly CombatTrackerService? combatTracker;
     private readonly AuthService? authService;
     private readonly AFMUploader? afmUploader;
+    private readonly DatabaseBackupService? databaseBackupService;
 
     [ObservableProperty]
     private UserSettings userSettings;
@@ -124,13 +126,15 @@ public partial class SettingsViewModel : ViewModelBase
         PlayerState playerState,
         CombatTrackerService combatTracker,
         AuthService authService,
-        AFMUploader afmUploader)
+        AFMUploader afmUploader,
+        DatabaseBackupService databaseBackupService)
     {
         _settingsManager = settingsManager;
         _playerState = playerState;
         this.combatTracker = combatTracker;
         this.authService = authService;
         this.afmUploader = afmUploader;
+        this.databaseBackupService = databaseBackupService;
 
         UserSettings = _settingsManager.UserSettings;
         PendingCombatEncounterRetentionLimit = UserSettings.CombatEncounterRetentionLimit;
@@ -156,6 +160,8 @@ public partial class SettingsViewModel : ViewModelBase
     public bool CanUseSharingSettings => IsUserLoggedIn && !IsSharingBusy;
     public bool CanAddSharedUser => CanUseSharingSettings && SharedUsers.Count < MaxSharedFriendsLimit;
     public bool HasNormalSharingStatus => HasSharingStatus && !HasUnresolvedEntries;
+    public string BackupFolderPath => AppData.BackupDirectoryPath;
+    public string DataFolderPath => AppData.DataDirectoryPath;
 
     public bool CloseButtonHidesToTray
     {
@@ -168,6 +174,12 @@ public partial class SettingsViewModel : ViewModelBase
                 OnPropertyChanged(nameof(CloseButtonHidesToTray));
             }
         }
+    }
+
+    [RelayCommand]
+    private void OpenBackupFolder()
+    {
+        databaseBackupService?.OpenBackupFolder();
     }
 
     public bool IsShowMainWindowOnStartup

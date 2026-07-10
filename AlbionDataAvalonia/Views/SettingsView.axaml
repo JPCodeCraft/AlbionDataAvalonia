@@ -307,5 +307,65 @@
                 </StackPanel>
             </ScrollViewer>
         </TabItem>
+
+        <TabItem Header="Backup">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Margin="0,14,20,0" Spacing="14">
+                    <TextBlock Text="Automatic database backups"
+                               FontWeight="Bold"
+                               FontSize="16" />
+                    <TextBlock Text="AFM Data Client creates a compressed backup every 24 hours. It keeps the three newest backups plus recovery points closest to 5, 10, and 15 days old."
+                               TextWrapping="Wrap" />
+
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <StackPanel Spacing="4" VerticalAlignment="Center">
+                            <TextBlock Text="Backup folder" FontWeight="SemiBold" />
+                            <TextBlock Text="{Binding BackupFolderPath}"
+                                       TextWrapping="Wrap"
+                                       Opacity="0.8" />
+                        </StackPanel>
+                        <Button Grid.Column="1"
+                                Content="Open backup folder"
+                                Command="{Binding OpenBackupFolderCommand}"
+                                VerticalAlignment="Center" />
+                    </Grid>
+
+                    <Border Background="{DynamicResource ThemeBackgroundBrush}"
+                            BorderBrush="{DynamicResource ThemeBorderMidBrush}"
+                            BorderThickness="1"
+                            CornerRadius="4"
+                            Padding="12">
+                        <StackPanel Spacing="6">
+                            <TextBlock Text="Privacy" FontWeight="Bold" />
+                            <TextBlock Text="Backups contain your stored history and player data. Your saved sign-in token is removed, so you must sign in again after restoring a backup."
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                    </Border>
+
+                    <StackPanel Spacing="8">
+                        <TextBlock Text="How to restore a backup"
+                                   FontWeight="Bold"
+                                   FontSize="16" />
+                        <TextBlock Text="1. Exit AFM from the system tray and confirm that it is no longer running."
+                                   TextWrapping="Wrap" />
+                        <TextBlock Text="2. Make a safety copy of the current data folder:"
+                                   TextWrapping="Wrap" />
+                        <TextBlock Text="{Binding DataFolderPath}"
+                                   Margin="20,0,0,0"
+                                   TextWrapping="Wrap"
+                                   Opacity="0.8" />
+                        <TextBlock Text="3. Extract the selected backup ZIP. It contains afmdataclient.db."
+                                   TextWrapping="Wrap" />
+                        <TextBlock Text="4. In the data folder, move aside afmdataclient.db and any afmdataclient.db-wal or afmdataclient.db-shm files."
+                                   TextWrapping="Wrap" />
+                        <TextBlock Text="5. Copy the extracted afmdataclient.db into the data folder."
+                                   TextWrapping="Wrap" />
+                        <TextBlock Text="6. Start AFM, verify the restored history, and sign in again."
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
     </TabControl>
 </UserControl>
