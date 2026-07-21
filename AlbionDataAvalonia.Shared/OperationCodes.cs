@@ -548,5 +548,6 @@
         GetPartyMemberCluster,
         SetPartyNavigation,
         EndPartyNavigation,
+        SmartQueueRegionQueueInfo,
     }
 }

@@ -688,5 +688,7 @@
         LosingCarriableObjectStart = 683, // 0x02AB
         LosingCarriableObjectFinished = 684, // 0x02AC
         NotifyPlatformAccountConfirmed = 685, // 0x02AD
+        FactionTraderZoneBuffFailure = 686, // 0x02AE
+        SmartClusterQueueContingentEntered = 687, // 0x02AF
     }
 }
