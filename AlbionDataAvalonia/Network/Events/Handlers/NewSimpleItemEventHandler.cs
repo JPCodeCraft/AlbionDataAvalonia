@@ -63,7 +63,8 @@ public class NewSimpleItemEventHandler : EventPacketHandler<NewSimpleItemEvent>
                 afmUploader.QueueItemEstimatedMarketValue(
                     value.Item.ItemUniqueName,
                     value.Item.EstimatedMarketValue,
-                    value.Item.Quality);
+                    value.Item.Quality,
+                    value.Item.BlackMarketEstimatedMarketValue);
             }
 
             gatheringTracker.DiscoverFishingItem(value.Item);

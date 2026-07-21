@@ -13,6 +13,7 @@ public class ItemEstimatedMarketValueUploadEntry
 {
     public string ItemUniqueName { get; set; } = string.Empty;
     public long Emv { get; set; }
+    public long? BlackMarketEmv { get; set; }
     public int Quality { get; set; }
     public DateOnly Day { get; set; }
 }

@@ -59,7 +59,8 @@ public class NewJournalItemEventHandler : EventPacketHandler<NewJournalItemEvent
                 afmUploader.QueueItemEstimatedMarketValue(
                     value.Item.ItemUniqueName,
                     value.Item.EstimatedMarketValue,
-                    value.Item.Quality);
+                    value.Item.Quality,
+                    value.Item.BlackMarketEstimatedMarketValue);
             }
 
             lootTracker.DiscoverItem(value.Item);

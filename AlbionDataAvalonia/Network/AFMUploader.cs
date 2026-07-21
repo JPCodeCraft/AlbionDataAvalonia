@@ -453,53 +453,66 @@ namespace AlbionDataAvalonia.Network.Services
             _ = Upload(globalMultiplierUpload, fingerprint);
         }
 
-        public void QueueItemEstimatedMarketValue(string itemUniqueName, long emv, int quality)
+        public void QueueItemEstimatedMarketValue(string itemUniqueName, long emv, int quality, long? blackMarketEmv = null)
         {
             var serverId = _playerState.AlbionServer?.Id;
             if (serverId is null)
             {
-                Log.Debug("Skipping item estimated market value upload because server is not set. ItemUniqueName: {ItemUniqueName}. Quality: {Quality}. Emv: {Emv}.", itemUniqueName, quality, emv);
+                Log.Debug("Skipping item estimated market value upload because server is not set. ItemUniqueName: {ItemUniqueName}. Quality: {Quality}. Emv: {Emv}. BlackMarketEmv: {BlackMarketEmv}.", itemUniqueName, quality, emv, blackMarketEmv);
                 return;
             }
 
             if (_authService.CurrentFirebaseUser is null)
             {
-                Log.Debug("Skipping item estimated market value upload because no Firebase session exists. ServerId: {ServerId}. ItemUniqueName: {ItemUniqueName}. Quality: {Quality}. Emv: {Emv}.", serverId, itemUniqueName, quality, emv);
+                Log.Debug("Skipping item estimated market value upload because no Firebase session exists. ServerId: {ServerId}. ItemUniqueName: {ItemUniqueName}. Quality: {Quality}. Emv: {Emv}. BlackMarketEmv: {BlackMarketEmv}.", serverId, itemUniqueName, quality, emv, blackMarketEmv);
                 return;
             }
 
-            if (!IsValidItemEstimatedMarketValue(itemUniqueName, emv, quality))
+            if (!IsValidItemEstimatedMarketValue(itemUniqueName, emv, quality, blackMarketEmv))
             {
-                Log.Debug("Skipping invalid item estimated market value. ServerId: {ServerId}. ItemUniqueName: {ItemUniqueName}. Quality: {Quality}. Emv: {Emv}.", serverId, itemUniqueName, quality, emv);
+                Log.Debug("Skipping invalid item estimated market value. ServerId: {ServerId}. ItemUniqueName: {ItemUniqueName}. Quality: {Quality}. Emv: {Emv}. BlackMarketEmv: {BlackMarketEmv}.", serverId, itemUniqueName, quality, emv, blackMarketEmv);
                 return;
             }
 
             var day = DateOnly.FromDateTime(DateTime.UtcNow);
-            var fingerprint = new ItemEstimatedMarketValueUploadFingerprint(serverId.Value, itemUniqueName, quality, day, emv);
+            var fingerprint = new ItemEstimatedMarketValueUploadFingerprint(serverId.Value, itemUniqueName, quality, day, emv, blackMarketEmv);
             if (uploadedItemEstimatedMarketValues.Contains(fingerprint))
             {
-                Log.Verbose("Skipping duplicate item estimated market value upload. ServerId: {ServerId}. ItemUniqueName: {ItemUniqueName}. Quality: {Quality}. Emv: {Emv}. Day: {Day}.", serverId.Value, itemUniqueName, quality, emv, day);
+                Log.Verbose("Skipping duplicate item estimated market value upload. ServerId: {ServerId}. ItemUniqueName: {ItemUniqueName}. Quality: {Quality}. Emv: {Emv}. BlackMarketEmv: {BlackMarketEmv}. Day: {Day}.", serverId.Value, itemUniqueName, quality, emv, blackMarketEmv, day);
                 return;
             }
 
             var key = new ItemEstimatedMarketValueUploadKey(serverId.Value, itemUniqueName, quality, day);
-            pendingItemEstimatedMarketValues[key] = new ItemEstimatedMarketValueUploadEntry
+            var entry = new ItemEstimatedMarketValueUploadEntry
             {
                 ItemUniqueName = itemUniqueName,
                 Emv = emv,
+                BlackMarketEmv = blackMarketEmv,
                 Quality = quality,
                 Day = day
             };
+            pendingItemEstimatedMarketValues.AddOrUpdate(
+                key,
+                entry,
+                (_, existing) => new ItemEstimatedMarketValueUploadEntry
+                {
+                    ItemUniqueName = entry.ItemUniqueName,
+                    Emv = entry.Emv,
+                    BlackMarketEmv = entry.BlackMarketEmv ?? existing.BlackMarketEmv,
+                    Quality = entry.Quality,
+                    Day = entry.Day
+                });
 
             ScheduleItemEstimatedMarketValueUpload();
         }
 
-        private static bool IsValidItemEstimatedMarketValue(string itemUniqueName, long emv, int quality)
+        private static bool IsValidItemEstimatedMarketValue(string itemUniqueName, long emv, int quality, long? blackMarketEmv)
         {
             return !string.IsNullOrWhiteSpace(itemUniqueName)
                 && !string.Equals(itemUniqueName, "Unknown Item", StringComparison.OrdinalIgnoreCase)
                 && !string.Equals(itemUniqueName, "Unset", StringComparison.OrdinalIgnoreCase)
                 && emv > 0
+                && (blackMarketEmv is null or > 0)
                 && quality >= 1
                 && quality <= 5;
         }
@@ -569,7 +582,7 @@ namespace AlbionDataAvalonia.Network.Services
                 {
                     foreach (var item in chunk)
                     {
-                        Log.Debug("Uploading item estimated market value. ServerId: {ServerId}. ItemUniqueName: {ItemUniqueName}. Quality: {Quality}. Emv: {Emv}. Day: {Day}.", serverId.Value, item.ItemUniqueName, item.Quality, item.Emv, item.Day);
+                        Log.Debug("Uploading item estimated market value. ServerId: {ServerId}. ItemUniqueName: {ItemUniqueName}. Quality: {Quality}. Emv: {Emv}. BlackMarketEmv: {BlackMarketEmv}. Day: {Day}.", serverId.Value, item.ItemUniqueName, item.Quality, item.Emv, item.BlackMarketEmv, item.Day);
                     }
 
                     var upload = new ItemEstimatedMarketValueUpload
@@ -694,7 +707,8 @@ namespace AlbionDataAvalonia.Network.Services
                             item.ItemUniqueName,
                             item.Quality,
                             item.Day,
-                            item.Emv));
+                            item.Emv,
+                            item.BlackMarketEmv));
                     }
 
                     Log.Information("Successfully sent {ItemsCount} item estimated market values to AFM EMV endpoint. Identifier: {Identifier}. ServerId: {ServerId}.", itemEstimatedMarketValueUpload.Items.Count, identifier, itemEstimatedMarketValueUpload.ServerId);
@@ -1168,7 +1182,7 @@ namespace AlbionDataAvalonia.Network.Services
 
         private static string GetItemEstimatedMarketValueUploadSummary(ItemEstimatedMarketValueUpload upload)
         {
-            return $"Items={upload.Items.Count}; Day={upload.Items.FirstOrDefault()?.Day}; Qualities={string.Join(",", upload.Items.Select(x => x.Quality).Distinct())}";
+            return $"Items={upload.Items.Count}; BlackMarketItems={upload.Items.Count(x => x.BlackMarketEmv.HasValue)}; Day={upload.Items.FirstOrDefault()?.Day}; Qualities={string.Join(",", upload.Items.Select(x => x.Quality).Distinct())}";
         }
 
         private static AchievementUploadFingerprint CreateAchievementUploadFingerprint(AchievementUpload upload)
@@ -1223,6 +1237,7 @@ namespace AlbionDataAvalonia.Network.Services
             string ItemUniqueName,
             int Quality,
             DateOnly Day,
-            long Emv);
+            long Emv,
+            long? BlackMarketEmv);
     }
 }

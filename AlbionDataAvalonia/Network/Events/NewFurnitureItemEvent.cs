@@ -12,6 +12,7 @@ public class NewFurnitureItemEvent : BaseEvent
     private readonly int quantity;
     private readonly string? crafterName;
     private readonly long estimatedMarketValue;
+    private readonly long? blackMarketEstimatedMarketValue;
     private readonly long durability;
     private readonly int quality = 1;
     private readonly bool isAwakened;
@@ -43,12 +44,18 @@ public class NewFurnitureItemEvent : BaseEvent
                 estimatedMarketValue = estimatedMarketValueValue.ToLong() / 10000;
             }
 
-            if (parameters.TryGetValue(5, out object? crafterNameValue))
+            if (parameters.TryGetValue(5, out object? blackMarketEstimatedMarketValueValue))
+            {
+                var parsedBlackMarketEstimatedMarketValue = blackMarketEstimatedMarketValueValue.ToLong() / 10000;
+                blackMarketEstimatedMarketValue = parsedBlackMarketEstimatedMarketValue > 0 ? parsedBlackMarketEstimatedMarketValue : null;
+            }
+
+            if (parameters.TryGetValue(6, out object? crafterNameValue))
             {
                 crafterName = crafterNameValue.ToString();
             }
 
-            // Furniture item param 6 is not confirmed yet. It may be durability,
+            // Furniture item param 7 is not confirmed yet. It may be durability,
             // but it is not parsed until the packet shape is verified.
 
             if (objectId != null)
@@ -59,6 +66,7 @@ public class NewFurnitureItemEvent : BaseEvent
                     quantity,
                     durability,
                     estimatedMarketValue,
+                    blackMarketEstimatedMarketValue,
                     quality,
                     crafterName,
                     isAwakened);

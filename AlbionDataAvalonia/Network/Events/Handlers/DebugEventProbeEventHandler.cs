@@ -12,15 +12,14 @@ public class DebugEventProbeEventHandler : EventPacketHandler<DebugEventProbeEve
 {
     private static readonly int[] ProbeEventCodeValues =
     [
+        (int)EventCodes.EstimatedMarketValueUpdate,
+        (int)EventCodes.NewSimpleItem,
+        (int)EventCodes.NewJournalItem,
+        (int)EventCodes.NewLaborerItem,
         (int)EventCodes.NewEquipmentItem,
-        (int)EventCodes.NewEquipmentItemLegendarySoul,
-        (int)EventCodes.InventoryPutItem,
-        (int)EventCodes.AttachItemContainer,
-        (int)EventCodes.DetachItemContainer,
-        (int)EventCodes.InventoryDeleteItem,
-        (int)EventCodes.GuildVaultInfo,
-        (int)EventCodes.BankVaultInfo,
-        (int)EventCodes.LegendaryItemDestroyed
+        (int)EventCodes.NewFurnitureItem,
+        (int)EventCodes.NewKillTrophyItem,
+        (int)EventCodes.NewSiegeBannerItem
     ];
 
     public DebugEventProbeEventHandler() : base(ProbeEventCodeValues)

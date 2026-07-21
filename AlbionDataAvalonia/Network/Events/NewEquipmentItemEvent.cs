@@ -12,6 +12,7 @@ public class NewEquipmentItemEvent : BaseEvent
     private readonly int quantity;
     private readonly string? crafterName;
     private readonly long estimatedMarketValue;
+    private readonly long? blackMarketEstimatedMarketValue;
     private readonly long durability;
     private readonly int quality = 1;
     private readonly bool isAwakened;
@@ -43,22 +44,28 @@ public class NewEquipmentItemEvent : BaseEvent
                 estimatedMarketValue = estimatedMarketValueValue.ToLong() / 10000;
             }
 
-            if (parameters.TryGetValue(5, out object? crafterNameValue))
+            if (parameters.TryGetValue(5, out object? blackMarketEstimatedMarketValueValue))
+            {
+                var parsedBlackMarketEstimatedMarketValue = blackMarketEstimatedMarketValueValue.ToLong() / 10000;
+                blackMarketEstimatedMarketValue = parsedBlackMarketEstimatedMarketValue > 0 ? parsedBlackMarketEstimatedMarketValue : null;
+            }
+
+            if (parameters.TryGetValue(6, out object? crafterNameValue))
             {
                 crafterName = crafterNameValue.ToString();
             }
 
-            if (parameters.TryGetValue(6, out object? qualityValue))
+            if (parameters.TryGetValue(7, out object? qualityValue))
             {
                 quality = checked((int)qualityValue.ToLong());
             }
 
-            if (parameters.TryGetValue(7, out object? durabilityValue))
+            if (parameters.TryGetValue(8, out object? durabilityValue))
             {
                 durability = durabilityValue.ToLong() / 10000;
             }
 
-            if (parameters.TryGetValue(10, out object? isAwakenedValue))
+            if (parameters.TryGetValue(11, out object? isAwakenedValue))
             {
                 isAwakened = isAwakenedValue.ToBool();
             }
@@ -71,6 +78,7 @@ public class NewEquipmentItemEvent : BaseEvent
                     quantity,
                     durability,
                     estimatedMarketValue,
+                    blackMarketEstimatedMarketValue,
                     quality,
                     crafterName,
                     isAwakened);
