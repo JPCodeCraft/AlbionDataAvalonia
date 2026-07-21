@@ -397,6 +397,7 @@ public sealed class LootTrackerService : IDisposable
                 item.ItemUniqueName,
                 item.ItemUsName,
                 item.EstimatedMarketValue > 0 ? item.EstimatedMarketValue : null,
+                item.BlackMarketEstimatedMarketValue is > 0 ? item.BlackMarketEstimatedMarketValue : null,
                 sourceObjectId,
                 nowUtc);
             snapshot = ReplayPendingLocalMovesForItemCore(objectId, nowUtc);
@@ -453,6 +454,7 @@ public sealed class LootTrackerService : IDisposable
                     item?.UniqueName,
                     item?.Name,
                     item?.EstimatedMarketValue,
+                    item?.BlackMarketEstimatedMarketValue,
                     nowUtc);
                 records.Add(record);
                 if (IsLocalPlayer(normalizedPlayerName))
@@ -583,6 +585,7 @@ public sealed class LootTrackerService : IDisposable
                     discoveredItem?.UniqueName,
                     discoveredItem?.Name,
                     discoveredItem?.EstimatedMarketValue,
+                    discoveredItem?.BlackMarketEstimatedMarketValue,
                     nowUtc);
                 records.Add(record);
                 recordedItemObjectIds[itemObjectId] = new RecordedItemObject(
@@ -666,6 +669,7 @@ public sealed class LootTrackerService : IDisposable
                     discoveredItem?.UniqueName,
                     discoveredItem?.Name,
                     discoveredItem?.EstimatedMarketValue,
+                    discoveredItem?.BlackMarketEstimatedMarketValue,
                     nowUtc);
                 records.Add(record);
                 if (discoveredItem is not null)
@@ -1090,6 +1094,7 @@ public sealed class LootTrackerService : IDisposable
                 string.Empty,
                 string.Empty,
                 null,
+                null,
                 sourceObjectId,
                 nowUtc);
         }
@@ -1284,6 +1289,7 @@ public sealed class LootTrackerService : IDisposable
             item.UniqueName,
             item.Name,
             item.EstimatedMarketValue,
+            item.BlackMarketEstimatedMarketValue,
             nowUtc);
         records.Add(record);
         recordedItemObjectIds[itemObjectId] = new RecordedItemObject(item.ItemId, item.Amount, nowUtc);
@@ -1384,6 +1390,7 @@ public sealed class LootTrackerService : IDisposable
             item.UniqueName,
             item.Name,
             item.EstimatedMarketValue,
+            item.BlackMarketEstimatedMarketValue,
             nowUtc);
         records.Add(record);
         recordedItemObjectIds[itemObjectId] = new RecordedItemObject(item.ItemId, item.Amount, nowUtc);
@@ -1405,6 +1412,7 @@ public sealed class LootTrackerService : IDisposable
         string? uniqueName,
         string? name,
         long? discoveredEstimatedMarketValue,
+        long? discoveredBlackMarketEstimatedMarketValue,
         DateTime nowUtc)
     {
         var itemData = itemsIdsService.GetItemById(itemId);
@@ -1421,7 +1429,8 @@ public sealed class LootTrackerService : IDisposable
             itemId,
             resolvedUniqueName,
             resolvedQuality,
-            discoveredEstimatedMarketValue);
+            discoveredEstimatedMarketValue,
+            discoveredBlackMarketEstimatedMarketValue);
         var location = playerState.Location;
         var locationName = location.FriendlyName;
 
@@ -1520,16 +1529,13 @@ public sealed class LootTrackerService : IDisposable
         }
 
         var record = records[index];
-        var shouldRefreshEstimatedMarketValue = record.Quality != item.Quality
-            || record.EstimatedMarketValue is null;
-        var estimatedMarketValue = shouldRefreshEstimatedMarketValue
-            ? GetEstimatedMarketValue(
-                record.ServerId,
-                item.ItemId,
-                IsKnownItemText(item.UniqueName) ? item.UniqueName : record.ItemUniqueName,
-                item.Quality,
-                item.EstimatedMarketValue) ?? record.EstimatedMarketValue
-            : record.EstimatedMarketValue;
+        var estimatedMarketValue = GetEstimatedMarketValue(
+            record.ServerId,
+            item.ItemId,
+            IsKnownItemText(item.UniqueName) ? item.UniqueName : record.ItemUniqueName,
+            item.Quality,
+            item.EstimatedMarketValue,
+            item.BlackMarketEstimatedMarketValue) ?? record.EstimatedMarketValue;
         records[index] = record with
         {
             ItemObjectId = itemObjectId,
@@ -1567,15 +1573,15 @@ public sealed class LootTrackerService : IDisposable
                     continue;
                 }
 
-                long? recordEstimatedMarketValue = null;
+                long? recordEstimatedMarketValue;
                 if (record.Quality is { } knownQuality
-                    && qualities.Contains(knownQuality)
-                    && record.EstimatedMarketValue is null)
+                    && qualities.Contains(knownQuality))
                 {
-                    recordEstimatedMarketValue = itemEstimatedMarketValues.Get(
-                        itemKey.ServerId,
-                        itemKey.ItemId,
-                        knownQuality);
+                    recordEstimatedMarketValue = GetPreferredEstimatedMarketValue(
+                        itemEstimatedMarketValues.Get(
+                            itemKey.ServerId,
+                            itemKey.ItemId,
+                            knownQuality));
                 }
                 else if (record.Quality is null
                     && qualities.Any(quality => quality is >= 1 and <= 4))
@@ -1586,14 +1592,15 @@ public sealed class LootTrackerService : IDisposable
                         averageEstimatedMarketValues[itemKey] = averageEstimatedMarketValue;
                     }
 
-                    if (averageEstimatedMarketValue is > 0
-                    && record.EstimatedMarketValue != averageEstimatedMarketValue)
-                    {
-                        recordEstimatedMarketValue = averageEstimatedMarketValue;
-                    }
+                    recordEstimatedMarketValue = averageEstimatedMarketValue;
+                }
+                else
+                {
+                    continue;
                 }
 
-                if (recordEstimatedMarketValue is null)
+                if (recordEstimatedMarketValue is null
+                    || record.EstimatedMarketValue == recordEstimatedMarketValue)
                 {
                     continue;
                 }
@@ -1625,23 +1632,37 @@ public sealed class LootTrackerService : IDisposable
         int itemId,
         string itemUniqueName,
         int? quality,
-        long? discoveredEstimatedMarketValue)
+        long? discoveredEstimatedMarketValue,
+        long? discoveredBlackMarketEstimatedMarketValue)
     {
+        ItemEstimatedMarketValues? cachedValues = null;
+        if (serverId is not null && quality is { } knownQuality)
+        {
+            cachedValues = itemEstimatedMarketValues.Get(serverId.Value, itemId, knownQuality);
+        }
+
+        if (discoveredBlackMarketEstimatedMarketValue is > 0)
+        {
+            return discoveredBlackMarketEstimatedMarketValue;
+        }
+
+        if (cachedValues?.BlackMarketEmv is > 0)
+        {
+            return cachedValues.Value.BlackMarketEmv;
+        }
+
         if (discoveredEstimatedMarketValue is > 0)
         {
             return discoveredEstimatedMarketValue;
         }
 
-        if (serverId is null)
+        var estimatedMarketValue = cachedValues?.NormalEmv;
+        if (estimatedMarketValue is null && serverId is not null && quality is null)
         {
-            return null;
+            estimatedMarketValue = GetAverageEstimatedMarketValue(serverId.Value, itemId);
         }
 
-        var estimatedMarketValue = quality is { } knownQuality
-            ? itemEstimatedMarketValues.Get(serverId.Value, itemId, knownQuality)
-            : GetAverageEstimatedMarketValue(serverId.Value, itemId);
-
-        if (estimatedMarketValue is null)
+        if (estimatedMarketValue is null && serverId is not null)
         {
             itemEstimatedMarketValueBackendLoader.QueueMissingEstimatedMarketValue(
                 serverId.Value,
@@ -1657,6 +1678,7 @@ public sealed class LootTrackerService : IDisposable
     {
         var values = Enumerable.Range(1, 4)
             .Select(quality => itemEstimatedMarketValues.Get(serverId, itemId, quality))
+            .Select(GetPreferredEstimatedMarketValue)
             .Where(value => value is > 0)
             .Select(value => value!.Value)
             .ToArray();
@@ -1667,6 +1689,13 @@ public sealed class LootTrackerService : IDisposable
         }
 
         return (long)Math.Round(values.Average());
+    }
+
+    private static long? GetPreferredEstimatedMarketValue(ItemEstimatedMarketValues? values)
+    {
+        return values is { } value
+            ? value.BlackMarketEmv ?? value.NormalEmv
+            : null;
     }
 
     private void OnUserSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -2000,6 +2029,7 @@ public sealed class LootTrackerService : IDisposable
             string uniqueName,
             string name,
             long? estimatedMarketValue,
+            long? blackMarketEstimatedMarketValue,
             long? sourceObjectId,
             DateTime seenAtUtc)
         {
@@ -2010,6 +2040,7 @@ public sealed class LootTrackerService : IDisposable
             UniqueName = uniqueName;
             Name = name;
             EstimatedMarketValue = estimatedMarketValue;
+            BlackMarketEstimatedMarketValue = blackMarketEstimatedMarketValue;
             SourceObjectId = sourceObjectId;
             SeenAtUtc = seenAtUtc;
         }
@@ -2021,6 +2052,7 @@ public sealed class LootTrackerService : IDisposable
         public string UniqueName { get; }
         public string Name { get; }
         public long? EstimatedMarketValue { get; }
+        public long? BlackMarketEstimatedMarketValue { get; }
         public long? SourceObjectId { get; set; }
         public DateTime SeenAtUtc { get; }
     }

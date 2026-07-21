@@ -351,7 +351,12 @@ public sealed class ItemEstimatedMarketValueBackendLoader : IDisposable
 
             foreach (var itemId in itemIds)
             {
-                updates.Add(new ItemEstimatedMarketValueUpdate(serverId, itemId, value.Quality, value.Emv));
+                updates.Add(new ItemEstimatedMarketValueUpdate(
+                    serverId,
+                    itemId,
+                    value.Quality,
+                    value.Emv,
+                    value.BlackMarketEmv));
             }
         }
 
@@ -473,5 +478,6 @@ public sealed class ItemEstimatedMarketValueBackendLoader : IDisposable
         int Server,
         int Quality,
         DateOnly Day,
-        long Emv);
+        long Emv,
+        long? BlackMarketEmv);
 }

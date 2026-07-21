@@ -53,7 +53,8 @@ public class NewSiegeBannerItemEventHandler : EventPacketHandler<NewSiegeBannerI
                         serverId.Value,
                         value.Item.ItemIndex,
                         value.Item.Quality,
-                        value.Item.EstimatedMarketValue);
+                        value.Item.EstimatedMarketValue,
+                        value.Item.BlackMarketEstimatedMarketValue);
                 }
 
                 afmUploader.QueueItemEstimatedMarketValue(

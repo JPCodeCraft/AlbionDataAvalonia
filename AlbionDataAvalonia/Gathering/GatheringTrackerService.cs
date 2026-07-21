@@ -402,7 +402,16 @@ public sealed class GatheringTrackerService : IDisposable
                     continue;
                 }
 
-                itemAggregate.EstimatedMarketValue = estimatedMarketValues.Get(key.ServerId, key.ItemId, key.Quality);
+                var normalEmv = estimatedMarketValues.Get(
+                    key.ServerId,
+                    key.ItemId,
+                    key.Quality)?.NormalEmv;
+                if (itemAggregate.EstimatedMarketValue == normalEmv)
+                {
+                    continue;
+                }
+
+                itemAggregate.EstimatedMarketValue = normalEmv;
                 changed = true;
             }
 
@@ -581,7 +590,7 @@ public sealed class GatheringTrackerService : IDisposable
         var serverId = sessionAlbionServerId ?? playerState.AlbionServer?.Id;
         if (serverId is not null)
         {
-            estimatedMarketValue ??= estimatedMarketValues.Get(serverId.Value, itemId, quality);
+            estimatedMarketValue ??= estimatedMarketValues.Get(serverId.Value, itemId, quality)?.NormalEmv;
         }
         itemAggregate.EstimatedMarketValue = estimatedMarketValue;
         itemAggregate.Source = CombineSources(itemAggregate.Source, source);
