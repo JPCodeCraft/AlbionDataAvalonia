@@ -173,6 +173,9 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddResponseHandler(new AuctionBuyOfferResponseHandler(_playerState, _tradeService));
                 builder.AddResponseHandler(new AuctionSellSpecificItemRequestResponseHandler(_playerState, _tradeService));
                 builder.AddResponseHandler(new FishingFinishResponseHandler(_gatheringTracker));
+#if DEBUG
+                builder.AddHandler(new DebugResponseProbeResponseHandler());
+#endif
                 // builder.AddResponseHandler(new AssetOverviewResponseHandler(_playerState));
                 // builder.AddResponseHandler(new AssetOverviewUnfreezeCacheResponseHandler(_playerState));
                 // builder.AddResponseHandler(new AssetOverviewTabsResponseHandler(_playerState));
@@ -186,6 +189,10 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddRequestHandler(new FishingCancelRequestHandler(_gatheringTracker));
                 builder.AddRequestHandler(new InventoryMoveItemRequestHandler(_lootTracker));
                 builder.AddRequestHandler(new InventoryMoveGivenItemsRequestHandler(_lootTracker));
+#if DEBUG
+                builder.AddHandler(new DebugRequestProbeRequestHandler());
+#endif
+
                 receiver = builder.Build();
 
                 if (receiver == null)
