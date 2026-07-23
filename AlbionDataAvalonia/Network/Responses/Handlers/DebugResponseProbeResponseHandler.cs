@@ -11,10 +11,10 @@ public class DebugResponseProbeResponseHandler : PacketHandler<ResponsePacket>
 {
     private static readonly int[] ProbeOperationCodeValues =
     [
-        (int)OperationCodes.ContainerOpen,
-        (int)OperationCodes.ContainerClose,
-        (int)OperationCodes.InventoryMoveItem,
-        (int)OperationCodes.InventoryMoveGivenItems
+        (int)OperationCodes.Join,
+        (int)OperationCodes.GetClusterData,
+        (int)OperationCodes.ChangeCluster,
+        (int)OperationCodes.GetClusterMapInfo,
     ];
 
     protected override Task OnHandleAsync(ResponsePacket packet)

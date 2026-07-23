@@ -56,6 +56,18 @@
 			<Setter Property="Background" Value="rgba(255,255,255,0.02)" />
 			<Setter Property="MinWidth" Value="220" />
 		</Style>
+		<Style Selector="Border.CompactStatCard">
+			<Setter Property="Width" Value="160" />
+			<Setter Property="MinWidth" Value="0" />
+			<Setter Property="Padding" Value="7" />
+			<Setter Property="Margin" Value="3" />
+		</Style>
+		<Style Selector="Border.CompactStatCard TextBlock.StatLabel">
+			<Setter Property="FontSize" Value="12" />
+		</Style>
+		<Style Selector="Border.CompactStatCard TextBlock.StatValue">
+			<Setter Property="FontSize" Value="16" />
+		</Style>
 		<Style Selector="Label.SectionTitle">
 			<Setter Property="FontSize" Value="16" />
 			<Setter Property="FontWeight" Value="Bold" />
@@ -368,7 +380,7 @@
 							Classes="StatCard"
 							Classes.DimmedUploadCard="{Binding UploadToAfmOnly}">
 							<StackPanel Spacing="4">
-								<TextBlock Classes="StatLabel" Text="Uploaded Market Offers" />
+								<TextBlock Classes="StatLabel" Text="Market Offers" />
 								<TextBlock Classes="StatValue" Text="{Binding PublicUploadedMarketOffersCount, StringFormat=N0}" />
 							</StackPanel>
 						</Border>
@@ -376,40 +388,40 @@
 							Classes="StatCard"
 							Classes.DimmedUploadCard="{Binding UploadToAfmOnly}">
 							<StackPanel Spacing="4">
-								<TextBlock Classes="StatLabel" Text="Uploaded Market Requests" />
+								<TextBlock Classes="StatLabel" Text="Market Requests" />
 								<TextBlock Classes="StatValue" Text="{Binding PublicUploadedMarketRequestsCount, StringFormat=N0}" />
 							</StackPanel>
 						</Border>
 						<Border Classes="StatCard">
 							<StackPanel Spacing="4">
-								<TextBlock Classes="StatLabel" Text="Uploaded Gold Histories" />
+								<TextBlock Classes="StatLabel" Text="Gold Histories" />
 								<TextBlock Classes="StatValue" Text="{Binding PublicUploadedGoldHistoriesCount, StringFormat=N0}" />
 							</StackPanel>
 						</Border>
 					</WrapPanel>
 
 					<WrapPanel HorizontalAlignment="Center" ItemsAlignment="Center">
-						<Border Classes="StatCard">
-							<StackPanel Spacing="4">
-								<TextBlock Classes="StatLabel" Text="Uploaded Monthly Histories" />
+						<Border Classes="StatCard CompactStatCard">
+							<StackPanel Spacing="2">
+								<TextBlock Classes="StatLabel" Text="Monthly Histories" />
 								<TextBlock Classes="StatValue" Text="{Binding PublicUploadedMonthlyHistoriesCount, StringFormat=N0}" />
 							</StackPanel>
 						</Border>
-						<Border Classes="StatCard">
-							<StackPanel Spacing="4">
-								<TextBlock Classes="StatLabel" Text="Uploaded Weekly Histories" />
+						<Border Classes="StatCard CompactStatCard">
+							<StackPanel Spacing="2">
+								<TextBlock Classes="StatLabel" Text="Weekly Histories" />
 								<TextBlock Classes="StatValue" Text="{Binding PublicUploadedWeeklyHistoriesCount, StringFormat=N0}" />
 							</StackPanel>
 						</Border>
-						<Border Classes="StatCard">
-							<StackPanel Spacing="4">
-								<TextBlock Classes="StatLabel" Text="Uploaded Daily Histories" />
+						<Border Classes="StatCard CompactStatCard">
+							<StackPanel Spacing="2">
+								<TextBlock Classes="StatLabel" Text="Daily Histories" />
 								<TextBlock Classes="StatValue" Text="{Binding PublicUploadedDailyHistoriesCount, StringFormat=N0}" />
 							</StackPanel>
 						</Border>
-						<Border Classes="StatCard">
-							<StackPanel Spacing="4">
-								<TextBlock Classes="StatLabel" Text="Uploaded Bandit Events" />
+						<Border Classes="StatCard CompactStatCard">
+							<StackPanel Spacing="2">
+								<TextBlock Classes="StatLabel" Text="Bandit Events" />
 								<TextBlock Classes="StatValue" Text="{Binding PublicUploadedBanditEventsCount, StringFormat=N0}" />
 							</StackPanel>
 						</Border>
@@ -447,7 +459,7 @@
 							Classes.PrivateFlipsGlow="{Binding UploadToAfmOnly}"
 							Classes.DimmedUploadCard="{Binding !UploadToAfmOnly}">
 							<StackPanel Spacing="4">
-								<TextBlock Classes="StatLabel" Text="Uploaded Market Offers" />
+								<TextBlock Classes="StatLabel" Text="Market Offers" />
 								<TextBlock Classes="StatValue" Text="{Binding PrivateUploadedMarketOffersCount, StringFormat=N0}" />
 							</StackPanel>
 						</Border>
@@ -456,29 +468,35 @@
 							Classes.PrivateFlipsGlow="{Binding UploadToAfmOnly}"
 							Classes.DimmedUploadCard="{Binding !UploadToAfmOnly}">
 							<StackPanel Spacing="4">
-								<TextBlock Classes="StatLabel" Text="Uploaded Market Requests" />
+								<TextBlock Classes="StatLabel" Text="Market Requests" />
 								<TextBlock Classes="StatValue" Text="{Binding PrivateUploadedMarketRequestsCount, StringFormat=N0}" />
 							</StackPanel>
 						</Border>
 					</WrapPanel>
 
 					<WrapPanel HorizontalAlignment="Center" ItemsAlignment="Center">
-						<Border Classes="StatCard">
-							<StackPanel Spacing="4">
-								<TextBlock Classes="StatLabel" Text="Uploaded Specs" />
+						<Border Classes="StatCard CompactStatCard">
+							<StackPanel Spacing="2">
+								<TextBlock Classes="StatLabel" Text="Specs" />
 								<TextBlock Classes="StatValue" Text="{Binding PrivateUploadedAchievementsCount, StringFormat=N0}" />
 							</StackPanel>
 						</Border>
-						<Border Classes="StatCard">
-							<StackPanel Spacing="4">
-								<TextBlock Classes="StatLabel" Text="Uploaded Global Multipliers" />
+						<Border Classes="StatCard CompactStatCard">
+							<StackPanel Spacing="2">
+								<TextBlock Classes="StatLabel" Text="Global Multipliers" />
 								<TextBlock Classes="StatValue" Text="{Binding PrivateUploadedGlobalMultipliersCount, StringFormat=N0}" />
 							</StackPanel>
 						</Border>
-						<Border Classes="StatCard">
-							<StackPanel Spacing="4">
-								<TextBlock Classes="StatLabel" Text="Uploaded EMV" />
+						<Border Classes="StatCard CompactStatCard">
+							<StackPanel Spacing="2">
+								<TextBlock Classes="StatLabel" Text="EMV" />
 								<TextBlock Classes="StatValue" Text="{Binding PrivateUploadedItemEstimatedMarketValuesCount, StringFormat=N0}" />
+							</StackPanel>
+						</Border>
+						<Border Classes="StatCard CompactStatCard">
+							<StackPanel Spacing="2">
+								<TextBlock Classes="StatLabel" Text="Crafting Bonuses" />
+								<TextBlock Classes="StatValue" Text="{Binding PrivateUploadedCraftingBonusesCount, StringFormat=N0}" />
 							</StackPanel>
 						</Border>
 					</WrapPanel>

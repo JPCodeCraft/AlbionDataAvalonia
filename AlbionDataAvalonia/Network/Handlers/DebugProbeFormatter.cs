@@ -49,6 +49,15 @@ internal static class DebugProbeFormatter
             return $"[{string.Join(",", bytes)}]";
         }
 
+        if (value is IDictionary dictionary)
+        {
+            return $"{{{string.Join(
+                ",",
+                dictionary.Keys
+                    .Cast<object>()
+                    .Select(key => $"{FormatValue(key)}:{FormatValue(dictionary[key])}"))}}}";
+        }
+
         if (value is IEnumerable enumerable)
         {
             return $"[{string.Join(",", enumerable.Cast<object>().Select(FormatValue))}]";

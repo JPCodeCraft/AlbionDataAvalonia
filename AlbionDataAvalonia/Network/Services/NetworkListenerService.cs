@@ -133,6 +133,7 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddEventHandler(new TimeSyncEventHandler(_combatTracker));
                 builder.AddEventHandler(new EstimatedMarketValueUpdateEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _playerState));
                 builder.AddEventHandler(new FullAchievementInfoEventHandler(_achievementsService, _playerState, _afmUploader, _settingsManager));
+                builder.AddEventHandler(new FestivitiesUpdateEventHandler(_playerState, _afmUploader));
                 builder.AddEventHandler(new RedZoneWorldMapEventHandler(_playerState, _uploader));
                 builder.AddEventHandler(new HarvestFinishedEventHandler(_gatheringTracker));
                 builder.AddEventHandler(new RewardGrantedEventHandler(_gatheringTracker));
