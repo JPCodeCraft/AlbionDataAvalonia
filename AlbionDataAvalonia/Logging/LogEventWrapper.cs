@@ -66,23 +66,16 @@ public class LogEventWrapper
             return null;
         }
 
-        if (!logEvent.Properties.TryGetValue("server", out var serverValue))
-        {
-            return null;
-        }
-
         var identifier = ExtractScalarValue(identifierValue);
-        var server = ExtractScalarValue(serverValue);
 
-        if (string.IsNullOrWhiteSpace(identifier) || string.IsNullOrWhiteSpace(server))
+        if (string.IsNullOrWhiteSpace(identifier))
         {
             return null;
         }
 
-        var identifierQuery = Uri.EscapeDataString(identifier);
-        var serverQuery = Uri.EscapeDataString(server);
+        var identifierPath = Uri.EscapeDataString(identifier);
 
-        return $"https://albionfreemarket.com/identifiers?identifier={identifierQuery}&server={serverQuery}";
+        return $"https://albionfreemarket.com/identifiers/{identifierPath}";
     }
 
     private static string? ExtractScalarValue(LogEventPropertyValue propertyValue)
