@@ -39,7 +39,8 @@ public sealed record PortfolioTradeImportRequest(
     double UnitSilver,
     DateTime DateTime,
     int LocationIndex,
-    int QualityIndex);
+    int QualityIndex,
+    string? BuyFromTypeOverride = null);
 
 public sealed record PortfolioTradePostEstimate(
     string ItemId,

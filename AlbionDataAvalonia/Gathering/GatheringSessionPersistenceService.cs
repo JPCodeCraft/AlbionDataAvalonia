@@ -303,7 +303,8 @@ public sealed class GatheringSessionPersistenceService
                 .OrderByDescending(x => x.TotalEstimatedMarketValue ?? 0)
                 .ThenByDescending(x => x.Amount)
                 .ThenBy(x => x.ItemName, StringComparer.OrdinalIgnoreCase)
-                .Select(x => new GatheringCompletedSessionItemSnapshot(
+                .Select(x => new GatheringCompletedSessionItemDetails(
+                    x.Id,
                     x.ItemId,
                     x.Quality,
                     x.ItemUniqueName,

@@ -189,28 +189,82 @@
 
             <TabItem Header="History">
                 <Grid RowDefinitions="*,*" RowSpacing="16">
-                    <Grid RowDefinitions="Auto,*">
-                        <Grid ColumnDefinitions="*,Auto,Auto,Auto" Margin="0,0,0,8" ColumnSpacing="8">
-                            <TextBlock Classes="SectionTitle" Text="Completed Sessions" VerticalAlignment="Center" />
-                            <Button Grid.Column="1"
-                                    Width="90"
-                                    Padding="10,6"
-                                    Content="Refresh"
-                                    Command="{Binding RefreshHistoryCommand}" />
-                            <Button Grid.Column="2"
-                                    Width="90"
-                                    Padding="10,6"
-                                    Content="Share"
-                                    IsEnabled="{Binding CanShareSelectedCompletedSession}"
-                                    Click="ShareHistorySessionButton_Click" />
-                            <Button Grid.Column="3"
-                                    Width="120"
-                                    Padding="10,6"
-                                    Content="Delete Session"
-                                    IsEnabled="{Binding HasSelectedCompletedSession}"
-                                    Click="DeleteHistorySessionButton_Click" />
+                    <Grid RowDefinitions="Auto,Auto,*">
+                        <Grid RowDefinitions="Auto,Auto" Margin="0,0,0,2">
+                            <TextBlock Classes="SectionTitle"
+                                       Text="Completed Sessions"
+                                       Margin="0,0,0,6" />
+                            <WrapPanel Grid.Row="1"
+                                       Orientation="Horizontal"
+                                       HorizontalAlignment="Stretch"
+                                       ItemsAlignment="End">
+                                <Button Width="90"
+                                        Margin="0,0,8,6"
+                                        Padding="10,6"
+                                        Content="Refresh"
+                                        Command="{Binding RefreshHistoryCommand}" />
+                                <Button Width="100"
+                                        Margin="0,0,8,6"
+                                        Padding="10,6"
+                                        Content="Export CSV"
+                                        IsEnabled="{Binding CanExportSelectedCompletedSession}"
+                                        Click="ExportHistorySessionCsvButton_Click" />
+                                <Button Width="130"
+                                        Margin="0,0,8,6"
+                                        Padding="10,6"
+                                        Content="Add to Portfolio"
+                                        IsEnabled="{Binding CanAddSelectedCompletedSessionToPortfolio}"
+                                        Click="AddHistorySessionToPortfolioButton_Click" />
+                                <Button Width="90"
+                                        Margin="0,0,8,6"
+                                        Padding="10,6"
+                                        Content="Share"
+                                        IsEnabled="{Binding CanShareSelectedCompletedSession}"
+                                        Click="ShareHistorySessionButton_Click" />
+                                <Button Width="120"
+                                        Margin="0,0,0,6"
+                                        Padding="10,6"
+                                        Content="Delete Session"
+                                        IsEnabled="{Binding HasSelectedCompletedSession}"
+                                        Click="DeleteHistorySessionButton_Click" />
+                            </WrapPanel>
                         </Grid>
-                        <DataGrid Grid.Row="1"
+
+                        <StackPanel Grid.Row="1"
+                                    Orientation="Horizontal"
+                                    Spacing="12"
+                                    Margin="4,0,0,8">
+                            <StackPanel Orientation="Horizontal"
+                                        Spacing="8"
+                                        VerticalAlignment="Center"
+                                        IsVisible="{Binding IsExporting}">
+                                <ProgressBar Minimum="0"
+                                             Maximum="100"
+                                             Value="{Binding ExportProgress}"
+                                             Width="150"
+                                             Height="16" />
+                                <TextBlock Text="Exporting gathering session..."
+                                           FontSize="12"
+                                           VerticalAlignment="Center" />
+                            </StackPanel>
+                            <StackPanel Orientation="Horizontal"
+                                        Spacing="8"
+                                        VerticalAlignment="Center"
+                                        IsVisible="{Binding IsAddingToPortfolio}">
+                                <ProgressBar Minimum="0"
+                                             Maximum="100"
+                                             Value="{Binding PortfolioImportProgress}"
+                                             Width="150"
+                                             Height="16" />
+                            </StackPanel>
+                            <TextBlock Text="{Binding PortfolioImportStatus}"
+                                       IsVisible="{Binding HasPortfolioImportStatus}"
+                                       TextWrapping="Wrap"
+                                       FontSize="12"
+                                       VerticalAlignment="Center" />
+                        </StackPanel>
+
+                        <DataGrid Grid.Row="2"
                                   ItemsSource="{Binding CompletedSessions}"
                                   SelectedItem="{Binding SelectedCompletedSession}"
                                   AutoGenerateColumns="False"

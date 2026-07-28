@@ -1,4 +1,5 @@
 using AlbionDataAvalonia.DB;
+using AlbionDataAvalonia.Gathering.Models;
 using AlbionDataAvalonia.Items;
 using AlbionDataAvalonia.Items.Services;
 using AlbionDataAvalonia.Locations;
@@ -241,6 +242,91 @@ public class CsvExportService
         await writer.FlushAsync(cancellationToken);
         progress?.Report(100);
         Log.Information("Exported {Count} filtered loot pickups to CSV", records.Count);
+    }
+
+    public async Task ExportGatheringSessionToCsvAsync(
+        Stream stream,
+        GatheringCompletedSessionDetails session,
+        CsvExportOptions? options = null,
+        IProgress<int>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        options ??= CsvExportOptions.FromCurrentCulture();
+        var culture = options.CreateFormattingCulture();
+        var delimiter = options.Delimiter;
+
+        if (stream.CanSeek)
+        {
+            stream.SetLength(0);
+            stream.Position = 0;
+        }
+
+        using var writer = new StreamWriter(stream, Encoding.UTF8);
+        await writer.WriteLineAsync(string.Join(delimiter, new[]
+        {
+            "Server", "Player", "Started UTC", "Ended UTC",
+            "Last Activity UTC", "Active Seconds", "Session Source", "Session Amount",
+            "Session Total EMV", "Silver per Hour", "Item Unique Name",
+            "Item", "Quality", "Item Source", "Amount", "Unit EMV", "Total EMV"
+        }));
+
+        var summary = session.Summary;
+        var serverName = AlbionServers.Get(summary.AlbionServerId ?? 0)?.Name ?? string.Empty;
+
+        if (session.Items.Count == 0)
+        {
+            await writer.FlushAsync(cancellationToken);
+            progress?.Report(100);
+            return;
+        }
+
+        for (var i = 0; i < session.Items.Count; i++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var item = session.Items[i];
+            var line = string.Join(delimiter, new[]
+            {
+                Escape(serverName, delimiter),
+                Escape(summary.PlayerName, delimiter),
+                Escape(FormatUtc(summary.StartedAtUtc), delimiter),
+                Escape(FormatUtc(summary.EndedAtUtc), delimiter),
+                Escape(FormatUtc(summary.LastActivityAtUtc), delimiter),
+                ((long)summary.ActiveElapsed.TotalSeconds).ToString(culture),
+                Escape(summary.Source.ToString(), delimiter),
+                summary.TotalAmount.ToString(culture),
+                summary.TotalEstimatedMarketValue.ToString(culture),
+                summary.SilverPerHour.ToString(culture),
+                Escape(item.ItemUniqueName, delimiter),
+                Escape(item.ItemName, delimiter),
+                Escape(ItemQuality.Format(item.Quality), delimiter),
+                Escape(item.Source.ToString(), delimiter),
+                item.Amount.ToString(culture),
+                item.EstimatedMarketValue?.ToString(culture) ?? string.Empty,
+                item.TotalEstimatedMarketValue?.ToString(culture) ?? string.Empty
+            });
+
+            await writer.WriteLineAsync(line);
+            progress?.Report((int)((i + 1d) / session.Items.Count * 100));
+        }
+
+        await writer.FlushAsync(cancellationToken);
+        progress?.Report(100);
+        Log.Information(
+            "Exported {Count} items from gathering session {SessionId} to CSV",
+            session.Items.Count,
+            summary.Id);
+    }
+
+    private static string FormatUtc(DateTime value)
+    {
+        var utcValue = value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
+        };
+
+        return utcValue.ToString("O", CultureInfo.InvariantCulture);
     }
 
     private static string Escape(string value, string delimiter)

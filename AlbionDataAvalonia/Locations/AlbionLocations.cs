@@ -35,6 +35,18 @@ namespace AlbionDataAvalonia.Locations
         { 3013, 3005 }
     };
 
+        private static readonly HashSet<int> PortfolioMarketLocationIds =
+        [
+            7,
+            1002,
+            2004,
+            3003,
+            3005,
+            3008,
+            4002,
+            5003
+        ];
+
         private static readonly (string Token, string Name, string FriendlyName)[] GeneratedLocationTypes =
         [
             ("HELLCLUSTER", "Hellgate", "Hellgate"),
@@ -171,6 +183,18 @@ namespace AlbionDataAvalonia.Locations
             }
 
             return GetByIntId(locationId);
+        }
+
+        public static IReadOnlyList<AlbionLocation> GetMarketLocations()
+        {
+            return albionLocations
+                .Where(location =>
+                    location.IdInt is int locationId
+                    && PortfolioMarketLocationIds.Contains(locationId))
+                .DistinctBy(location => location.IdInt)
+                .OrderBy(location => location.FriendlyName, StringComparer.OrdinalIgnoreCase)
+                .ThenBy(location => location.IdInt)
+                .ToArray();
         }
 
         private static AlbionLocation GetByIntId(int id)

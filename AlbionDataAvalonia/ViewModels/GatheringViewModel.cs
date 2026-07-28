@@ -1,18 +1,23 @@
 using AlbionDataAvalonia.Gathering;
 using AlbionDataAvalonia.Gathering.Models;
 using AlbionDataAvalonia.Items.Services;
+using AlbionDataAvalonia.Network.Models;
+using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Settings;
 using Avalonia.Media.Imaging;
 using Avalonia.Platform;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
+using System.IO;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.ViewModels;
@@ -23,11 +28,15 @@ public partial class GatheringViewModel : ViewModelBase, IDisposable
     private readonly GatheringSessionPersistenceService? sessionPersistence;
     private readonly SettingsManager? settingsManager;
     private readonly ItemImageService? itemImageService;
+    private readonly CsvExportService? csvExportService;
+    private readonly PortfolioUploadService? portfolioUploadService;
     private const int ShareCardItemSlots = 20;
+    private const string PreparingPortfolioImportStatus = "Preparing gathering session for Portfolio...";
     private DispatcherTimer? elapsedTimer;
     private int selectedSessionLoadVersion;
     private int? preferredHistorySelectionIndex;
     private Bitmap? shareLogo;
+    private GatheringCompletedSessionDetails? selectedCompletedSessionDetails;
 
     [ObservableProperty]
     private string totalSessionValueText = "0";
@@ -59,11 +68,48 @@ public partial class GatheringViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     private bool isSelectedCompletedSessionLoaded;
 
+    [ObservableProperty]
+    private bool isExporting;
+
+    [ObservableProperty]
+    private int exportProgress;
+
+    [ObservableProperty]
+    private bool isAddingToPortfolio;
+
+    [ObservableProperty]
+    private int portfolioImportProgress;
+
+    [ObservableProperty]
+    private string portfolioImportStatus = string.Empty;
+
+    [ObservableProperty]
+    private bool hasPortfolioImportStatus;
+
     public bool IsGatheringTrackerEnabled => !IsGatheringTrackerDisabled;
 
     public bool HasSelectedCompletedSession => SelectedCompletedSession is not null;
 
     public bool CanShareSelectedCompletedSession => SelectedCompletedSession is not null && IsSelectedCompletedSessionLoaded;
+
+    public bool CanExportSelectedCompletedSession =>
+        IsSelectedCompletedSessionLoaded
+        && SelectedCompletedSession is { } selectedSession
+        && selectedCompletedSessionDetails is { } details
+        && details.Summary.Id == selectedSession.Id
+        && !IsExporting
+        && !IsAddingToPortfolio;
+
+    public bool CanAddSelectedCompletedSessionToPortfolio =>
+        IsSelectedCompletedSessionLoaded
+        && SelectedCompletedSession is { } selectedSession
+        && selectedCompletedSessionDetails is { } details
+        && details.Summary.Id == selectedSession.Id
+        && details.Summary.AlbionServerId is 1 or 2 or 3
+        && details.Items.Count > 0
+        && details.Items.All(item => item.Amount is > 0 and <= int.MaxValue)
+        && !IsExporting
+        && !IsAddingToPortfolio;
 
     public string PauseButtonText => IsPaused ? "Resume" : "Pause";
 
@@ -82,12 +128,16 @@ public partial class GatheringViewModel : ViewModelBase, IDisposable
         GatheringTrackerService gatheringTracker,
         GatheringSessionPersistenceService sessionPersistence,
         SettingsManager settingsManager,
-        ItemImageService itemImageService)
+        ItemImageService itemImageService,
+        CsvExportService csvExportService,
+        PortfolioUploadService portfolioUploadService)
     {
         this.gatheringTracker = gatheringTracker;
         this.sessionPersistence = sessionPersistence;
         this.settingsManager = settingsManager;
         this.itemImageService = itemImageService;
+        this.csvExportService = csvExportService;
+        this.portfolioUploadService = portfolioUploadService;
         isGatheringTrackerDisabled = settingsManager.UserSettings.DisableGatheringTracker;
         ApplySnapshot(gatheringTracker.CurrentSnapshot);
         settingsManager.UserSettings.PropertyChanged += OnUserSettingsPropertyChanged;
@@ -122,9 +172,16 @@ public partial class GatheringViewModel : ViewModelBase, IDisposable
 
     partial void OnSelectedCompletedSessionChanged(GatheringCompletedSessionRowViewModel? value)
     {
+        if (!IsAddingToPortfolio)
+        {
+            SetPortfolioImportStatus(string.Empty);
+        }
+
+        selectedCompletedSessionDetails = null;
         IsSelectedCompletedSessionLoaded = false;
         OnPropertyChanged(nameof(HasSelectedCompletedSession));
         OnPropertyChanged(nameof(CanShareSelectedCompletedSession));
+        NotifyHistoryActionAvailabilityChanged();
         DeleteSelectedCompletedSessionCommand.NotifyCanExecuteChanged();
         _ = LoadSelectedCompletedSessionAsync(value, ++selectedSessionLoadVersion);
     }
@@ -132,7 +189,12 @@ public partial class GatheringViewModel : ViewModelBase, IDisposable
     partial void OnIsSelectedCompletedSessionLoadedChanged(bool value)
     {
         OnPropertyChanged(nameof(CanShareSelectedCompletedSession));
+        NotifyHistoryActionAvailabilityChanged();
     }
+
+    partial void OnIsExportingChanged(bool value) => NotifyHistoryActionAvailabilityChanged();
+
+    partial void OnIsAddingToPortfolioChanged(bool value) => NotifyHistoryActionAvailabilityChanged();
 
     [RelayCommand(CanExecute = nameof(CanChangeCurrentSession))]
     private async Task SaveSession()
@@ -220,9 +282,265 @@ public partial class GatheringViewModel : ViewModelBase, IDisposable
         return new GatheringSessionShareCardViewModel(SelectedCompletedSession, topItems, shareLogo);
     }
 
+    public async Task ExportSelectedCompletedSessionToCsvAsync(
+        Stream stream,
+        CsvExportOptions options,
+        CancellationToken cancellationToken = default)
+    {
+        var details = selectedCompletedSessionDetails;
+        if (!IsExporting
+            || csvExportService is null
+            || details is null
+            || SelectedCompletedSession?.Id != details.Summary.Id
+            || !IsSelectedCompletedSessionLoaded)
+        {
+            return;
+        }
+
+        var progress = new Progress<int>(value => ExportProgress = value);
+        await csvExportService.ExportGatheringSessionToCsvAsync(
+            stream,
+            details,
+            options,
+            progress,
+            cancellationToken);
+    }
+
+    public bool TryBeginGatheringCsvExport()
+    {
+        if (!CanExportSelectedCompletedSession)
+        {
+            return false;
+        }
+
+        ExportProgress = 0;
+        IsExporting = true;
+        return true;
+    }
+
+    public void EndGatheringCsvExport()
+    {
+        IsExporting = false;
+    }
+
+    public bool TryBeginGatheringPortfolioImport()
+    {
+        if (!CanAddSelectedCompletedSessionToPortfolio)
+        {
+            return false;
+        }
+
+        PortfolioImportProgress = 0;
+        SetPortfolioImportStatus(PreparingPortfolioImportStatus);
+        IsAddingToPortfolio = true;
+        return true;
+    }
+
+    public void EndGatheringPortfolioImport()
+    {
+        IsAddingToPortfolio = false;
+        if (PortfolioImportStatus == PreparingPortfolioImportStatus)
+        {
+            SetPortfolioImportStatus(string.Empty);
+        }
+    }
+
+    public async Task<bool> EnsurePortfolioSignedInAsync(CancellationToken cancellationToken = default)
+    {
+        if (portfolioUploadService is not null
+            && await portfolioUploadService.CanUploadAsync(cancellationToken))
+        {
+            return true;
+        }
+
+        SetPortfolioImportStatus("Sign in to AFM before adding gathering data to Portfolio.");
+        return false;
+    }
+
+    public async Task<HashSet<Guid>?> GetPortfolioUploadedDataIdsAsync(
+        CancellationToken cancellationToken = default)
+    {
+        if (portfolioUploadService is null)
+        {
+            return null;
+        }
+
+        var result = await portfolioUploadService.GetUploadedTradeIdsAsync(cancellationToken);
+        if (result.Success)
+        {
+            return result.TradeIds;
+        }
+
+        SetPortfolioImportStatus($"Portfolio: {result.ErrorMessage ?? "failed to load positions."}");
+        return null;
+    }
+
+    public async Task AddSelectedCompletedSessionToPortfolioAsync(
+        int locationIndex,
+        IReadOnlyDictionary<Guid, double> unitPrices,
+        bool allowReupload,
+        CancellationToken cancellationToken = default)
+    {
+        var details = selectedCompletedSessionDetails;
+        if (portfolioUploadService is null
+            || details is null
+            || SelectedCompletedSession?.Id != details.Summary.Id
+            || !IsSelectedCompletedSessionLoaded
+            || !IsAddingToPortfolio)
+        {
+            return;
+        }
+
+        var summary = details.Summary;
+        if (summary.AlbionServerId is not (1 or 2 or 3))
+        {
+            SetPortfolioImportStatus("Portfolio: this gathering session does not have a supported Albion server.");
+            return;
+        }
+
+        if (locationIndex < 0)
+        {
+            SetPortfolioImportStatus("Portfolio: select a valid market location.");
+            return;
+        }
+
+        var requests = new List<PortfolioTradeImportRequest>(details.Items.Count);
+        foreach (var item in details.Items)
+        {
+            if (item.Amount is <= 0 or > int.MaxValue)
+            {
+                SetPortfolioImportStatus($"Portfolio: {item.ItemName} has an amount outside the supported range.");
+                return;
+            }
+
+            if (!unitPrices.TryGetValue(item.Id, out var unitPrice)
+                || !double.IsFinite(unitPrice)
+                || unitPrice < 0)
+            {
+                SetPortfolioImportStatus($"Portfolio: enter a valid unit price for {item.ItemName}.");
+                return;
+            }
+
+            var qualityIndex = item.Quality is >= 1 and <= 5 ? item.Quality : 1;
+            requests.Add(new PortfolioTradeImportRequest(
+                item.Id,
+                item.ItemUniqueName,
+                summary.AlbionServerId,
+                TradeType.Instant,
+                TradeOperation.Buy,
+                (int)item.Amount,
+                unitPrice,
+                summary.LastActivityAtUtc,
+                locationIndex,
+                qualityIndex,
+                "Direct Trade"));
+        }
+
+        if (requests.Count == 0)
+        {
+            SetPortfolioImportStatus("Portfolio: the selected gathering session has no items to import.");
+            return;
+        }
+
+        var batches = requests
+            .GroupBy(request => (request.ItemId, request.AlbionServerId, request.QualityIndex))
+            .Select(group => group.ToArray())
+            .Chunk(PortfolioUploadService.MaxPortfolioImportPostCount)
+            .Select(groups => groups.SelectMany(group => group).ToArray())
+            .ToArray();
+
+        PortfolioImportProgress = 0;
+        SetPortfolioImportStatus("Adding gathering session to Portfolio...");
+
+        try
+        {
+            var aggregate = new PortfolioImportResult { RequestedCount = requests.Count };
+            var processed = 0;
+
+            foreach (var batch in batches)
+            {
+                cancellationToken.ThrowIfCancellationRequested();
+                var result = await portfolioUploadService.ImportTradesAsync(batch, allowReupload, cancellationToken);
+                MergePortfolioImportResult(aggregate, result);
+                processed += batch.Length;
+                PortfolioImportProgress = (int)Math.Round(processed * 100d / requests.Count);
+            }
+
+            SetPortfolioImportStatus(CreatePortfolioImportStatus(aggregate));
+        }
+        catch (OperationCanceledException)
+        {
+            SetPortfolioImportStatus("Portfolio import canceled.");
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to add gathering session to Portfolio");
+            SetPortfolioImportStatus("Portfolio upload failed. Check logs for details.");
+        }
+    }
+
     private bool CanChangeCurrentSession() => HasActiveSession;
 
     private bool CanDeleteSelectedCompletedSession() => SelectedCompletedSession is not null;
+
+    private void NotifyHistoryActionAvailabilityChanged()
+    {
+        OnPropertyChanged(nameof(CanExportSelectedCompletedSession));
+        OnPropertyChanged(nameof(CanAddSelectedCompletedSessionToPortfolio));
+    }
+
+    private void SetPortfolioImportStatus(string status)
+    {
+        PortfolioImportStatus = status;
+        HasPortfolioImportStatus = !string.IsNullOrWhiteSpace(status);
+    }
+
+    private static void MergePortfolioImportResult(
+        PortfolioImportResult aggregate,
+        PortfolioImportResult result)
+    {
+        aggregate.ImportedTradeIds.AddRange(result.ImportedTradeIds);
+        aggregate.ReuploadedTradeIds.AddRange(result.ReuploadedTradeIds);
+        aggregate.SkippedTradeIds.AddRange(result.SkippedTradeIds);
+        aggregate.FailedTradeIds.AddRange(result.FailedTradeIds);
+
+        foreach (var warning in result.Warnings.Where(warning => !aggregate.Warnings.Contains(warning)))
+        {
+            aggregate.Warnings.Add(warning);
+        }
+
+        foreach (var error in result.Errors.Where(error => !aggregate.Errors.Contains(error)))
+        {
+            aggregate.Errors.Add(error);
+        }
+    }
+
+    private static string CreatePortfolioImportStatus(PortfolioImportResult result)
+    {
+        var status = $"Portfolio: {result.ImportedCount:N0} imported";
+        if (result.ReuploadedCount > 0)
+        {
+            status += $", {result.ReuploadedCount:N0} reuploaded";
+        }
+        if (result.SkippedCount > 0)
+        {
+            status += $", {result.SkippedCount:N0} skipped";
+        }
+        if (result.FailedCount > 0)
+        {
+            status += $", {result.FailedCount:N0} failed";
+        }
+        if (result.Errors.Count > 0)
+        {
+            status += $". {result.Errors[0]}";
+        }
+        else if (result.Warnings.Count > 0)
+        {
+            status += $". {result.Warnings[0]}";
+        }
+
+        return status;
+    }
 
     private void OnSnapshotChanged(GatheringTrackerSnapshot snapshot)
     {
@@ -423,8 +741,15 @@ public partial class GatheringViewModel : ViewModelBase, IDisposable
         {
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
+                if (!IsCurrentCompletedSessionSelection(session, loadVersion))
+                {
+                    return;
+                }
+
+                selectedCompletedSessionDetails = null;
                 HistoryItemRows.Clear();
                 IsSelectedCompletedSessionLoaded = session is null;
+                NotifyHistoryActionAvailabilityChanged();
             });
             return;
         }
@@ -437,6 +762,17 @@ public partial class GatheringViewModel : ViewModelBase, IDisposable
 
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
+            if (!IsCurrentCompletedSessionSelection(session, loadVersion))
+            {
+                return;
+            }
+
+            if (details?.Summary.Id != session.Id)
+            {
+                details = null;
+            }
+
+            selectedCompletedSessionDetails = details;
             HistoryItemRows.Clear();
 
             if (details is null)
@@ -453,7 +789,16 @@ public partial class GatheringViewModel : ViewModelBase, IDisposable
             }
 
             IsSelectedCompletedSessionLoaded = true;
+            NotifyHistoryActionAvailabilityChanged();
         });
+    }
+
+    private bool IsCurrentCompletedSessionSelection(
+        GatheringCompletedSessionRowViewModel? session,
+        int loadVersion)
+    {
+        return loadVersion == selectedSessionLoadVersion
+            && SelectedCompletedSession?.Id == session?.Id;
     }
 
     private static Bitmap? LoadShareLogo()
@@ -739,8 +1084,10 @@ public sealed class GatheringHistoryItemRowViewModel : ObservableObject
 {
     private Bitmap? itemImage;
 
-    public GatheringHistoryItemRowViewModel(GatheringCompletedSessionItemSnapshot row)
+    public GatheringHistoryItemRowViewModel(GatheringCompletedSessionItemDetails row)
     {
+        Id = row.Id;
+        ItemId = row.ItemId;
         ItemUniqueName = row.ItemUniqueName;
         ItemName = row.ItemName;
         Quality = row.Quality;
@@ -750,6 +1097,8 @@ public sealed class GatheringHistoryItemRowViewModel : ObservableObject
         Source = row.Source;
     }
 
+    public Guid Id { get; }
+    public int ItemId { get; }
     public string ItemUniqueName { get; }
     public string ItemName { get; }
     public int Quality { get; }

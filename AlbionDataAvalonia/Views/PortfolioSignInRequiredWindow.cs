@@ -6,7 +6,7 @@ namespace AlbionDataAvalonia.Views;
 
 public sealed class PortfolioSignInRequiredWindow : Window
 {
-    private PortfolioSignInRequiredWindow()
+    private PortfolioSignInRequiredWindow(string targetDescription)
     {
         Title = "Sign in required";
         Width = 400;
@@ -30,7 +30,7 @@ public sealed class PortfolioSignInRequiredWindow : Window
 
         panel.Children.Add(new TextBlock
         {
-            Text = "Sign in to AFM before adding trades to Portfolio.",
+            Text = $"Sign in to AFM before adding {targetDescription} to Portfolio.",
             TextWrapping = Avalonia.Media.TextWrapping.Wrap,
             Opacity = 0.85
         });
@@ -46,9 +46,9 @@ public sealed class PortfolioSignInRequiredWindow : Window
         Content = panel;
     }
 
-    public static async Task ShowAsync(Window owner)
+    public static async Task ShowAsync(Window owner, string targetDescription = "trades")
     {
-        var window = new PortfolioSignInRequiredWindow();
+        var window = new PortfolioSignInRequiredWindow(targetDescription);
         await window.ShowDialog(owner);
     }
 

@@ -32,6 +32,7 @@ public sealed class PortfolioUploadService : IDisposable
     private readonly SettingsManager _settingsManager;
     private readonly AuthService _authService;
     private readonly HttpClient _httpClient = new();
+    private readonly SemaphoreSlim _importGate = new(1, 1);
     private CachedEntitlementDenial? _masterpieceDenial;
 
     public PortfolioUploadService(SettingsManager settingsManager, AuthService authService)
@@ -115,6 +116,22 @@ public sealed class PortfolioUploadService : IDisposable
         IReadOnlyCollection<PortfolioTradeImportRequest> requests,
         bool allowReupload,
         CancellationToken cancellationToken = default)
+    {
+        await _importGate.WaitAsync(cancellationToken);
+        try
+        {
+            return await ImportTradesCoreAsync(requests, allowReupload, cancellationToken);
+        }
+        finally
+        {
+            _importGate.Release();
+        }
+    }
+
+    private async Task<PortfolioImportResult> ImportTradesCoreAsync(
+        IReadOnlyCollection<PortfolioTradeImportRequest> requests,
+        bool allowReupload,
+        CancellationToken cancellationToken)
     {
         var result = new PortfolioImportResult { RequestedCount = requests.Count };
         if (requests.Count == 0)
@@ -550,7 +567,9 @@ public sealed class PortfolioUploadService : IDisposable
 
         if (request.TradeOperation == TradeOperation.Buy)
         {
-            transaction.BuyFromType = request.TradeType == TradeType.Order ? "Buy Order" : "Sell Order";
+            transaction.BuyFromType = !string.IsNullOrWhiteSpace(request.BuyFromTypeOverride)
+                ? request.BuyFromTypeOverride.Trim()
+                : request.TradeType == TradeType.Order ? "Buy Order" : "Sell Order";
         }
         else
         {
@@ -618,6 +637,7 @@ public sealed class PortfolioUploadService : IDisposable
 
     public void Dispose()
     {
+        _importGate.Dispose();
         _httpClient.Dispose();
     }
 

@@ -8,9 +8,12 @@ public sealed class ConfirmPortfolioReuploadWindow : Window
 {
     public bool Confirmed { get; private set; }
 
-    private ConfirmPortfolioReuploadWindow(int uploadedCount, int selectedCount)
+    private ConfirmPortfolioReuploadWindow(int uploadedCount, int selectedCount, string recordName)
     {
-        Title = "Upload trades again?";
+        var pluralRecordName = $"{recordName}s";
+        var prompt = $"Upload {pluralRecordName} again?";
+
+        Title = prompt;
         Width = 440;
         SizeToContent = SizeToContent.Height;
         CanResize = false;
@@ -25,14 +28,14 @@ public sealed class ConfirmPortfolioReuploadWindow : Window
 
         panel.Children.Add(new TextBlock
         {
-            Text = "Upload trades again?",
+            Text = prompt,
             FontSize = 18,
             FontWeight = Avalonia.Media.FontWeight.DemiBold
         });
 
         panel.Children.Add(new TextBlock
         {
-            Text = $"{uploadedCount:N0} of {selectedCount:N0} selected trades are already marked as uploaded to Portfolio. If you continue, they will be added again as new portfolio transactions.",
+            Text = $"{uploadedCount:N0} of {selectedCount:N0} selected {pluralRecordName} are already marked as uploaded to Portfolio. If you continue, they will be added again as new portfolio transactions.",
             TextWrapping = Avalonia.Media.TextWrapping.Wrap,
             Opacity = 0.85
         });
@@ -56,9 +59,13 @@ public sealed class ConfirmPortfolioReuploadWindow : Window
         Content = panel;
     }
 
-    public static async Task<bool> ShowAsync(Window owner, int uploadedCount, int selectedCount)
+    public static async Task<bool> ShowAsync(
+        Window owner,
+        int uploadedCount,
+        int selectedCount,
+        string recordName = "trade")
     {
-        var window = new ConfirmPortfolioReuploadWindow(uploadedCount, selectedCount);
+        var window = new ConfirmPortfolioReuploadWindow(uploadedCount, selectedCount, recordName);
         await window.ShowDialog(owner);
         return window.Confirmed;
     }

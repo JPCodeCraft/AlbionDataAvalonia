@@ -110,6 +110,17 @@ public sealed record GatheringCompletedSessionItemSnapshot(
     long? TotalEstimatedMarketValue,
     GatheringSessionSource Source);
 
+public sealed record GatheringCompletedSessionItemDetails(
+    Guid Id,
+    int ItemId,
+    int Quality,
+    string ItemUniqueName,
+    string ItemName,
+    long Amount,
+    long? EstimatedMarketValue,
+    long? TotalEstimatedMarketValue,
+    GatheringSessionSource Source);
+
 public sealed record GatheringCompletedSessionSummary(
     Guid Id,
     DateTime StartedAtUtc,
@@ -125,4 +136,4 @@ public sealed record GatheringCompletedSessionSummary(
 
 public sealed record GatheringCompletedSessionDetails(
     GatheringCompletedSessionSummary Summary,
-    IReadOnlyList<GatheringCompletedSessionItemSnapshot> Items);
+    IReadOnlyList<GatheringCompletedSessionItemDetails> Items);
