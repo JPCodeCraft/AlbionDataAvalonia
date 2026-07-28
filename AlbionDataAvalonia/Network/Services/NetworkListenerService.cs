@@ -29,6 +29,9 @@ namespace AlbionDataAvalonia.Network.Services
         private static readonly object deviceCLeanLock = new object();
         private static readonly object listenLock = new object();
         private const string MacOSCapturePermissionSetupScriptName = "setup-capture-permissions.sh";
+        private const string MacOSCapturePermissionLaunchDaemonPath =
+            "/Library/LaunchDaemons/com.albionfreemarket.afmdataclient.chmodbpf.plist";
+        private const string MacOSLegacyCapturePermissionScheduleKey = "<key>StartInterval</key>";
         private readonly HashSet<string> _unknownServerIps = new HashSet<string>();
 
         private readonly Uploader _uploader;
@@ -57,6 +60,7 @@ namespace AlbionDataAvalonia.Network.Services
 
         public event EventHandler? MacOSCapturePermissionSetupRequiredChanged;
         public bool IsMacOSCapturePermissionSetupRequired { get; private set; }
+        public bool IsMacOSCapturePermissionSetupOutdated { get; private set; }
 
         public NetworkListenerService(Uploader uploader, PlayerState playerState, SettingsManager settingsManager, MailService mailService, IdleService idleService, TradeService tradeService, AFMUploader afmUploader, ItemsIdsService itemsIdsService, ItemEstimatedMarketValueService itemEstimatedMarketValues, AchievementsService achievementsService, CombatTrackerService combatTracker, GatheringTrackerService gatheringTracker, PartyTrackerService partyTracker, LootTrackerService lootTracker, MobsService mobsService, LegendaryItemTrackerService legendaryTracker)
         {
@@ -83,6 +87,9 @@ namespace AlbionDataAvalonia.Network.Services
             _idleService.OnDetectedIdle += RestartNetworkListener;
             _tradeService = tradeService;
             _afmUploader = afmUploader;
+            IsMacOSCapturePermissionSetupOutdated =
+                RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
+                && HasLegacyMacOSCapturePermissionSetup();
         }
 
         public async Task StartNetworkListeningAsync()
@@ -352,6 +359,7 @@ namespace AlbionDataAvalonia.Network.Services
 
                 if (process.ExitCode == 0)
                 {
+                    IsMacOSCapturePermissionSetupOutdated = false;
                     Log.Information("macOS packet capture permission setup completed. Restart AFM Data Client. If capture is still denied, log out and back in or reboot.");
                     if (!string.IsNullOrWhiteSpace(output))
                     {
@@ -425,6 +433,28 @@ namespace AlbionDataAvalonia.Network.Services
                     "Contents",
                     "Resources",
                     MacOSCapturePermissionSetupScriptName);
+        }
+
+        private static bool HasLegacyMacOSCapturePermissionSetup()
+        {
+            if (!File.Exists(MacOSCapturePermissionLaunchDaemonPath))
+            {
+                return false;
+            }
+
+            try
+            {
+                return File.ReadAllText(MacOSCapturePermissionLaunchDaemonPath)
+                    .Contains(MacOSLegacyCapturePermissionScheduleKey, StringComparison.Ordinal);
+            }
+            catch (Exception ex)
+            {
+                Log.Warning(
+                    ex,
+                    "Unable to inspect the installed macOS packet capture permission service at {PlistPath}.",
+                    MacOSCapturePermissionLaunchDaemonPath);
+                return false;
+            }
         }
 
         private static string QuoteForPosixShell(string value)

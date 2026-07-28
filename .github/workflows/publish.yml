@@ -33,7 +33,7 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
-          dotnet-quality: "preview"
+          dotnet-quality: "ga"
 
       - name: Publish macOS project (x64)
         run: |
@@ -203,7 +203,7 @@ jobs:
         uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
-          dotnet-quality: "preview"
+          dotnet-quality: "ga"
 
       - name: Install zip
         run: choco install zip -y

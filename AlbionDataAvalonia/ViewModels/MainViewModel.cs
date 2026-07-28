@@ -171,11 +171,19 @@ public partial class MainViewModel : ViewModelBase
     private bool userLoggedIn = false;
 
     public ObservableCollection<SidebarStatusItem> SidebarStatusItems { get; } = new();
+    public bool IsMacOSCapturePermissionSetupOutdated =>
+        RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
+        && _networkListener?.IsMacOSCapturePermissionSetupOutdated == true;
     public bool ShowMacOSCapturePermissionSetup =>
         RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
-        && _networkListener?.IsMacOSCapturePermissionSetupRequired == true;
+        && (_networkListener?.IsMacOSCapturePermissionSetupRequired == true
+            || IsMacOSCapturePermissionSetupOutdated);
     public string MacOSCapturePermissionButtonText =>
-        IsInstallingMacOSCapturePermissions ? "Installing..." : "Install permissions";
+        IsInstallingMacOSCapturePermissions
+            ? "Installing..."
+            : IsMacOSCapturePermissionSetupOutdated
+                ? "Update permissions"
+                : "Install permissions";
 
     private int oldUploadQueueSize = 0;
     private int oldRunningTasksCount = 0;
@@ -391,11 +399,17 @@ public partial class MainViewModel : ViewModelBase
                 "Sign in to upload private AFM data."));
         }
 
-        if (ShowMacOSCapturePermissionSetup)
+        if (_networkListener.IsMacOSCapturePermissionSetupRequired)
         {
             AddSidebarStatus(SidebarStatusItem.Warning(
                 "Capture Blocked",
                 "macOS denied packet capture access. Install capture permissions to allow AFM Data Client to read network packets."));
+        }
+        else if (IsMacOSCapturePermissionSetupOutdated)
+        {
+            AddSidebarStatus(SidebarStatusItem.Warning(
+                "Permissions Update Available",
+                "Update the macOS packet capture permissions to remove the legacy recurring service."));
         }
 
         if (!_playerState.IsInGame)
@@ -652,7 +666,9 @@ public partial class MainViewModel : ViewModelBase
         finally
         {
             IsInstallingMacOSCapturePermissions = false;
+            OnPropertyChanged(nameof(IsMacOSCapturePermissionSetupOutdated));
             OnPropertyChanged(nameof(ShowMacOSCapturePermissionSetup));
+            OnPropertyChanged(nameof(MacOSCapturePermissionButtonText));
             RefreshSidebarStatus();
         }
     }

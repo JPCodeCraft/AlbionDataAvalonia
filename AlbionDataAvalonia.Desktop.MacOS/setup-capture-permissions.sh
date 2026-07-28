@@ -3,10 +3,12 @@ set -eu
 
 GROUP_NAME="afmdataclient_bpf"
 GROUP_REAL_NAME="AFM Data Client packet capture"
+APP_SUPPORT_DIR="/Library/Application Support/AFMDataClient"
 HELPER_DIR="/Library/Application Support/AFMDataClient/ChmodBPF"
 HELPER_PATH="$HELPER_DIR/chmod-bpf.sh"
 PLIST_LABEL="com.albionfreemarket.afmdataclient.chmodbpf"
 PLIST_PATH="/Library/LaunchDaemons/$PLIST_LABEL.plist"
+LEGACY_LOG_PATH="/var/log/afmdataclient-chmodbpf.log"
 
 if [ "$(id -u)" -ne 0 ]; then
     echo "Run this script with sudo:"
@@ -32,25 +34,47 @@ if ! dseditgroup -o checkmember -m "$TARGET_USER" "$GROUP_NAME" >/dev/null 2>&1;
     dseditgroup -o edit -a "$TARGET_USER" -t user "$GROUP_NAME"
 fi
 
+launchctl bootout "system/$PLIST_LABEL" >/dev/null 2>&1 || true
+
 mkdir -p "$HELPER_DIR"
+chown root:wheel "$APP_SUPPORT_DIR" "$HELPER_DIR"
+chmod 755 "$APP_SUPPORT_DIR" "$HELPER_DIR"
 
 cat > "$HELPER_PATH" <<'SCRIPT'
-#!/bin/sh
+#!/bin/zsh
 
 GROUP_NAME="afmdataclient_bpf"
+FORCE_CREATE_BPF_MAX=256
 
 if ! dscl . -read "/Groups/$GROUP_NAME" >/dev/null 2>&1; then
     exit 0
 fi
 
-for device in /dev/bpf*; do
-    if [ -e "$device" ]; then
-        chgrp "$GROUP_NAME" "$device" 2>/dev/null || true
-        chmod g+rw "$device" 2>/dev/null || true
-    fi
+sysctl_max="$(sysctl -n debug.bpf_maxdevices 2>/dev/null || echo 0)"
+case "$sysctl_max" in
+    ''|*[!0-9]*)
+        sysctl_max=0
+        ;;
+esac
+
+if [ "$FORCE_CREATE_BPF_MAX" -gt "$sysctl_max" ]; then
+    FORCE_CREATE_BPF_MAX="$sysctl_max"
+fi
+
+current_device=0
+while [ "$current_device" -lt "$FORCE_CREATE_BPF_MAX" ]; do
+    read -r -n 0 < "/dev/bpf$current_device" >/dev/null 2>&1 || true
+    current_device=$((current_device + 1))
 done
 
-exit 0
+setopt NULL_GLOB
+helper_status=0
+for device in /dev/bpf*; do
+    chgrp "$GROUP_NAME" "$device" 2>/dev/null || helper_status=1
+    chmod g+rw "$device" 2>/dev/null || helper_status=1
+done
+
+exit "$helper_status"
 SCRIPT
 
 chown root:wheel "$HELPER_PATH"
@@ -69,25 +93,18 @@ cat > "$PLIST_PATH" <<EOF
     </array>
     <key>RunAtLoad</key>
     <true/>
-    <key>StartInterval</key>
-    <integer>60</integer>
-    <key>StandardOutPath</key>
-    <string>/var/log/afmdataclient-chmodbpf.log</string>
-    <key>StandardErrorPath</key>
-    <string>/var/log/afmdataclient-chmodbpf.log</string>
 </dict>
 </plist>
 EOF
 
 chown root:wheel "$PLIST_PATH"
 chmod 644 "$PLIST_PATH"
+rm -f "$LEGACY_LOG_PATH"
 
-launchctl bootout system "$PLIST_PATH" >/dev/null 2>&1 || true
 if ! launchctl bootstrap system "$PLIST_PATH" >/dev/null 2>&1; then
-    launchctl load -w "$PLIST_PATH" >/dev/null 2>&1 || true
+    echo "Unable to load the packet capture permission service."
+    exit 1
 fi
-
-"$HELPER_PATH"
 
 echo "Packet capture permissions were installed for user '$TARGET_USER'."
 echo "Restart AFM Data Client. If capture is still denied, log out and back in or reboot."

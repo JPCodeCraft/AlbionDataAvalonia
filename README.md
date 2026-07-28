@@ -80,9 +80,9 @@ curl -s https://api.github.com/repos/JPCodeCraft/AlbionDataAvalonia/releases/lat
 > **Note**: Linux version does not support automatic updates. Run the installer again to update.
 > **Note**: Linux installation and software had very limited testing. Feel free to contribute to the repository if you can.
 
-### MacOS
+### macOS
 
-If you are on Apple Silicon, download `AFMDataClient_MacOS_arm64.app.zip`. Intel users should download `AFMDataClient_MacOS_x64.app.zip`.
+The macOS version requires macOS 14 or newer. If you are on Apple Silicon, download `AFMDataClient_MacOS_arm64.app.zip`. Intel users should download `AFMDataClient_MacOS_x64.app.zip`.
 
 <img width="1073" height="643" alt="image" src="https://github.com/user-attachments/assets/ce781ade-d2f9-42c8-ba10-bea77bb0ba13" />
 
@@ -114,9 +114,15 @@ The macOS app is not signed, so macOS may say `"AFMDataClient_MacOS" is damaged 
    ```
 <img width="800" height="113" alt="image" src="https://github.com/user-attachments/assets/328bdccf-97a7-4324-974a-68150145ec10" />
 
-5. Double-click `AFMDataClient_MacOS.app` to open it.
+5. Drag `AFMDataClient_MacOS.app` into your `Applications` folder.
 
-   If double-clicking does not open it, run `open AFMDataClient_MacOS.app` in Terminal.
+6. Open `AFMDataClient_MacOS.app` from `Applications`.
+
+   If double-clicking does not open it, run:
+
+   ```bash
+   open /Applications/AFMDataClient_MacOS.app
+   ```
 
 If packet capture is blocked, the app shows a `Capture Blocked` status.
 
@@ -130,11 +136,33 @@ Once it restarts and you get ingame, you should see the app working.
 
 <img width="930" height="631" alt="image" src="https://github.com/user-attachments/assets/84cfa92a-dc84-431a-ae92-c6815d0dea66" />
 
-There's no automatic update feature for MacOS, so you should manually download new versions.
+Older AFM installations may instead show `Permissions Update Available` and an `Update permissions` button. Run this one-time update to replace the legacy permission service.
+
+AFM checks for new versions and notifies you, but macOS updates must be downloaded and installed manually.
+
+**Uninstallation**
+
+1. Quit AFM Data Client from the system tray.
+2. Open Terminal and remove the packet capture permission service:
+
+   ```bash
+   sudo /bin/sh "/Applications/AFMDataClient_MacOS.app/Contents/Resources/uninstall-capture-permissions.sh"
+   ```
+
+   If you kept the app somewhere other than `Applications`, adjust the path. The script is safe to run if capture permissions were never installed.
+
+3. Move `AFMDataClient_MacOS.app` from `Applications` to Trash.
+
+The uninstaller preserves your database, backups, settings, and logs. To remove all AFM user data as well, run the following only after confirming that you no longer need those files:
+
+```bash
+rm -rf "$HOME/Library/Application Support/AFMDataClient"
+```
 
 ## 💻 System Requirements
 
-- Basically, anything that can run Albion Online will run this application
+- Windows and Linux: basically anything that can run Albion Online
+- macOS: macOS 14 or newer
 
 ## 📊 Features Showcase
 

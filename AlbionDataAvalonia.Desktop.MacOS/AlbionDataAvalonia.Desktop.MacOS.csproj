@@ -23,15 +23,33 @@
       <Output TaskParameter="Result" ItemName="AppVersionValue" />
     </XmlPeek>
     <PropertyGroup>
-      <MacOSBundleVersion>@(AppVersionValue)</MacOSBundleVersion>
-      <MacOSBundleVersion Condition="'$(MacOSBundleVersion)' == ''">$(Version)</MacOSBundleVersion>
+      <MacOSSourceVersion>@(AppVersionValue)</MacOSSourceVersion>
+      <MacOSSourceVersion Condition="'$(MacOSSourceVersion)' == ''">$(Version)</MacOSSourceVersion>
+      <MacOSVersionIsValid>$([System.Text.RegularExpressions.Regex]::IsMatch('$(MacOSSourceVersion)', '^[0-9]+\.[0-9]+\.[0-9]+\.[0-9]+$'))</MacOSVersionIsValid>
+      <MacOSVersionMajor>0</MacOSVersionMajor>
+      <MacOSVersionMinor>0</MacOSVersionMinor>
+      <MacOSVersionPatch>0</MacOSVersionPatch>
+      <MacOSVersionRevision>0</MacOSVersionRevision>
+      <MacOSVersionPackedMajor>0</MacOSVersionPackedMajor>
+      <MacOSVersionMajor Condition="'$(MacOSVersionIsValid)' == 'True'">$([System.Version]::Parse('$(MacOSSourceVersion)').Major)</MacOSVersionMajor>
+      <MacOSVersionMinor Condition="'$(MacOSVersionIsValid)' == 'True'">$([System.Version]::Parse('$(MacOSSourceVersion)').Minor)</MacOSVersionMinor>
+      <MacOSVersionPatch Condition="'$(MacOSVersionIsValid)' == 'True'">$([System.Version]::Parse('$(MacOSSourceVersion)').Build)</MacOSVersionPatch>
+      <MacOSVersionRevision Condition="'$(MacOSVersionIsValid)' == 'True'">$([System.Version]::Parse('$(MacOSSourceVersion)').Revision)</MacOSVersionRevision>
+      <MacOSVersionPackedMajor Condition="'$(MacOSVersionIsValid)' == 'True'">$([MSBuild]::Add($([MSBuild]::Multiply($(MacOSVersionMajor), 100)), $(MacOSVersionMinor)))</MacOSVersionPackedMajor>
+      <MacOSShortVersion Condition="'$(MacOSVersionIsValid)' == 'True'">$(MacOSVersionMajor).$(MacOSVersionMinor).$(MacOSVersionPatch)</MacOSShortVersion>
+      <MacOSBundleVersion Condition="'$(MacOSVersionIsValid)' == 'True'">$(MacOSVersionPackedMajor).$(MacOSVersionPatch).$(MacOSVersionRevision)</MacOSBundleVersion>
     </PropertyGroup>
+    <Error Condition="'$(MacOSVersionIsValid)' != 'True'"
+      Text="The macOS bundle requires a four-part numeric source version (a.b.c.d). Found '$(MacOSSourceVersion)'." />
+    <Error Condition="$(MacOSVersionMajor) &gt; 99 or $(MacOSVersionMinor) &gt; 99 or $(MacOSVersionPatch) &gt; 99 or $(MacOSVersionRevision) &gt; 99 or $(MacOSVersionPackedMajor) &lt; 1 or $(MacOSVersionPackedMajor) &gt; 9999"
+      Text="The source version '$(MacOSSourceVersion)' cannot be represented in the macOS bundle version format. Each component must be between 0 and 99, and major/minor cannot both be zero." />
     <ItemGroup>
       <PublishFiles Include="$(PublishDir)**"
         Exclude="$(PublishDir)**/*.app;$(PublishDir)**/*.app/**;$(AppBundlePath)**" />
       <InfoPlist Include="Info.plist" />
       <AppIcon Include="..\AlbionDataAvalonia\Assets\logo.icns" />
       <CapturePermissionSetupScript Include="setup-capture-permissions.sh" />
+      <CapturePermissionUninstallScript Include="uninstall-capture-permissions.sh" />
     </ItemGroup>
     <MakeDir Directories="$(AppBundlePath)/Contents/MacOS" />
     <MakeDir Directories="$(AppBundlePath)/Contents/Resources" />
@@ -43,12 +61,11 @@
       Value="$(MacOSBundleVersion)" />
     <XmlPoke XmlInputPath="$(AppBundlePath)/Contents/Info.plist"
       Query="/plist/dict/key[.='CFBundleShortVersionString']/following-sibling::string[1]"
-      Value="$(MacOSBundleVersion)" />
+      Value="$(MacOSShortVersion)" />
     <Copy SourceFiles="@(AppIcon)" DestinationFolder="$(AppBundlePath)/Contents/Resources" />
     <Copy SourceFiles="@(CapturePermissionSetupScript)" DestinationFolder="$(AppBundlePath)/Contents/Resources" />
+    <Copy SourceFiles="@(CapturePermissionUninstallScript)" DestinationFolder="$(AppBundlePath)/Contents/Resources" />
     <Exec Command="chmod +x $(AppBundlePath)/Contents/MacOS/$(AssemblyName)"
       Condition=" '$(OS)' == 'Unix' and Exists('$(AppBundlePath)/Contents/MacOS/$(AssemblyName)') " />
-    <Exec Command="chmod +x $(AppBundlePath)/Contents/Resources/setup-capture-permissions.sh"
-      Condition=" '$(OS)' == 'Unix' and Exists('$(AppBundlePath)/Contents/Resources/setup-capture-permissions.sh') " />
   </Target>
 </Project>
