@@ -21,6 +21,8 @@ namespace AlbionDataAvalonia.ViewModels;
 
 public partial class CombatViewModel : ViewModelBase, IDisposable
 {
+    private static readonly TimeSpan SnapshotRefreshInterval = TimeSpan.FromMilliseconds(200);
+
     private static readonly TimeSpan ChartRefreshInterval = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan ActiveSummaryRefreshInterval = TimeSpan.FromSeconds(1);
     private static readonly TimeSpan InactiveFameSummaryRefreshInterval = TimeSpan.FromSeconds(5);
@@ -40,6 +42,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
 
     private readonly CombatTrackerService? combatTracker;
     private readonly SettingsManager? settingsManager;
+    private readonly LatestUiValueDispatcher<CombatTrackerSnapshot> snapshotDispatcher;
     private DispatcherTimer? summaryRefreshTimer;
     private IDisposable? pendingChartRefreshRegistration;
     private CombatTrackerSnapshot currentSnapshot;
@@ -278,6 +281,9 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
 
     public CombatViewModel()
     {
+        snapshotDispatcher = new LatestUiValueDispatcher<CombatTrackerSnapshot>(
+            ApplySnapshot,
+            SnapshotRefreshInterval);
         currentSnapshot = CombatTrackerSnapshot.Empty();
         isCombatTrackerDisabled = false;
         selectedChartWindow = InitializeChartWindowOptions();
@@ -288,6 +294,9 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
 
     public CombatViewModel(CombatTrackerService combatTracker, SettingsManager settingsManager)
     {
+        snapshotDispatcher = new LatestUiValueDispatcher<CombatTrackerSnapshot>(
+            ApplySnapshot,
+            SnapshotRefreshInterval);
         this.combatTracker = combatTracker;
         this.settingsManager = settingsManager;
         isCombatTrackerDisabled = settingsManager.UserSettings.DisableCombatTracker;
@@ -395,7 +404,7 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
 
     private void OnSnapshotChanged(CombatTrackerSnapshot snapshot)
     {
-        Dispatcher.UIThread.Post(() => ApplySnapshot(snapshot));
+        snapshotDispatcher.Post(snapshot);
     }
 
     private void OnUserSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -2122,6 +2131,8 @@ public partial class CombatViewModel : ViewModelBase, IDisposable
         {
             combatTracker.SnapshotChanged -= OnSnapshotChanged;
         }
+
+        snapshotDispatcher.Dispose();
 
         if (settingsManager is not null)
         {

@@ -24,12 +24,15 @@ namespace AlbionDataAvalonia.ViewModels;
 
 public partial class GatheringViewModel : ViewModelBase, IDisposable
 {
+    private static readonly TimeSpan SnapshotRefreshInterval = TimeSpan.FromMilliseconds(200);
+
     private readonly GatheringTrackerService? gatheringTracker;
     private readonly GatheringSessionPersistenceService? sessionPersistence;
     private readonly SettingsManager? settingsManager;
     private readonly ItemImageService? itemImageService;
     private readonly CsvExportService? csvExportService;
     private readonly PortfolioUploadService? portfolioUploadService;
+    private readonly LatestUiValueDispatcher<GatheringTrackerSnapshot> snapshotDispatcher;
     private const int ShareCardItemSlots = 20;
     private const string PreparingPortfolioImportStatus = "Preparing gathering session for Portfolio...";
     private DispatcherTimer? elapsedTimer;
@@ -122,6 +125,9 @@ public partial class GatheringViewModel : ViewModelBase, IDisposable
 
     public GatheringViewModel()
     {
+        snapshotDispatcher = new LatestUiValueDispatcher<GatheringTrackerSnapshot>(
+            ApplySnapshot,
+            SnapshotRefreshInterval);
     }
 
     public GatheringViewModel(
@@ -132,6 +138,9 @@ public partial class GatheringViewModel : ViewModelBase, IDisposable
         CsvExportService csvExportService,
         PortfolioUploadService portfolioUploadService)
     {
+        snapshotDispatcher = new LatestUiValueDispatcher<GatheringTrackerSnapshot>(
+            ApplySnapshot,
+            SnapshotRefreshInterval);
         this.gatheringTracker = gatheringTracker;
         this.sessionPersistence = sessionPersistence;
         this.settingsManager = settingsManager;
@@ -544,7 +553,7 @@ public partial class GatheringViewModel : ViewModelBase, IDisposable
 
     private void OnSnapshotChanged(GatheringTrackerSnapshot snapshot)
     {
-        Dispatcher.UIThread.Post(() => ApplySnapshot(snapshot));
+        snapshotDispatcher.Post(snapshot);
     }
 
     private void OnCompletedSessionsChanged()
@@ -876,6 +885,8 @@ public partial class GatheringViewModel : ViewModelBase, IDisposable
         {
             gatheringTracker.SnapshotChanged -= OnSnapshotChanged;
         }
+
+        snapshotDispatcher.Dispose();
 
         if (sessionPersistence is not null)
         {
