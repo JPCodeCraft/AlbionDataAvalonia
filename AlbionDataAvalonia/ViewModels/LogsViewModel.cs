@@ -11,9 +11,15 @@ using System.Linq;
 
 namespace AlbionDataAvalonia.ViewModels
 {
-    public partial class LogsViewModel : ViewModelBase
+    public partial class LogsViewModel : ViewModelBase, IDisposable
     {
+        private const int MaxIncrementalLogBatchCount = 100;
         private readonly TimeSpan _filterDebounceInterval = TimeSpan.FromMilliseconds(250);
+
+        private readonly record struct PendingLogEvent(
+            LogEventWrapper LogEvent,
+            LogEventWrapper? RemovedBufferedEvent);
+
         public sealed class AmountShownOption
         {
             public int Value { get; }
@@ -34,9 +40,13 @@ namespace AlbionDataAvalonia.ViewModels
         private readonly ListSink _listSink;
         private readonly SettingsManager _settingsManager;
         private readonly List<LogEventWrapper> _allEventsNewestFirst = new();
+        private readonly List<PendingLogEvent> _pendingLogEvents = new();
         private readonly object _sync = new();
         private IDisposable? _pendingFilterRefreshRegistration;
         private string _appliedFilterText = string.Empty;
+        private bool _logDispatchScheduled;
+        private bool _pendingLogEventsRequireRebuild;
+        private volatile bool _isDisposed;
         private static readonly IReadOnlyList<AmountShownOption> _amountShownOptions =
         [
             new AmountShownOption(100, "100"),
@@ -116,20 +126,90 @@ namespace AlbionDataAvalonia.ViewModels
         private void OnLogEventReceived(LogEventWrapper logEventWrapper)
         {
             LogEventWrapper? removedBufferedEvent = null;
+            var shouldScheduleDispatch = false;
             lock (_sync)
             {
+                if (_isDisposed)
+                {
+                    return;
+                }
+
                 _allEventsNewestFirst.Insert(0, logEventWrapper);
                 if (_allEventsNewestFirst.Count > ListSink.MemoryRetentionLimit)
                 {
                     removedBufferedEvent = _allEventsNewestFirst[^1];
                     _allEventsNewestFirst.RemoveAt(_allEventsNewestFirst.Count - 1);
                 }
+
+                if (!_pendingLogEventsRequireRebuild)
+                {
+                    if (_pendingLogEvents.Count < MaxIncrementalLogBatchCount)
+                    {
+                        _pendingLogEvents.Add(new PendingLogEvent(logEventWrapper, removedBufferedEvent));
+                    }
+                    else
+                    {
+                        _pendingLogEvents.Clear();
+                        _pendingLogEventsRequireRebuild = true;
+                    }
+                }
+
+                if (!_logDispatchScheduled)
+                {
+                    _logDispatchScheduled = true;
+                    shouldScheduleDispatch = true;
+                }
             }
 
-            Dispatcher.UIThread.Post(() =>
+            if (shouldScheduleDispatch)
             {
-                ApplyIncomingEvent(logEventWrapper, removedBufferedEvent);
-            });
+                Dispatcher.UIThread.Post(DrainPendingLogEvents);
+            }
+        }
+
+        private void DrainPendingLogEvents()
+        {
+            List<PendingLogEvent>? pendingEvents;
+            bool rebuildVisibleEvents;
+            lock (_sync)
+            {
+                if (_isDisposed)
+                {
+                    _pendingLogEvents.Clear();
+                    _pendingLogEventsRequireRebuild = false;
+                    _logDispatchScheduled = false;
+                    return;
+                }
+
+                rebuildVisibleEvents = _pendingLogEventsRequireRebuild;
+                pendingEvents = rebuildVisibleEvents
+                    ? null
+                    : new List<PendingLogEvent>(_pendingLogEvents);
+                _pendingLogEvents.Clear();
+                _pendingLogEventsRequireRebuild = false;
+                _logDispatchScheduled = false;
+            }
+
+            if (_isDisposed)
+            {
+                return;
+            }
+
+            if (rebuildVisibleEvents)
+            {
+                RebuildVisibleEvents();
+                return;
+            }
+
+            if (pendingEvents is null)
+            {
+                return;
+            }
+
+            foreach (var pendingEvent in pendingEvents)
+            {
+                ApplyIncomingEvent(pendingEvent.LogEvent, pendingEvent.RemovedBufferedEvent);
+            }
         }
 
         private void OnUserSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
@@ -138,6 +218,11 @@ namespace AlbionDataAvalonia.ViewModels
             {
                 Dispatcher.UIThread.Post(() =>
                 {
+                    if (_isDisposed)
+                    {
+                        return;
+                    }
+
                     OnPropertyChanged(nameof(SelectedLogVerbosity));
                     RebuildVisibleEvents();
                 });
@@ -148,6 +233,11 @@ namespace AlbionDataAvalonia.ViewModels
             {
                 Dispatcher.UIThread.Post(() =>
                 {
+                    if (_isDisposed)
+                    {
+                        return;
+                    }
+
                     OnPropertyChanged(nameof(SelectedAmountShown));
                     RebuildVisibleEvents();
                 });
@@ -163,8 +253,15 @@ namespace AlbionDataAvalonia.ViewModels
                     .Where(PassesActiveFilters)
                     .Take(GetVisibleLimit())
                     .ToList();
+                _pendingLogEvents.Clear();
+                _pendingLogEventsRequireRebuild = false;
             }
 
+            ReplaceVisibleEvents(visibleEvents);
+        }
+
+        private void ReplaceVisibleEvents(IEnumerable<LogEventWrapper> visibleEvents)
+        {
             Events.Clear();
             foreach (var logEvent in visibleEvents)
             {
@@ -257,6 +354,11 @@ namespace AlbionDataAvalonia.ViewModels
 
         private void ScheduleFilterEvents()
         {
+            if (_isDisposed)
+            {
+                return;
+            }
+
             if (!Dispatcher.UIThread.CheckAccess())
             {
                 Dispatcher.UIThread.Post(ScheduleFilterEvents);
@@ -267,6 +369,11 @@ namespace AlbionDataAvalonia.ViewModels
             _pendingFilterRefreshRegistration = DispatcherTimer.RunOnce(() =>
             {
                 _pendingFilterRefreshRegistration = null;
+                if (_isDisposed)
+                {
+                    return;
+                }
+
                 _appliedFilterText = FilterText;
                 RebuildVisibleEvents();
             }, _filterDebounceInterval);
@@ -282,6 +389,22 @@ namespace AlbionDataAvalonia.ViewModels
         {
             // Keep logs search aligned with the existing mails/trades space-insensitive matching.
             return (value ?? string.Empty).Replace(" ", string.Empty);
+        }
+
+        public void Dispose()
+        {
+            _listSink.CollectionChanged -= OnLogEventReceived;
+            _settingsManager.UserSettings.PropertyChanged -= OnUserSettingsPropertyChanged;
+
+            lock (_sync)
+            {
+                _isDisposed = true;
+                _pendingLogEvents.Clear();
+                _pendingLogEventsRequireRebuild = false;
+                _logDispatchScheduled = false;
+            }
+
+            CancelPendingFilterRefresh();
         }
     }
 }

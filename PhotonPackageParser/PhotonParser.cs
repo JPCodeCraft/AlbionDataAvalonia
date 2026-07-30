@@ -11,10 +11,27 @@ namespace PhotonPackageParser
     {
         private const int CommandHeaderLength = 12;
         private const int PhotonHeaderLength = 12;
+        private const int MaxSegmentedPayloadLength = 16 * 1024 * 1024;
+        private const int MaxPendingSegmentCount = 128;
+        private const int MaxFragmentsPerPayload = 32 * 1024;
+        private const long MaxPendingSegmentBytes = 64L * 1024 * 1024;
+        private static readonly TimeSpan PendingSegmentLifetime = TimeSpan.FromSeconds(30);
 
-        private readonly Dictionary<int, SegmentedPackage> _pendingSegments = new Dictionary<int, SegmentedPackage>();
+        private readonly Dictionary<SegmentedPackageKey, SegmentedPackage> _pendingSegments =
+            new Dictionary<SegmentedPackageKey, SegmentedPackage>();
+        private readonly object _receiveLock = new object();
+        private long _pendingSegmentBytes;
 
         public PacketStatus ReceivePacket(byte[] payload)
+        {
+            lock (_receiveLock)
+            {
+                RemoveExpiredSegments(DateTime.UtcNow);
+                return ReceivePacketCore(payload);
+            }
+        }
+
+        private PacketStatus ReceivePacketCore(byte[] payload)
         {
             if (payload.Length < PhotonHeaderLength)
             {
@@ -59,7 +76,7 @@ namespace PhotonPackageParser
                     return PacketStatus.InvalidHeader;
                 }
 
-                response = HandleCommand(payload, ref offset);
+                response = HandleCommand(payload, ref offset, peerId, challenge);
                 if (response == PacketStatus.InvalidHeader)
                 {
                     return response;
@@ -88,7 +105,11 @@ namespace PhotonPackageParser
         {
         }
 
-        private PacketStatus HandleCommand(byte[] source, ref int offset)
+        private PacketStatus HandleCommand(
+            byte[] source,
+            ref int offset,
+            short peerId,
+            int challenge)
         {
             if (!HasAvailable(source, offset, CommandHeaderLength))
             {
@@ -135,7 +156,13 @@ namespace PhotonPackageParser
                     }
                 case CommandType.SendFragment:
                     {
-                        response = HandleSendFragment(source, ref offset, ref commandLength);
+                        response = HandleSendFragment(
+                            source,
+                            ref offset,
+                            ref commandLength,
+                            peerId,
+                            challenge,
+                            channelId);
                         break;
                     }
                 default:
@@ -220,7 +247,13 @@ namespace PhotonPackageParser
             return PacketStatus.Success;
         }
 
-        private PacketStatus HandleSendFragment(byte[] source, ref int offset, ref int commandLength)
+        private PacketStatus HandleSendFragment(
+            byte[] source,
+            ref int offset,
+            ref int commandLength,
+            short peerId,
+            int challenge,
+            byte channelId)
         {
             const int fragmentHeaderLength = 20;
             if (commandLength < fragmentHeaderLength || !HasAvailable(source, offset, fragmentHeaderLength))
@@ -245,7 +278,34 @@ namespace PhotonPackageParser
                 return PacketStatus.InvalidHeader;
             }
 
-            return HandleSegmentedPayload(startSequenceNumber, totalLength, fragmentLength, fragmentOffset, source, ref offset);
+            if (fragmentCount <= 0 ||
+                fragmentCount > MaxFragmentsPerPayload ||
+                fragmentNumber < 0 ||
+                fragmentNumber >= fragmentCount ||
+                totalLength <= 0 ||
+                totalLength > MaxSegmentedPayloadLength ||
+                fragmentCount > totalLength ||
+                fragmentLength <= 0 ||
+                fragmentOffset < 0 ||
+                fragmentLength > totalLength ||
+                fragmentOffset > totalLength - fragmentLength)
+            {
+                return PacketStatus.InvalidHeader;
+            }
+
+            return HandleSegmentedPayload(
+                new SegmentedPackageKey(
+                    peerId,
+                    challenge,
+                    channelId,
+                    startSequenceNumber),
+                fragmentCount,
+                fragmentNumber,
+                totalLength,
+                fragmentLength,
+                fragmentOffset,
+                source,
+                ref offset);
         }
 
         private PacketStatus HandleFinishedSegmentedPackage(byte[] totalPayload)
@@ -255,38 +315,197 @@ namespace PhotonPackageParser
             return HandleSendReliable(totalPayload, ref offset, ref commandLength);
         }
 
-        private PacketStatus HandleSegmentedPayload(int startSequenceNumber, int totalLength, int fragmentLength, int fragmentOffset, byte[] source, ref int offset)
+        private PacketStatus HandleSegmentedPayload(
+            SegmentedPackageKey segmentKey,
+            int fragmentCount,
+            int fragmentNumber,
+            int totalLength,
+            int fragmentLength,
+            int fragmentOffset,
+            byte[] source,
+            ref int offset)
         {
-            SegmentedPackage segmentedPackage = GetSegmentedPackage(startSequenceNumber, totalLength);
+            DateTime now = DateTime.UtcNow;
+            SegmentedPackage? segmentedPackage = GetSegmentedPackage(
+                segmentKey,
+                totalLength,
+                fragmentCount,
+                now);
+
+            if (segmentedPackage == null)
+            {
+                return PacketStatus.InvalidHeader;
+            }
+
+            if (segmentedPackage.ReceivedFragments.TryGetValue(fragmentNumber, out FragmentRange receivedFragment))
+            {
+                bool matchesExistingFragment =
+                    receivedFragment.Offset == fragmentOffset &&
+                    receivedFragment.Length == fragmentLength &&
+                    PayloadMatches(
+                        source,
+                        offset,
+                        segmentedPackage.TotalPayload,
+                        fragmentOffset,
+                        fragmentLength);
+
+                offset += fragmentLength;
+                if (!matchesExistingFragment)
+                {
+                    return PacketStatus.InvalidHeader;
+                }
+
+                segmentedPackage.LastUpdatedUtc = now;
+                return PacketStatus.Success;
+            }
 
             Buffer.BlockCopy(source, offset, segmentedPackage.TotalPayload, fragmentOffset, fragmentLength);
             offset += fragmentLength;
+            segmentedPackage.ReceivedFragments.Add(
+                fragmentNumber,
+                new FragmentRange(fragmentOffset, fragmentLength));
             segmentedPackage.BytesWritten += fragmentLength;
+            segmentedPackage.LastUpdatedUtc = now;
+
+            if (segmentedPackage.ReceivedFragments.Count == segmentedPackage.FragmentCount)
+            {
+                if (segmentedPackage.BytesWritten != segmentedPackage.TotalLength ||
+                    !HasContiguousCoverage(
+                        segmentedPackage.ReceivedFragments.Values,
+                        segmentedPackage.TotalLength))
+                {
+                    RemovePendingSegment(segmentKey);
+                    return PacketStatus.InvalidHeader;
+                }
+
+                byte[] totalPayload = segmentedPackage.TotalPayload;
+                RemovePendingSegment(segmentKey);
+                return HandleFinishedSegmentedPackage(totalPayload);
+            }
 
             if (segmentedPackage.BytesWritten >= segmentedPackage.TotalLength)
             {
-                _pendingSegments.Remove(startSequenceNumber);
-                return HandleFinishedSegmentedPackage(segmentedPackage.TotalPayload);
+                RemovePendingSegment(segmentKey);
+                return PacketStatus.InvalidHeader;
             }
 
             return PacketStatus.Success;
         }
 
-        private SegmentedPackage GetSegmentedPackage(int startSequenceNumber, int totalLength)
+        private SegmentedPackage? GetSegmentedPackage(
+            SegmentedPackageKey segmentKey,
+            int totalLength,
+            int fragmentCount,
+            DateTime now)
         {
-            if (_pendingSegments.TryGetValue(startSequenceNumber, out SegmentedPackage segmentedPackage))
+            if (_pendingSegments.TryGetValue(segmentKey, out SegmentedPackage segmentedPackage))
             {
+                if (segmentedPackage.TotalLength != totalLength ||
+                    segmentedPackage.FragmentCount != fragmentCount)
+                {
+                    return null;
+                }
+
                 return segmentedPackage;
+            }
+
+            if (_pendingSegments.Count >= MaxPendingSegmentCount ||
+                _pendingSegmentBytes > MaxPendingSegmentBytes - totalLength)
+            {
+                return null;
             }
 
             segmentedPackage = new SegmentedPackage
             {
                 TotalLength = totalLength,
+                FragmentCount = fragmentCount,
                 TotalPayload = new byte[totalLength],
+                LastUpdatedUtc = now,
             };
-            _pendingSegments.Add(startSequenceNumber, segmentedPackage);
+            _pendingSegments.Add(segmentKey, segmentedPackage);
+            _pendingSegmentBytes += totalLength;
 
             return segmentedPackage;
+        }
+
+        private void RemoveExpiredSegments(DateTime now)
+        {
+            List<SegmentedPackageKey>? expiredSegmentKeys = null;
+
+            foreach (KeyValuePair<SegmentedPackageKey, SegmentedPackage> entry in _pendingSegments)
+            {
+                if (now - entry.Value.LastUpdatedUtc <= PendingSegmentLifetime)
+                {
+                    continue;
+                }
+
+                if (expiredSegmentKeys == null)
+                {
+                    expiredSegmentKeys = new List<SegmentedPackageKey>();
+                }
+
+                expiredSegmentKeys.Add(entry.Key);
+            }
+
+            if (expiredSegmentKeys == null)
+            {
+                return;
+            }
+
+            foreach (SegmentedPackageKey segmentKey in expiredSegmentKeys)
+            {
+                RemovePendingSegment(segmentKey);
+            }
+        }
+
+        private void RemovePendingSegment(SegmentedPackageKey segmentKey)
+        {
+            if (!_pendingSegments.TryGetValue(segmentKey, out SegmentedPackage segmentedPackage))
+            {
+                return;
+            }
+
+            _pendingSegments.Remove(segmentKey);
+            _pendingSegmentBytes -= segmentedPackage.TotalLength;
+        }
+
+        private static bool HasContiguousCoverage(
+            IEnumerable<FragmentRange> fragments,
+            int totalLength)
+        {
+            var orderedFragments = new List<FragmentRange>(fragments);
+            orderedFragments.Sort((left, right) => left.Offset.CompareTo(right.Offset));
+
+            var expectedOffset = 0;
+            foreach (FragmentRange fragment in orderedFragments)
+            {
+                if (fragment.Offset != expectedOffset)
+                {
+                    return false;
+                }
+
+                expectedOffset += fragment.Length;
+            }
+
+            return expectedOffset == totalLength;
+        }
+
+        private static bool PayloadMatches(
+            byte[] source,
+            int sourceOffset,
+            byte[] destination,
+            int destinationOffset,
+            int count)
+        {
+            for (int index = 0; index < count; index++)
+            {
+                if (source[sourceOffset + index] != destination[destinationOffset + index])
+                {
+                    return false;
+                }
+            }
+
+            return true;
         }
 
         private static void ReadByte(out byte value, byte[] source, ref int offset)

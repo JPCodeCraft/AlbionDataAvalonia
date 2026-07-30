@@ -21,11 +21,10 @@ public partial class LootViewModel : ViewModelBase, IDisposable
 
     private readonly LootTrackerService? lootTracker;
     private readonly CsvExportService? csvExportService;
+    private readonly LatestUiValueDispatcher<LootTrackerSnapshot> snapshotDispatcher;
     private readonly TimeSpan filterDebounceInterval = TimeSpan.FromMilliseconds(250);
     private readonly TimeSpan snapshotRefreshInterval = TimeSpan.FromMilliseconds(100);
     private IDisposable? pendingFilterRefreshRegistration;
-    private IDisposable? pendingSnapshotRefreshRegistration;
-    private LootTrackerSnapshot? pendingSnapshot;
     private IReadOnlyList<LootRecord> allRecords = Array.Empty<LootRecord>();
     private List<LootRecord> filteredRecords = new();
     private string appliedFilterText = string.Empty;
@@ -76,10 +75,16 @@ public partial class LootViewModel : ViewModelBase, IDisposable
 
     public LootViewModel()
     {
+        snapshotDispatcher = new LatestUiValueDispatcher<LootTrackerSnapshot>(
+            ApplySnapshot,
+            snapshotRefreshInterval);
     }
 
     public LootViewModel(LootTrackerService lootTracker, CsvExportService csvExportService)
     {
+        snapshotDispatcher = new LatestUiValueDispatcher<LootTrackerSnapshot>(
+            ApplySnapshot,
+            snapshotRefreshInterval);
         this.lootTracker = lootTracker;
         this.csvExportService = csvExportService;
         lootTracker.SnapshotChanged += OnSnapshotChanged;
@@ -93,8 +98,8 @@ public partial class LootViewModel : ViewModelBase, IDisposable
             lootTracker.SnapshotChanged -= OnSnapshotChanged;
         }
 
+        snapshotDispatcher.Dispose();
         CancelPendingFilterRefresh();
-        CancelPendingSnapshotRefresh();
     }
 
     partial void OnFilterTextChanged(string? oldValue, string newValue)
@@ -159,28 +164,7 @@ public partial class LootViewModel : ViewModelBase, IDisposable
 
     private void OnSnapshotChanged(LootTrackerSnapshot snapshot)
     {
-        if (!Dispatcher.UIThread.CheckAccess())
-        {
-            Dispatcher.UIThread.Post(() => OnSnapshotChanged(snapshot));
-            return;
-        }
-
-        pendingSnapshot = snapshot;
-        if (pendingSnapshotRefreshRegistration is not null)
-        {
-            return;
-        }
-
-        pendingSnapshotRefreshRegistration = DispatcherTimer.RunOnce(() =>
-        {
-            pendingSnapshotRefreshRegistration = null;
-            var snapshotToApply = pendingSnapshot;
-            pendingSnapshot = null;
-            if (snapshotToApply is not null)
-            {
-                ApplySnapshot(snapshotToApply);
-            }
-        }, snapshotRefreshInterval);
+        snapshotDispatcher.Post(snapshot);
     }
 
     private void ApplySnapshot(LootTrackerSnapshot snapshot)
@@ -272,13 +256,6 @@ public partial class LootViewModel : ViewModelBase, IDisposable
     {
         pendingFilterRefreshRegistration?.Dispose();
         pendingFilterRefreshRegistration = null;
-    }
-
-    private void CancelPendingSnapshotRefresh()
-    {
-        pendingSnapshotRefreshRegistration?.Dispose();
-        pendingSnapshotRefreshRegistration = null;
-        pendingSnapshot = null;
     }
 
     private static string NormalizeItemSearchText(string? value)
