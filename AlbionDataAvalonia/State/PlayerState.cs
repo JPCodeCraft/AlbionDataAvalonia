@@ -282,7 +282,7 @@ namespace AlbionDataAvalonia.State
             NotifyPrivateUploadStatsChanged();
         }
 
-        public void CraftingBonusUploadHandler(object? sender, CraftingBonusUploadEventArgs e)
+        public void FestivitiesUploadHandler(object? sender, FestivitiesUploadEventArgs e)
         {
             ProcessUploadStatus(e.Scope, e.UploadStatus, e.Identifier);
             if (e.UploadStatus != UploadStatus.Success || e.Scope != UploadScope.Private)
@@ -290,7 +290,7 @@ namespace AlbionDataAvalonia.State
                 return;
             }
 
-            PrivateUploadStats.CraftingBonusesCount += e.CraftingBonusUpload.Entries.Count;
+            PrivateUploadStats.FestivitiesCount += e.FestivitiesUpload.Events.Count;
             NotifyPrivateUploadStatsChanged();
         }
 
@@ -394,7 +394,7 @@ namespace AlbionDataAvalonia.State
                 MarketRequestsCount = source.MarketRequestsCount,
                 AchievementsCount = source.AchievementsCount,
                 GlobalMultipliersCount = source.GlobalMultipliersCount,
-                CraftingBonusesCount = source.CraftingBonusesCount,
+                FestivitiesCount = source.FestivitiesCount,
                 ItemEstimatedMarketValuesCount = source.ItemEstimatedMarketValuesCount
             };
         }

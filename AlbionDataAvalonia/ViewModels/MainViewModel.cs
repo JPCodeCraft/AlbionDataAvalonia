@@ -148,7 +148,7 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private int privateUploadedGlobalMultipliersCount;
     [ObservableProperty]
-    private int privateUploadedCraftingBonusesCount;
+    private int privateUploadedFestivitiesCount;
     [ObservableProperty]
     private int privateUploadedItemEstimatedMarketValuesCount;
 
@@ -346,7 +346,7 @@ public partial class MainViewModel : ViewModelBase
         PrivateUploadedMarketRequestsCount = stats.MarketRequestsCount;
         PrivateUploadedAchievementsCount = stats.AchievementsCount;
         PrivateUploadedGlobalMultipliersCount = stats.GlobalMultipliersCount;
-        PrivateUploadedCraftingBonusesCount = stats.CraftingBonusesCount;
+        PrivateUploadedFestivitiesCount = stats.FestivitiesCount;
         PrivateUploadedItemEstimatedMarketValuesCount = stats.ItemEstimatedMarketValuesCount;
     }
 

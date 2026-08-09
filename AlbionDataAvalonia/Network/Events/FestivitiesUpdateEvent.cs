@@ -7,8 +7,8 @@ namespace AlbionDataAvalonia.Network.Events;
 
 public class FestivitiesUpdateEvent : BaseEvent
 {
-    public byte[] EventTypes { get; } = [];
-    public string[] Scopes { get; } = [];
+    public byte[] Kinds { get; } = [];
+    public string[] Categories { get; } = [];
     public string[] UniqueNames { get; } = [];
     public long[] StartTimeTicks { get; } = [];
     public long[] EndTimeTicks { get; } = [];
@@ -20,8 +20,8 @@ public class FestivitiesUpdateEvent : BaseEvent
 
         try
         {
-            if (!parameters.TryGetValue(0, out var eventTypes)
-                || !parameters.TryGetValue(1, out var scopes)
+            if (!parameters.TryGetValue(0, out var kinds)
+                || !parameters.TryGetValue(1, out var categories)
                 || !parameters.TryGetValue(2, out var uniqueNames)
                 || !parameters.TryGetValue(3, out var startTimeTicks)
                 || !parameters.TryGetValue(4, out var endTimeTicks))
@@ -30,24 +30,23 @@ public class FestivitiesUpdateEvent : BaseEvent
                 return;
             }
 
-            EventTypes = eventTypes.ToByteArray();
-            Scopes = scopes.ToStringArray();
+            Kinds = kinds.ToByteArray();
+            Categories = categories.ToStringArray();
             UniqueNames = uniqueNames.ToStringArray();
             StartTimeTicks = startTimeTicks.ToLongArray();
             EndTimeTicks = endTimeTicks.ToLongArray();
 
-            IsValid = EventTypes.Length > 0
-                && EventTypes.Length == Scopes.Length
-                && EventTypes.Length == UniqueNames.Length
-                && EventTypes.Length == StartTimeTicks.Length
-                && EventTypes.Length == EndTimeTicks.Length;
+            IsValid = Kinds.Length == Categories.Length
+                && Kinds.Length == UniqueNames.Length
+                && Kinds.Length == StartTimeTicks.Length
+                && Kinds.Length == EndTimeTicks.Length;
 
             if (!IsValid)
             {
                 Log.Warning(
-                    "Festivities update arrays have mismatched lengths. EventTypes: {EventTypesCount}. Scopes: {ScopesCount}. UniqueNames: {UniqueNamesCount}. Starts: {StartsCount}. Ends: {EndsCount}.",
-                    EventTypes.Length,
-                    Scopes.Length,
+                    "Festivities update arrays have mismatched lengths. Kinds: {KindsCount}. Categories: {CategoriesCount}. UniqueNames: {UniqueNamesCount}. Starts: {StartsCount}. Ends: {EndsCount}.",
+                    Kinds.Length,
+                    Categories.Length,
                     UniqueNames.Length,
                     StartTimeTicks.Length,
                     EndTimeTicks.Length);

@@ -29,7 +29,7 @@ namespace AlbionDataAvalonia.Network.Services
         private const string PlayerCountPath = "playercount";
         private const string AchievementsPath = "be/achievements";
         private const string GlobalMultiplierPath = "be/globalMultiplier";
-        private const string CraftingBonusesPath = "be/craftingBonuses";
+        private const string FestivitiesPath = "be/festivities";
         private const string ItemEstimatedMarketValuesPath = "itemEstimatedMarketValues";
         private const int MaxItemEstimatedMarketValueUploadBatchSize = 500;
         private const int MaxUploadedItemEstimatedMarketValueFingerprints = 5_000;
@@ -55,11 +55,11 @@ namespace AlbionDataAvalonia.Network.Services
 
         private readonly object _headersLock = new();
         private readonly object globalMultiplierUploadFingerprintLock = new();
-        private readonly object craftingBonusUploadFingerprintLock = new();
+        private readonly object festivitiesUploadStateLock = new();
         private readonly object achievementUploadFingerprintLock = new();
         private readonly object itemEstimatedMarketValueUploadTimerLock = new();
         private GlobalMultiplierUploadFingerprint? lastUploadedGlobalMultiplier;
-        private CraftingBonusUploadFingerprint? lastUploadedCraftingBonuses;
+        private readonly Dictionary<int, FestivitiesUploadState> festivitiesUploadStates = [];
         private AchievementUploadFingerprint? lastUploadedAchievementUpload;
         private Timer? itemEstimatedMarketValueUploadTimer;
         private bool itemEstimatedMarketValueUploadScheduled;
@@ -67,7 +67,7 @@ namespace AlbionDataAvalonia.Network.Services
         private bool disposed;
         public event EventHandler<AchievementsUploadEventArgs>? OnAchievementsUpload;
         public event EventHandler<GlobalMultiplierUploadEventArgs>? OnGlobalMultiplierUpload;
-        public event EventHandler<CraftingBonusUploadEventArgs>? OnCraftingBonusUpload;
+        public event EventHandler<FestivitiesUploadEventArgs>? OnFestivitiesUpload;
         public event EventHandler<ItemEstimatedMarketValueUploadEventArgs>? OnItemEstimatedMarketValueUpload;
 
         public AFMUploader(PlayerState playerState, SettingsManager settingsManager, AuthService authService)
@@ -78,7 +78,7 @@ namespace AlbionDataAvalonia.Network.Services
 
             OnAchievementsUpload += _playerState.AchievementsUploadHandler;
             OnGlobalMultiplierUpload += _playerState.GlobalMultiplierUploadHandler;
-            OnCraftingBonusUpload += _playerState.CraftingBonusUploadHandler;
+            OnFestivitiesUpload += _playerState.FestivitiesUploadHandler;
             OnItemEstimatedMarketValueUpload += _playerState.ItemEstimatedMarketValueUploadHandler;
             _authService.FirebaseUserChanged += (user) => UpdateAuthHeader(user);
         }
@@ -458,32 +458,117 @@ namespace AlbionDataAvalonia.Network.Services
             _ = Upload(globalMultiplierUpload, fingerprint);
         }
 
-        public void UploadCraftingBonuses(CraftingBonusUpload craftingBonusUpload)
+        public void UploadFestivities(FestivitiesUpload festivitiesUpload)
         {
-            if (_authService.CurrentFirebaseUser is null)
+            var fingerprint = CreateFestivitiesUploadFingerprint(festivitiesUpload);
+            lock (festivitiesUploadStateLock)
             {
-                Log.Debug(
-                    "Skipping crafting bonus upload because no Firebase session exists. ServerId: {ServerId}. EntriesCount: {EntriesCount}.",
-                    craftingBonusUpload.ServerId,
-                    craftingBonusUpload.Entries.Count);
-                return;
-            }
+                if (!festivitiesUploadStates.TryGetValue(festivitiesUpload.ServerId, out var state))
+                {
+                    state = new FestivitiesUploadState();
+                    festivitiesUploadStates[festivitiesUpload.ServerId] = state;
+                }
 
-            var fingerprint = CreateCraftingBonusUploadFingerprint(craftingBonusUpload);
-            lock (craftingBonusUploadFingerprintLock)
-            {
-                if (lastUploadedCraftingBonuses.HasValue
-                    && lastUploadedCraftingBonuses.Value.Equals(fingerprint))
+                var hadPendingUpload = state.DesiredRequest is not null;
+                var request = new FestivitiesUploadRequest(
+                    festivitiesUpload,
+                    fingerprint,
+                    ++state.RequestVersion);
+                state.DesiredRequest = request;
+
+                if (state.IsUploading)
                 {
                     Log.Verbose(
-                        "Skipping duplicate crafting bonus upload. ServerId: {ServerId}. EntriesCount: {EntriesCount}.",
-                        craftingBonusUpload.ServerId,
-                        craftingBonusUpload.Entries.Count);
+                        "Coalescing festivities upload behind the in-flight request. ServerId: {ServerId}. EventsCount: {EventsCount}.",
+                        festivitiesUpload.ServerId,
+                        festivitiesUpload.Events.Count);
                     return;
                 }
+
+                if (!hadPendingUpload
+                    && state.LastUploadedFingerprint.HasValue
+                    && state.LastUploadedFingerprint.Value.Equals(fingerprint))
+                {
+                    state.DesiredRequest = null;
+                    Log.Verbose(
+                        "Skipping duplicate festivities upload. ServerId: {ServerId}. EventsCount: {EventsCount}.",
+                        festivitiesUpload.ServerId,
+                        festivitiesUpload.Events.Count);
+                    return;
+                }
+
+                if (_authService.CurrentFirebaseUser is null)
+                {
+                    Log.Debug(
+                        "Retaining festivities snapshot until another upload attempt because no Firebase session exists. ServerId: {ServerId}. EventsCount: {EventsCount}.",
+                        festivitiesUpload.ServerId,
+                        festivitiesUpload.Events.Count);
+                    return;
+                }
+
+                state.IsUploading = true;
             }
 
-            _ = Upload(craftingBonusUpload, fingerprint);
+            _ = ProcessFestivitiesUploadsAsync(festivitiesUpload.ServerId);
+        }
+
+        private async Task ProcessFestivitiesUploadsAsync(int serverId)
+        {
+            while (true)
+            {
+                FestivitiesUploadRequest request;
+                lock (festivitiesUploadStateLock)
+                {
+                    var state = festivitiesUploadStates[serverId];
+                    if (state.DesiredRequest is null)
+                    {
+                        state.IsUploading = false;
+                        return;
+                    }
+
+                    request = state.DesiredRequest;
+                }
+
+                UploadStatus status;
+                try
+                {
+                    status = await Upload(request.Upload);
+                }
+                catch (Exception ex)
+                {
+                    Log.Error(
+                        ex,
+                        "Unexpected error while processing festivities uploads for server {ServerId}.",
+                        serverId);
+                    status = UploadStatus.Failed;
+                }
+
+                lock (festivitiesUploadStateLock)
+                {
+                    var state = festivitiesUploadStates[serverId];
+                    if (status == UploadStatus.Success)
+                    {
+                        state.LastUploadedFingerprint = request.Fingerprint;
+                    }
+
+                    var desiredRequest = state.DesiredRequest;
+                    if (status == UploadStatus.Success
+                        && desiredRequest is not null
+                        && desiredRequest.Fingerprint.Equals(request.Fingerprint))
+                    {
+                        state.DesiredRequest = null;
+                        state.IsUploading = false;
+                        return;
+                    }
+
+                    if (status == UploadStatus.Failed
+                        && (desiredRequest is null || desiredRequest.Version == request.Version))
+                    {
+                        state.IsUploading = false;
+                        return;
+                    }
+                }
+            }
         }
 
         public void QueueItemEstimatedMarketValue(string itemUniqueName, long emv, int quality, long? blackMarketEmv = null)
@@ -1128,21 +1213,19 @@ namespace AlbionDataAvalonia.Network.Services
             }
         }
 
-        private async Task<UploadStatus> Upload(
-            CraftingBonusUpload craftingBonusUpload,
-            CraftingBonusUploadFingerprint fingerprint)
+        private async Task<UploadStatus> Upload(FestivitiesUpload festivitiesUpload)
         {
             var identifier = Guid.NewGuid();
             var requestUri = httpClient.BaseAddress is null
                 ? null
-                : new Uri(httpClient.BaseAddress, CraftingBonusesPath);
+                : new Uri(httpClient.BaseAddress, FestivitiesPath);
 
             UploadStatus ReportStatus(UploadStatus status)
             {
-                OnCraftingBonusUpload?.Invoke(
+                OnFestivitiesUpload?.Invoke(
                     this,
-                    new CraftingBonusUploadEventArgs(
-                        craftingBonusUpload,
+                    new FestivitiesUploadEventArgs(
+                        festivitiesUpload,
                         status,
                         UploadScope.Private,
                         identifier));
@@ -1155,30 +1238,30 @@ namespace AlbionDataAvalonia.Network.Services
                 if (!hasValidToken)
                 {
                     Log.Error(
-                        "Cannot upload crafting bonuses without a valid Firebase session. Identifier: {Identifier}. ServerId: {ServerId}. EntriesCount: {EntriesCount}.",
+                        "Cannot upload festivities without a valid Firebase session. Identifier: {Identifier}. ServerId: {ServerId}. EventsCount: {EventsCount}.",
                         identifier,
-                        craftingBonusUpload.ServerId,
-                        craftingBonusUpload.Entries.Count);
+                        festivitiesUpload.ServerId,
+                        festivitiesUpload.Events.Count);
                     return ReportStatus(UploadStatus.Failed);
                 }
 
                 if (_authService.FirebaseUserId is null)
                 {
                     Log.Error(
-                        "Cannot upload crafting bonuses without a Firebase user ID. Identifier: {Identifier}. ServerId: {ServerId}. EntriesCount: {EntriesCount}.",
+                        "Cannot upload festivities without a Firebase user ID. Identifier: {Identifier}. ServerId: {ServerId}. EventsCount: {EventsCount}.",
                         identifier,
-                        craftingBonusUpload.ServerId,
-                        craftingBonusUpload.Entries.Count);
+                        festivitiesUpload.ServerId,
+                        festivitiesUpload.Events.Count);
                     return ReportStatus(UploadStatus.Failed);
                 }
 
                 if (requestUri is null)
                 {
                     Log.Error(
-                        "Cannot upload crafting bonuses because AFM base address is not initialized. Identifier: {Identifier}. ServerId: {ServerId}. EntriesCount: {EntriesCount}.",
+                        "Cannot upload festivities because AFM base address is not initialized. Identifier: {Identifier}. ServerId: {ServerId}. EventsCount: {EventsCount}.",
                         identifier,
-                        craftingBonusUpload.ServerId,
-                        craftingBonusUpload.Entries.Count);
+                        festivitiesUpload.ServerId,
+                        festivitiesUpload.Events.Count);
                     return ReportStatus(UploadStatus.Failed);
                 }
 
@@ -1186,7 +1269,7 @@ namespace AlbionDataAvalonia.Network.Services
                 {
                     return await httpClient.PostAsJsonAsync(
                         requestUri,
-                        craftingBonusUpload,
+                        festivitiesUpload,
                         AfmApiSerializerOptions);
                 }
 
@@ -1199,12 +1282,12 @@ namespace AlbionDataAvalonia.Network.Services
                     if (response.StatusCode == HttpStatusCode.Unauthorized)
                     {
                         await LogHttpFailure(
-                            "crafting bonuses",
+                            "festivities",
                             requestUri,
                             identifier,
                             response,
-                            "AFM crafting bonus upload returned unauthorized. Attempting token refresh.",
-                            serverId: craftingBonusUpload.ServerId);
+                            "AFM festivities upload returned unauthorized. Attempting token refresh.",
+                            serverId: festivitiesUpload.ServerId);
 
                         response.Dispose();
                         response = null;
@@ -1213,10 +1296,10 @@ namespace AlbionDataAvalonia.Network.Services
                         if (!recovered)
                         {
                             Log.Error(
-                                "AFM crafting bonus upload could not recover from unauthorized response. Identifier: {Identifier}. ServerId: {ServerId}. EntriesCount: {EntriesCount}.",
+                                "AFM festivities upload could not recover from unauthorized response. Identifier: {Identifier}. ServerId: {ServerId}. EventsCount: {EventsCount}.",
                                 identifier,
-                                craftingBonusUpload.ServerId,
-                                craftingBonusUpload.Entries.Count);
+                                festivitiesUpload.ServerId,
+                                festivitiesUpload.Events.Count);
                             return ReportStatus(UploadStatus.Failed);
                         }
 
@@ -1224,12 +1307,12 @@ namespace AlbionDataAvalonia.Network.Services
                         if (response.StatusCode == HttpStatusCode.Unauthorized)
                         {
                             await LogHttpFailure(
-                                "crafting bonuses",
+                                "festivities",
                                 requestUri,
                                 identifier,
                                 response,
-                                "AFM crafting bonus upload unauthorized after retry.",
-                                serverId: craftingBonusUpload.ServerId);
+                                "AFM festivities upload unauthorized after retry.",
+                                serverId: festivitiesUpload.ServerId);
                             return ReportStatus(UploadStatus.Failed);
                         }
                     }
@@ -1237,24 +1320,19 @@ namespace AlbionDataAvalonia.Network.Services
                     if (!response.IsSuccessStatusCode)
                     {
                         await LogHttpFailure(
-                            "crafting bonuses",
+                            "festivities",
                             requestUri,
                             identifier,
                             response,
-                            "HTTP error while uploading crafting bonuses to AFM.",
-                            serverId: craftingBonusUpload.ServerId);
+                            "HTTP error while uploading festivities to AFM.",
+                            serverId: festivitiesUpload.ServerId);
                         return ReportStatus(UploadStatus.Failed);
                     }
 
-                    lock (craftingBonusUploadFingerprintLock)
-                    {
-                        lastUploadedCraftingBonuses = fingerprint;
-                    }
-
                     Log.Information(
-                        "Successfully sent {EntriesCount} crafting bonus entries for server {ServerId} to AFM. Identifier: {Identifier}.",
-                        craftingBonusUpload.Entries.Count,
-                        craftingBonusUpload.ServerId,
+                        "Successfully sent {EventsCount} festivities events for server {ServerId} to AFM. Identifier: {Identifier}.",
+                        festivitiesUpload.Events.Count,
+                        festivitiesUpload.ServerId,
                         identifier);
                     return ReportStatus(UploadStatus.Success);
                 }
@@ -1267,10 +1345,10 @@ namespace AlbionDataAvalonia.Network.Services
             {
                 LogAfmException(
                     ex,
-                    "crafting bonuses",
+                    "festivities",
                     requestUri,
                     identifier,
-                    serverId: craftingBonusUpload.ServerId);
+                    serverId: festivitiesUpload.ServerId);
                 return ReportStatus(UploadStatus.Failed);
             }
         }
@@ -1365,32 +1443,33 @@ namespace AlbionDataAvalonia.Network.Services
             return $"Items={upload.Items.Count}; BlackMarketItems={upload.Items.Count(x => x.BlackMarketEmv.HasValue)}; Day={upload.Items.FirstOrDefault()?.Day}; Qualities={string.Join(",", upload.Items.Select(x => x.Quality).Distinct())}";
         }
 
-        private static CraftingBonusUploadFingerprint CreateCraftingBonusUploadFingerprint(
-            CraftingBonusUpload upload)
+        private static FestivitiesUploadFingerprint CreateFestivitiesUploadFingerprint(
+            FestivitiesUpload upload)
         {
-            var normalizedEntries = upload.Entries
-                .Select(entry => new CraftingBonusUploadFingerprintEntry(
-                    entry.EventType,
-                    entry.Scope,
-                    entry.UniqueName,
-                    entry.StartTime,
-                    entry.EndTime))
-                .OrderBy(entry => entry.StartTime)
-                .ThenBy(entry => entry.EndTime)
-                .ThenBy(entry => entry.Scope, StringComparer.Ordinal)
-                .ThenBy(entry => entry.UniqueName, StringComparer.Ordinal)
-                .ThenBy(entry => entry.EventType)
+            var normalizedEvents = upload.Events
+                .Select(festivity => new FestivitiesUploadFingerprintEvent(
+                    festivity.Kind,
+                    festivity.Category,
+                    festivity.UniqueName,
+                    festivity.StartTime,
+                    festivity.EndTime))
+                .Distinct()
+                .OrderBy(festivity => festivity.StartTime)
+                .ThenBy(festivity => festivity.EndTime)
+                .ThenBy(festivity => festivity.Category, StringComparer.Ordinal)
+                .ThenBy(festivity => festivity.UniqueName, StringComparer.Ordinal)
+                .ThenBy(festivity => festivity.Kind)
                 .ToArray();
 
-            var payload = new CraftingBonusUploadFingerprintPayload(
+            var payload = new FestivitiesUploadFingerprintPayload(
                 upload.ServerId,
-                normalizedEntries);
+                normalizedEvents);
             var json = JsonSerializer.Serialize(
                 payload,
                 AchievementUploadFingerprintSerializerOptions);
             var hash = Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(json)));
 
-            return new CraftingBonusUploadFingerprint(upload.ServerId, hash);
+            return new FestivitiesUploadFingerprint(upload.ServerId, hash);
         }
 
         private static AchievementUploadFingerprint CreateAchievementUploadFingerprint(AchievementUpload upload)
@@ -1426,20 +1505,33 @@ namespace AlbionDataAvalonia.Network.Services
             int ServerId,
             double GlobalMultiplier);
 
-        private readonly record struct CraftingBonusUploadFingerprint(
+        private readonly record struct FestivitiesUploadFingerprint(
             int ServerId,
             string PayloadHash);
 
-        private readonly record struct CraftingBonusUploadFingerprintPayload(
+        private readonly record struct FestivitiesUploadFingerprintPayload(
             int ServerId,
-            CraftingBonusUploadFingerprintEntry[] Entries);
+            FestivitiesUploadFingerprintEvent[] Events);
 
-        private readonly record struct CraftingBonusUploadFingerprintEntry(
-            byte EventType,
-            string Scope,
+        private readonly record struct FestivitiesUploadFingerprintEvent(
+            byte Kind,
+            string Category,
             string UniqueName,
             DateTime StartTime,
             DateTime EndTime);
+
+        private sealed record FestivitiesUploadRequest(
+            FestivitiesUpload Upload,
+            FestivitiesUploadFingerprint Fingerprint,
+            long Version);
+
+        private sealed class FestivitiesUploadState
+        {
+            public FestivitiesUploadRequest? DesiredRequest { get; set; }
+            public FestivitiesUploadFingerprint? LastUploadedFingerprint { get; set; }
+            public long RequestVersion { get; set; }
+            public bool IsUploading { get; set; }
+        }
 
         private readonly record struct AchievementUploadFingerprint(
             int ServerId,

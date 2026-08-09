@@ -495,8 +495,8 @@
 						</Border>
 						<Border Classes="StatCard CompactStatCard">
 							<StackPanel Spacing="2">
-								<TextBlock Classes="StatLabel" Text="Crafting Bonuses" />
-								<TextBlock Classes="StatValue" Text="{Binding PrivateUploadedCraftingBonusesCount, StringFormat=N0}" />
+								<TextBlock Classes="StatLabel" Text="Festivities" />
+								<TextBlock Classes="StatValue" Text="{Binding PrivateUploadedFestivitiesCount, StringFormat=N0}" />
 							</StackPanel>
 						</Border>
 					</WrapPanel>

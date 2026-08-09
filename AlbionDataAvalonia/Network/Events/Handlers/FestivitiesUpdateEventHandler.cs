@@ -12,8 +12,6 @@ namespace AlbionDataAvalonia.Network.Handlers;
 
 public class FestivitiesUpdateEventHandler : EventPacketHandler<FestivitiesUpdateEvent>
 {
-    private const byte CraftingBonusEventType = 2;
-
     private readonly PlayerState playerState;
     private readonly AFMUploader afmUploader;
 
@@ -33,51 +31,59 @@ public class FestivitiesUpdateEventHandler : EventPacketHandler<FestivitiesUpdat
 
         if (playerState.AlbionServer is null)
         {
-            Log.Warning("Crafting bonuses parsed from festivities update, but current server is unknown. Upload skipped.");
+            Log.Warning("Festivities parsed from update, but current server is unknown. Upload skipped.");
             return Task.CompletedTask;
         }
 
-        var upload = new CraftingBonusUpload
+        var upload = new FestivitiesUpload
         {
             ServerId = playerState.AlbionServer.Id
         };
 
-        for (var index = 0; index < value.EventTypes.Length; index++)
+        for (var index = 0; index < value.Kinds.Length; index++)
         {
-            if (value.EventTypes[index] != CraftingBonusEventType
-                || string.IsNullOrWhiteSpace(value.Scopes[index])
-                || string.IsNullOrWhiteSpace(value.UniqueNames[index]))
+            var uniqueName = value.UniqueNames[index]?.Trim();
+            if (string.IsNullOrWhiteSpace(uniqueName))
             {
-                continue;
+                Log.Warning(
+                    "Festivities update contains an invalid unique name at index {Index}. Entire snapshot rejected.",
+                    index);
+                return Task.CompletedTask;
             }
 
             if (!TryCreateUtcDateTime(value.StartTimeTicks[index], out var startTime)
                 || !TryCreateUtcDateTime(value.EndTimeTicks[index], out var endTime)
                 || endTime <= startTime)
             {
-                continue;
+                Log.Warning(
+                    "Festivities update contains an invalid time window at index {Index}. Entire snapshot rejected.",
+                    index);
+                return Task.CompletedTask;
             }
 
-            upload.Entries.Add(new CraftingBonusUploadEntry
+            upload.Events.Add(new FestivitiesUploadEvent
             {
-                EventType = value.EventTypes[index],
-                Scope = value.Scopes[index],
-                UniqueName = value.UniqueNames[index],
+                Kind = value.Kinds[index],
+                Category = value.Categories[index]?.Trim() ?? string.Empty,
+                UniqueName = uniqueName,
                 StartTime = startTime,
                 EndTime = endTime
             });
         }
 
-        if (upload.Entries.Count > 0)
-        {
-            afmUploader.UploadCraftingBonuses(upload);
-        }
+        afmUploader.UploadFestivities(upload);
 
         return Task.CompletedTask;
     }
 
     private static bool TryCreateUtcDateTime(long ticks, out DateTime dateTime)
     {
+        if (ticks < DateTime.UnixEpoch.Ticks)
+        {
+            dateTime = default;
+            return false;
+        }
+
         try
         {
             dateTime = new DateTime(ticks, DateTimeKind.Utc);
