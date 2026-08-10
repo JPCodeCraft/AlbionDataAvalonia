@@ -15,7 +15,7 @@ namespace Albion.Network
         private readonly HandlersCollection handlers;
 #if DEBUG
         // Debug packet logging settings.
-        private const bool EnableParserDebugPacketLogging = true;
+        private const bool EnableParserDebugPacketLogging = false;
         private const bool EnableProtocol18CodeDebugLogging = false;
         // Toggle this deep scan on/off as needed. It is expensive on busy streams.
         private const bool EnableDeepParameterValueFilter = false;
@@ -88,6 +88,57 @@ namespace Albion.Network
                 DescribePrimaryParameter(parameters));
         }
 
+        protected override void OnSegmentedPayloadExpired(
+            short peerId,
+            int challenge,
+            byte channelId,
+            int startSequenceNumber,
+            int totalMessageBytes,
+            int expectedFragmentCount,
+            int receivedFragmentCount,
+            long receivedBytes,
+            IReadOnlyList<int> missingFragmentNumbers,
+            TimeSpan age,
+            TimeSpan idleTime)
+        {
+            Log.Debug(
+                "Market fragment probe candidate expired. PeerId={PeerId}, Challenge={Challenge}, ChannelId={ChannelId}, StartSequenceNumber={StartSequenceNumber}, TotalMessageBytes={TotalMessageBytes}, ReceivedBytes={ReceivedBytes}, ReceivedFragments={ReceivedFragmentCount}/{ExpectedFragmentCount}, MissingFragments=[{MissingFragments}], AgeMs={AgeMs:F0}, IdleMs={IdleMs:F0}",
+                peerId,
+                challenge,
+                channelId,
+                startSequenceNumber,
+                totalMessageBytes,
+                receivedBytes,
+                receivedFragmentCount,
+                expectedFragmentCount,
+                string.Join(",", missingFragmentNumbers),
+                age.TotalMilliseconds,
+                idleTime.TotalMilliseconds);
+        }
+
+        protected override void OnCoalescedPayloadDetected(
+            int capturedPayloadBytes,
+            IReadOnlyList<int> photonPacketSizes)
+        {
+            Log.Debug(
+                "UDP receive coalescing detected. CapturedPayloadBytes={CapturedPayloadBytes}, PhotonPacketCount={PhotonPacketCount}, PhotonPacketSizes=[{PhotonPacketSizes}]",
+                capturedPayloadBytes,
+                photonPacketSizes.Count,
+                string.Join(",", photonPacketSizes));
+        }
+
+        protected override void OnTrailingPayloadRejected(
+            int capturedPayloadBytes,
+            int consumedPayloadBytes,
+            int remainingPayloadBytes)
+        {
+            Log.Debug(
+                "Photon UDP payload has an invalid trailing remainder. CapturedPayloadBytes={CapturedPayloadBytes}, ConsumedPayloadBytes={ConsumedPayloadBytes}, RemainingPayloadBytes={RemainingPayloadBytes}",
+                capturedPayloadBytes,
+                consumedPayloadBytes,
+                remainingPayloadBytes);
+        }
+
 #endif
 
         protected override void OnEvent(byte Code, Dictionary<byte, object> Parameters)
@@ -145,7 +196,12 @@ namespace Albion.Network
                     requestMatchValue);
             }
 #endif
-            var requestPacket = new RequestPacket(operationCode, Parameters);
+            var requestPacket = new RequestPacket(
+                operationCode,
+                Parameters,
+                CurrentMessageSizeBytes,
+                CurrentMessageIsFragmented,
+                CurrentMessageFragmentCount);
 
             _ = handlers.HandleAsync(requestPacket);
         }
@@ -167,7 +223,12 @@ namespace Albion.Network
                     responseMatchValue);
             }
 #endif
-            var responsePacket = new ResponsePacket(operationCode, Parameters);
+            var responsePacket = new ResponsePacket(
+                operationCode,
+                Parameters,
+                CurrentMessageSizeBytes,
+                CurrentMessageIsFragmented,
+                CurrentMessageFragmentCount);
 
             _ = handlers.HandleAsync(responsePacket);
         }

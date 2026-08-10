@@ -11,10 +11,8 @@ public class DebugResponseProbeResponseHandler : PacketHandler<ResponsePacket>
 {
     private static readonly int[] ProbeOperationCodeValues =
     [
-        (int)OperationCodes.Join,
-        (int)OperationCodes.GetClusterData,
-        (int)OperationCodes.ChangeCluster,
-        (int)OperationCodes.GetClusterMapInfo,
+        (int)OperationCodes.AuctionGetOffers,
+        (int)OperationCodes.AuctionGetRequests,
     ];
 
     protected override Task OnHandleAsync(ResponsePacket packet)
@@ -25,10 +23,18 @@ public class DebugResponseProbeResponseHandler : PacketHandler<ResponsePacket>
         }
 
         var response = new DebugResponseProbeResponse(packet.Parameters);
+        int marketOrderCount = response.Parameters.TryGetValue(0, out object? primaryValue) &&
+            primaryValue is System.Collections.Generic.IEnumerable<string> marketOrders
+                ? marketOrders.Count()
+                : 0;
         Log.Debug(
-            "Debug probe captured response {OperationCode} ({OperationName}) with {ParameterCount} parameter(s): {Parameters}",
+            "Market order probe captured response {OperationCode} ({OperationName}). MessageSizeBytes={MessageSizeBytes}, IsFragmented={IsFragmented}, FragmentCount={FragmentCount}, MarketOrderCount={MarketOrderCount}, ParameterCount={ParameterCount}: {Parameters}",
             packet.OperationCode,
             System.Enum.GetName(typeof(OperationCodes), packet.OperationCode) ?? "Unknown",
+            packet.MessageSizeBytes,
+            packet.IsFragmented,
+            packet.FragmentCount,
+            marketOrderCount,
             response.Parameters.Count,
             DebugProbeFormatter.FormatParameters(response.Parameters));
 

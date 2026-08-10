@@ -658,6 +658,16 @@ namespace AlbionDataAvalonia.Network.Services
                         _playerState.HasEncryptedData = true;
                         Log.Warning("Encrypted packet received! You can't see market orders!");
                     }
+#if DEBUG
+                    else if (packetStatus == PacketStatus.InvalidHeader ||
+                        packetStatus == PacketStatus.InvalidCrc)
+                    {
+                        Log.Debug(
+                            "Photon UDP payload rejected. Status={PacketStatus}, PayloadBytes={PayloadBytes}",
+                            packetStatus,
+                            packet.PayloadData.Length);
+                    }
+#endif
                 }
             }
             catch (Exception ex)

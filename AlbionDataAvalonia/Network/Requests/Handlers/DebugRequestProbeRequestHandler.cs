@@ -11,10 +11,8 @@ public class DebugRequestProbeRequestHandler : PacketHandler<RequestPacket>
 {
     private static readonly int[] ProbeOperationCodeValues =
     [
-        (int)OperationCodes.ContainerOpen,
-        (int)OperationCodes.ContainerClose,
-        (int)OperationCodes.InventoryMoveItem,
-        (int)OperationCodes.InventoryMoveGivenItems
+        (int)OperationCodes.AuctionGetOffers,
+        (int)OperationCodes.AuctionGetRequests,
     ];
 
     protected override Task OnHandleAsync(RequestPacket packet)
@@ -26,9 +24,12 @@ public class DebugRequestProbeRequestHandler : PacketHandler<RequestPacket>
 
         var request = new DebugRequestProbeRequest(packet.Parameters);
         Log.Debug(
-            "Debug probe captured request {OperationCode} ({OperationName}) with {ParameterCount} parameter(s): {Parameters}",
+            "Market order probe captured request {OperationCode} ({OperationName}). MessageSizeBytes={MessageSizeBytes}, IsFragmented={IsFragmented}, FragmentCount={FragmentCount}, ParameterCount={ParameterCount}: {Parameters}",
             packet.OperationCode,
             System.Enum.GetName(typeof(OperationCodes), packet.OperationCode) ?? "Unknown",
+            packet.MessageSizeBytes,
+            packet.IsFragmented,
+            packet.FragmentCount,
             request.Parameters.Count,
             DebugProbeFormatter.FormatParameters(request.Parameters));
 
