@@ -10,6 +10,7 @@ using AlbionDataAvalonia.Logging;
 using AlbionDataAvalonia.Loot;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Party;
+using AlbionDataAvalonia.Players;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
 using AlbionDataAvalonia.ViewModels;
@@ -417,6 +418,7 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<AuthService>();
         collection.AddSingleton<CsvExportService>();
         collection.AddSingleton<PartyTrackerService>();
+        collection.AddSingleton<PlayerIdentityService>();
         collection.AddSingleton<CombatTrackerService>();
         collection.AddSingleton<GatheringSessionPersistenceService>();
         collection.AddSingleton<GatheringTrackerService>();

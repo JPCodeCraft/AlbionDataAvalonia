@@ -62,4 +62,30 @@ public partial class LootView : UserControl
         await using var stream = await file.OpenWriteAsync();
         await viewModel.ExportToCsvAsync(stream, exportOptions);
     }
+
+    private async void ExportViewerButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    {
+        if (DataContext is not LootViewModel viewModel
+            || TopLevel.GetTopLevel(this) is not Window owner)
+        {
+            return;
+        }
+
+        var file = await owner.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+        {
+            Title = "Export Loot for AO Loot Logger Viewer",
+            SuggestedFileName = $"loot-events-{DateTime.Now:yyyy-MM-dd-HH-mm-ss}.txt",
+            FileTypeChoices = new List<FilePickerFileType>
+            {
+                new("Loot Log Files") { Patterns = new[] { "*.txt" } }
+            }
+        });
+        if (file is null)
+        {
+            return;
+        }
+
+        await using var stream = await file.OpenWriteAsync();
+        await viewModel.ExportToViewerAsync(stream);
+    }
 }

@@ -7,6 +7,7 @@ using AlbionDataAvalonia.Legendary;
 using AlbionDataAvalonia.Network.Handlers;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Party;
+using AlbionDataAvalonia.Players;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
 using Microsoft.Win32;
@@ -48,6 +49,7 @@ namespace AlbionDataAvalonia.Network.Services
         private readonly CombatTrackerService _combatTracker;
         private readonly GatheringTrackerService _gatheringTracker;
         private readonly PartyTrackerService _partyTracker;
+        private readonly PlayerIdentityService _playerIdentityService;
         private readonly LootTrackerService _lootTracker;
         private readonly MobsService _mobsService;
         private readonly LegendaryItemTrackerService _legendaryTracker;
@@ -63,7 +65,7 @@ namespace AlbionDataAvalonia.Network.Services
         public bool IsMacOSCapturePermissionSetupRequired { get; private set; }
         public bool IsMacOSCapturePermissionSetupOutdated { get; private set; }
 
-        public NetworkListenerService(Uploader uploader, PlayerState playerState, SettingsManager settingsManager, MailService mailService, IdleService idleService, TradeService tradeService, AFMUploader afmUploader, ItemsIdsService itemsIdsService, ItemEstimatedMarketValueService itemEstimatedMarketValues, AchievementsService achievementsService, CombatTrackerService combatTracker, GatheringTrackerService gatheringTracker, PartyTrackerService partyTracker, LootTrackerService lootTracker, MobsService mobsService, LegendaryItemTrackerService legendaryTracker)
+        public NetworkListenerService(Uploader uploader, PlayerState playerState, SettingsManager settingsManager, MailService mailService, IdleService idleService, TradeService tradeService, AFMUploader afmUploader, ItemsIdsService itemsIdsService, ItemEstimatedMarketValueService itemEstimatedMarketValues, AchievementsService achievementsService, CombatTrackerService combatTracker, GatheringTrackerService gatheringTracker, PartyTrackerService partyTracker, PlayerIdentityService playerIdentityService, LootTrackerService lootTracker, MobsService mobsService, LegendaryItemTrackerService legendaryTracker)
         {
             _uploader = uploader;
             _playerState = playerState;
@@ -76,6 +78,7 @@ namespace AlbionDataAvalonia.Network.Services
             _combatTracker = combatTracker;
             _gatheringTracker = gatheringTracker;
             _partyTracker = partyTracker;
+            _playerIdentityService = playerIdentityService;
             _lootTracker = lootTracker;
             _mobsService = mobsService;
             _legendaryTracker = legendaryTracker;
@@ -187,7 +190,11 @@ namespace AlbionDataAvalonia.Network.Services
                 // builder.AddEventHandler(new LeaveEventHandler(_playerState));
                 // builder.AddEventHandler(new PlayerCountsEventHandler(_playerState, _afmUploader));
                 // builder.AddEventHandler(new CharacterStatsEventHandler());
-                builder.AddEventHandler(new NewCharacterEventHandler(_combatTracker, _partyTracker));
+                builder.AddEventHandler(new NewCharacterEventHandler(
+                    _combatTracker,
+                    _partyTracker,
+                    _playerIdentityService,
+                    _playerState));
                 builder.AddEventHandler(new NewMobEventHandler(_combatTracker, _mobsService));
                 builder.AddEventHandler(new PartyJoinedEventHandler(_partyTracker));
                 builder.AddEventHandler(new PartyPlayerJoinedEventHandler(_partyTracker));

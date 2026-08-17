@@ -2,6 +2,7 @@ using AlbionDataAvalonia.Items.Services;
 using AlbionDataAvalonia.Loot.Models;
 using AlbionDataAvalonia.Party;
 using AlbionDataAvalonia.Party.Models;
+using AlbionDataAvalonia.Players;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
 using AlbionDataAvalonia.State.Events;
@@ -46,6 +47,7 @@ public sealed class LootTrackerService : IDisposable
     private readonly List<PendingLocalMoveBySlot> pendingLocalMovesBySlot = new();
     private readonly SettingsManager settingsManager;
     private readonly PartyTrackerService partyTracker;
+    private readonly PlayerIdentityService playerIdentityService;
     private readonly ItemsIdsService itemsIdsService;
     private readonly ItemEstimatedMarketValueService itemEstimatedMarketValues;
     private readonly ItemEstimatedMarketValueBackendLoader itemEstimatedMarketValueBackendLoader;
@@ -59,6 +61,7 @@ public sealed class LootTrackerService : IDisposable
     public LootTrackerService(
         SettingsManager settingsManager,
         PartyTrackerService partyTracker,
+        PlayerIdentityService playerIdentityService,
         ItemsIdsService itemsIdsService,
         ItemEstimatedMarketValueService itemEstimatedMarketValues,
         ItemEstimatedMarketValueBackendLoader itemEstimatedMarketValueBackendLoader,
@@ -66,6 +69,7 @@ public sealed class LootTrackerService : IDisposable
     {
         this.settingsManager = settingsManager;
         this.partyTracker = partyTracker;
+        this.playerIdentityService = playerIdentityService;
         this.itemsIdsService = itemsIdsService;
         this.itemEstimatedMarketValues = itemEstimatedMarketValues;
         this.itemEstimatedMarketValueBackendLoader = itemEstimatedMarketValueBackendLoader;
@@ -76,6 +80,7 @@ public sealed class LootTrackerService : IDisposable
         itemEstimatedMarketValues.EstimatedMarketValuesChanged += OnEstimatedMarketValuesChanged;
         playerState.OnPlayerStateChanged += OnPlayerStateChanged;
         partyTracker.SnapshotChanged += OnPartySnapshotChanged;
+        playerIdentityService.IdentityChanged += OnPlayerIdentityChanged;
     }
 
     public LootTrackerSnapshot CurrentSnapshot
@@ -95,6 +100,7 @@ public sealed class LootTrackerService : IDisposable
         itemEstimatedMarketValues.EstimatedMarketValuesChanged -= OnEstimatedMarketValuesChanged;
         playerState.OnPlayerStateChanged -= OnPlayerStateChanged;
         partyTracker.SnapshotChanged -= OnPartySnapshotChanged;
+        playerIdentityService.IdentityChanged -= OnPlayerIdentityChanged;
     }
 
     public void SetPaused(bool paused)
@@ -1433,16 +1439,27 @@ public sealed class LootTrackerService : IDisposable
             discoveredBlackMarketEstimatedMarketValue);
         var location = playerState.Location;
         var locationName = location.FriendlyName;
+        var playerIdentity = playerIdentityService.TryGetByName(serverId, playerName, out var knownPlayerIdentity)
+            ? knownPlayerIdentity
+            : null;
+        var sourceIdentity = source.Kind == LootSourceKind.Player
+            && playerIdentityService.TryGetByName(serverId, source.Name, out var knownSourceIdentity)
+                ? knownSourceIdentity
+                : null;
 
         return new LootRecord(
             Guid.NewGuid(),
             nowUtc,
             playerName,
+            playerIdentity?.AllianceName ?? string.Empty,
+            playerIdentity?.GuildName ?? string.Empty,
             string.Equals(playerName, "Unknown", StringComparison.OrdinalIgnoreCase)
                 ? null
                 : partyTracker.IsPartyMember(playerName),
             source.Kind,
             source.Name,
+            sourceIdentity?.AllianceName ?? string.Empty,
+            sourceIdentity?.GuildName ?? string.Empty,
             serverId,
             locationName,
             itemObjectId,
@@ -1513,10 +1530,16 @@ public sealed class LootTrackerService : IDisposable
         }
 
         var record = records[index];
+        var sourceIdentity = source.Kind == LootSourceKind.Player
+            && playerIdentityService.TryGetByName(record.ServerId, source.Name, out var identity)
+                ? identity
+                : null;
         records[index] = record with
         {
             SourceKind = source.Kind,
-            SourceName = source.Name
+            SourceName = source.Name,
+            SourceAllianceName = sourceIdentity?.AllianceName ?? string.Empty,
+            SourceGuildName = sourceIdentity?.GuildName ?? string.Empty
         };
     }
 
@@ -1796,6 +1819,82 @@ public sealed class LootTrackerService : IDisposable
         return nonLocalMembers.Length == 1
             ? nonLocalMembers[0].Name
             : "Unknown";
+    }
+
+    private void OnPlayerIdentityChanged(PlayerIdentitySnapshot identity)
+    {
+        LootTrackerSnapshot? snapshot = null;
+        lock (sync)
+        {
+            var changed = false;
+            for (var index = 0; index < records.Count; index++)
+            {
+                var record = records[index];
+                var updatedRecord = record;
+                if (IsIdentityMatch(record.ServerId, record.PlayerName, identity))
+                {
+                    updatedRecord = updatedRecord with
+                    {
+                        PlayerAllianceName = FillMissingAffiliation(
+                            updatedRecord.PlayerAllianceName,
+                            identity.AllianceName),
+                        PlayerGuildName = FillMissingAffiliation(
+                            updatedRecord.PlayerGuildName,
+                            identity.GuildName)
+                    };
+                }
+
+                if (record.SourceKind == LootSourceKind.Player
+                    && IsIdentityMatch(record.ServerId, record.SourceName, identity))
+                {
+                    updatedRecord = updatedRecord with
+                    {
+                        SourceAllianceName = FillMissingAffiliation(
+                            updatedRecord.SourceAllianceName,
+                            identity.AllianceName),
+                        SourceGuildName = FillMissingAffiliation(
+                            updatedRecord.SourceGuildName,
+                            identity.GuildName)
+                    };
+                }
+
+                if (updatedRecord == record)
+                {
+                    continue;
+                }
+
+                records[index] = updatedRecord;
+                changed = true;
+            }
+
+            if (changed)
+            {
+                snapshot = BuildSnapshot();
+            }
+        }
+
+        if (snapshot is not null)
+        {
+            SnapshotChanged?.Invoke(snapshot);
+        }
+    }
+
+    private static bool IsIdentityMatch(
+        int? recordServerId,
+        string playerName,
+        PlayerIdentitySnapshot identity)
+    {
+        return (recordServerId is null
+                || identity.ServerId is null
+                || recordServerId == identity.ServerId)
+            && string.Equals(playerName, identity.PlayerName, StringComparison.OrdinalIgnoreCase);
+    }
+
+    private static string FillMissingAffiliation(string currentValue, string updatedValue)
+    {
+        return string.IsNullOrWhiteSpace(currentValue) && !string.IsNullOrWhiteSpace(updatedValue)
+            ? updatedValue
+            : currentValue;
     }
 
     private void OnPlayerStateChanged(object? sender, PlayerStateEventArgs e)
