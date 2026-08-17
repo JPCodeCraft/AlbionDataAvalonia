@@ -22,6 +22,7 @@ public class LeaveEventHandler : EventPacketHandler<LeaveEvent>
         {
             playerState.PlayerName = "Not set";
             playerState.Location = AlbionLocations.Unset;
+            playerState.ResetPremiumStatus();
         }
         await Task.CompletedTask;
     }

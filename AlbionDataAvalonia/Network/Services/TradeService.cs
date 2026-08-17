@@ -158,6 +158,8 @@ public class TradeService
     {
         try
         {
+            trade.HasPremium ??= _playerState.HasPremium;
+
             using (var db = new LocalContext())
             {
                 await db.Trades.AddAsync(trade);
@@ -259,6 +261,46 @@ public class TradeService
             await db.SaveChangesAsync();
 
             Log.Debug("Updated {Count} trade quality levels to {QualityLevel}", trades.Count, qualityLevel);
+            return trades.Count;
+        }
+        catch (Exception e)
+        {
+            Log.Error(e, e.Message);
+            return 0;
+        }
+    }
+
+    public async Task<int> UpdateTradePremiumStatusAsync(
+        IEnumerable<Guid> tradeIds,
+        bool hasPremium,
+        CancellationToken cancellationToken = default)
+    {
+        var ids = tradeIds.Distinct().ToList();
+        if (ids.Count == 0)
+        {
+            return 0;
+        }
+
+        try
+        {
+            using var db = new LocalContext();
+            var trades = await db.Trades
+                .Where(x => !x.Deleted
+                    && x.Operation == TradeOperation.Sell
+                    && ids.Contains(x.Id))
+                .ToListAsync(cancellationToken);
+
+            foreach (var trade in trades)
+            {
+                trade.HasPremium = hasPremium;
+            }
+
+            await db.SaveChangesAsync(cancellationToken);
+
+            Log.Debug(
+                "Updated Premium status for {Count} sell trades to {HasPremium}",
+                trades.Count,
+                hasPremium);
             return trades.Count;
         }
         catch (Exception e)

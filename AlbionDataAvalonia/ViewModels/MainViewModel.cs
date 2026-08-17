@@ -9,6 +9,7 @@ using AlbionDataAvalonia.Views;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Media;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -59,6 +60,37 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private string playerName = "Not set";
+
+    [ObservableProperty]
+    private bool? hasPremium;
+
+    public string PremiumStatusText => HasPremium switch
+    {
+        true => "Premium",
+        false => "No Premium",
+        null => "Premium Unknown"
+    };
+
+    public IBrush PremiumStatusBackground => HasPremium switch
+    {
+        true => Brush.Parse("#4DFFA726"),
+        false => Brush.Parse("#2AFFFFFF"),
+        null => Brush.Parse("#1AFFFFFF")
+    };
+
+    public IBrush PremiumStatusForeground => HasPremium switch
+    {
+        true => Brush.Parse("#FFD180"),
+        false => Brush.Parse("#C7C7C7"),
+        null => Brush.Parse("#999999")
+    };
+
+    partial void OnHasPremiumChanged(bool? value)
+    {
+        OnPropertyChanged(nameof(PremiumStatusText));
+        OnPropertyChanged(nameof(PremiumStatusBackground));
+        OnPropertyChanged(nameof(PremiumStatusForeground));
+    }
 
     [ObservableProperty]
     private string albionServerName;
@@ -212,6 +244,7 @@ public partial class MainViewModel : ViewModelBase
 
         LocationName = _playerState.Location.FriendlyName;
         PlayerName = _playerState.PlayerName;
+        HasPremium = _playerState.HasPremium;
         AlbionServerName = _playerState.AlbionServer?.Name ?? "Unknown";
 
         UploadQueueSize = _uploader.uploadQueueCount;
@@ -360,6 +393,7 @@ public partial class MainViewModel : ViewModelBase
 
         LocationName = e.Location.FriendlyName;
         PlayerName = e.Name;
+        HasPremium = e.HasPremium;
         AlbionServerName = e.AlbionServer?.Name ?? "Unknown";
         UploadToAfmOnly = e.UploadToAfmOnly;
         ContributeToPublic = e.ContributeToPublic;

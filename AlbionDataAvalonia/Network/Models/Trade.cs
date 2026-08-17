@@ -24,6 +24,7 @@ public class Trade
     public ulong TotalSilver => (ulong)(UnitSilver * (ulong)Amount);
     public double SalesTaxesPercent { get; set; } = 0;
     public long SalesTaxes => (long)(TotalSilver * SalesTaxesPercent);
+    public bool? HasPremium { get; set; }
     public bool Deleted { get; set; } = false;
 
 

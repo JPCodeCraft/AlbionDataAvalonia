@@ -187,7 +187,8 @@ namespace AlbionDataAvalonia.Network.Services
 
                 // ADD HANDLERS HERE
                 // EVENTS
-                // builder.AddEventHandler(new LeaveEventHandler(_playerState));
+                builder.AddEventHandler(new LeaveEventHandler(_playerState));
+                builder.AddEventHandler(new PremiumChangedEventHandler(_playerState));
                 // builder.AddEventHandler(new PlayerCountsEventHandler(_playerState, _afmUploader));
                 // builder.AddEventHandler(new CharacterStatsEventHandler());
                 builder.AddEventHandler(new NewCharacterEventHandler(

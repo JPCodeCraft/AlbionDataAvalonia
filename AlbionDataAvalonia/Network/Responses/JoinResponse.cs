@@ -14,6 +14,7 @@ public class JoinResponse : BaseOperation
     public readonly int userObjectId;
     public readonly Guid? userGuid;
     public readonly double? globalMultiplier;
+    public readonly long? premiumExpirationTicks;
 
     public JoinResponse(Dictionary<byte, object> parameters) : base(parameters)
     {
@@ -71,7 +72,21 @@ public class JoinResponse : BaseOperation
                 }
                 catch (InvalidCastException)
                 {
-                    Log.Warning("Join response param 83 was present but could not be parsed into a global multiplier. Type: {Type}", globalMultiplierData?.GetType());
+                    Log.Warning("Join response param 84 was present but could not be parsed into a global multiplier. Type: {Type}", globalMultiplierData?.GetType());
+                }
+            }
+
+            if (parameters.TryGetValue(89, out object? premiumExpirationData))
+            {
+                try
+                {
+                    premiumExpirationTicks = premiumExpirationData.ToLong();
+                }
+                catch (InvalidCastException)
+                {
+                    Log.Warning(
+                        "Join response param 89 was present but could not be parsed into Premium expiration ticks. Type: {Type}",
+                        premiumExpirationData?.GetType());
                 }
             }
         }

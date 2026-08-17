@@ -231,12 +231,28 @@
 					VerticalAlignment="Center"
 					Content="Player Name"
 					FontWeight="Bold" />
-				<Label
+				<StackPanel
 					Grid.Row="1"
 					Grid.Column="1"
 					HorizontalAlignment="Center"
 					VerticalAlignment="Center"
-					Content="{Binding PlayerName}" />
+					Orientation="Horizontal"
+					Spacing="8">
+					<Label
+						VerticalAlignment="Center"
+						Content="{Binding PlayerName}" />
+					<Border
+						Padding="7,2"
+						VerticalAlignment="Center"
+						Background="{Binding PremiumStatusBackground}"
+						CornerRadius="8">
+						<TextBlock
+							FontSize="11"
+							FontWeight="SemiBold"
+							Foreground="{Binding PremiumStatusForeground}"
+							Text="{Binding PremiumStatusText}" />
+					</Border>
+				</StackPanel>
 
 				<Label
 					Grid.Row="0"

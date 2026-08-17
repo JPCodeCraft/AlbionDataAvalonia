@@ -39,6 +39,7 @@ public class JoinResponseHandler : ResponsePacketHandler<JoinResponse>
         playerState.UserObjectId = value.userObjectId;
         playerState.PlayerName = value.playerName;
         playerState.Location = value.playerLocation;
+        playerState.SetPremiumExpirationTicks(value.premiumExpirationTicks);
         partyTracker.SetLocalPlayer(value.userObjectId, value.userGuid, value.playerName);
         lootTracker.ResetTransientState();
         await legendaryTracker.ResetTransientStateAsync();
