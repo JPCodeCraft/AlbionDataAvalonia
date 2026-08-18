@@ -24,6 +24,7 @@ public sealed record LootRecord(
     string SourceGuildName,
     int? ServerId,
     string LocationName,
+    string LocationId,
     long? ItemObjectId,
     int ItemId,
     string ItemUniqueName,

@@ -200,7 +200,7 @@ public class CsvExportService
         {
             "Picked Up UTC", "Server", "Player", "Player Alliance", "Player Guild",
             "Party Member At Pickup", "Source Type", "Source", "Source Alliance", "Source Guild",
-            "Location", "Item Unique Name", "Item", "Quality",
+            "Location", "Location ID", "Item Unique Name", "Item", "Quality",
             "Amount", "Unit EMV", "Total EMV"
         }));
 
@@ -235,6 +235,7 @@ public class CsvExportService
                 Escape(record.SourceAllianceName, delimiter),
                 Escape(record.SourceGuildName, delimiter),
                 Escape(record.LocationName, delimiter),
+                Escape(record.LocationId, delimiter),
                 Escape(record.ItemUniqueName, delimiter),
                 Escape(record.ItemName, delimiter),
                 Escape(ItemQuality.Format(record.Quality), delimiter),

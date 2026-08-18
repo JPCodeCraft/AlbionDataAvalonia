@@ -1439,6 +1439,7 @@ public sealed class LootTrackerService : IDisposable
             discoveredBlackMarketEstimatedMarketValue);
         var location = playerState.Location;
         var locationName = location.FriendlyName;
+        var locationId = location.Id;
         var playerIdentity = playerIdentityService.TryGetByName(serverId, playerName, out var knownPlayerIdentity)
             ? knownPlayerIdentity
             : null;
@@ -1462,6 +1463,7 @@ public sealed class LootTrackerService : IDisposable
             sourceIdentity?.GuildName ?? string.Empty,
             serverId,
             locationName,
+            locationId,
             itemObjectId,
             itemId,
             resolvedUniqueName,
