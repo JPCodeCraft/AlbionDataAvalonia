@@ -886,6 +886,12 @@ public sealed class TradeRowViewModel : ObservableObject
 
     public Trade Source { get; }
     public string PlayerName => Source.PlayerName;
+    public string PremiumStatusFormatted => Source.HasPremium switch
+    {
+        true => "Yes",
+        false => "No",
+        null => "Unknown"
+    };
     public DateTime DateTime => Source.DateTime;
     public string DateTimeUtcFormatted => FormatUtc(DateTime);
     public AlbionServer? Server => Source.Server;

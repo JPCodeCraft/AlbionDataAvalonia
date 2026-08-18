@@ -178,6 +178,7 @@
 			<DataGrid.Columns>
 				<DataGridTextColumn Header="Server" Binding="{Binding Server.Name}" />
 				<DataGridTextColumn Header="Player" Binding="{Binding PlayerName}" />
+				<DataGridTextColumn Header="Premium" Binding="{Binding PremiumStatusFormatted}" />
 				<DataGridTextColumn Header="Received" Binding="{Binding DateTimeUtcFormatted}" SortMemberPath="DateTime" />
 				<DataGridTextColumn Header="Type" Binding="{Binding TradeTypeFormatted}" />
 				<DataGridTextColumn Header="Operation" Binding="{Binding TradeOperationFormatted}" />
