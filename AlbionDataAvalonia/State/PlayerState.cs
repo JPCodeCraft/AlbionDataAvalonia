@@ -20,6 +20,7 @@ namespace AlbionDataAvalonia.State
         private bool hasEncryptedData = false;
         private DateTime? premiumExpiresAtUtc;
         private bool? hasPremium;
+        private bool premiumStatusKnown;
 
         private bool uploadToAfmOnly = false;
         private bool contributeToPublic = false;
@@ -175,13 +176,16 @@ namespace AlbionDataAvalonia.State
                 }
             }
 
+            premiumStatusKnown = true;
             premiumExpiresAtUtc = expiration;
             RefreshPremiumStatus();
         }
 
         public void ResetPremiumStatus()
         {
-            SetPremiumExpirationTicks(null);
+            premiumStatusKnown = false;
+            premiumExpiresAtUtc = null;
+            RefreshPremiumStatus();
         }
 
         private void InvokePlayerStateChanged()
@@ -206,9 +210,11 @@ namespace AlbionDataAvalonia.State
 
         private void RefreshPremiumStatus()
         {
-            bool? currentStatus = premiumExpiresAtUtc.HasValue
-                ? premiumExpiresAtUtc.Value > DateTime.UtcNow
-                : null;
+            bool? currentStatus = !premiumStatusKnown
+                ? null
+                : premiumExpiresAtUtc.HasValue
+                    ? premiumExpiresAtUtc.Value > DateTime.UtcNow
+                    : false;
 
             if (hasPremium == currentStatus)
             {
