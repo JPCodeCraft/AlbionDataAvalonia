@@ -13,6 +13,8 @@ public class JoinResponse : BaseOperation
     public readonly string playerName;
     public readonly long userObjectId;
     public readonly Guid? userGuid;
+    public readonly string? guildName;
+    public readonly string? allianceName;
     public readonly double? globalMultiplier;
     public readonly long? premiumExpirationTicks;
 
@@ -40,6 +42,16 @@ public class JoinResponse : BaseOperation
             {
                 string location = (string)locationData;
                 playerLocation = AlbionLocations.ResolveLocation(location);
+            }
+
+            if (parameters.TryGetValue(58, out object? guildNameData))
+            {
+                guildName = guildNameData?.ToString() ?? string.Empty;
+            }
+
+            if (parameters.TryGetValue(79, out object? allianceNameData))
+            {
+                allianceName = allianceNameData?.ToString() ?? string.Empty;
             }
 
             if (parameters.TryGetValue(84, out object globalMultiplierData))

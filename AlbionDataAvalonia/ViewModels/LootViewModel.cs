@@ -51,19 +51,19 @@ public partial class LootViewModel : ViewModelBase, IDisposable
     private ObservableCollection<string> playerOptions = new([AllPlayers]);
 
     [ObservableProperty]
-    private string selectedPlayer = AllPlayers;
+    private string? selectedPlayer = AllPlayers;
 
     [ObservableProperty]
     private ObservableCollection<LootAffiliationFilterOption> allianceOptions = new([AllAlliances]);
 
     [ObservableProperty]
-    private LootAffiliationFilterOption selectedAlliance = AllAlliances;
+    private LootAffiliationFilterOption? selectedAlliance = AllAlliances;
 
     [ObservableProperty]
     private ObservableCollection<LootAffiliationFilterOption> guildOptions = new([AllGuilds]);
 
     [ObservableProperty]
-    private LootAffiliationFilterOption selectedGuild = AllGuilds;
+    private LootAffiliationFilterOption? selectedGuild = AllGuilds;
 
     [ObservableProperty]
     private bool partyMembersOnly;
@@ -131,19 +131,34 @@ public partial class LootViewModel : ViewModelBase, IDisposable
         ScheduleFilterLoot();
     }
 
-    partial void OnSelectedPlayerChanged(string value)
+    partial void OnSelectedPlayerChanged(string? value)
     {
+        if (value is null)
+        {
+            return;
+        }
+
         ApplyFilter();
     }
 
-    partial void OnSelectedAllianceChanged(LootAffiliationFilterOption value)
+    partial void OnSelectedAllianceChanged(LootAffiliationFilterOption? value)
     {
+        if (value is null)
+        {
+            return;
+        }
+
         RefreshGuildOptions();
         ApplyFilter();
     }
 
-    partial void OnSelectedGuildChanged(LootAffiliationFilterOption value)
+    partial void OnSelectedGuildChanged(LootAffiliationFilterOption? value)
     {
+        if (value is null)
+        {
+            return;
+        }
+
         ApplyFilter();
     }
 
@@ -259,7 +274,8 @@ public partial class LootViewModel : ViewModelBase, IDisposable
         }
 
         PlayerOptions = new ObservableCollection<string>(players);
-        if (!players.Contains(SelectedPlayer, StringComparer.OrdinalIgnoreCase))
+        if (SelectedPlayer is null
+            || !players.Contains(SelectedPlayer, StringComparer.OrdinalIgnoreCase))
         {
             SelectedPlayer = AllPlayers;
         }
@@ -294,7 +310,7 @@ public partial class LootViewModel : ViewModelBase, IDisposable
             AllianceOptions = new ObservableCollection<LootAffiliationFilterOption>(options);
         }
 
-        if (!options.Contains(SelectedAlliance))
+        if (SelectedAlliance is null || !options.Contains(SelectedAlliance))
         {
             SelectedAlliance = AllAlliances;
         }
@@ -332,7 +348,7 @@ public partial class LootViewModel : ViewModelBase, IDisposable
             GuildOptions = new ObservableCollection<LootAffiliationFilterOption>(options);
         }
 
-        if (!options.Contains(SelectedGuild))
+        if (SelectedGuild is null || !options.Contains(SelectedGuild))
         {
             SelectedGuild = AllGuilds;
         }
@@ -342,7 +358,8 @@ public partial class LootViewModel : ViewModelBase, IDisposable
     {
         appliedFilterText = FilterText ?? string.Empty;
         IEnumerable<LootRecord> query = allRecords;
-        if (!string.Equals(SelectedPlayer, AllPlayers, StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrWhiteSpace(SelectedPlayer)
+            && !string.Equals(SelectedPlayer, AllPlayers, StringComparison.OrdinalIgnoreCase))
         {
             query = query.Where(record =>
                 string.Equals(record.PlayerName, SelectedPlayer, StringComparison.OrdinalIgnoreCase));
@@ -406,8 +423,13 @@ public partial class LootViewModel : ViewModelBase, IDisposable
 
     private static bool MatchesAffiliation(
         string affiliationName,
-        LootAffiliationFilterOption option)
+        LootAffiliationFilterOption? option)
     {
+        if (option is null)
+        {
+            return true;
+        }
+
         return option.Kind switch
         {
             LootAffiliationFilterKind.All => true,

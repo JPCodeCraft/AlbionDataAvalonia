@@ -190,7 +190,6 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddEventHandler(new LeaveEventHandler(_playerState));
                 builder.AddEventHandler(new PremiumChangedEventHandler(_playerState));
                 // builder.AddEventHandler(new PlayerCountsEventHandler(_playerState, _afmUploader));
-                // builder.AddEventHandler(new CharacterStatsEventHandler());
                 builder.AddEventHandler(new NewCharacterEventHandler(
                     _combatTracker,
                     _partyTracker,
@@ -245,7 +244,7 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddResponseHandler(new AuctionGetOffersResponseHandler(_uploader, _playerState, _tradeService));
                 builder.AddResponseHandler(new AuctionGetRequestsResponseHandler(_uploader, _playerState, _tradeService));
                 builder.AddResponseHandler(new AuctionGetItemAverageStatsResponseHandler(_uploader, _playerState));
-                builder.AddResponseHandler(new JoinResponseHandler(_playerState, _afmUploader, _partyTracker, _lootTracker, _legendaryTracker));
+                builder.AddResponseHandler(new JoinResponseHandler(_playerState, _afmUploader, _partyTracker, _playerIdentityService, _lootTracker, _legendaryTracker));
                 builder.AddResponseHandler(new AuctionGetGoldAverageStatsResponseHandler(_uploader));
                 builder.AddResponseHandler(new GetMailInfosResponseHandler(_playerState, _mailService));
                 builder.AddResponseHandler(new ReadMailResponseHandler(_playerState, _mailService));

@@ -73,7 +73,7 @@ public partial class LootView : UserControl
 
         var file = await owner.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            Title = "Export Loot for AO Loot Logger Viewer",
+            Title = "Loot Logger",
             SuggestedFileName = $"loot-events-{DateTime.Now:yyyy-MM-dd-HH-mm-ss}.txt",
             FileTypeChoices = new List<FilePickerFileType>
             {

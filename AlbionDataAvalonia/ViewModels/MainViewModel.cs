@@ -2,6 +2,7 @@
 using AlbionDataAvalonia.Auth.Services;
 using AlbionDataAvalonia.Locations;
 using AlbionDataAvalonia.Network.Services;
+using AlbionDataAvalonia.Players;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
 using AlbionDataAvalonia.State.Events;
@@ -40,6 +41,7 @@ public partial class MainViewModel : ViewModelBase
     }
 
     private readonly PlayerState _playerState;
+    private readonly PlayerIdentityService? _playerIdentityService;
     private readonly NetworkListenerService _networkListener;
     private readonly SettingsManager _settingsManager;
     private readonly SettingsViewModel _settingsViewModel;
@@ -61,6 +63,16 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private string playerName = "Not set";
+
+    [ObservableProperty]
+    private string playerAffiliationText = string.Empty;
+
+    public bool HasPlayerAffiliation => !string.IsNullOrWhiteSpace(PlayerAffiliationText);
+
+    partial void OnPlayerAffiliationTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasPlayerAffiliation));
+    }
 
     [ObservableProperty]
     private bool? hasPremium;
@@ -248,9 +260,10 @@ public partial class MainViewModel : ViewModelBase
         SidebarStatusItems.Add(SidebarStatusItem.Ok("Ready", "Capture state looks ready."));
     }
 
-    public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, SettingsManager settingsManager, SettingsViewModel settingsViewModel, LogsViewModel logsViewModel, MailsViewModel mailsViewModel, TradesViewModel tradesViewModel, CombatViewModel combatViewModel, GatheringViewModel gatheringViewModel, LootViewModel lootViewModel, LegendaryViewModel legendaryViewModel, Uploader uploader, AuthService authService)
+    public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, PlayerIdentityService playerIdentityService, SettingsManager settingsManager, SettingsViewModel settingsViewModel, LogsViewModel logsViewModel, MailsViewModel mailsViewModel, TradesViewModel tradesViewModel, CombatViewModel combatViewModel, GatheringViewModel gatheringViewModel, LootViewModel lootViewModel, LegendaryViewModel legendaryViewModel, Uploader uploader, AuthService authService)
     {
         _playerState = playerState;
+        _playerIdentityService = playerIdentityService;
         _networkListener = networkListener;
         _settingsManager = settingsManager;
         _settingsViewModel = settingsViewModel;
@@ -268,6 +281,7 @@ public partial class MainViewModel : ViewModelBase
         PlayerName = _playerState.PlayerName;
         HasPremium = _playerState.HasPremium;
         AlbionServerName = _playerState.AlbionServer?.Name ?? "Unknown";
+        RefreshPlayerAffiliation();
 
         UploadQueueSize = _uploader.uploadQueueCount;
         oldUploadQueueSize = UploadQueueSize;
@@ -281,6 +295,7 @@ public partial class MainViewModel : ViewModelBase
         _uploader.OnChange += UpdateUploadStats;
 
         _playerState.OnPlayerStateChanged += UpdateState;
+        _playerIdentityService.IdentityChanged += OnPlayerIdentityChanged;
         _playerState.OnPublicUploadStatsChanged += ApplyPublicUploadStats;
         _playerState.OnPrivateUploadStatsChanged += ApplyPrivateUploadStats;
         ApplyPublicUploadStats(_playerState.PublicUploadStats);
@@ -417,12 +432,67 @@ public partial class MainViewModel : ViewModelBase
         PlayerName = e.Name;
         HasPremium = e.HasPremium;
         AlbionServerName = e.AlbionServer?.Name ?? "Unknown";
+        RefreshPlayerAffiliation();
         UploadToAfmOnly = e.UploadToAfmOnly;
         ContributeToPublic = e.ContributeToPublic;
         ShareWithFriends = e.ShareWithFriends;
 
         UpdateVisibilities();
         RefreshSidebarStatus();
+    }
+
+    private void OnPlayerIdentityChanged(PlayerIdentitySnapshot identity)
+    {
+        if (!string.Equals(
+                identity.PlayerName,
+                _playerState.PlayerName,
+                StringComparison.OrdinalIgnoreCase)
+            || (_playerState.AlbionServer?.Id is { } serverId
+                && identity.ServerId is { } identityServerId
+                && serverId != identityServerId))
+        {
+            return;
+        }
+
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => OnPlayerIdentityChanged(identity));
+            return;
+        }
+
+        PlayerAffiliationText = FormatPlayerAffiliation(identity.AllianceName, identity.GuildName);
+    }
+
+    private void RefreshPlayerAffiliation()
+    {
+        PlayerAffiliationText = string.Empty;
+        var serverId = _playerState.AlbionServer?.Id;
+        if (_playerIdentityService?.TryGetByName(
+                serverId,
+                _playerState.PlayerName,
+                out var identity) != true
+            || (serverId is not null
+                && identity.ServerId is not null
+                && serverId != identity.ServerId))
+        {
+            return;
+        }
+
+        PlayerAffiliationText = FormatPlayerAffiliation(identity.AllianceName, identity.GuildName);
+    }
+
+    private static string FormatPlayerAffiliation(string allianceName, string guildName)
+    {
+        var alliance = allianceName.Trim();
+        var guild = guildName.Trim();
+        if (string.IsNullOrWhiteSpace(alliance))
+        {
+            return guild;
+        }
+
+        return string.IsNullOrWhiteSpace(guild)
+            ? $"[{alliance}]"
+            : $"[{alliance}] {guild}";
     }
 
     private void RefreshSidebarStatus()

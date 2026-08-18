@@ -39,7 +39,7 @@
                     Click="ClearButton_Click"
                     Width="90"
                     Margin="0,0,8,6" />
-            <Button Content="Export Viewer"
+            <Button Content="Loot Logger"
                     Click="ExportViewerButton_Click"
                     IsEnabled="{Binding !IsExporting}"
                     Width="110"
