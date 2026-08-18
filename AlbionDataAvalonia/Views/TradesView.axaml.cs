@@ -89,7 +89,24 @@ namespace AlbionDataAvalonia.Views
                 return;
             }
 
-            await vm.AddTradesToPortfolioAsync(selectedRows, qualityOverrides, allowReupload);
+            var sellPremiumStatuses = selectedRows
+                .Where(row => row.Source.Operation == TradeOperation.Sell)
+                .Select(row => vm.ResolvePortfolioPremium(row.Source))
+                .ToList();
+            var uploadConfirmation = await ConfirmPortfolioUploadWindow.ShowAsync(
+                owner,
+                selectedRows.Count,
+                sellPremiumStatuses);
+            if (uploadConfirmation == null)
+            {
+                return;
+            }
+
+            await vm.AddTradesToPortfolioAsync(
+                selectedRows,
+                qualityOverrides,
+                allowReupload,
+                uploadConfirmation.PremiumOverride);
         }
 
         private async void SetQualityButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)

@@ -11,9 +11,12 @@ public class JoinResponse : BaseOperation
 {
     public readonly AlbionLocation playerLocation;
     public readonly string playerName;
-    public readonly int userObjectId;
+    public readonly long userObjectId;
     public readonly Guid? userGuid;
+    public readonly string? guildName;
+    public readonly string? allianceName;
     public readonly double? globalMultiplier;
+    public readonly long? premiumExpirationTicks;
 
     public JoinResponse(Dictionary<byte, object> parameters) : base(parameters)
     {
@@ -22,29 +25,7 @@ public class JoinResponse : BaseOperation
         {
             if (parameters.TryGetValue(0, out object objectId))
             {
-                switch (objectId)
-                {
-                    case long longValue:
-                        userObjectId = unchecked((int)longValue);
-                        break;
-                    case int intValue:
-                        userObjectId = intValue;
-                        break;
-                    case short shortValue:
-                        userObjectId = shortValue;
-                        break;
-                    case byte byteValue:
-                        userObjectId = byteValue;
-                        break;
-                    case null:
-                        // Handle null value. For example, you might want to log an error or throw an exception.
-                        Log.Error("objectId is null.");
-                        break;
-                    default:
-                        // Handle unexpected type. For example, you might want to log an error or throw an exception.
-                        Log.Error("Unexpected type for objectId: {Type}", objectId.GetType());
-                        break;
-                }
+                userObjectId = objectId.ToLong();
             }
 
             if (parameters.TryGetValue(1, out object? guidData))
@@ -63,6 +44,16 @@ public class JoinResponse : BaseOperation
                 playerLocation = AlbionLocations.ResolveLocation(location);
             }
 
+            if (parameters.TryGetValue(58, out object? guildNameData))
+            {
+                guildName = guildNameData?.ToString() ?? string.Empty;
+            }
+
+            if (parameters.TryGetValue(79, out object? allianceNameData))
+            {
+                allianceName = allianceNameData?.ToString() ?? string.Empty;
+            }
+
             if (parameters.TryGetValue(84, out object globalMultiplierData))
             {
                 try
@@ -71,7 +62,21 @@ public class JoinResponse : BaseOperation
                 }
                 catch (InvalidCastException)
                 {
-                    Log.Warning("Join response param 83 was present but could not be parsed into a global multiplier. Type: {Type}", globalMultiplierData?.GetType());
+                    Log.Warning("Join response param 84 was present but could not be parsed into a global multiplier. Type: {Type}", globalMultiplierData?.GetType());
+                }
+            }
+
+            if (parameters.TryGetValue(89, out object? premiumExpirationData))
+            {
+                try
+                {
+                    premiumExpirationTicks = premiumExpirationData.ToLong();
+                }
+                catch (InvalidCastException)
+                {
+                    Log.Warning(
+                        "Join response param 89 was present but could not be parsed into Premium expiration ticks. Type: {Type}",
+                        premiumExpirationData?.GetType());
                 }
             }
         }

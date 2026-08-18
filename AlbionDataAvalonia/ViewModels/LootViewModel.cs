@@ -18,6 +18,18 @@ namespace AlbionDataAvalonia.ViewModels;
 public partial class LootViewModel : ViewModelBase, IDisposable
 {
     public const string AllPlayers = "All players";
+    private static readonly LootAffiliationFilterOption AllAlliances = new(
+        LootAffiliationFilterKind.All,
+        "All alliances");
+    private static readonly LootAffiliationFilterOption NoAlliance = new(
+        LootAffiliationFilterKind.Missing,
+        "No alliance");
+    private static readonly LootAffiliationFilterOption AllGuilds = new(
+        LootAffiliationFilterKind.All,
+        "All guilds");
+    private static readonly LootAffiliationFilterOption NoGuild = new(
+        LootAffiliationFilterKind.Missing,
+        "No guild");
 
     private readonly LootTrackerService? lootTracker;
     private readonly CsvExportService? csvExportService;
@@ -39,7 +51,19 @@ public partial class LootViewModel : ViewModelBase, IDisposable
     private ObservableCollection<string> playerOptions = new([AllPlayers]);
 
     [ObservableProperty]
-    private string selectedPlayer = AllPlayers;
+    private string? selectedPlayer = AllPlayers;
+
+    [ObservableProperty]
+    private ObservableCollection<LootAffiliationFilterOption> allianceOptions = new([AllAlliances]);
+
+    [ObservableProperty]
+    private LootAffiliationFilterOption? selectedAlliance = AllAlliances;
+
+    [ObservableProperty]
+    private ObservableCollection<LootAffiliationFilterOption> guildOptions = new([AllGuilds]);
+
+    [ObservableProperty]
+    private LootAffiliationFilterOption? selectedGuild = AllGuilds;
 
     [ObservableProperty]
     private bool partyMembersOnly;
@@ -107,8 +131,34 @@ public partial class LootViewModel : ViewModelBase, IDisposable
         ScheduleFilterLoot();
     }
 
-    partial void OnSelectedPlayerChanged(string value)
+    partial void OnSelectedPlayerChanged(string? value)
     {
+        if (value is null)
+        {
+            return;
+        }
+
+        ApplyFilter();
+    }
+
+    partial void OnSelectedAllianceChanged(LootAffiliationFilterOption? value)
+    {
+        if (value is null)
+        {
+            return;
+        }
+
+        RefreshGuildOptions();
+        ApplyFilter();
+    }
+
+    partial void OnSelectedGuildChanged(LootAffiliationFilterOption? value)
+    {
+        if (value is null)
+        {
+            return;
+        }
+
         ApplyFilter();
     }
 
@@ -162,6 +212,33 @@ public partial class LootViewModel : ViewModelBase, IDisposable
         }
     }
 
+    public async Task ExportToViewerAsync(
+        Stream stream,
+        CancellationToken cancellationToken = default)
+    {
+        if (csvExportService is null)
+        {
+            return;
+        }
+
+        IsExporting = true;
+        ExportProgress = 0;
+        try
+        {
+            var exportRecords = filteredRecords.ToArray();
+            var progress = new Progress<int>(value => ExportProgress = value);
+            await csvExportService.ExportLootToViewerAsync(
+                stream,
+                exportRecords,
+                progress,
+                cancellationToken);
+        }
+        finally
+        {
+            IsExporting = false;
+        }
+    }
+
     private void OnSnapshotChanged(LootTrackerSnapshot snapshot)
     {
         snapshotDispatcher.Post(snapshot);
@@ -175,6 +252,8 @@ public partial class LootViewModel : ViewModelBase, IDisposable
 
         allRecords = snapshot.Records;
         RefreshPlayerOptions();
+        RefreshAllianceOptions();
+        RefreshGuildOptions();
 
         ApplyFilter();
     }
@@ -195,9 +274,83 @@ public partial class LootViewModel : ViewModelBase, IDisposable
         }
 
         PlayerOptions = new ObservableCollection<string>(players);
-        if (!players.Contains(SelectedPlayer, StringComparer.OrdinalIgnoreCase))
+        if (SelectedPlayer is null
+            || !players.Contains(SelectedPlayer, StringComparer.OrdinalIgnoreCase))
         {
             SelectedPlayer = AllPlayers;
+        }
+    }
+
+    private void RefreshAllianceOptions()
+    {
+        var options = allRecords
+            .Select(record => record.PlayerAllianceName)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .Select(name => new LootAffiliationFilterOption(
+                LootAffiliationFilterKind.Named,
+                name,
+                name))
+            .Prepend(NoAlliance)
+            .Prepend(AllAlliances)
+            .ToArray();
+
+        if (!allRecords.Any(record => string.IsNullOrWhiteSpace(record.PlayerAllianceName)))
+        {
+            options = options.Where(option => option.Kind != LootAffiliationFilterKind.Missing).ToArray();
+        }
+
+        options = options
+            .Select(option => AllianceOptions.FirstOrDefault(existing => existing == option) ?? option)
+            .ToArray();
+
+        if (!AllianceOptions.SequenceEqual(options))
+        {
+            AllianceOptions = new ObservableCollection<LootAffiliationFilterOption>(options);
+        }
+
+        if (SelectedAlliance is null || !options.Contains(SelectedAlliance))
+        {
+            SelectedAlliance = AllAlliances;
+        }
+    }
+
+    private void RefreshGuildOptions()
+    {
+        var recordsForAlliance = allRecords.Where(record =>
+            MatchesAffiliation(record.PlayerAllianceName, SelectedAlliance));
+        var records = recordsForAlliance.ToArray();
+        var options = records
+            .Select(record => record.PlayerGuildName)
+            .Where(name => !string.IsNullOrWhiteSpace(name))
+            .Distinct(StringComparer.OrdinalIgnoreCase)
+            .OrderBy(name => name, StringComparer.OrdinalIgnoreCase)
+            .Select(name => new LootAffiliationFilterOption(
+                LootAffiliationFilterKind.Named,
+                name,
+                name))
+            .Prepend(NoGuild)
+            .Prepend(AllGuilds)
+            .ToArray();
+
+        if (!records.Any(record => string.IsNullOrWhiteSpace(record.PlayerGuildName)))
+        {
+            options = options.Where(option => option.Kind != LootAffiliationFilterKind.Missing).ToArray();
+        }
+
+        options = options
+            .Select(option => GuildOptions.FirstOrDefault(existing => existing == option) ?? option)
+            .ToArray();
+
+        if (!GuildOptions.SequenceEqual(options))
+        {
+            GuildOptions = new ObservableCollection<LootAffiliationFilterOption>(options);
+        }
+
+        if (SelectedGuild is null || !options.Contains(SelectedGuild))
+        {
+            SelectedGuild = AllGuilds;
         }
     }
 
@@ -205,11 +358,16 @@ public partial class LootViewModel : ViewModelBase, IDisposable
     {
         appliedFilterText = FilterText ?? string.Empty;
         IEnumerable<LootRecord> query = allRecords;
-        if (!string.Equals(SelectedPlayer, AllPlayers, StringComparison.OrdinalIgnoreCase))
+        if (!string.IsNullOrWhiteSpace(SelectedPlayer)
+            && !string.Equals(SelectedPlayer, AllPlayers, StringComparison.OrdinalIgnoreCase))
         {
             query = query.Where(record =>
                 string.Equals(record.PlayerName, SelectedPlayer, StringComparison.OrdinalIgnoreCase));
         }
+
+        query = query.Where(record =>
+            MatchesAffiliation(record.PlayerAllianceName, SelectedAlliance)
+            && MatchesAffiliation(record.PlayerGuildName, SelectedGuild));
 
         if (PartyMembersOnly)
         {
@@ -262,6 +420,27 @@ public partial class LootViewModel : ViewModelBase, IDisposable
     {
         return (value ?? string.Empty).Replace(" ", string.Empty);
     }
+
+    private static bool MatchesAffiliation(
+        string affiliationName,
+        LootAffiliationFilterOption? option)
+    {
+        if (option is null)
+        {
+            return true;
+        }
+
+        return option.Kind switch
+        {
+            LootAffiliationFilterKind.All => true,
+            LootAffiliationFilterKind.Missing => string.IsNullOrWhiteSpace(affiliationName),
+            LootAffiliationFilterKind.Named => string.Equals(
+                affiliationName,
+                option.Value,
+                StringComparison.OrdinalIgnoreCase),
+            _ => false
+        };
+    }
 }
 
 public sealed class LootRowViewModel
@@ -274,6 +453,8 @@ public sealed class LootRowViewModel
     public LootRecord Source { get; }
     public DateTime PickedUpAt => Source.PickedUpAtUtc.ToLocalTime();
     public string PlayerName => Source.PlayerName;
+    public string PlayerAllianceName => FormatAffiliation(Source.PlayerAllianceName);
+    public string PlayerGuildName => FormatAffiliation(Source.PlayerGuildName);
     public string PartyText => Source.WasPartyMemberAtPickup switch
     {
         true => "Yes",
@@ -290,4 +471,27 @@ public sealed class LootRowViewModel
     public long Amount => Source.Amount;
     public long? EstimatedMarketValue => Source.EstimatedMarketValue;
     public long? TotalEstimatedMarketValue => Source.TotalEstimatedMarketValue;
+
+    private static string FormatAffiliation(string value)
+    {
+        return string.IsNullOrWhiteSpace(value) ? "—" : value;
+    }
+}
+
+public enum LootAffiliationFilterKind
+{
+    All,
+    Missing,
+    Named
+}
+
+public sealed record LootAffiliationFilterOption(
+    LootAffiliationFilterKind Kind,
+    string DisplayName,
+    string? Value = null)
+{
+    public override string ToString()
+    {
+        return DisplayName;
+    }
 }

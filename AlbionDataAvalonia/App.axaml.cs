@@ -10,6 +10,7 @@ using AlbionDataAvalonia.Logging;
 using AlbionDataAvalonia.Loot;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Party;
+using AlbionDataAvalonia.Players;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
 using AlbionDataAvalonia.ViewModels;
@@ -111,9 +112,12 @@ public partial class App : Application
 
                 if (unknownAppliedMigrations.Length > 0)
                 {
-                    throw new InvalidOperationException(
+                    var compatibilityException = new InvalidOperationException(
                         $"The local database was upgraded by a newer application version. " +
                         $"This version cannot safely use it. Unknown migrations: {string.Join(", ", unknownAppliedMigrations)}");
+
+                    await TryInstallDatabaseCompatibilityUpdateAsync(services, unknownAppliedMigrations);
+                    throw compatibilityException;
                 }
 
                 await db.Database.MigrateAsync();
@@ -297,6 +301,61 @@ public partial class App : Application
         }
     }
 
+    private static async Task TryInstallDatabaseCompatibilityUpdateAsync(
+        IServiceProvider services,
+        IReadOnlyCollection<string> unknownAppliedMigrations)
+    {
+        Log.Warning(
+            "The local database contains migrations unknown to this application version: {UnknownMigrations}. " +
+            "Checking for a newer eligible version before stopping startup.",
+            string.Join(", ", unknownAppliedMigrations));
+
+        if (!OperatingSystem.IsWindows())
+        {
+            Log.Warning(
+                "Automatic database compatibility recovery is only supported on Windows. " +
+                "Install a newer application version manually.");
+            return;
+        }
+
+        try
+        {
+            var settings = services.GetRequiredService<SettingsManager>();
+            await settings.InitializeSettings();
+
+            var updateResult = await ClientUpdater.CheckForUpdatesAsync(
+                settings.AppSettings.LatestVersionUrl,
+                settings.AppSettings.LatesVersionDownloadUrl,
+                settings.AppSettings.FileNameFormat,
+                settings.UserSettings.JoinBetaProgram);
+
+            if (!updateResult.UpdateAvailable || updateResult.Update == null)
+            {
+                Log.Error(
+                    "No newer eligible application version is available. " +
+                    "Database startup remains blocked for version {CurrentVersion}.",
+                    updateResult.CurrentVersion);
+                return;
+            }
+
+            Log.Warning(
+                "Installing {Channel} version {Version} to recover compatibility with the local database.",
+                updateResult.Update.Channel,
+                updateResult.Update.Version);
+
+            await ClientUpdater.InstallUpdateAsync(updateResult.Update);
+
+            Log.Error(
+                "The compatibility update installer did not start. Database startup remains blocked.");
+        }
+        catch (Exception ex)
+        {
+            Log.Error(
+                ex,
+                "Failed to check for or install a database compatibility update. Database startup remains blocked.");
+        }
+    }
+
     private Task ShowManualUpdateDialogOnceAsync(ClientUpdateInfo update)
     {
         var updateKey = $"{update.Channel}:{update.Version}";
@@ -417,6 +476,7 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<AuthService>();
         collection.AddSingleton<CsvExportService>();
         collection.AddSingleton<PartyTrackerService>();
+        collection.AddSingleton<PlayerIdentityService>();
         collection.AddSingleton<CombatTrackerService>();
         collection.AddSingleton<GatheringSessionPersistenceService>();
         collection.AddSingleton<GatheringTrackerService>();

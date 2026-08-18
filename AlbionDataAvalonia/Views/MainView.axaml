@@ -278,7 +278,16 @@
 				<Grid>
 					<!-- Login Button (when logged out) -->
 					<StackPanel IsVisible="{Binding !UserLoggedIn}" Margin="0,5,0,5">
-						<Button HorizontalAlignment="Stretch" Command="{Binding LoginCommand}">
+						<TextBlock IsVisible="{Binding ShowLoginStatus}"
+							Text="{Binding LoginStatus}"
+							TextWrapping="Wrap"
+							FontSize="11"
+							Opacity="0.85"
+							Margin="0,0,0,8" />
+
+						<Button IsVisible="{Binding !IsLoginPending}"
+							HorizontalAlignment="Stretch"
+							Command="{Binding LoginCommand}">
 							<StackPanel Orientation="Horizontal">
 								<PathIcon
 									Data="M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z"
@@ -286,6 +295,20 @@
 								<TextBlock Text="Sign In" VerticalAlignment="Center" />
 							</StackPanel>
 						</Button>
+
+						<StackPanel IsVisible="{Binding IsLoginPending}" Spacing="5">
+							<Button HorizontalAlignment="Stretch"
+								IsEnabled="{Binding HasLoginAuthorizationUrl}"
+								Command="{Binding OpenLoginBrowserCommand}"
+								Content="Open Browser Again" />
+							<Button HorizontalAlignment="Stretch"
+								IsEnabled="{Binding HasLoginAuthorizationUrl}"
+								Click="CopyLoginLink_Click"
+								Content="Copy Sign-in Link" />
+							<Button HorizontalAlignment="Stretch"
+								Command="{Binding CancelLoginCommand}"
+								Content="Cancel" />
+						</StackPanel>
 					</StackPanel>
 
 					<!-- User Account Section (when logged in) -->

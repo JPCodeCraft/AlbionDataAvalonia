@@ -2,6 +2,7 @@
 using AlbionDataAvalonia.Auth.Services;
 using AlbionDataAvalonia.Locations;
 using AlbionDataAvalonia.Network.Services;
+using AlbionDataAvalonia.Players;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
 using AlbionDataAvalonia.State.Events;
@@ -9,6 +10,7 @@ using AlbionDataAvalonia.Views;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
+using Avalonia.Media;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -18,6 +20,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.ViewModels;
@@ -38,6 +41,7 @@ public partial class MainViewModel : ViewModelBase
     }
 
     private readonly PlayerState _playerState;
+    private readonly PlayerIdentityService? _playerIdentityService;
     private readonly NetworkListenerService _networkListener;
     private readonly SettingsManager _settingsManager;
     private readonly SettingsViewModel _settingsViewModel;
@@ -59,6 +63,47 @@ public partial class MainViewModel : ViewModelBase
 
     [ObservableProperty]
     private string playerName = "Not set";
+
+    [ObservableProperty]
+    private string playerAffiliationText = string.Empty;
+
+    public bool HasPlayerAffiliation => !string.IsNullOrWhiteSpace(PlayerAffiliationText);
+
+    partial void OnPlayerAffiliationTextChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasPlayerAffiliation));
+    }
+
+    [ObservableProperty]
+    private bool? hasPremium;
+
+    public string PremiumStatusText => HasPremium switch
+    {
+        true => "Premium",
+        false => "No Premium",
+        null => "Premium Unknown"
+    };
+
+    public IBrush PremiumStatusBackground => HasPremium switch
+    {
+        true => Brush.Parse("#4DFFA726"),
+        false => Brush.Parse("#2AFFFFFF"),
+        null => Brush.Parse("#1AFFFFFF")
+    };
+
+    public IBrush PremiumStatusForeground => HasPremium switch
+    {
+        true => Brush.Parse("#FFD180"),
+        false => Brush.Parse("#C7C7C7"),
+        null => Brush.Parse("#999999")
+    };
+
+    partial void OnHasPremiumChanged(bool? value)
+    {
+        OnPropertyChanged(nameof(PremiumStatusText));
+        OnPropertyChanged(nameof(PremiumStatusBackground));
+        OnPropertyChanged(nameof(PremiumStatusForeground));
+    }
 
     [ObservableProperty]
     private string albionServerName;
@@ -170,6 +215,25 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private bool userLoggedIn = false;
 
+    [ObservableProperty]
+    private bool isLoginPending;
+
+    [ObservableProperty]
+    private bool showLoginStatus;
+
+    [ObservableProperty]
+    private string loginStatus = string.Empty;
+
+    [ObservableProperty]
+    private string loginAuthorizationUrl = string.Empty;
+
+    public bool HasLoginAuthorizationUrl => !string.IsNullOrWhiteSpace(LoginAuthorizationUrl);
+
+    partial void OnLoginAuthorizationUrlChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasLoginAuthorizationUrl));
+    }
+
     public ObservableCollection<SidebarStatusItem> SidebarStatusItems { get; } = new();
     public bool IsMacOSCapturePermissionSetupOutdated =>
         RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
@@ -188,15 +252,18 @@ public partial class MainViewModel : ViewModelBase
     private int oldUploadQueueSize = 0;
     private int oldRunningTasksCount = 0;
     private bool sidebarStatusRefreshQueued;
+    private CancellationTokenSource? loginCancellationTokenSource;
+    private bool loginCanceledByUser;
 
     public MainViewModel()
     {
         SidebarStatusItems.Add(SidebarStatusItem.Ok("Ready", "Capture state looks ready."));
     }
 
-    public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, SettingsManager settingsManager, SettingsViewModel settingsViewModel, LogsViewModel logsViewModel, MailsViewModel mailsViewModel, TradesViewModel tradesViewModel, CombatViewModel combatViewModel, GatheringViewModel gatheringViewModel, LootViewModel lootViewModel, LegendaryViewModel legendaryViewModel, Uploader uploader, AuthService authService)
+    public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, PlayerIdentityService playerIdentityService, SettingsManager settingsManager, SettingsViewModel settingsViewModel, LogsViewModel logsViewModel, MailsViewModel mailsViewModel, TradesViewModel tradesViewModel, CombatViewModel combatViewModel, GatheringViewModel gatheringViewModel, LootViewModel lootViewModel, LegendaryViewModel legendaryViewModel, Uploader uploader, AuthService authService)
     {
         _playerState = playerState;
+        _playerIdentityService = playerIdentityService;
         _networkListener = networkListener;
         _settingsManager = settingsManager;
         _settingsViewModel = settingsViewModel;
@@ -212,7 +279,9 @@ public partial class MainViewModel : ViewModelBase
 
         LocationName = _playerState.Location.FriendlyName;
         PlayerName = _playerState.PlayerName;
+        HasPremium = _playerState.HasPremium;
         AlbionServerName = _playerState.AlbionServer?.Name ?? "Unknown";
+        RefreshPlayerAffiliation();
 
         UploadQueueSize = _uploader.uploadQueueCount;
         oldUploadQueueSize = UploadQueueSize;
@@ -226,6 +295,7 @@ public partial class MainViewModel : ViewModelBase
         _uploader.OnChange += UpdateUploadStats;
 
         _playerState.OnPlayerStateChanged += UpdateState;
+        _playerIdentityService.IdentityChanged += OnPlayerIdentityChanged;
         _playerState.OnPublicUploadStatsChanged += ApplyPublicUploadStats;
         _playerState.OnPrivateUploadStatsChanged += ApplyPrivateUploadStats;
         ApplyPublicUploadStats(_playerState.PublicUploadStats);
@@ -360,13 +430,69 @@ public partial class MainViewModel : ViewModelBase
 
         LocationName = e.Location.FriendlyName;
         PlayerName = e.Name;
+        HasPremium = e.HasPremium;
         AlbionServerName = e.AlbionServer?.Name ?? "Unknown";
+        RefreshPlayerAffiliation();
         UploadToAfmOnly = e.UploadToAfmOnly;
         ContributeToPublic = e.ContributeToPublic;
         ShareWithFriends = e.ShareWithFriends;
 
         UpdateVisibilities();
         RefreshSidebarStatus();
+    }
+
+    private void OnPlayerIdentityChanged(PlayerIdentitySnapshot identity)
+    {
+        if (!string.Equals(
+                identity.PlayerName,
+                _playerState.PlayerName,
+                StringComparison.OrdinalIgnoreCase)
+            || (_playerState.AlbionServer?.Id is { } serverId
+                && identity.ServerId is { } identityServerId
+                && serverId != identityServerId))
+        {
+            return;
+        }
+
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => OnPlayerIdentityChanged(identity));
+            return;
+        }
+
+        PlayerAffiliationText = FormatPlayerAffiliation(identity.AllianceName, identity.GuildName);
+    }
+
+    private void RefreshPlayerAffiliation()
+    {
+        PlayerAffiliationText = string.Empty;
+        var serverId = _playerState.AlbionServer?.Id;
+        if (_playerIdentityService?.TryGetByName(
+                serverId,
+                _playerState.PlayerName,
+                out var identity) != true
+            || (serverId is not null
+                && identity.ServerId is not null
+                && serverId != identity.ServerId))
+        {
+            return;
+        }
+
+        PlayerAffiliationText = FormatPlayerAffiliation(identity.AllianceName, identity.GuildName);
+    }
+
+    private static string FormatPlayerAffiliation(string allianceName, string guildName)
+    {
+        var alliance = allianceName.Trim();
+        var guild = guildName.Trim();
+        if (string.IsNullOrWhiteSpace(alliance))
+        {
+            return guild;
+        }
+
+        return string.IsNullOrWhiteSpace(guild)
+            ? $"[{alliance}]"
+            : $"[{alliance}] {guild}";
     }
 
     private void RefreshSidebarStatus()
@@ -742,24 +868,90 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private async Task Login()
     {
+        if (loginCancellationTokenSource is not null)
+        {
+            return;
+        }
+
+        var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+        loginCancellationTokenSource = cancellationTokenSource;
+        loginCanceledByUser = false;
+        IsLoginPending = true;
+        UpdateLoginStatus("Preparing Google sign-in...");
+
         try
         {
-            await _authService.SignInAsync();
+            await _authService.SignInAsync(OnLoginAuthorizationReady, cancellationTokenSource.Token);
+            ShowLoginStatus = false;
+            LoginStatus = string.Empty;
         }
         catch (AuthServiceException ex)
         {
-            Log.Error("Authentication error: {Message}", ex.Message);
+            Log.Error(ex, "Authentication error");
+            UpdateLoginStatus(ex.Kind switch
+            {
+                AuthServiceErrorKind.LoopbackUnavailable =>
+                    "AFM could not reserve a local sign-in port. Close other AFM instances and try again.",
+                AuthServiceErrorKind.AuthorizationDenied =>
+                    "Google sign-in was canceled or denied.",
+                _ => "Sign-in failed. Check your connection and try again."
+            });
+        }
+        catch (OperationCanceledException) when (cancellationTokenSource.IsCancellationRequested)
+        {
+            UpdateLoginStatus(loginCanceledByUser
+                ? "Sign-in canceled."
+                : "Sign-in timed out. Try again.");
         }
         catch (Exception ex)
         {
-            Log.Error("An unexpected error occurred during login: {Message}", ex.Message);
+            Log.Error(ex, "An unexpected error occurred during login");
+            UpdateLoginStatus("Sign-in failed. Check your connection and try again.");
+        }
+        finally
+        {
+            if (ReferenceEquals(loginCancellationTokenSource, cancellationTokenSource))
+            {
+                loginCancellationTokenSource = null;
+            }
+
+            cancellationTokenSource.Dispose();
+            IsLoginPending = false;
+            LoginAuthorizationUrl = string.Empty;
         }
     }
 
     [RelayCommand]
-    private void Logout()
+    private void OpenLoginBrowser()
     {
-        _authService.LogOut();
+        if (!Uri.TryCreate(LoginAuthorizationUrl, UriKind.Absolute, out var uri))
+        {
+            UpdateLoginStatus("The sign-in link is not ready yet.");
+            return;
+        }
+
+        UpdateLoginStatus(TryOpenUrl(uri)
+            ? "Waiting for Google sign-in in your browser..."
+            : "AFM could not open your browser. Copy the sign-in link and open it in a browser on this computer.");
+    }
+
+    [RelayCommand]
+    private void CancelLogin()
+    {
+        if (loginCancellationTokenSource is null)
+        {
+            return;
+        }
+
+        loginCanceledByUser = true;
+        UpdateLoginStatus("Canceling sign-in...");
+        loginCancellationTokenSource.Cancel();
+    }
+
+    [RelayCommand]
+    private async Task Logout()
+    {
+        await _authService.LogOut();
     }
 
     public void OpenUrl(object? urlObj)
@@ -772,40 +964,103 @@ public partial class MainViewModel : ViewModelBase
             return;
         }
 
-        try
-        {
-            var uri = new Uri(url);
-        }
-        catch (UriFormatException)
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
         {
             Log.Error("Invalid URL: {Url}", url);
             return;
         }
 
+        if (!TryOpenUrl(uri))
+        {
+            Log.Warning("Unable to open URL: {Url}", url);
+        }
+    }
+
+    public void UpdateLoginStatus(string message)
+    {
+        LoginStatus = message;
+        ShowLoginStatus = !string.IsNullOrWhiteSpace(message);
+    }
+
+    private void OnLoginAuthorizationReady(Uri authorizationUri)
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => OnLoginAuthorizationReady(authorizationUri));
+            return;
+        }
+
+        if (!IsLoginPending)
+        {
+            return;
+        }
+
+        LoginAuthorizationUrl = authorizationUri.AbsoluteUri;
+        UpdateLoginStatus(TryOpenUrl(authorizationUri)
+            ? "Waiting for Google sign-in in your browser..."
+            : "AFM could not open your browser. Copy the sign-in link and open it in a browser on this computer.");
+    }
+
+    private static bool TryOpenUrl(Uri uri)
+    {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            Process.Start(new ProcessStartInfo
+            try
             {
-                FileName = url,
-                UseShellExecute = true
-            });
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = uri.AbsoluteUri,
+                    UseShellExecute = true
+                });
 
-            return;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log.Debug(ex, "Windows could not open URL with the system shell");
+                return false;
+            }
         }
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            Process.Start("x-www-browser", url);
-            return;
+            return TryStartUrlLauncher("xdg-open", uri.AbsoluteUri)
+                || TryStartUrlLauncher("gio", uri.AbsoluteUri, "open")
+                || TryStartUrlLauncher("x-www-browser", uri.AbsoluteUri);
         }
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
-            Process.Start("open", url);
-            return;
+            return TryStartUrlLauncher("open", uri.AbsoluteUri);
         }
 
-        return;
+        return false;
+    }
+
+    private static bool TryStartUrlLauncher(string executable, string url, string? command = null)
+    {
+        try
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = executable,
+                UseShellExecute = false
+            };
+
+            if (!string.IsNullOrEmpty(command))
+            {
+                startInfo.ArgumentList.Add(command);
+            }
+
+            startInfo.ArgumentList.Add(url);
+            Process.Start(startInfo);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log.Debug(ex, "URL launcher {Launcher} was unavailable", executable);
+            return false;
+        }
     }
 }
 

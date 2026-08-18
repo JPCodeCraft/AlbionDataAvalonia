@@ -574,7 +574,7 @@ public sealed class PortfolioUploadService : IDisposable
         else
         {
             transaction.SellToType = request.TradeType == TradeType.Order ? "Sell Order" : "Buy Order";
-            transaction.HasPremium = true;
+            transaction.HasPremium = request.HasPremium ?? true;
         }
 
         return transaction;

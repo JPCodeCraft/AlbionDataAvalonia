@@ -7,6 +7,7 @@ using AlbionDataAvalonia.Legendary;
 using AlbionDataAvalonia.Network.Handlers;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Party;
+using AlbionDataAvalonia.Players;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
 using Microsoft.Win32;
@@ -48,6 +49,7 @@ namespace AlbionDataAvalonia.Network.Services
         private readonly CombatTrackerService _combatTracker;
         private readonly GatheringTrackerService _gatheringTracker;
         private readonly PartyTrackerService _partyTracker;
+        private readonly PlayerIdentityService _playerIdentityService;
         private readonly LootTrackerService _lootTracker;
         private readonly MobsService _mobsService;
         private readonly LegendaryItemTrackerService _legendaryTracker;
@@ -63,7 +65,7 @@ namespace AlbionDataAvalonia.Network.Services
         public bool IsMacOSCapturePermissionSetupRequired { get; private set; }
         public bool IsMacOSCapturePermissionSetupOutdated { get; private set; }
 
-        public NetworkListenerService(Uploader uploader, PlayerState playerState, SettingsManager settingsManager, MailService mailService, IdleService idleService, TradeService tradeService, AFMUploader afmUploader, ItemsIdsService itemsIdsService, ItemEstimatedMarketValueService itemEstimatedMarketValues, AchievementsService achievementsService, CombatTrackerService combatTracker, GatheringTrackerService gatheringTracker, PartyTrackerService partyTracker, LootTrackerService lootTracker, MobsService mobsService, LegendaryItemTrackerService legendaryTracker)
+        public NetworkListenerService(Uploader uploader, PlayerState playerState, SettingsManager settingsManager, MailService mailService, IdleService idleService, TradeService tradeService, AFMUploader afmUploader, ItemsIdsService itemsIdsService, ItemEstimatedMarketValueService itemEstimatedMarketValues, AchievementsService achievementsService, CombatTrackerService combatTracker, GatheringTrackerService gatheringTracker, PartyTrackerService partyTracker, PlayerIdentityService playerIdentityService, LootTrackerService lootTracker, MobsService mobsService, LegendaryItemTrackerService legendaryTracker)
         {
             _uploader = uploader;
             _playerState = playerState;
@@ -76,6 +78,7 @@ namespace AlbionDataAvalonia.Network.Services
             _combatTracker = combatTracker;
             _gatheringTracker = gatheringTracker;
             _partyTracker = partyTracker;
+            _playerIdentityService = playerIdentityService;
             _lootTracker = lootTracker;
             _mobsService = mobsService;
             _legendaryTracker = legendaryTracker;
@@ -184,10 +187,14 @@ namespace AlbionDataAvalonia.Network.Services
 
                 // ADD HANDLERS HERE
                 // EVENTS
-                // builder.AddEventHandler(new LeaveEventHandler(_playerState));
+                builder.AddEventHandler(new LeaveEventHandler(_playerState));
+                builder.AddEventHandler(new PremiumChangedEventHandler(_playerState));
                 // builder.AddEventHandler(new PlayerCountsEventHandler(_playerState, _afmUploader));
-                // builder.AddEventHandler(new CharacterStatsEventHandler());
-                builder.AddEventHandler(new NewCharacterEventHandler(_combatTracker, _partyTracker));
+                builder.AddEventHandler(new NewCharacterEventHandler(
+                    _combatTracker,
+                    _partyTracker,
+                    _playerIdentityService,
+                    _playerState));
                 builder.AddEventHandler(new NewMobEventHandler(_combatTracker, _mobsService));
                 builder.AddEventHandler(new PartyJoinedEventHandler(_partyTracker));
                 builder.AddEventHandler(new PartyPlayerJoinedEventHandler(_partyTracker));
@@ -237,7 +244,7 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddResponseHandler(new AuctionGetOffersResponseHandler(_uploader, _playerState, _tradeService));
                 builder.AddResponseHandler(new AuctionGetRequestsResponseHandler(_uploader, _playerState, _tradeService));
                 builder.AddResponseHandler(new AuctionGetItemAverageStatsResponseHandler(_uploader, _playerState));
-                builder.AddResponseHandler(new JoinResponseHandler(_playerState, _afmUploader, _partyTracker, _lootTracker, _legendaryTracker));
+                builder.AddResponseHandler(new JoinResponseHandler(_playerState, _afmUploader, _partyTracker, _playerIdentityService, _lootTracker, _legendaryTracker));
                 builder.AddResponseHandler(new AuctionGetGoldAverageStatsResponseHandler(_uploader));
                 builder.AddResponseHandler(new GetMailInfosResponseHandler(_playerState, _mailService));
                 builder.AddResponseHandler(new ReadMailResponseHandler(_playerState, _mailService));
@@ -658,6 +665,16 @@ namespace AlbionDataAvalonia.Network.Services
                         _playerState.HasEncryptedData = true;
                         Log.Warning("Encrypted packet received! You can't see market orders!");
                     }
+#if DEBUG
+                    else if (packetStatus == PacketStatus.InvalidHeader ||
+                        packetStatus == PacketStatus.InvalidCrc)
+                    {
+                        Log.Debug(
+                            "Photon UDP payload rejected. Status={PacketStatus}, PayloadBytes={PayloadBytes}",
+                            packetStatus,
+                            packet.PayloadData.Length);
+                    }
+#endif
                 }
             }
             catch (Exception ex)

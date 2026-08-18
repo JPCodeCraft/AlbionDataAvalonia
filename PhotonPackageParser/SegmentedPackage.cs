@@ -54,6 +54,7 @@ namespace PhotonPackageParser
         public int FragmentCount;
         public long BytesWritten;
         public byte[] TotalPayload = Array.Empty<byte>();
+        public DateTime CreatedUtc;
         public DateTime LastUpdatedUtc;
         public Dictionary<int, FragmentRange> ReceivedFragments = new Dictionary<int, FragmentRange>();
     }

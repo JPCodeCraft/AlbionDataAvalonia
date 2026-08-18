@@ -8,7 +8,7 @@ namespace AlbionDataAvalonia.Network.Events
     public class LeaveEvent : BaseEvent
     {
 
-        public readonly int userObjectId;
+        public readonly long userObjectId;
         public LeaveEvent(Dictionary<byte, object> parameters) : base(parameters)
         {
             Log.Verbose("Got {PacketType} packet.", GetType());
@@ -16,7 +16,7 @@ namespace AlbionDataAvalonia.Network.Events
             {
                 if (parameters.TryGetValue(0, out object objectId))
                 {
-                    userObjectId = (int)objectId;
+                    userObjectId = objectId.ToLong();
                 }
             }
             catch (Exception e)

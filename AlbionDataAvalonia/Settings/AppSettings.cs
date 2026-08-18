@@ -21,7 +21,6 @@ public class AppSettings
     public int NetworkDevicesIdleCheckMinutes { get; set; }
 
     public string AfmAuthClientId { get; set; } = string.Empty;
-    public string AfmAuthRedirectUri { get; set; } = string.Empty;
     public string AfmAuthApiUrl { get; set; } = string.Empty;
     public string AfmBackendApiBase { get; set; } = string.Empty;
     public string AfmTopItemsApiBase { get; set; } = string.Empty;

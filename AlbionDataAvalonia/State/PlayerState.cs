@@ -18,6 +18,9 @@ namespace AlbionDataAvalonia.State
         private AlbionServer? albionServer = null;
         private bool isInGame = false;
         private bool hasEncryptedData = false;
+        private DateTime? premiumExpiresAtUtc;
+        private bool? hasPremium;
+        private bool premiumStatusKnown;
 
         private bool uploadToAfmOnly = false;
         private bool contributeToPublic = false;
@@ -36,7 +39,7 @@ namespace AlbionDataAvalonia.State
         public PublicUploadStatsSnapshot PublicUploadStats { get; } = new();
         public PrivateUploadStatsSnapshot PrivateUploadStats { get; } = new();
 
-        public int UserObjectId { get; set; }
+        public long UserObjectId { get; set; }
 
         private const int PowSolveWindowSizeValue = 200;
         private readonly Queue<long> powSolveTimes = new();
@@ -151,9 +154,43 @@ namespace AlbionDataAvalonia.State
             }
         }
 
+        public bool? HasPremium => hasPremium;
+
+        public DateTime? PremiumExpiresAtUtc => premiumExpiresAtUtc;
+
+        public void SetPremiumExpirationTicks(long? expirationTicks)
+        {
+            DateTime? expiration = null;
+
+            if (expirationTicks.HasValue)
+            {
+                try
+                {
+                    expiration = new DateTime(expirationTicks.Value, DateTimeKind.Utc);
+                }
+                catch (ArgumentOutOfRangeException)
+                {
+                    Log.Warning(
+                        "Premium expiration ticks are outside the supported DateTime range: {ExpirationTicks}",
+                        expirationTicks.Value);
+                }
+            }
+
+            premiumStatusKnown = true;
+            premiumExpiresAtUtc = expiration;
+            RefreshPremiumStatus();
+        }
+
+        public void ResetPremiumStatus()
+        {
+            premiumStatusKnown = false;
+            premiumExpiresAtUtc = null;
+            RefreshPremiumStatus();
+        }
+
         private void InvokePlayerStateChanged()
         {
-            OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, IsInGame, HasEncryptedData, UploadToAfmOnly, ContributeToPublic, ShareWithFriends));
+            OnPlayerStateChanged?.Invoke(this, new PlayerStateEventArgs(Location, PlayerName, AlbionServer, IsInGame, HasEncryptedData, UploadToAfmOnly, ContributeToPublic, ShareWithFriends, HasPremium));
         }
 
         public PlayerState()
@@ -167,7 +204,26 @@ namespace AlbionDataAvalonia.State
 
         private void OnTimerElapsed(object? sender, System.Timers.ElapsedEventArgs e)
         {
+            RefreshPremiumStatus();
             _ = IsInGame;
+        }
+
+        private void RefreshPremiumStatus()
+        {
+            bool? currentStatus = !premiumStatusKnown
+                ? null
+                : premiumExpiresAtUtc.HasValue
+                    ? premiumExpiresAtUtc.Value > DateTime.UtcNow
+                    : false;
+
+            if (hasPremium == currentStatus)
+            {
+                return;
+            }
+
+            hasPremium = currentStatus;
+            Log.Information("Player Premium status set to {HasPremium}", hasPremium);
+            InvokePlayerStateChanged();
         }
 
         public void MarketUploadHandler(object? sender, MarketUploadEventArgs e)

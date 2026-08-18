@@ -39,6 +39,11 @@
                     Click="ClearButton_Click"
                     Width="90"
                     Margin="0,0,8,6" />
+            <Button Content="Loot Logger"
+                    Click="ExportViewerButton_Click"
+                    IsEnabled="{Binding !IsExporting}"
+                    Width="110"
+                    Margin="0,0,8,6" />
             <Button Content="Export CSV"
                     Click="ExportCsvButton_Click"
                     IsEnabled="{Binding !IsExporting}"
@@ -56,6 +61,20 @@
                 <ComboBox ItemsSource="{Binding PlayerOptions}"
                           SelectedItem="{Binding SelectedPlayer}"
                           Width="180" />
+            </StackPanel>
+
+            <StackPanel Margin="0,0,16,6">
+                <TextBlock Text="Alliance" FontSize="12" Opacity="0.65" />
+                <ComboBox ItemsSource="{Binding AllianceOptions}"
+                          SelectedItem="{Binding SelectedAlliance}"
+                          Width="170" />
+            </StackPanel>
+
+            <StackPanel Margin="0,0,16,6">
+                <TextBlock Text="Guild" FontSize="12" Opacity="0.65" />
+                <ComboBox ItemsSource="{Binding GuildOptions}"
+                          SelectedItem="{Binding SelectedGuild}"
+                          Width="170" />
             </StackPanel>
 
             <CheckBox Content="Party members only"
@@ -102,6 +121,8 @@
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Time" Binding="{Binding PickedUpAt}" />
                 <DataGridTextColumn Header="Player" Binding="{Binding PlayerName}" />
+                <DataGridTextColumn Header="Alliance" Binding="{Binding PlayerAllianceName}" />
+                <DataGridTextColumn Header="Guild" Binding="{Binding PlayerGuildName}" />
                 <DataGridTextColumn Header="Party" Binding="{Binding PartyText}" />
                 <DataGridTextColumn Header="Source Type" Binding="{Binding SourceKind}" />
                 <DataGridTextColumn Header="Source" Binding="{Binding SourceName}" />

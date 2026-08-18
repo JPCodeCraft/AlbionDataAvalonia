@@ -11,7 +11,7 @@ public class AssetOverviewResponse : BaseOperation
 {
     public readonly AlbionLocation playerLocation;
     public readonly string playerName;
-    public readonly int userObjectId;
+    public readonly long userObjectId;
 
     public AssetOverviewResponse(Dictionary<byte, object> parameters) : base(parameters)
     {

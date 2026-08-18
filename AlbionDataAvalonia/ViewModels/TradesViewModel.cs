@@ -590,6 +590,7 @@ public partial class TradesViewModel : ViewModelBase
         IEnumerable<TradeRowViewModel> selected,
         IReadOnlyDictionary<PortfolioTradeQualityKey, int> qualityOverrides,
         bool allowReupload,
+        bool? premiumOverride,
         CancellationToken cancellationToken = default)
     {
         var selectedTrades = selected?.ToList() ?? new List<TradeRowViewModel>();
@@ -612,6 +613,7 @@ public partial class TradesViewModel : ViewModelBase
         try
         {
             await SavePortfolioQualityOverridesAsync(selectedTrades, qualityOverrides, cancellationToken);
+            await SavePortfolioPremiumOverrideAsync(selectedTrades, premiumOverride, cancellationToken);
 
             var requests = new List<PortfolioTradeImportRequest>();
             var invalidTrades = 0;
@@ -641,6 +643,10 @@ public partial class TradesViewModel : ViewModelBase
                         ? selectedQuality
                         : 1;
 
+                bool? hasPremium = trade.Operation == TradeOperation.Sell
+                    ? premiumOverride ?? trade.HasPremium ?? _playerState.HasPremium ?? true
+                    : null;
+
                 requests.Add(new PortfolioTradeImportRequest(
                     trade.Id,
                     trade.ItemId,
@@ -651,7 +657,8 @@ public partial class TradesViewModel : ViewModelBase
                     trade.UnitSilver,
                     trade.DateTime,
                     locationIndex,
-                    qualityIndex));
+                    qualityIndex,
+                    HasPremium: hasPremium));
             }
 
             var result = await _portfolioUploadService.ImportTradesAsync(requests, allowReupload, cancellationToken);
@@ -698,6 +705,45 @@ public partial class TradesViewModel : ViewModelBase
         {
             IsAddingToPortfolio = false;
         }
+    }
+
+    private async Task SavePortfolioPremiumOverrideAsync(
+        IReadOnlyCollection<TradeRowViewModel> selectedTrades,
+        bool? premiumOverride,
+        CancellationToken cancellationToken)
+    {
+        if (!premiumOverride.HasValue)
+        {
+            return;
+        }
+
+        var sellRows = selectedTrades
+            .Where(row => row.Source.Operation == TradeOperation.Sell)
+            .ToList();
+        if (sellRows.Count == 0)
+        {
+            return;
+        }
+
+        var updatedCount = await _tradeService.UpdateTradePremiumStatusAsync(
+            sellRows.Select(row => row.Source.Id),
+            premiumOverride.Value,
+            cancellationToken);
+
+        if (updatedCount != sellRows.Count)
+        {
+            throw new InvalidOperationException("Failed to save selected Portfolio Premium statuses.");
+        }
+
+        foreach (var row in sellRows)
+        {
+            row.Source.HasPremium = premiumOverride.Value;
+        }
+    }
+
+    public bool ResolvePortfolioPremium(Trade trade)
+    {
+        return trade.HasPremium ?? _playerState.HasPremium ?? true;
     }
 
     private async Task SavePortfolioQualityOverridesAsync(
@@ -840,6 +886,12 @@ public sealed class TradeRowViewModel : ObservableObject
 
     public Trade Source { get; }
     public string PlayerName => Source.PlayerName;
+    public string PremiumStatusFormatted => Source.HasPremium switch
+    {
+        true => "Yes",
+        false => "No",
+        null => "Unknown"
+    };
     public DateTime DateTime => Source.DateTime;
     public string DateTimeUtcFormatted => FormatUtc(DateTime);
     public AlbionServer? Server => Source.Server;

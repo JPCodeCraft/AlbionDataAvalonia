@@ -6,11 +6,11 @@ using Microsoft.EntityFrameworkCore;
 using Microsoft.Win32;
 using Serilog;
 using System;
-using System.Diagnostics;
 using System.Net;
 using System.Net.Http;
 using System.Net.Http.Json;
 using System.Runtime.InteropServices;
+using System.Security.Cryptography;
 using System.Text;
 using System.Text.Json.Serialization;
 using System.Threading;
@@ -31,6 +31,9 @@ namespace AlbionDataAvalonia.Auth.Services
         private DateTimeOffset? _tokenExpiryUtc;
         private static readonly TimeSpan TokenRefreshLeadTime = TimeSpan.FromMinutes(5);
         private static readonly TimeSpan MinScheduledRefreshDelay = TimeSpan.FromSeconds(30);
+        private const int MinLoopbackPort = 49152;
+        private const int MaxLoopbackPortExclusive = 65536;
+        private const int LoopbackBindAttempts = 10;
 
         public Action<FirebaseAuthResponse?>? FirebaseUserChanged;
 
@@ -174,70 +177,93 @@ namespace AlbionDataAvalonia.Auth.Services
             await _dbContext.SaveChangesAsync(cancellationToken);
         }
 
-        public async Task SignInAsync()
+        public async Task SignInAsync(Action<Uri> authorizationReady, CancellationToken cancellationToken = default)
         {
+            ArgumentNullException.ThrowIfNull(authorizationReady);
             Log.Debug("Starting sign in...");
+
+            using var listener = StartLoopbackListener(out var redirectUri);
+            var state = CreateRandomBase64UrlValue();
+            var codeVerifier = CreateRandomBase64UrlValue();
+            var codeChallenge = ToBase64Url(SHA256.HashData(Encoding.ASCII.GetBytes(codeVerifier)));
+            var authorizationUri = BuildGoogleSignInUri(redirectUri, state, codeChallenge);
+
             try
             {
-                // Start listening for the redirect in a separate task
-                var codeTask = HandleRedirectAndGetAuthCodeAsync();
+                authorizationReady(authorizationUri);
+                var code = await HandleRedirectAndGetAuthCodeAsync(listener, state, cancellationToken);
+                listener.Stop();
 
-                // Initiate the sign-in process
-                SignInWithGoogle();
+                var authResponse = await GetFirebaseUserAsync(code, redirectUri, codeVerifier, cancellationToken);
 
-                // Await the token retrieval
-                var code = await codeTask;
-
-                var authResponse = await GetFirebaseUserAsync(code);
-
-                if (authResponse == null || string.IsNullOrEmpty(authResponse.RefreshToken))
+                if (authResponse == null
+                    || string.IsNullOrWhiteSpace(authResponse.LocalId)
+                    || string.IsNullOrWhiteSpace(authResponse.IdToken)
+                    || string.IsNullOrWhiteSpace(authResponse.RefreshToken))
                 {
-                    throw new AuthServiceException("Firebase sign-in did not return a refresh token.");
+                    throw new AuthServiceException("Firebase sign-in returned an incomplete response.");
                 }
 
+                await StoreRefreshToken(authResponse.LocalId, authResponse.RefreshToken, cancellationToken);
                 UpdateFirebaseUser(authResponse);
-
-                await StoreRefreshToken(_firebaseUser!.LocalId, _firebaseUser.RefreshToken);
 
                 OnFirebaseUserChanged(_firebaseUser);
                 ScheduleTokenRefresh();
 
                 Log.Information($"User signed in: {_firebaseUser?.HiddenEmail}");
             }
+            catch (OperationCanceledException)
+            {
+                Log.Information("Sign-in was canceled or timed out.");
+                throw;
+            }
             catch (Exception ex)
             {
-                Log.Error($"Sign-in failed: {ex.Message}");
+                Log.Error(ex, "Sign-in failed");
                 throw;
+            }
+            finally
+            {
+                listener.Close();
             }
         }
 
-        public void SignInWithGoogle()
+        private string BuildGoogleSignInUrl(Uri redirectUri, string state, string codeChallenge)
         {
             var authUrl = $"https://accounts.google.com/o/oauth2/v2/auth" +
-                          $"?client_id={_settingsManager.AppSettings.AfmAuthClientId}" +
-                          $"&redirect_uri={Uri.EscapeDataString(_settingsManager.AppSettings.AfmAuthRedirectUri)}" +
+                          $"?client_id={Uri.EscapeDataString(_settingsManager.AppSettings.AfmAuthClientId)}" +
+                          $"&redirect_uri={Uri.EscapeDataString(redirectUri.AbsoluteUri)}" +
                           $"&response_type=code" +
                           $"&scope=openid%20email%20profile" +
-                          $"&access_type=offline" + // Optional: to get a refresh token
-                          $"&prompt=consent";       // Optional: to force consent screen
+                          $"&access_type=offline" +
+                          $"&prompt=consent" +
+                          $"&state={Uri.EscapeDataString(state)}" +
+                          $"&code_challenge={Uri.EscapeDataString(codeChallenge)}" +
+                          $"&code_challenge_method=S256";
 
-            // Open the browser for the user to authenticate
-            Process.Start(new ProcessStartInfo
-            {
-                FileName = authUrl,
-                UseShellExecute = true
-            });
-
-            Log.Information("Browser opened for Google Sign-In.");
+            return authUrl;
         }
 
-        private async Task<FirebaseAuthResponse?> GetFirebaseUserAsync(string code, CancellationToken cancellationToken = default)
+        private Uri BuildGoogleSignInUri(Uri redirectUri, string state, string codeChallenge)
+        {
+            return new Uri(BuildGoogleSignInUrl(redirectUri, state, codeChallenge), UriKind.Absolute);
+        }
+
+        private async Task<FirebaseAuthResponse?> GetFirebaseUserAsync(
+            string code,
+            Uri redirectUri,
+            string codeVerifier,
+            CancellationToken cancellationToken = default)
         {
             var url = $"{_settingsManager.AppSettings.AfmAuthApiUrl}/tokenFromCode";
-            var query = $"?code={Uri.EscapeDataString(code)}";
 
-            using var client = new HttpClient();
-            var response = await client.GetAsync(url + query, cancellationToken);
+            using var client = new HttpClient { Timeout = TimeSpan.FromSeconds(30) };
+            using var response = await client.PostAsJsonAsync(url, new
+            {
+                code,
+                redirectUri = redirectUri.AbsoluteUri,
+                codeVerifier
+            }, cancellationToken);
 
             if (response.IsSuccessStatusCode)
             {
@@ -357,54 +383,139 @@ namespace AlbionDataAvalonia.Auth.Services
             return DateTimeOffset.UtcNow >= _tokenExpiryUtc.Value - TokenRefreshLeadTime;
         }
 
-        private async Task<string> HandleRedirectAndGetAuthCodeAsync()
+        private static HttpListener StartLoopbackListener(out Uri redirectUri)
         {
-            Log.Debug("Listening for the auth redirect...");
-            using var listener = new HttpListener();
-            listener.Prefixes.Add(_settingsManager.AppSettings.AfmAuthRedirectUri);
-            listener.Start();
+            HttpListenerException? lastException = null;
+
+            for (var attempt = 0; attempt < LoopbackBindAttempts; attempt++)
+            {
+                var port = RandomNumberGenerator.GetInt32(MinLoopbackPort, MaxLoopbackPortExclusive);
+                var candidateUri = new Uri($"http://127.0.0.1:{port}/", UriKind.Absolute);
+                var listener = new HttpListener();
+                listener.Prefixes.Add(candidateUri.AbsoluteUri);
+
+                try
+                {
+                    listener.Start();
+                    redirectUri = candidateUri;
+                    Log.Debug("Listening for the auth redirect on {RedirectUri}", candidateUri);
+                    return listener;
+                }
+                catch (HttpListenerException ex)
+                {
+                    lastException = ex;
+                    listener.Close();
+                    Log.Debug(ex, "Could not bind auth callback listener on port {Port}", port);
+                }
+            }
+
+            redirectUri = null!;
+            throw new AuthServiceException(
+                "AFM could not reserve a local sign-in port. Close other AFM instances and try again.",
+                innerException: lastException,
+                kind: AuthServiceErrorKind.LoopbackUnavailable);
+        }
+
+        private static string CreateRandomBase64UrlValue()
+        {
+            return ToBase64Url(RandomNumberGenerator.GetBytes(32));
+        }
+
+        private static string ToBase64Url(byte[] bytes)
+        {
+            return Convert.ToBase64String(bytes)
+                .TrimEnd('=')
+                .Replace('+', '-')
+                .Replace('/', '_');
+        }
+
+        private static async Task<string> HandleRedirectAndGetAuthCodeAsync(
+            HttpListener listener,
+            string expectedState,
+            CancellationToken cancellationToken)
+        {
+            using var cancellationRegistration = cancellationToken.Register(listener.Close);
 
             try
             {
-                // Wait for the redirect
-                var context = await listener.GetContextAsync();
-                var query = context.Request.QueryString;
-
-                // Extract the authorization code
-                var code = query["code"];
-                var error = query["error"];
-
-                if (!string.IsNullOrEmpty(error))
+                while (true)
                 {
-                    throw new InvalidOperationException($"OAuth error: {error}");
+                    var context = await listener.GetContextAsync();
+                    var request = context.Request;
+                    var query = request.QueryString;
+                    var state = query["state"];
+
+                    if (!string.Equals(request.HttpMethod, "GET", StringComparison.OrdinalIgnoreCase)
+                        || !string.Equals(request.Url?.AbsolutePath, "/", StringComparison.Ordinal)
+                        || !string.Equals(state, expectedState, StringComparison.Ordinal))
+                    {
+                        await WriteLoopbackResponseAsync(context.Response, HttpStatusCode.BadRequest,
+                            "This sign-in request is not valid. Return to AFM Data Client and try again.");
+                        continue;
+                    }
+
+                    var error = query["error"];
+                    if (!string.IsNullOrEmpty(error))
+                    {
+                        await WriteLoopbackResponseAsync(context.Response, HttpStatusCode.OK,
+                            "Google sign-in was canceled. You can close this window and return to AFM Data Client.");
+                        throw new AuthServiceException(
+                            "Google sign-in was canceled or denied.",
+                            kind: AuthServiceErrorKind.AuthorizationDenied);
+                    }
+
+                    var code = query["code"];
+                    if (string.IsNullOrEmpty(code))
+                    {
+                        await WriteLoopbackResponseAsync(context.Response, HttpStatusCode.BadRequest,
+                            "The authorization code was missing. Return to AFM Data Client and try again.");
+                        continue;
+                    }
+
+                    Log.Debug("Received authorization code from the auth redirect.");
+                    await WriteLoopbackResponseAsync(context.Response, HttpStatusCode.OK,
+                        "Sign-in request received. You can close this window and return to AFM Data Client.");
+                    return code;
                 }
+            }
+            catch (HttpListenerException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw new OperationCanceledException(cancellationToken);
+            }
+            catch (ObjectDisposedException) when (cancellationToken.IsCancellationRequested)
+            {
+                throw new OperationCanceledException(cancellationToken);
+            }
+        }
 
-                Log.Debug("Received authorization code from the auth redirect.");
-
-                if (string.IsNullOrEmpty(code))
-                {
-                    throw new InvalidOperationException("Authorization code not found in the redirect.");
-                }
-
-                // Send a response back to the browser
-                using var response = context.Response;
-                string responseString = "Google Sign-In for AFM Data Client successful. You can close this window.";
-                byte[] buffer = Encoding.UTF8.GetBytes(responseString);
+        private static async Task WriteLoopbackResponseAsync(
+            HttpListenerResponse response,
+            HttpStatusCode statusCode,
+            string message)
+        {
+            try
+            {
+                var buffer = Encoding.UTF8.GetBytes(message);
+                response.StatusCode = (int)statusCode;
+                response.ContentType = "text/plain; charset=utf-8";
                 response.ContentLength64 = buffer.Length;
+                response.Headers[HttpResponseHeader.CacheControl] = "no-store";
                 await response.OutputStream.WriteAsync(buffer);
-                response.OutputStream.Close();
-
-                return code;
             }
             catch (Exception ex)
             {
-                // Handle exceptions as needed
-                Log.Error($"Error during token handling: {ex.Message}");
-                throw;
+                Log.Debug(ex, "Could not write the auth callback response to the browser");
             }
             finally
             {
-                listener.Stop();
+                try
+                {
+                    response.Close();
+                }
+                catch (Exception ex)
+                {
+                    Log.Debug(ex, "Could not close the auth callback response");
+                }
             }
         }
 
