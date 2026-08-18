@@ -198,7 +198,7 @@ public class CsvExportService
         using var writer = new StreamWriter(stream, Encoding.UTF8);
         await writer.WriteLineAsync(string.Join(delimiter, new[]
         {
-            "Picked Up UTC", "Player", "Player Alliance", "Player Guild",
+            "Picked Up UTC", "Server", "Player", "Player Alliance", "Player Guild",
             "Party Member At Pickup", "Source Type", "Source", "Source Alliance", "Source Guild",
             "Location", "Item Unique Name", "Item", "Quality",
             "Amount", "Unit EMV", "Total EMV"
@@ -218,6 +218,9 @@ public class CsvExportService
             var line = string.Join(delimiter, new[]
             {
                 Escape(record.PickedUpAtUtc.ToString("O", CultureInfo.InvariantCulture), delimiter),
+                Escape(record.ServerId is { } serverId
+                    ? AlbionServers.Get(serverId)?.Name ?? string.Empty
+                    : string.Empty, delimiter),
                 Escape(record.PlayerName, delimiter),
                 Escape(record.PlayerAllianceName, delimiter),
                 Escape(record.PlayerGuildName, delimiter),
