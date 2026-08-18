@@ -11,7 +11,7 @@ public class JoinResponse : BaseOperation
 {
     public readonly AlbionLocation playerLocation;
     public readonly string playerName;
-    public readonly int userObjectId;
+    public readonly long userObjectId;
     public readonly Guid? userGuid;
     public readonly double? globalMultiplier;
     public readonly long? premiumExpirationTicks;
@@ -23,29 +23,7 @@ public class JoinResponse : BaseOperation
         {
             if (parameters.TryGetValue(0, out object objectId))
             {
-                switch (objectId)
-                {
-                    case long longValue:
-                        userObjectId = unchecked((int)longValue);
-                        break;
-                    case int intValue:
-                        userObjectId = intValue;
-                        break;
-                    case short shortValue:
-                        userObjectId = shortValue;
-                        break;
-                    case byte byteValue:
-                        userObjectId = byteValue;
-                        break;
-                    case null:
-                        // Handle null value. For example, you might want to log an error or throw an exception.
-                        Log.Error("objectId is null.");
-                        break;
-                    default:
-                        // Handle unexpected type. For example, you might want to log an error or throw an exception.
-                        Log.Error("Unexpected type for objectId: {Type}", objectId.GetType());
-                        break;
-                }
+                userObjectId = objectId.ToLong();
             }
 
             if (parameters.TryGetValue(1, out object? guidData))

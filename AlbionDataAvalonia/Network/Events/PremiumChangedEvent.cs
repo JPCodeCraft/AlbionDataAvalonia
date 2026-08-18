@@ -7,7 +7,7 @@ namespace AlbionDataAvalonia.Network.Events;
 
 public class PremiumChangedEvent : BaseEvent
 {
-    public readonly int? userObjectId;
+    public readonly long? userObjectId;
     public readonly long? premiumExpirationTicks;
 
     public PremiumChangedEvent(Dictionary<byte, object> parameters) : base(parameters)
@@ -18,7 +18,7 @@ public class PremiumChangedEvent : BaseEvent
         {
             try
             {
-                userObjectId = checked((int)objectId.ToLong());
+                userObjectId = objectId.ToLong();
             }
             catch (Exception exception) when (exception is InvalidCastException or OverflowException)
             {

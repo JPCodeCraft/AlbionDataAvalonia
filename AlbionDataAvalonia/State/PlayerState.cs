@@ -38,7 +38,7 @@ namespace AlbionDataAvalonia.State
         public PublicUploadStatsSnapshot PublicUploadStats { get; } = new();
         public PrivateUploadStatsSnapshot PrivateUploadStats { get; } = new();
 
-        public int UserObjectId { get; set; }
+        public long UserObjectId { get; set; }
 
         private const int PowSolveWindowSizeValue = 200;
         private readonly Queue<long> powSolveTimes = new();
