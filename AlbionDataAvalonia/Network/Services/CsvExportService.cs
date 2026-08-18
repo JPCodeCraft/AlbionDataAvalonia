@@ -253,67 +253,6 @@ public class CsvExportService
         Log.Information("Exported {Count} filtered loot pickups to CSV", records.Count);
     }
 
-    public async Task ExportLootToViewerAsync(
-        Stream stream,
-        IReadOnlyList<LootRecord> records,
-        IProgress<int>? progress = null,
-        CancellationToken cancellationToken = default)
-    {
-        if (stream.CanSeek)
-        {
-            stream.SetLength(0);
-            stream.Position = 0;
-        }
-
-        using var writer = new StreamWriter(stream, new UTF8Encoding(false));
-        await writer.WriteLineAsync(string.Join(';', new[]
-        {
-            "timestamp_utc",
-            "looted_by__alliance",
-            "looted_by__guild",
-            "looted_by__name",
-            "item_id",
-            "item_name",
-            "quantity",
-            "looted_from__alliance",
-            "looted_from__guild",
-            "looted_from__name"
-        }));
-
-        if (records.Count == 0)
-        {
-            await writer.FlushAsync(cancellationToken);
-            progress?.Report(100);
-            return;
-        }
-
-        for (var index = 0; index < records.Count; index++)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var record = records[index];
-            var line = string.Join(';', new[]
-            {
-                FormatUtc(record.PickedUpAtUtc),
-                SanitizeViewerValue(record.PlayerAllianceName),
-                SanitizeViewerValue(record.PlayerGuildName),
-                SanitizeViewerValue(record.PlayerName),
-                SanitizeViewerValue(record.ItemUniqueName),
-                SanitizeViewerValue(record.ItemName),
-                record.Amount.ToString(CultureInfo.InvariantCulture),
-                SanitizeViewerValue(record.SourceAllianceName),
-                SanitizeViewerValue(record.SourceGuildName),
-                SanitizeViewerValue(record.SourceName)
-            });
-
-            await writer.WriteLineAsync(line);
-            progress?.Report((int)((index + 1d) / records.Count * 100));
-        }
-
-        await writer.FlushAsync(cancellationToken);
-        progress?.Report(100);
-        Log.Information("Exported {Count} filtered loot pickups for AO Loot Logger Viewer", records.Count);
-    }
-
     public async Task ExportGatheringSessionToCsvAsync(
         Stream stream,
         GatheringCompletedSessionDetails session,
@@ -397,15 +336,6 @@ public class CsvExportService
         };
 
         return utcValue.ToString("O", CultureInfo.InvariantCulture);
-    }
-
-    private static string SanitizeViewerValue(string? value)
-    {
-        return (value ?? string.Empty)
-            .Replace(';', ' ')
-            .Replace('\r', ' ')
-            .Replace('\n', ' ')
-            .Trim();
     }
 
     private static string Escape(string value, string delimiter)

@@ -1,13 +1,18 @@
 using AlbionDataAvalonia.ViewModels;
 using Avalonia.Controls;
 using Avalonia.Platform.Storage;
+using Serilog;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
+using System.Runtime.InteropServices;
 
 namespace AlbionDataAvalonia.Views;
 
 public partial class LootView : UserControl
 {
+    private static readonly Uri AfmLootLoggerUri = new("https://albionfreemarket.com/loot-logger");
+
     public LootView()
     {
         InitializeComponent();
@@ -31,7 +36,7 @@ public partial class LootView : UserControl
         viewModel.Clear();
     }
 
-    private async void ExportCsvButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    private async void ExportLootLogsButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
         if (DataContext is not LootViewModel viewModel
             || TopLevel.GetTopLevel(this) is not Window owner)
@@ -47,8 +52,8 @@ public partial class LootView : UserControl
 
         var file = await owner.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
         {
-            Title = "Export Loot to CSV",
-            SuggestedFileName = $"loot_{DateTime.Now:yyyyMMdd_HHmmss}.csv",
+            Title = "Export Loot Logs for AFM Loot Logger",
+            SuggestedFileName = $"afm-loot-log-{DateTime.Now:yyyyMMdd_HHmmss}.csv",
             FileTypeChoices = new List<FilePickerFileType>
             {
                 new("CSV Files") { Patterns = new[] { "*.csv" } }
@@ -63,29 +68,34 @@ public partial class LootView : UserControl
         await viewModel.ExportToCsvAsync(stream, exportOptions);
     }
 
-    private async void ExportViewerButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+    private void OpenAfmLootLoggerButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
     {
-        if (DataContext is not LootViewModel viewModel
-            || TopLevel.GetTopLevel(this) is not Window owner)
+        try
         {
-            return;
-        }
-
-        var file = await owner.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
-        {
-            Title = "Loot Logger",
-            SuggestedFileName = $"loot-events-{DateTime.Now:yyyy-MM-dd-HH-mm-ss}.txt",
-            FileTypeChoices = new List<FilePickerFileType>
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
-                new("Loot Log Files") { Patterns = new[] { "*.txt" } }
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = AfmLootLoggerUri.AbsoluteUri,
+                    UseShellExecute = true
+                });
+                return;
             }
-        });
-        if (file is null)
-        {
-            return;
-        }
 
-        await using var stream = await file.OpenWriteAsync();
-        await viewModel.ExportToViewerAsync(stream);
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+            {
+                Process.Start("xdg-open", AfmLootLoggerUri.AbsoluteUri);
+                return;
+            }
+
+            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+            {
+                Process.Start("open", AfmLootLoggerUri.AbsoluteUri);
+            }
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to open AFM Loot Logger URL {Url}", AfmLootLoggerUri);
+        }
     }
 }

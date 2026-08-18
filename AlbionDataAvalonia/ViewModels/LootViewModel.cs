@@ -212,33 +212,6 @@ public partial class LootViewModel : ViewModelBase, IDisposable
         }
     }
 
-    public async Task ExportToViewerAsync(
-        Stream stream,
-        CancellationToken cancellationToken = default)
-    {
-        if (csvExportService is null)
-        {
-            return;
-        }
-
-        IsExporting = true;
-        ExportProgress = 0;
-        try
-        {
-            var exportRecords = filteredRecords.ToArray();
-            var progress = new Progress<int>(value => ExportProgress = value);
-            await csvExportService.ExportLootToViewerAsync(
-                stream,
-                exportRecords,
-                progress,
-                cancellationToken);
-        }
-        finally
-        {
-            IsExporting = false;
-        }
-    }
-
     private void OnSnapshotChanged(LootTrackerSnapshot snapshot)
     {
         snapshotDispatcher.Post(snapshot);
