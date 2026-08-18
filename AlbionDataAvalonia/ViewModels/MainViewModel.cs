@@ -19,6 +19,7 @@ using System.Collections.ObjectModel;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.ViewModels;
@@ -202,6 +203,25 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private bool userLoggedIn = false;
 
+    [ObservableProperty]
+    private bool isLoginPending;
+
+    [ObservableProperty]
+    private bool showLoginStatus;
+
+    [ObservableProperty]
+    private string loginStatus = string.Empty;
+
+    [ObservableProperty]
+    private string loginAuthorizationUrl = string.Empty;
+
+    public bool HasLoginAuthorizationUrl => !string.IsNullOrWhiteSpace(LoginAuthorizationUrl);
+
+    partial void OnLoginAuthorizationUrlChanged(string value)
+    {
+        OnPropertyChanged(nameof(HasLoginAuthorizationUrl));
+    }
+
     public ObservableCollection<SidebarStatusItem> SidebarStatusItems { get; } = new();
     public bool IsMacOSCapturePermissionSetupOutdated =>
         RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
@@ -220,6 +240,8 @@ public partial class MainViewModel : ViewModelBase
     private int oldUploadQueueSize = 0;
     private int oldRunningTasksCount = 0;
     private bool sidebarStatusRefreshQueued;
+    private CancellationTokenSource? loginCancellationTokenSource;
+    private bool loginCanceledByUser;
 
     public MainViewModel()
     {
@@ -776,24 +798,90 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private async Task Login()
     {
+        if (loginCancellationTokenSource is not null)
+        {
+            return;
+        }
+
+        var cancellationTokenSource = new CancellationTokenSource(TimeSpan.FromMinutes(5));
+        loginCancellationTokenSource = cancellationTokenSource;
+        loginCanceledByUser = false;
+        IsLoginPending = true;
+        UpdateLoginStatus("Preparing Google sign-in...");
+
         try
         {
-            await _authService.SignInAsync();
+            await _authService.SignInAsync(OnLoginAuthorizationReady, cancellationTokenSource.Token);
+            ShowLoginStatus = false;
+            LoginStatus = string.Empty;
         }
         catch (AuthServiceException ex)
         {
-            Log.Error("Authentication error: {Message}", ex.Message);
+            Log.Error(ex, "Authentication error");
+            UpdateLoginStatus(ex.Kind switch
+            {
+                AuthServiceErrorKind.LoopbackUnavailable =>
+                    "AFM could not reserve a local sign-in port. Close other AFM instances and try again.",
+                AuthServiceErrorKind.AuthorizationDenied =>
+                    "Google sign-in was canceled or denied.",
+                _ => "Sign-in failed. Check your connection and try again."
+            });
+        }
+        catch (OperationCanceledException) when (cancellationTokenSource.IsCancellationRequested)
+        {
+            UpdateLoginStatus(loginCanceledByUser
+                ? "Sign-in canceled."
+                : "Sign-in timed out. Try again.");
         }
         catch (Exception ex)
         {
-            Log.Error("An unexpected error occurred during login: {Message}", ex.Message);
+            Log.Error(ex, "An unexpected error occurred during login");
+            UpdateLoginStatus("Sign-in failed. Check your connection and try again.");
+        }
+        finally
+        {
+            if (ReferenceEquals(loginCancellationTokenSource, cancellationTokenSource))
+            {
+                loginCancellationTokenSource = null;
+            }
+
+            cancellationTokenSource.Dispose();
+            IsLoginPending = false;
+            LoginAuthorizationUrl = string.Empty;
         }
     }
 
     [RelayCommand]
-    private void Logout()
+    private void OpenLoginBrowser()
     {
-        _authService.LogOut();
+        if (!Uri.TryCreate(LoginAuthorizationUrl, UriKind.Absolute, out var uri))
+        {
+            UpdateLoginStatus("The sign-in link is not ready yet.");
+            return;
+        }
+
+        UpdateLoginStatus(TryOpenUrl(uri)
+            ? "Waiting for Google sign-in in your browser..."
+            : "AFM could not open your browser. Copy the sign-in link and open it in a browser on this computer.");
+    }
+
+    [RelayCommand]
+    private void CancelLogin()
+    {
+        if (loginCancellationTokenSource is null)
+        {
+            return;
+        }
+
+        loginCanceledByUser = true;
+        UpdateLoginStatus("Canceling sign-in...");
+        loginCancellationTokenSource.Cancel();
+    }
+
+    [RelayCommand]
+    private async Task Logout()
+    {
+        await _authService.LogOut();
     }
 
     public void OpenUrl(object? urlObj)
@@ -806,40 +894,103 @@ public partial class MainViewModel : ViewModelBase
             return;
         }
 
-        try
-        {
-            var uri = new Uri(url);
-        }
-        catch (UriFormatException)
+        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
         {
             Log.Error("Invalid URL: {Url}", url);
             return;
         }
 
+        if (!TryOpenUrl(uri))
+        {
+            Log.Warning("Unable to open URL: {Url}", url);
+        }
+    }
+
+    public void UpdateLoginStatus(string message)
+    {
+        LoginStatus = message;
+        ShowLoginStatus = !string.IsNullOrWhiteSpace(message);
+    }
+
+    private void OnLoginAuthorizationReady(Uri authorizationUri)
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => OnLoginAuthorizationReady(authorizationUri));
+            return;
+        }
+
+        if (!IsLoginPending)
+        {
+            return;
+        }
+
+        LoginAuthorizationUrl = authorizationUri.AbsoluteUri;
+        UpdateLoginStatus(TryOpenUrl(authorizationUri)
+            ? "Waiting for Google sign-in in your browser..."
+            : "AFM could not open your browser. Copy the sign-in link and open it in a browser on this computer.");
+    }
+
+    private static bool TryOpenUrl(Uri uri)
+    {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
         {
-            Process.Start(new ProcessStartInfo
+            try
             {
-                FileName = url,
-                UseShellExecute = true
-            });
+                Process.Start(new ProcessStartInfo
+                {
+                    FileName = uri.AbsoluteUri,
+                    UseShellExecute = true
+                });
 
-            return;
+                return true;
+            }
+            catch (Exception ex)
+            {
+                Log.Debug(ex, "Windows could not open URL with the system shell");
+                return false;
+            }
         }
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
         {
-            Process.Start("x-www-browser", url);
-            return;
+            return TryStartUrlLauncher("xdg-open", uri.AbsoluteUri)
+                || TryStartUrlLauncher("gio", uri.AbsoluteUri, "open")
+                || TryStartUrlLauncher("x-www-browser", uri.AbsoluteUri);
         }
 
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
-            Process.Start("open", url);
-            return;
+            return TryStartUrlLauncher("open", uri.AbsoluteUri);
         }
 
-        return;
+        return false;
+    }
+
+    private static bool TryStartUrlLauncher(string executable, string url, string? command = null)
+    {
+        try
+        {
+            var startInfo = new ProcessStartInfo
+            {
+                FileName = executable,
+                UseShellExecute = false
+            };
+
+            if (!string.IsNullOrEmpty(command))
+            {
+                startInfo.ArgumentList.Add(command);
+            }
+
+            startInfo.ArgumentList.Add(url);
+            Process.Start(startInfo);
+            return true;
+        }
+        catch (Exception ex)
+        {
+            Log.Debug(ex, "URL launcher {Launcher} was unavailable", executable);
+            return false;
+        }
     }
 }
 

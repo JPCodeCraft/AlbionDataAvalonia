@@ -3,16 +3,30 @@ using System.Net;
 
 namespace AlbionDataAvalonia.Auth.Services
 {
+    public enum AuthServiceErrorKind
+    {
+        General,
+        LoopbackUnavailable,
+        AuthorizationDenied
+    }
+
     public class AuthServiceException : Exception
     {
         public HttpStatusCode? StatusCode { get; }
         public bool IsInvalidRefreshToken { get; }
+        public AuthServiceErrorKind Kind { get; }
 
-        public AuthServiceException(string message, HttpStatusCode? statusCode = null, bool isInvalidRefreshToken = false, Exception? innerException = null)
+        public AuthServiceException(
+            string message,
+            HttpStatusCode? statusCode = null,
+            bool isInvalidRefreshToken = false,
+            Exception? innerException = null,
+            AuthServiceErrorKind kind = AuthServiceErrorKind.General)
             : base(message, innerException)
         {
             StatusCode = statusCode;
             IsInvalidRefreshToken = isInvalidRefreshToken;
+            Kind = kind;
         }
 
         public static AuthServiceException RefreshTokenError(HttpStatusCode statusCode, string responseBody)
