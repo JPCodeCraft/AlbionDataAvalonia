@@ -11,18 +11,30 @@ namespace PhotonPackageParser
     {
         private const int CommandHeaderLength = 12;
         private const int PhotonHeaderLength = 12;
+        private const int MaxEncryptedCommandCount = 32;
         private const int MaxSegmentedPayloadLength = 16 * 1024 * 1024;
         private const int MaxPendingSegmentCount = 128;
         private const int MaxFragmentsPerPayload = 32 * 1024;
         private const long MaxPendingSegmentBytes = 64L * 1024 * 1024;
         private static readonly TimeSpan PendingSegmentLifetime = TimeSpan.FromSeconds(30);
+        private static readonly TimeSpan EncryptedCandidateLifetime = TimeSpan.FromSeconds(5);
 
         private readonly Dictionary<SegmentedPackageKey, SegmentedPackage> _pendingSegments =
             new Dictionary<SegmentedPackageKey, SegmentedPackage>();
         private readonly object _receiveLock = new object();
         private long _pendingSegmentBytes;
+        private bool _hasEncryptedCandidate;
+        private short _encryptedCandidatePeerId;
+        private int _encryptedCandidateChallenge;
+        private int _encryptedCandidateTimestamp;
+        private DateTime _encryptedCandidateSeenUtc;
 
         public PacketStatus ReceivePacket(byte[] payload)
+        {
+            return ReceivePacketDetailed(payload).Status;
+        }
+
+        public PacketReceiveResult ReceivePacketDetailed(byte[] payload)
         {
             lock (_receiveLock)
             {
@@ -31,11 +43,11 @@ namespace PhotonPackageParser
             }
         }
 
-        private PacketStatus ReceivePacketCore(byte[] payload)
+        private PacketReceiveResult ReceivePacketCore(byte[] payload)
         {
             if (payload.Length < PhotonHeaderLength)
             {
-                return PacketStatus.InvalidHeader;
+                return new PacketReceiveResult(PacketStatus.InvalidHeader, false);
             }
 
             if (!TryGetPhotonPacketIdentity(
@@ -49,7 +61,7 @@ namespace PhotonPackageParser
                     out int firstPacketLength,
                     out bool isTerminalEncryptedPacket))
             {
-                return PacketStatus.InvalidHeader;
+                return new PacketReceiveResult(PacketStatus.InvalidHeader, false);
             }
 
             if (isTerminalEncryptedPacket || firstPacketLength == payload.Length)
@@ -62,7 +74,7 @@ namespace PhotonPackageParser
                 new PhotonPacketRange(offset: 0, length: firstPacketLength),
             };
             int packetOffset = firstPacketLength;
-            PacketStatus framingStatus = PacketStatus.Undefined;
+            var response = new PacketReceiveResult(PacketStatus.Undefined, false);
 
             while (packetOffset < payload.Length)
             {
@@ -77,7 +89,9 @@ namespace PhotonPackageParser
                         out int packetLength,
                         out isTerminalEncryptedPacket))
                 {
-                    framingStatus = PacketStatus.InvalidHeader;
+                    response = CombinePacketReceiveResult(
+                        response,
+                        new PacketReceiveResult(PacketStatus.InvalidHeader, false));
                     OnTrailingPayloadRejected(
                         payload.Length,
                         packetOffset,
@@ -105,7 +119,6 @@ namespace PhotonPackageParser
                 OnCoalescedPayloadDetected(payload.Length, packetSizes);
             }
 
-            PacketStatus response = framingStatus;
             foreach (PhotonPacketRange packetRange in packetRanges)
             {
                 var packetPayload = new byte[packetRange.Length];
@@ -116,7 +129,7 @@ namespace PhotonPackageParser
                     0,
                     packetRange.Length);
 
-                response = CombinePacketStatus(
+                response = CombinePacketReceiveResult(
                     response,
                     ReceiveSinglePacket(packetPayload));
             }
@@ -124,11 +137,11 @@ namespace PhotonPackageParser
             return response;
         }
 
-        private PacketStatus ReceiveSinglePacket(byte[] payload)
+        private PacketReceiveResult ReceiveSinglePacket(byte[] payload)
         {
             if (payload.Length < PhotonHeaderLength)
             {
-                return PacketStatus.InvalidHeader;
+                return new PacketReceiveResult(PacketStatus.InvalidHeader, false);
             }
 
             int offset = 0;
@@ -144,14 +157,21 @@ namespace PhotonPackageParser
             if (isEncrypted)
             {
                 // This doesn't really work, flags is always 0?
-                return PacketStatus.Encrypted;
+                return new PacketReceiveResult(
+                    PacketStatus.Encrypted,
+                    IsConfirmedEncryptedPayload(
+                        payload,
+                        peerId,
+                        challenge,
+                        timestamp,
+                        commandCount));
             }
 
             if (isCrcEnabled)
             {
                 if (!HasAvailable(payload, offset, sizeof(int)))
                 {
-                    return PacketStatus.InvalidHeader;
+                    return new PacketReceiveResult(PacketStatus.InvalidHeader, false);
                 }
 
                 NumberDeserializer.Deserialize(out int crc, payload, ref offset);
@@ -160,35 +180,38 @@ namespace PhotonPackageParser
 
                 if (unchecked((uint)crc) != CrcCalculator.Calculate(crcPayload, crcPayload.Length))
                 {
-                    return PacketStatus.InvalidCrc;
+                    return new PacketReceiveResult(PacketStatus.InvalidCrc, false);
                 }
             }
 
-            PacketStatus response = PacketStatus.Undefined;
+            var response = new PacketReceiveResult(PacketStatus.Undefined, false);
 
             for (int commandIdx = 0; commandIdx < commandCount; commandIdx++)
             {
                 if (!HasAvailable(payload, offset, CommandHeaderLength))
                 {
-                    return PacketStatus.InvalidHeader;
+                    return new PacketReceiveResult(
+                        PacketStatus.InvalidHeader,
+                        response.HasValidPhotonTraffic);
                 }
 
-                PacketStatus commandStatus = HandleCommand(
+                PacketReceiveResult commandResult = HandleCommand(
                     payload,
                     ref offset,
                     peerId,
                     challenge);
-                if (commandStatus == PacketStatus.InvalidHeader)
+                response = CombinePacketReceiveResult(response, commandResult);
+                if (commandResult.Status == PacketStatus.InvalidHeader)
                 {
-                    return CombinePacketStatus(response, commandStatus);
+                    return response;
                 }
-
-                response = CombinePacketStatus(response, commandStatus);
             }
 
             return offset == payload.Length
                 ? response
-                : CombinePacketStatus(response, PacketStatus.InvalidHeader);
+                : CombinePacketReceiveResult(
+                    response,
+                    new PacketReceiveResult(PacketStatus.InvalidHeader, false));
         }
 
 
@@ -244,7 +267,7 @@ namespace PhotonPackageParser
         {
         }
 
-        private PacketStatus HandleCommand(
+        private PacketReceiveResult HandleCommand(
             byte[] source,
             ref int offset,
             short peerId,
@@ -252,7 +275,7 @@ namespace PhotonPackageParser
         {
             if (!HasAvailable(source, offset, CommandHeaderLength))
             {
-                return PacketStatus.InvalidHeader;
+                return new PacketReceiveResult(PacketStatus.InvalidHeader, false);
             }
 
             ReadByte(out byte commandType, source, ref offset);
@@ -266,23 +289,23 @@ namespace PhotonPackageParser
 
             if (commandLength < 0 || !HasAvailable(source, offset, commandLength))
             {
-                return PacketStatus.InvalidHeader;
+                return new PacketReceiveResult(PacketStatus.InvalidHeader, false);
             }
 
-            PacketStatus response = PacketStatus.Undefined;
+            var response = new PacketReceiveResult(PacketStatus.Undefined, false);
 
             switch ((CommandType)commandType)
             {
                 case CommandType.Disconnect:
                     {
                         offset += commandLength;
-                        return PacketStatus.DisconnectCommand;
+                        return new PacketReceiveResult(PacketStatus.DisconnectCommand, false);
                     }
                 case CommandType.SendUnreliable:
                     {
                         if (commandLength < 4 || !HasAvailable(source, offset, 4))
                         {
-                            return PacketStatus.InvalidHeader;
+                            return new PacketReceiveResult(PacketStatus.InvalidHeader, false);
                         }
 
                         offset += 4;
@@ -319,7 +342,7 @@ namespace PhotonPackageParser
             return response;
         }
 
-        private PacketStatus HandleSendReliable(
+        private PacketReceiveResult HandleSendReliable(
             byte[] source,
             ref int offset,
             ref int commandLength,
@@ -328,7 +351,7 @@ namespace PhotonPackageParser
         {
             if (commandLength < 2 || !HasAvailable(source, offset, commandLength))
             {
-                return PacketStatus.InvalidHeader;
+                return new PacketReceiveResult(PacketStatus.InvalidHeader, false);
             }
 
             int messageSizeBytes = commandLength;
@@ -351,7 +374,9 @@ namespace PhotonPackageParser
             // Encrypted message for market data?
             if (messageType == 131)
             {
-                return PacketStatus.Encrypted;
+                return new PacketReceiveResult(
+                    PacketStatus.Encrypted,
+                    operationLength > 0);
             }
 
             switch ((MessageType)messageType)
@@ -368,7 +393,7 @@ namespace PhotonPackageParser
                         {
                             throw new InvalidOperationException($"Protocol18 request decode failed. signal=0x{signalByte:X2} messageType={messageType} payloadPreview=\"{payloadPreview}\"", ex);
                         }
-                        break;
+                        return new PacketReceiveResult(PacketStatus.Success, true);
                     }
                 case MessageType.OperationResponse:
                     {
@@ -382,7 +407,7 @@ namespace PhotonPackageParser
                         {
                             throw new InvalidOperationException($"Protocol18 response decode failed. signal=0x{signalByte:X2} messageType={messageType} payloadPreview=\"{payloadPreview}\"", ex);
                         }
-                        break;
+                        return new PacketReceiveResult(PacketStatus.Success, true);
                     }
                 case MessageType.Event:
                     {
@@ -396,13 +421,14 @@ namespace PhotonPackageParser
                         {
                             throw new InvalidOperationException($"Protocol18 event decode failed. signal=0x{signalByte:X2} messageType={messageType} payloadPreview=\"{payloadPreview}\"", ex);
                         }
-                        break;
+                        return new PacketReceiveResult(PacketStatus.Success, true);
                     }
+                default:
+                    return new PacketReceiveResult(PacketStatus.Success, false);
             }
-            return PacketStatus.Success;
         }
 
-        private PacketStatus HandleSendFragment(
+        private PacketReceiveResult HandleSendFragment(
             byte[] source,
             ref int offset,
             ref int commandLength,
@@ -413,7 +439,7 @@ namespace PhotonPackageParser
             const int fragmentHeaderLength = 20;
             if (commandLength < fragmentHeaderLength || !HasAvailable(source, offset, fragmentHeaderLength))
             {
-                return PacketStatus.InvalidHeader;
+                return new PacketReceiveResult(PacketStatus.InvalidHeader, false);
             }
 
             NumberDeserializer.Deserialize(out int startSequenceNumber, source, ref offset);
@@ -430,7 +456,7 @@ namespace PhotonPackageParser
             int fragmentLength = commandLength;
             if (fragmentLength < 0 || !HasAvailable(source, offset, fragmentLength))
             {
-                return PacketStatus.InvalidHeader;
+                return new PacketReceiveResult(PacketStatus.InvalidHeader, false);
             }
 
             if (fragmentCount <= 0 ||
@@ -445,7 +471,7 @@ namespace PhotonPackageParser
                 fragmentLength > totalLength ||
                 fragmentOffset > totalLength - fragmentLength)
             {
-                return PacketStatus.InvalidHeader;
+                return new PacketReceiveResult(PacketStatus.InvalidHeader, false);
             }
 
             return HandleSegmentedPayload(
@@ -463,7 +489,7 @@ namespace PhotonPackageParser
                 ref offset);
         }
 
-        private PacketStatus HandleFinishedSegmentedPackage(byte[] totalPayload, int fragmentCount)
+        private PacketReceiveResult HandleFinishedSegmentedPackage(byte[] totalPayload, int fragmentCount)
         {
             int offset = 0;
             int commandLength = totalPayload.Length;
@@ -475,7 +501,7 @@ namespace PhotonPackageParser
                 fragmentCount);
         }
 
-        private PacketStatus HandleSegmentedPayload(
+        private PacketReceiveResult HandleSegmentedPayload(
             SegmentedPackageKey segmentKey,
             int fragmentCount,
             int fragmentNumber,
@@ -494,7 +520,7 @@ namespace PhotonPackageParser
 
             if (segmentedPackage == null)
             {
-                return PacketStatus.InvalidHeader;
+                return new PacketReceiveResult(PacketStatus.InvalidHeader, false);
             }
 
             if (segmentedPackage.ReceivedFragments.TryGetValue(fragmentNumber, out FragmentRange receivedFragment))
@@ -512,11 +538,11 @@ namespace PhotonPackageParser
                 offset += fragmentLength;
                 if (!matchesExistingFragment)
                 {
-                    return PacketStatus.InvalidHeader;
+                    return new PacketReceiveResult(PacketStatus.InvalidHeader, false);
                 }
 
                 segmentedPackage.LastUpdatedUtc = now;
-                return PacketStatus.Success;
+                return new PacketReceiveResult(PacketStatus.Success, true);
             }
 
             Buffer.BlockCopy(source, offset, segmentedPackage.TotalPayload, fragmentOffset, fragmentLength);
@@ -535,7 +561,7 @@ namespace PhotonPackageParser
                         segmentedPackage.TotalLength))
                 {
                     RemovePendingSegment(segmentKey);
-                    return PacketStatus.InvalidHeader;
+                    return new PacketReceiveResult(PacketStatus.InvalidHeader, false);
                 }
 
                 byte[] totalPayload = segmentedPackage.TotalPayload;
@@ -546,10 +572,10 @@ namespace PhotonPackageParser
             if (segmentedPackage.BytesWritten >= segmentedPackage.TotalLength)
             {
                 RemovePendingSegment(segmentKey);
-                return PacketStatus.InvalidHeader;
+                return new PacketReceiveResult(PacketStatus.InvalidHeader, false);
             }
 
-            return PacketStatus.Success;
+            return new PacketReceiveResult(PacketStatus.Success, true);
         }
 
         private SegmentedPackage? GetSegmentedPackage(
@@ -798,6 +824,90 @@ namespace PhotonPackageParser
 
             packetLength = commandOffset - packetOffset;
             return packetLength >= packetHeaderLength;
+        }
+
+        private static PacketReceiveResult CombinePacketReceiveResult(
+            PacketReceiveResult current,
+            PacketReceiveResult candidate)
+        {
+            return new PacketReceiveResult(
+                CombinePacketStatus(current.Status, candidate.Status),
+                current.HasValidPhotonTraffic || candidate.HasValidPhotonTraffic);
+        }
+
+        private bool IsConfirmedEncryptedPayload(
+            byte[] payload,
+            short peerId,
+            int challenge,
+            int timestamp,
+            byte commandCount)
+        {
+            if (!HasPlausibleEncryptedPayload(payload, commandCount))
+            {
+                _hasEncryptedCandidate = false;
+                return false;
+            }
+
+            DateTime now = DateTime.UtcNow;
+            TimeSpan candidateAge = now - _encryptedCandidateSeenUtc;
+            bool isConfirmed = _hasEncryptedCandidate
+                && peerId == _encryptedCandidatePeerId
+                && challenge == _encryptedCandidateChallenge
+                && timestamp != _encryptedCandidateTimestamp
+                && candidateAge >= TimeSpan.Zero
+                && candidateAge <= EncryptedCandidateLifetime;
+
+            _hasEncryptedCandidate = true;
+            _encryptedCandidatePeerId = peerId;
+            _encryptedCandidateChallenge = challenge;
+            _encryptedCandidateTimestamp = timestamp;
+            _encryptedCandidateSeenUtc = now;
+            return isConfirmed;
+        }
+
+        private static bool HasPlausibleEncryptedPayload(
+            byte[] payload,
+            byte commandCount)
+        {
+            if (commandCount == 0 || commandCount > MaxEncryptedCommandCount)
+            {
+                return false;
+            }
+
+            int encryptedPayloadLength = payload.Length - PhotonHeaderLength;
+            if (encryptedPayloadLength < 16
+                || encryptedPayloadLength < commandCount * CommandHeaderLength)
+            {
+                return false;
+            }
+
+            byte firstByte = payload[PhotonHeaderLength];
+            var distinctByteCount = 1;
+            var distinctBytes = new byte[4];
+            distinctBytes[0] = firstByte;
+
+            for (int index = PhotonHeaderLength + 1;
+                 index < payload.Length && distinctByteCount < distinctBytes.Length;
+                 index++)
+            {
+                byte value = payload[index];
+                var alreadySeen = false;
+                for (int distinctIndex = 0; distinctIndex < distinctByteCount; distinctIndex++)
+                {
+                    if (distinctBytes[distinctIndex] == value)
+                    {
+                        alreadySeen = true;
+                        break;
+                    }
+                }
+
+                if (!alreadySeen)
+                {
+                    distinctBytes[distinctByteCount++] = value;
+                }
+            }
+
+            return distinctByteCount == distinctBytes.Length;
         }
 
         private static PacketStatus CombinePacketStatus(

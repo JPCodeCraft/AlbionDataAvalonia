@@ -17,8 +17,8 @@ public class AppSettings
     public double UpdateCheckIntervalHours { get; set; }
     public double AppSettingsRetryLoadIntervalMins { get; set; }
     public int NetworkDevicesStartDelaySecs { get; set; }
-    public int NetworkDevicesIdleMinutes { get; set; }
-    public int NetworkDevicesIdleCheckMinutes { get; set; }
+    public int NetworkDevicesRescanSeconds { get; set; } = 10;
+    public int NetworkDevicesTrafficTimeoutSeconds { get; set; } = 30;
 
     public string AfmAuthClientId { get; set; } = string.Empty;
     public string AfmAuthApiUrl { get; set; } = string.Empty;

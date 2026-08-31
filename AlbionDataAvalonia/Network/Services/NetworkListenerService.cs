@@ -32,9 +32,14 @@ namespace AlbionDataAvalonia.Network.Services
         private const string MacOSCapturePermissionLaunchDaemonPath =
             "/Library/LaunchDaemons/com.albionfreemarket.afmdataclient.chmodbpf.plist";
         private const string MacOSLegacyCapturePermissionScheduleKey = "<key>StartInterval</key>";
+        private static readonly TimeSpan RepeatedFailureLogInterval = TimeSpan.FromMinutes(1);
         private readonly HashSet<string> _unknownServerIps = new HashSet<string>();
+        private readonly Dictionary<string, long> _failureLogTimestamps =
+            new Dictionary<string, long>(StringComparer.Ordinal);
+        private readonly object _failureLogLock = new object();
         private readonly object _lifecycleStateLock = new object();
         private readonly SemaphoreSlim _lifecycleGate = new SemaphoreSlim(1, 1);
+        private readonly SemaphoreSlim _supervisorSignal = new SemaphoreSlim(0, 1);
 
         private readonly Uploader _uploader;
         private readonly AFMUploader _afmUploader;
@@ -42,7 +47,6 @@ namespace AlbionDataAvalonia.Network.Services
         private readonly SettingsManager _settingsManager;
         private readonly MailService _mailService;
         private readonly TradeService _tradeService;
-        private readonly IdleService _idleService;
         private readonly ItemsIdsService _itemsIdsService;
         private readonly ItemEstimatedMarketValueService _itemEstimatedMarketValues;
         private readonly AchievementsService _achievementsService;
@@ -55,6 +59,8 @@ namespace AlbionDataAvalonia.Network.Services
         private readonly LegendaryItemTrackerService _legendaryTracker;
 
         private CancellationTokenSource? _lifecycleCancellation;
+        private CancellationTokenSource? _supervisorCancellation;
+        private Task? _supervisorTask;
         private CaptureSession? _activeSession;
         private long _lifecycleGeneration;
         private bool _listeningRequested;
@@ -65,13 +71,12 @@ namespace AlbionDataAvalonia.Network.Services
         public bool IsMacOSCapturePermissionSetupRequired { get; private set; }
         public bool IsMacOSCapturePermissionSetupOutdated { get; private set; }
 
-        public NetworkListenerService(Uploader uploader, PlayerState playerState, SettingsManager settingsManager, MailService mailService, IdleService idleService, TradeService tradeService, AFMUploader afmUploader, ItemsIdsService itemsIdsService, ItemEstimatedMarketValueService itemEstimatedMarketValues, AchievementsService achievementsService, CombatTrackerService combatTracker, GatheringTrackerService gatheringTracker, PartyTrackerService partyTracker, PlayerIdentityService playerIdentityService, LootTrackerService lootTracker, MobsService mobsService, LegendaryItemTrackerService legendaryTracker)
+        public NetworkListenerService(Uploader uploader, PlayerState playerState, SettingsManager settingsManager, MailService mailService, TradeService tradeService, AFMUploader afmUploader, ItemsIdsService itemsIdsService, ItemEstimatedMarketValueService itemEstimatedMarketValues, AchievementsService achievementsService, CombatTrackerService combatTracker, GatheringTrackerService gatheringTracker, PartyTrackerService partyTracker, PlayerIdentityService playerIdentityService, LootTrackerService lootTracker, MobsService mobsService, LegendaryItemTrackerService legendaryTracker)
         {
             _uploader = uploader;
             _playerState = playerState;
             _settingsManager = settingsManager;
             _mailService = mailService;
-            _idleService = idleService;
             _itemsIdsService = itemsIdsService;
             _itemEstimatedMarketValues = itemEstimatedMarketValues;
             _achievementsService = achievementsService;
@@ -88,7 +93,6 @@ namespace AlbionDataAvalonia.Network.Services
                 SystemEvents.PowerModeChanged += SystemEvents_PowerModeChanged;
             }
 
-            _idleService.OnDetectedIdle += RestartNetworkListener;
             _tradeService = tradeService;
             _afmUploader = afmUploader;
             IsMacOSCapturePermissionSetupOutdated =
@@ -98,10 +102,10 @@ namespace AlbionDataAvalonia.Network.Services
 
         public Task StartNetworkListeningAsync()
         {
-            return RequestStartAsync(forceRestart: false);
+            return RequestStartAsync(forceRestart: false, applyStartDelay: true);
         }
 
-        private Task RequestStartAsync(bool forceRestart)
+        private Task RequestStartAsync(bool forceRestart, bool applyStartDelay)
         {
             LifecycleRequest request;
             CancellationTokenSource? previousCancellation;
@@ -127,17 +131,22 @@ namespace AlbionDataAvalonia.Network.Services
                 }
 
                 _listeningRequested = true;
+                EnsureSupervisorStartedLocked();
                 request = CreateLifecycleRequestLocked();
                 previousCancellation = ReplaceLifecycleCancellationLocked(request.Cancellation);
             }
 
             CancelLifecycleRequest(previousCancellation);
-            return ApplyStartRequestAsync(request, forceRestart);
+            return ApplyStartRequestAsync(request, forceRestart, applyStartDelay);
         }
 
-        private async Task ApplyStartRequestAsync(LifecycleRequest request, bool forceRestart)
+        private async Task ApplyStartRequestAsync(
+            LifecycleRequest request,
+            bool forceRestart,
+            bool applyStartDelay)
         {
             CaptureSession? pendingSession = null;
+            Dictionary<string, ILiveDevice>? unownedCaptureDevices = null;
             var acquiredGate = false;
             var startSucceeded = false;
 
@@ -162,12 +171,18 @@ namespace AlbionDataAvalonia.Network.Services
                     return;
                 }
 
-                //AWAIT SOME SECONDS FOR NETWORK STUFF TO BE READY
-                Log.Information($"Waiting {_settingsManager.AppSettings.NetworkDevicesStartDelaySecs} seconds for network drivers to be ready");
-                await Task.Delay(
-                        TimeSpan.FromSeconds(_settingsManager.AppSettings.NetworkDevicesStartDelaySecs),
-                        request.Token)
-                    .ConfigureAwait(false);
+                if (applyStartDelay)
+                {
+                    // A short delay is useful on process startup and power resume, but an
+                    // internal failover must not add an avoidable capture gap.
+                    Log.Information(
+                        "Waiting {DelaySeconds} seconds for network drivers to be ready",
+                        _settingsManager.AppSettings.NetworkDevicesStartDelaySecs);
+                    await Task.Delay(
+                            TimeSpan.FromSeconds(_settingsManager.AppSettings.NetworkDevicesStartDelaySecs),
+                            request.Token)
+                        .ConfigureAwait(false);
+                }
 
                 request.Token.ThrowIfCancellationRequested();
                 if (!IsCurrentRequest(request, listeningRequested: true))
@@ -281,54 +296,88 @@ namespace AlbionDataAvalonia.Network.Services
 
                 Log.Debug("Starting network device listening");
 
-                var discoveredDevices = CaptureDeviceList.New();
-                if (!discoveredDevices.Any())
+                Dictionary<string, ILiveDevice> discoveredDevices;
+                try
                 {
-                    Log.Error("No network capture devices were found.");
-                    return;
+                    discoveredDevices = EnumerateCaptureDevices();
+                    unownedCaptureDevices = discoveredDevices;
+                    ClearFailureLog("enumeration");
+                }
+                catch (Exception ex)
+                {
+                    // Keep a discovery session alive so the supervisor can retry a
+                    // transient enumeration failure without requiring an app restart.
+                    LogRepeatedFailure(
+                        "enumeration",
+                        ex,
+                        "Unable to enumerate network capture devices. Will retry in the background.");
+                    discoveredDevices = new Dictionary<string, ILiveDevice>(StringComparer.Ordinal);
+                    unownedCaptureDevices = discoveredDevices;
                 }
 
-                pendingSession = new CaptureSession(localReceiver, this);
+                pendingSession = new CaptureSession(
+                    localReceiver,
+                    discoveredDevices.Keys);
                 var openedDeviceCount = 0;
                 var failedDeviceCount = 0;
                 var sawPermissionDenied = false;
-                foreach (var device in discoveredDevices)
+                foreach (var entry in discoveredDevices.ToArray())
                 {
                     request.Token.ThrowIfCancellationRequested();
 
+                    var device = entry.Value;
                     var registration = new CaptureDeviceRegistration(
                         device,
-                        pendingSession.PacketHandler);
-                    var result = await Task.Run(() => TryStartDeviceCapture(registration, filter))
+                        pendingSession,
+                        this);
+                    pendingSession.AddDevice(registration);
+                    discoveredDevices.Remove(entry.Key);
+                    var result = await StartDeviceCaptureAsync(registration, filter)
                         .ConfigureAwait(false);
                     if (result.Opened)
                     {
-                        pendingSession.Devices.Add(registration);
                         openedDeviceCount++;
                     }
                     else
                     {
+                        pendingSession.RemoveDevice(registration);
                         failedDeviceCount++;
                         sawPermissionDenied |= result.PermissionDenied;
                     }
                 }
 
+                DisposeUnownedCaptureDevices(discoveredDevices.Values);
+                discoveredDevices.Clear();
+
                 if (openedDeviceCount == 0)
                 {
-                    LogNoCaptureDevicesOpened(failedDeviceCount, sawPermissionDenied);
-                    return;
+                    if (pendingSession.AvailableDeviceCount == 0)
+                    {
+                        Log.Warning("No network capture devices were found. Waiting for an adapter to become available.");
+                    }
+                    else if (ShouldLogRepeatedFailure("no-open-devices"))
+                    {
+                        LogNoCaptureDevicesOpened(failedDeviceCount, sawPermissionDenied);
+                    }
                 }
-
-                if (failedDeviceCount > 0)
+                else if (failedDeviceCount > 0)
                 {
-                    Log.Warning(
-                        "Opened {OpenedDeviceCount} network capture device(s), but failed to open {FailedDeviceCount}.",
-                        openedDeviceCount,
-                        failedDeviceCount);
+                    if (ShouldLogRepeatedFailure("partial-open-devices"))
+                    {
+                        Log.Warning(
+                            "Opened {OpenedDeviceCount} network capture device(s), but failed to open {FailedDeviceCount}.",
+                            openedDeviceCount,
+                            failedDeviceCount);
+                    }
                 }
 
                 request.Token.ThrowIfCancellationRequested();
-                SetMacOSCapturePermissionSetupRequired(false);
+                if (openedDeviceCount > 0)
+                {
+                    SetMacOSCapturePermissionSetupRequired(false);
+                    ClearFailureLog("no-open-devices");
+                }
+
                 if (!TryPublishSession(request, pendingSession, out var replacedSession))
                 {
                     return;
@@ -337,7 +386,17 @@ namespace AlbionDataAvalonia.Network.Services
                 pendingSession = null;
                 TerminateSession(replacedSession);
 
-                Log.Information("Listening to Albion network packages!");
+                if (openedDeviceCount > 0)
+                {
+                    Log.Information(
+                        "Discovering the Albion network adapter across {OpenedDeviceCount} capture device(s).",
+                        openedDeviceCount);
+                }
+                else
+                {
+                    Log.Information("Network capture is waiting for an available device.");
+                }
+
                 startSucceeded = true;
             }
             catch (OperationCanceledException) when (request.Token.IsCancellationRequested)
@@ -360,6 +419,12 @@ namespace AlbionDataAvalonia.Network.Services
             }
             finally
             {
+                if (unownedCaptureDevices is not null)
+                {
+                    DisposeUnownedCaptureDevices(unownedCaptureDevices.Values);
+                    unownedCaptureDevices.Clear();
+                }
+
                 TerminateSession(pendingSession);
 
                 if (acquiredGate)
@@ -382,6 +447,7 @@ namespace AlbionDataAvalonia.Network.Services
                 Log.Debug("Opening network device: {Device}", registration.DisplayName);
 
                 device.OnPacketArrival += registration.PacketHandler;
+                device.OnCaptureStopped += registration.CaptureStoppedHandler;
                 device.Open(new DeviceConfiguration
                 {
                     Mode = DeviceModes.None,
@@ -394,16 +460,50 @@ namespace AlbionDataAvalonia.Network.Services
                     "Opened network device: {Device} with filter: {Filter}",
                     registration.DisplayName,
                     filter);
+                ClearFailureLog($"open:{registration.DeviceName}");
                 return new CaptureDeviceOpenResult(true, false);
             }
             catch (Exception ex)
             {
+                registration.InitializationCompleted.TrySetResult(true);
                 TerminateDeviceCapture(registration);
-                Log.Warning(
-                    ex,
-                    "Error initializing network device {Device}.",
-                    registration.DisplayName);
+                if (ShouldLogRepeatedFailure($"open:{registration.DeviceName}"))
+                {
+                    Log.Warning(
+                        ex,
+                        "Error initializing network device {Device}.",
+                        registration.DisplayName);
+                }
+                else
+                {
+                    Log.Debug(
+                        ex,
+                        "Network device {Device} still cannot be opened.",
+                        registration.DisplayName);
+                }
+
                 return new CaptureDeviceOpenResult(false, IsPacketCapturePermissionError(ex));
+            }
+            finally
+            {
+                registration.InitializationCompleted.TrySetResult(true);
+            }
+        }
+
+        private async Task<CaptureDeviceOpenResult> StartDeviceCaptureAsync(
+            CaptureDeviceRegistration registration,
+            string filter)
+        {
+            try
+            {
+                return await Task.Run(() => TryStartDeviceCapture(registration, filter))
+                    .ConfigureAwait(false);
+            }
+            catch
+            {
+                registration.InitializationCompleted.TrySetResult(true);
+                TerminateDeviceCapture(registration);
+                throw;
             }
         }
 
@@ -589,97 +689,355 @@ namespace AlbionDataAvalonia.Network.Services
                 : device.Description;
         }
 
-        private void PacketHandler(CaptureSession session, object? sender, PacketCapture e)
+        private static Dictionary<string, ILiveDevice> EnumerateCaptureDevices()
         {
-            if (!session.IsReady || !ReferenceEquals(Volatile.Read(ref _activeSession), session))
+            var devicesByName = new Dictionary<string, ILiveDevice>(StringComparer.Ordinal);
+
+            try
+            {
+                foreach (ILiveDevice device in CaptureDeviceList.New())
+                {
+                    string deviceName;
+                    try
+                    {
+                        deviceName = device.Name;
+                    }
+                    catch
+                    {
+                        DisposeUnownedCaptureDevice(device);
+                        throw;
+                    }
+
+                    if (!devicesByName.TryAdd(deviceName, device))
+                    {
+                        DisposeUnownedCaptureDevice(device);
+                    }
+                }
+
+                return devicesByName;
+            }
+            catch
+            {
+                DisposeUnownedCaptureDevices(devicesByName.Values);
+                throw;
+            }
+        }
+
+        private static void DisposeUnownedCaptureDevices(IEnumerable<ILiveDevice> devices)
+        {
+            foreach (ILiveDevice device in devices)
+            {
+                DisposeUnownedCaptureDevice(device);
+            }
+        }
+
+        private static void DisposeUnownedCaptureDevice(ILiveDevice device)
+        {
+            var displayName = "unknown capture device";
+            try
+            {
+                displayName = GetDeviceDisplayName(device);
+            }
+            catch
+            {
+            }
+
+            try
+            {
+                (device as IDisposable)?.Dispose();
+            }
+            catch (Exception ex)
+            {
+                Log.Debug(ex, "Error disposing unopened network device {Device}.", displayName);
+            }
+        }
+
+        private bool ShouldLogRepeatedFailure(string key)
+        {
+            var now = Stopwatch.GetTimestamp();
+
+            lock (_failureLogLock)
+            {
+                if (_failureLogTimestamps.TryGetValue(key, out var previous)
+                    && Stopwatch.GetElapsedTime(previous, now) < RepeatedFailureLogInterval)
+                {
+                    return false;
+                }
+
+                _failureLogTimestamps[key] = now;
+                return true;
+            }
+        }
+
+        private void ClearFailureLog(string key)
+        {
+            lock (_failureLogLock)
+            {
+                _failureLogTimestamps.Remove(key);
+            }
+        }
+
+        private void LogRepeatedFailure(
+            string key,
+            Exception exception,
+            string messageTemplate)
+        {
+            if (ShouldLogRepeatedFailure(key))
+            {
+                Log.Warning(exception, messageTemplate);
+            }
+            else
+            {
+                Log.Debug(exception, messageTemplate);
+            }
+        }
+
+        private void CaptureStoppedHandler(
+            CaptureSession session,
+            CaptureDeviceRegistration registration,
+            object sender,
+            CaptureStoppedEventStatus status)
+        {
+            try
+            {
+                if (Volatile.Read(ref registration.IsRetired) != 0)
+                {
+                    return;
+                }
+
+                // Capture can stop immediately after StartCapture, before the new
+                // session is published. Preserve that state so the first supervisor
+                // pass does not mistake the registration for a live candidate.
+                Volatile.Write(ref registration.CaptureStoppedUnexpectedly, 1);
+                if (!session.IsReady
+                    || !ReferenceEquals(Volatile.Read(ref _activeSession), session))
+                {
+                    SignalSupervisor();
+                    return;
+                }
+
+                Log.Warning(
+                    "Network capture stopped unexpectedly on {Device}. Status={Status}.",
+                    registration.DisplayName,
+                    status);
+                SignalSupervisor();
+            }
+            catch (Exception ex)
+            {
+                // SharpPcap invokes this on its capture task. Never let a callback
+                // exception fault the task without notifying the supervisor.
+                Log.Error(ex, "Error handling capture-stop notification.");
+            }
+        }
+
+        private void PacketHandler(
+            CaptureSession session,
+            CaptureDeviceRegistration registration,
+            object? sender,
+            PacketCapture e)
+        {
+            if (!session.IsReady
+                || Volatile.Read(ref registration.IsRetired) != 0
+                || !ReferenceEquals(Volatile.Read(ref _activeSession), session))
             {
                 return;
             }
 
             lock (session.ProcessingLock)
             {
-                if (!session.IsReady || !ReferenceEquals(Volatile.Read(ref _activeSession), session))
+                if (!session.IsReady
+                    || Volatile.Read(ref registration.IsRetired) != 0
+                    || !ReferenceEquals(Volatile.Read(ref _activeSession), session))
                 {
                     return;
                 }
 
-                ProcessPacket(session, e);
+                ProcessPacket(session, registration, e);
             }
         }
 
-        private void ProcessPacket(CaptureSession session, PacketCapture e)
+        private void ProcessPacket(
+            CaptureSession session,
+            CaptureDeviceRegistration registration,
+            PacketCapture e)
         {
             try
             {
                 UdpPacket packet = Packet.ParsePacket(e.GetPacket().LinkLayerType, e.GetPacket().Data).Extract<UdpPacket>();
-                if (packet != null)
+                if (packet is null)
                 {
-                    var selectedDevice = Interlocked.CompareExchange(
-                        ref session.SelectedDevice,
-                        e.Device,
-                        null);
-                    if (selectedDevice is not null && !ReferenceEquals(selectedDevice, e.Device))
+                    return;
+                }
+
+                var selectedRegistration = Volatile.Read(ref session.SelectedRegistration);
+                if (selectedRegistration is not null
+                    && !ReferenceEquals(selectedRegistration, registration))
+                {
+                    return;
+                }
+
+                if (selectedRegistration is null)
+                {
+                    PacketReceiveResult probeResult = registration.Probe.ReceivePacketDetailed(
+                        packet.PayloadData);
+                    LogPacketResult(probeResult, packet.PayloadData.Length);
+                    if (!probeResult.HasValidPhotonTraffic)
                     {
                         return;
                     }
 
-                    if (selectedDevice is null)
+                    session.MarkValidTraffic();
+                    var promotedRegistration = Interlocked.CompareExchange(
+                        ref session.SelectedRegistration,
+                        registration,
+                        null);
+                    if (promotedRegistration is not null
+                        && !ReferenceEquals(promotedRegistration, registration))
                     {
-                        foreach (var registration in session.Devices)
-                        {
-                            if (!ReferenceEquals(registration.Device, e.Device))
-                            {
-                                _ = Task.Run(() => TerminateDeviceCapture(registration));
-                            }
-                        }
+                        return;
                     }
+
+                    // Mark and schedule losing captures for closure before invoking
+                    // handler-bearing production code, which is allowed to throw.
+                    RetireUnselectedDevices(session, registration);
 
                     _playerState.LastPacketTime = DateTime.UtcNow;
-
-                    var srcIp = (packet.ParentPacket as IPPacket)?.SourceAddress?.ToString();
-
-                    if (string.IsNullOrEmpty(srcIp))
-                    {
-                        Log.Verbose("Packet Source IP null or empty, ignoring");
-                        return;
-                    }
-                    var server = AlbionServers.GetAll().SingleOrDefault(x => x.HostIps.Any(prefix => srcIp.StartsWith(prefix)));
-                    if (server is not null)
-                    {
-                        //Log.Verbose("Packet from {server} server from IP {ip}", server.Name, srcIp);
-                        _playerState.AlbionServer = server;
-                    }
-                    else if (!IsPrivateIp(srcIp) && _unknownServerIps.Add(srcIp))
-                    {
-                        Log.Warning("Received packet from unknown IP {Ip} — could not determine Albion server. Known unknown IPs so far: {Ips}", srcIp, string.Join(", ", _unknownServerIps));
-                    }
+                    UpdateAlbionServer(packet);
 
                     if (!ReferenceEquals(Volatile.Read(ref _activeSession), session))
                     {
                         return;
                     }
 
-                    var packetStatus = session.Receiver.ReceivePacket(packet.PayloadData);
-                    if (packetStatus == PacketStatus.Encrypted)
-                    {
-                        _playerState.HasEncryptedData = true;
-                        Log.Warning("Encrypted packet received! You can't see market orders!");
-                    }
-#if DEBUG
-                    else if (packetStatus == PacketStatus.InvalidHeader ||
-                        packetStatus == PacketStatus.InvalidCrc)
-                    {
-                        Log.Debug(
-                            "Photon UDP payload rejected. Status={PacketStatus}, PayloadBytes={PayloadBytes}",
-                            packetStatus,
-                            packet.PayloadData.Length);
-                    }
-#endif
+                    PacketReceiveResult productionResult = ReceivePacketDetailed(
+                        session.Receiver,
+                        packet.PayloadData);
+                    HandlePacketResult(productionResult, packet.PayloadData.Length);
+
+                    Log.Information(
+                        "Selected network capture device {Device} after receiving valid Albion traffic.",
+                        registration.DisplayName);
+                    return;
                 }
+
+                PacketReceiveResult receiveResult = ReceivePacketDetailed(
+                    session.Receiver,
+                    packet.PayloadData);
+                if (receiveResult.HasValidPhotonTraffic)
+                {
+                    session.MarkValidTraffic();
+                    _playerState.LastPacketTime = DateTime.UtcNow;
+                    UpdateAlbionServer(packet);
+                }
+
+                HandlePacketResult(receiveResult, packet.PayloadData.Length);
             }
             catch (Exception ex)
             {
                 Log.Error(ex, "Error while processing captured Albion packet");
+            }
+        }
+
+        private void UpdateAlbionServer(UdpPacket packet)
+        {
+            var srcIp = (packet.ParentPacket as IPPacket)?.SourceAddress?.ToString();
+            if (string.IsNullOrEmpty(srcIp))
+            {
+                Log.Verbose("Packet source IP is null or empty.");
+                return;
+            }
+
+            var server = AlbionServers.GetAll()
+                .SingleOrDefault(x => x.HostIps.Any(prefix => srcIp.StartsWith(prefix)));
+            if (server is not null)
+            {
+                _playerState.AlbionServer = server;
+            }
+            else if (!IsPrivateIp(srcIp) && _unknownServerIps.Add(srcIp))
+            {
+                Log.Warning(
+                    "Received packet from unknown IP {Ip} — could not determine Albion server. Known unknown IPs so far: {Ips}",
+                    srcIp,
+                    string.Join(", ", _unknownServerIps));
+            }
+        }
+
+        private static PacketReceiveResult ReceivePacketDetailed(
+            IPhotonReceiver receiver,
+            byte[] payload)
+        {
+            if (receiver is PhotonParser parser)
+            {
+                return parser.ReceivePacketDetailed(payload);
+            }
+
+            PacketStatus status = receiver.ReceivePacket(payload);
+            return new PacketReceiveResult(
+                status,
+                status == PacketStatus.Success || status == PacketStatus.Encrypted);
+        }
+
+        private void HandlePacketResult(PacketReceiveResult result, int payloadBytes)
+        {
+            if (result.Status == PacketStatus.Encrypted)
+            {
+                if (result.HasValidPhotonTraffic)
+                {
+                    _playerState.HasEncryptedData = true;
+                    Log.Warning("Encrypted packet received! You can't see market orders!");
+                }
+                else
+                {
+                    Log.Debug(
+                        "Photon UDP payload used an encrypted flag but failed encrypted framing validation. PayloadBytes={PayloadBytes}",
+                        payloadBytes);
+                }
+
+                return;
+            }
+
+            LogPacketResult(result, payloadBytes);
+        }
+
+        [System.Diagnostics.Conditional("DEBUG")]
+        private static void LogPacketResult(PacketReceiveResult result, int payloadBytes)
+        {
+            if (result.Status != PacketStatus.InvalidHeader
+                && result.Status != PacketStatus.InvalidCrc)
+            {
+                return;
+            }
+
+            if (result.HasValidPhotonTraffic)
+            {
+                Log.Debug(
+                    "Photon UDP payload contained valid traffic plus malformed data. Status={PacketStatus}, PayloadBytes={PayloadBytes}",
+                    result.Status,
+                    payloadBytes);
+                return;
+            }
+
+            Log.Debug(
+                "Photon UDP payload rejected. Status={PacketStatus}, PayloadBytes={PayloadBytes}",
+                result.Status,
+                payloadBytes);
+        }
+
+        private void RetireUnselectedDevices(
+            CaptureSession session,
+            CaptureDeviceRegistration selectedRegistration)
+        {
+            foreach (var registration in session.GetDevicesSnapshot())
+            {
+                if (ReferenceEquals(registration, selectedRegistration))
+                {
+                    continue;
+                }
+
+                if (Interlocked.CompareExchange(ref registration.IsRetired, 1, 0) == 0)
+                {
+                    _ = Task.Run(() => TerminateDeviceCapture(registration));
+                }
             }
         }
 
@@ -696,6 +1054,8 @@ namespace AlbionDataAvalonia.Network.Services
 
         private void TerminateDeviceCapture(CaptureDeviceRegistration registration)
         {
+            Volatile.Write(ref registration.IsRetired, 1);
+            registration.InitializationCompleted.Task.GetAwaiter().GetResult();
             if (Interlocked.Exchange(ref registration.IsTerminated, 1) != 0)
             {
                 registration.TerminationCompleted.Task.GetAwaiter().GetResult();
@@ -717,6 +1077,18 @@ namespace AlbionDataAvalonia.Network.Services
                     Log.Warning(
                         ex,
                         "Error unsubscribing from network device {Device}.",
+                        registration.DisplayName);
+                }
+
+                try
+                {
+                    device.OnCaptureStopped -= registration.CaptureStoppedHandler;
+                }
+                catch (Exception ex)
+                {
+                    Log.Warning(
+                        ex,
+                        "Error unsubscribing capture-stop handler from network device {Device}.",
                         registration.DisplayName);
                 }
 
@@ -783,7 +1155,7 @@ namespace AlbionDataAvalonia.Network.Services
                 {
                 }
 
-                foreach (var registration in session.Devices)
+                foreach (var registration in session.GetDevicesSnapshot())
                 {
                     try
                     {
@@ -815,6 +1187,8 @@ namespace AlbionDataAvalonia.Network.Services
         {
             LifecycleRequest request;
             CancellationTokenSource? previousCancellation;
+            CancellationTokenSource? supervisorCancellation;
+            Task? supervisorTask;
 
             lock (_lifecycleStateLock)
             {
@@ -836,6 +1210,7 @@ namespace AlbionDataAvalonia.Network.Services
                 if (!_listeningRequested
                     && Volatile.Read(ref _activeSession) is null
                     && _lifecycleCancellation is null
+                    && _supervisorTask is null
                     && !disposeService)
                 {
                     Log.Information("Network listening is already stopped.");
@@ -843,12 +1218,36 @@ namespace AlbionDataAvalonia.Network.Services
                 }
 
                 _listeningRequested = false;
+                (supervisorCancellation, supervisorTask) = DetachSupervisorLocked();
                 request = CreateLifecycleRequestLocked();
                 previousCancellation = ReplaceLifecycleCancellationLocked(request.Cancellation);
             }
 
             CancelLifecycleRequest(previousCancellation);
-            return ApplyStopRequestAsync(request);
+            CancelSupervisor(supervisorCancellation);
+            return ApplyStopRequestAndSupervisorAsync(
+                request,
+                supervisorCancellation,
+                supervisorTask);
+        }
+
+        private async Task ApplyStopRequestAndSupervisorAsync(
+            LifecycleRequest request,
+            CancellationTokenSource? supervisorCancellation,
+            Task? supervisorTask)
+        {
+            try
+            {
+                // The supervisor can be enumerating adapters or scheduling a recovery.
+                // Join it before closing capture handles so no monitor work can race
+                // with device disposal during stop, suspend, or application exit.
+                await AwaitSupervisorAsync(supervisorTask).ConfigureAwait(false);
+            }
+            finally
+            {
+                supervisorCancellation?.Dispose();
+                await ApplyStopRequestAsync(request).ConfigureAwait(false);
+            }
         }
 
         private async Task ApplyStopRequestAsync(LifecycleRequest request)
@@ -916,11 +1315,6 @@ namespace AlbionDataAvalonia.Network.Services
             }
         }
 
-        private void RestartNetworkListener()
-        {
-            _ = RequestStartAsync(forceRestart: true);
-        }
-
         private Task RequestResumeAsync()
         {
             lock (_lifecycleStateLock)
@@ -933,7 +1327,7 @@ namespace AlbionDataAvalonia.Network.Services
                 _isPowerSuspended = false;
             }
 
-            return RequestStartAsync(forceRestart: true);
+            return RequestStartAsync(forceRestart: true, applyStartDelay: true);
         }
 
         public void Dispose()
@@ -943,13 +1337,507 @@ namespace AlbionDataAvalonia.Network.Services
                 SystemEvents.PowerModeChanged -= SystemEvents_PowerModeChanged;
             }
 
-            _idleService.OnDetectedIdle -= RestartNetworkListener;
-
             RequestStopAsync(markPowerSuspended: true, disposeService: true)
                 .GetAwaiter()
                 .GetResult();
 
             Log.Information("Disposed {type}!", nameof(NetworkListenerService));
+        }
+
+        private void EnsureSupervisorStartedLocked()
+        {
+            if (_supervisorTask is not null && !_supervisorTask.IsCompleted)
+            {
+                return;
+            }
+
+            _supervisorCancellation?.Dispose();
+            var cancellation = new CancellationTokenSource();
+            _supervisorCancellation = cancellation;
+            _supervisorTask = Task.Run(() => RunCaptureSupervisorAsync(cancellation.Token));
+        }
+
+        private (CancellationTokenSource? Cancellation, Task? Task) DetachSupervisorLocked()
+        {
+            var cancellation = _supervisorCancellation;
+            var task = _supervisorTask;
+            _supervisorCancellation = null;
+            _supervisorTask = null;
+            return (cancellation, task);
+        }
+
+        private async Task RunCaptureSupervisorAsync(CancellationToken cancellationToken)
+        {
+            try
+            {
+                while (true)
+                {
+                    await _supervisorSignal.WaitAsync(
+                            GetDeviceRescanInterval(),
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                    cancellationToken.ThrowIfCancellationRequested();
+
+                    if (!IsCaptureDesired())
+                    {
+                        return;
+                    }
+
+                    try
+                    {
+                        await EvaluateCaptureHealthAsync(cancellationToken).ConfigureAwait(false);
+                    }
+                    catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+                    {
+                        throw;
+                    }
+                    catch (Exception ex)
+                    {
+                        Log.Error(ex, "Error evaluating network capture health. The supervisor will retry.");
+                    }
+                }
+            }
+            catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+            {
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Network capture supervisor stopped unexpectedly.");
+            }
+        }
+
+        private async Task EvaluateCaptureHealthAsync(CancellationToken cancellationToken)
+        {
+            CaptureSession? session;
+
+            lock (_lifecycleStateLock)
+            {
+                if (_disposed || _isPowerSuspended || !_listeningRequested)
+                {
+                    return;
+                }
+
+                // Do not supersede a start/stop already holding or waiting for the
+                // lifecycle gate. The next supervisor pass will evaluate its result.
+                if (_lifecycleCancellation is not null)
+                {
+                    return;
+                }
+
+                session = Volatile.Read(ref _activeSession);
+            }
+
+            if (session is null)
+            {
+                await RequestSupervisorRecoveryAsync(
+                        expectedSession: null,
+                        "no active capture session")
+                    .ConfigureAwait(false);
+                return;
+            }
+
+            if (!session.IsReady)
+            {
+                return;
+            }
+
+            var selectedRegistration = Volatile.Read(ref session.SelectedRegistration);
+            if (selectedRegistration is not null)
+            {
+                if (Volatile.Read(ref selectedRegistration.CaptureStoppedUnexpectedly) != 0
+                    || !IsCaptureStarted(selectedRegistration))
+                {
+                    await RequestSupervisorRecoveryAsync(
+                            session,
+                            $"capture stopped on {selectedRegistration.DisplayName}")
+                        .ConfigureAwait(false);
+                    return;
+                }
+
+                if (session.GetTimeSinceLastValidTraffic() >= GetTrafficTimeout())
+                {
+                    await RequestSupervisorRecoveryAsync(
+                            session,
+                            $"no valid Albion traffic on {selectedRegistration.DisplayName}")
+                        .ConfigureAwait(false);
+                    return;
+                }
+            }
+            else
+            {
+                RetireStoppedDiscoveryDevices(session);
+            }
+
+            Dictionary<string, ILiveDevice> availableDevices;
+            try
+            {
+                availableDevices = EnumerateCaptureDevices();
+                ClearFailureLog("enumeration");
+            }
+            catch (Exception ex)
+            {
+                LogRepeatedFailure(
+                    "enumeration",
+                    ex,
+                    "Unable to rescan network capture devices. Keeping the current capture session.");
+                return;
+            }
+
+            try
+            {
+                var availableDeviceNames = availableDevices.Keys.ToHashSet(StringComparer.Ordinal);
+                if (!ReferenceEquals(Volatile.Read(ref _activeSession), session)
+                    || !session.IsReady)
+                {
+                    return;
+                }
+
+                selectedRegistration = Volatile.Read(ref session.SelectedRegistration);
+                if (selectedRegistration is not null)
+                {
+                    if (!availableDeviceNames.Contains(selectedRegistration.DeviceName))
+                    {
+                        await RequestSupervisorRecoveryAsync(
+                                session,
+                                $"selected adapter {selectedRegistration.DisplayName} disappeared")
+                            .ConfigureAwait(false);
+                        return;
+                    }
+
+                    if (!session.HasSameAvailableDevices(availableDeviceNames))
+                    {
+                        session.ReplaceAvailableDevices(availableDeviceNames);
+                        Log.Information(
+                            "Network adapter inventory changed while selected device {Device} remains healthy.",
+                            selectedRegistration.DisplayName);
+                    }
+
+                    return;
+                }
+
+                if (!session.HasSameAvailableDevices(availableDeviceNames))
+                {
+                    await RequestSupervisorRecoveryAsync(
+                            session,
+                            "network adapter inventory changed during discovery")
+                        .ConfigureAwait(false);
+                    return;
+                }
+
+                session.PruneCompletedDeviceTerminations();
+                bool hasRetryableMissingDevice = availableDeviceNames.Any(deviceName =>
+                    !session.HasActiveDevice(deviceName)
+                    && !session.HasDeviceTerminationInProgress(deviceName));
+                if (hasRetryableMissingDevice
+                    && session.TryBeginOpenRetry(GetTrafficTimeout()))
+                {
+                    await RetryMissingDiscoveryDevicesAsync(
+                            session,
+                            availableDevices,
+                            cancellationToken)
+                        .ConfigureAwait(false);
+                }
+            }
+            finally
+            {
+                DisposeUnownedCaptureDevices(availableDevices.Values);
+                availableDevices.Clear();
+            }
+        }
+
+        private void RetireStoppedDiscoveryDevices(CaptureSession session)
+        {
+            var registrationsToTerminate = new List<CaptureDeviceRegistration>();
+
+            lock (session.ProcessingLock)
+            {
+                if (Volatile.Read(ref session.SelectedRegistration) is not null)
+                {
+                    return;
+                }
+
+                foreach (CaptureDeviceRegistration registration in session.GetDevicesSnapshot())
+                {
+                    if (Volatile.Read(ref registration.IsRetired) != 0
+                        || (Volatile.Read(ref registration.CaptureStoppedUnexpectedly) == 0
+                            && IsCaptureStarted(registration)))
+                    {
+                        continue;
+                    }
+
+                    if (Interlocked.CompareExchange(ref registration.IsRetired, 1, 0) == 0)
+                    {
+                        registrationsToTerminate.Add(registration);
+                    }
+                }
+            }
+
+            foreach (CaptureDeviceRegistration registration in registrationsToTerminate)
+            {
+                Log.Warning(
+                    "Retiring stopped discovery capture on {Device}; it will be retried without restarting healthy candidates.",
+                    registration.DisplayName);
+                _ = Task.Run(() => TerminateDeviceCapture(registration));
+            }
+        }
+
+        private async Task RetryMissingDiscoveryDevicesAsync(
+            CaptureSession session,
+            Dictionary<string, ILiveDevice> availableDevices,
+            CancellationToken cancellationToken)
+        {
+            var acquiredGate = false;
+            var openedDeviceCount = 0;
+            var failedDeviceCount = 0;
+            var sawPermissionDenied = false;
+
+            try
+            {
+                await _lifecycleGate.WaitAsync(cancellationToken).ConfigureAwait(false);
+                acquiredGate = true;
+
+                if (!IsCurrentDiscoverySession(session))
+                {
+                    return;
+                }
+
+                var filter = _settingsManager.AppSettings.PacketFilterPortText ?? string.Empty;
+                foreach (KeyValuePair<string, ILiveDevice> entry in availableDevices.ToArray())
+                {
+                    cancellationToken.ThrowIfCancellationRequested();
+                    if (!IsCurrentDiscoverySession(session))
+                    {
+                        break;
+                    }
+
+                    if (session.HasActiveDevice(entry.Key)
+                        || session.HasDeviceTerminationInProgress(entry.Key))
+                    {
+                        continue;
+                    }
+
+                    var registration = new CaptureDeviceRegistration(entry.Value, session, this);
+                    session.AddDevice(registration);
+                    availableDevices.Remove(entry.Key);
+
+                    CaptureDeviceOpenResult result = await StartDeviceCaptureAsync(
+                            registration,
+                            filter)
+                        .ConfigureAwait(false);
+                    if (result.Opened)
+                    {
+                        CaptureDeviceRegistration? selectedRegistration =
+                            Volatile.Read(ref session.SelectedRegistration);
+                        if (selectedRegistration is not null
+                            && !ReferenceEquals(selectedRegistration, registration)
+                            && Interlocked.CompareExchange(
+                                ref registration.IsRetired,
+                                1,
+                                0) == 0)
+                        {
+                            _ = Task.Run(() => TerminateDeviceCapture(registration));
+                        }
+                        else if (Volatile.Read(ref registration.IsRetired) == 0)
+                        {
+                            openedDeviceCount++;
+                        }
+                    }
+                    else
+                    {
+                        session.RemoveDevice(registration);
+                        failedDeviceCount++;
+                        sawPermissionDenied |= result.PermissionDenied;
+                    }
+
+                    if (Volatile.Read(ref session.SelectedRegistration) is not null)
+                    {
+                        break;
+                    }
+                }
+
+                if (openedDeviceCount > 0)
+                {
+                    ClearFailureLog("no-open-devices");
+                    SetMacOSCapturePermissionSetupRequired(false);
+                    Log.Information(
+                        "Added {OpenedDeviceCount} recovered network capture candidate(s) without restarting active discovery captures.",
+                        openedDeviceCount);
+                }
+
+                if (failedDeviceCount > 0)
+                {
+                    if (session.GetActiveDeviceCount() == 0)
+                    {
+                        if (ShouldLogRepeatedFailure("no-open-devices"))
+                        {
+                            LogNoCaptureDevicesOpened(failedDeviceCount, sawPermissionDenied);
+                        }
+                    }
+                    else if (ShouldLogRepeatedFailure("partial-open-devices"))
+                    {
+                        Log.Warning(
+                            "Failed to reopen {FailedDeviceCount} network capture candidate(s); healthy discovery captures remain active.",
+                            failedDeviceCount);
+                    }
+                }
+            }
+            finally
+            {
+                if (acquiredGate)
+                {
+                    _lifecycleGate.Release();
+                }
+            }
+        }
+
+        private bool IsCurrentDiscoverySession(CaptureSession session)
+        {
+            lock (_lifecycleStateLock)
+            {
+                return !_disposed
+                    && !_isPowerSuspended
+                    && _listeningRequested
+                    && _lifecycleCancellation is null
+                    && ReferenceEquals(Volatile.Read(ref _activeSession), session)
+                    && session.IsReady
+                    && Volatile.Read(ref session.SelectedRegistration) is null;
+            }
+        }
+
+        private Task RequestSupervisorRecoveryAsync(
+            CaptureSession? expectedSession,
+            string reason)
+        {
+            LifecycleRequest request;
+            CancellationTokenSource? previousCancellation;
+            bool forceRestart;
+
+            lock (_lifecycleStateLock)
+            {
+                if (_disposed
+                    || _isPowerSuspended
+                    || !_listeningRequested
+                    || _lifecycleCancellation is not null)
+                {
+                    return Task.CompletedTask;
+                }
+
+                var activeSession = Volatile.Read(ref _activeSession);
+                if (expectedSession is null)
+                {
+                    if (activeSession is not null)
+                    {
+                        return Task.CompletedTask;
+                    }
+
+                    forceRestart = false;
+                }
+                else
+                {
+                    if (!ReferenceEquals(activeSession, expectedSession)
+                        || Interlocked.Exchange(ref expectedSession.RecoveryScheduled, 1) != 0)
+                    {
+                        return Task.CompletedTask;
+                    }
+
+                    forceRestart = true;
+                }
+
+                request = CreateLifecycleRequestLocked();
+                previousCancellation = ReplaceLifecycleCancellationLocked(request.Cancellation);
+            }
+
+            Log.Warning("Re-evaluating network capture devices: {Reason}.", reason);
+            CancelLifecycleRequest(previousCancellation);
+            return ApplyStartRequestAsync(
+                request,
+                forceRestart,
+                applyStartDelay: false);
+        }
+
+        private bool IsCaptureDesired()
+        {
+            lock (_lifecycleStateLock)
+            {
+                return !_disposed && !_isPowerSuspended && _listeningRequested;
+            }
+        }
+
+        private static bool IsCaptureStarted(CaptureDeviceRegistration registration)
+        {
+            try
+            {
+                return Volatile.Read(ref registration.IsRetired) == 0
+                    && registration.Device.Started;
+            }
+            catch (Exception ex)
+            {
+                Log.Debug(
+                    ex,
+                    "Unable to inspect capture state for network device {Device}.",
+                    registration.DisplayName);
+                return false;
+            }
+        }
+
+        private TimeSpan GetDeviceRescanInterval()
+        {
+            var seconds = _settingsManager.AppSettings.NetworkDevicesRescanSeconds;
+            return TimeSpan.FromSeconds(seconds > 0 ? seconds : 10);
+        }
+
+        private TimeSpan GetTrafficTimeout()
+        {
+            var seconds = _settingsManager.AppSettings.NetworkDevicesTrafficTimeoutSeconds;
+            return TimeSpan.FromSeconds(seconds > 0 ? seconds : 30);
+        }
+
+        private void SignalSupervisor()
+        {
+            try
+            {
+                _supervisorSignal.Release();
+            }
+            catch (SemaphoreFullException)
+            {
+                // A pending signal already covers this state change.
+            }
+        }
+
+        private static void CancelSupervisor(CancellationTokenSource? cancellation)
+        {
+            if (cancellation is null)
+            {
+                return;
+            }
+
+            try
+            {
+                cancellation.Cancel();
+            }
+            catch (ObjectDisposedException)
+            {
+            }
+        }
+
+        private static async Task AwaitSupervisorAsync(Task? supervisorTask)
+        {
+            if (supervisorTask is null)
+            {
+                return;
+            }
+
+            try
+            {
+                await supervisorTask.ConfigureAwait(false);
+            }
+            catch (OperationCanceledException)
+            {
+            }
+            catch (Exception ex)
+            {
+                Log.Error(ex, "Error while stopping the network capture supervisor.");
+            }
         }
 
         private LifecycleRequest CreateLifecycleRequestLocked()
@@ -1047,28 +1935,172 @@ namespace AlbionDataAvalonia.Network.Services
         private sealed class CaptureSession
         {
             private int _isReady;
+            private readonly object _availableDevicesLock = new object();
+            private readonly object _devicesLock = new object();
+            private HashSet<string> _availableDeviceNames;
+            private readonly List<CaptureDeviceRegistration> _devices =
+                new List<CaptureDeviceRegistration>();
+            private long _lastValidTrafficTimestamp;
+            private long _lastOpenRetryTimestamp;
+            private readonly long _createdTimestamp;
 
             public CaptureSession(
                 IPhotonReceiver receiver,
-                NetworkListenerService listener)
+                IEnumerable<string> availableDeviceNames)
             {
                 Receiver = receiver;
-                PacketHandler = (sender, packet) => listener.PacketHandler(this, sender, packet);
+                _createdTimestamp = Stopwatch.GetTimestamp();
+                _lastOpenRetryTimestamp = _createdTimestamp;
+                _availableDeviceNames = new HashSet<string>(
+                    availableDeviceNames,
+                    StringComparer.Ordinal);
             }
 
             public IPhotonReceiver Receiver { get; }
-            public PacketArrivalEventHandler PacketHandler { get; }
-            public List<CaptureDeviceRegistration> Devices { get; } = new List<CaptureDeviceRegistration>();
             public TaskCompletionSource<bool> TerminationCompleted { get; } =
                 new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             public object ProcessingLock { get; } = new object();
-            public object? SelectedDevice;
+            public CaptureDeviceRegistration? SelectedRegistration;
+            public int RecoveryScheduled;
             public int IsTerminated;
+
+            public int AvailableDeviceCount
+            {
+                get
+                {
+                    lock (_availableDevicesLock)
+                    {
+                        return _availableDeviceNames.Count;
+                    }
+                }
+            }
 
             public bool IsReady
             {
                 get => Volatile.Read(ref _isReady) != 0;
                 set => Volatile.Write(ref _isReady, value ? 1 : 0);
+            }
+
+            public void MarkValidTraffic()
+            {
+                Volatile.Write(ref _lastValidTrafficTimestamp, Stopwatch.GetTimestamp());
+            }
+
+            public TimeSpan GetTimeSinceLastValidTraffic()
+            {
+                var timestamp = Volatile.Read(ref _lastValidTrafficTimestamp);
+                return timestamp == 0
+                    ? TimeSpan.MaxValue
+                    : Stopwatch.GetElapsedTime(timestamp);
+            }
+
+            public void AddDevice(CaptureDeviceRegistration registration)
+            {
+                lock (_devicesLock)
+                {
+                    _devices.Add(registration);
+                }
+            }
+
+            public void RemoveDevice(CaptureDeviceRegistration registration)
+            {
+                lock (_devicesLock)
+                {
+                    _devices.Remove(registration);
+                }
+            }
+
+            public IReadOnlyList<CaptureDeviceRegistration> GetDevicesSnapshot()
+            {
+                lock (_devicesLock)
+                {
+                    return _devices.ToArray();
+                }
+            }
+
+            public bool HasActiveDevice(string deviceName)
+            {
+                lock (_devicesLock)
+                {
+                    return _devices.Any(registration =>
+                        string.Equals(registration.DeviceName, deviceName, StringComparison.Ordinal)
+                        && Volatile.Read(ref registration.IsRetired) == 0
+                        && Volatile.Read(ref registration.IsTerminated) == 0
+                        && Volatile.Read(ref registration.CaptureStoppedUnexpectedly) == 0);
+                }
+            }
+
+            public bool HasDeviceTerminationInProgress(string deviceName)
+            {
+                lock (_devicesLock)
+                {
+                    return _devices.Any(registration =>
+                        string.Equals(registration.DeviceName, deviceName, StringComparison.Ordinal)
+                        && (Volatile.Read(ref registration.IsRetired) != 0
+                            || Volatile.Read(ref registration.IsTerminated) != 0)
+                        && !registration.TerminationCompleted.Task.IsCompleted);
+                }
+            }
+
+            public int GetActiveDeviceCount()
+            {
+                lock (_devicesLock)
+                {
+                    return _devices.Count(registration =>
+                        Volatile.Read(ref registration.IsRetired) == 0
+                        && Volatile.Read(ref registration.IsTerminated) == 0
+                        && Volatile.Read(ref registration.CaptureStoppedUnexpectedly) == 0);
+                }
+            }
+
+            public void PruneCompletedDeviceTerminations()
+            {
+                lock (_devicesLock)
+                {
+                    _devices.RemoveAll(registration =>
+                        Volatile.Read(ref registration.IsTerminated) != 0
+                        && registration.TerminationCompleted.Task.IsCompleted);
+                }
+            }
+
+            public bool TryBeginOpenRetry(TimeSpan retryInterval)
+            {
+                var now = Stopwatch.GetTimestamp();
+
+                while (true)
+                {
+                    var previous = Volatile.Read(ref _lastOpenRetryTimestamp);
+                    if (Stopwatch.GetElapsedTime(previous, now) < retryInterval)
+                    {
+                        return false;
+                    }
+
+                    if (Interlocked.CompareExchange(
+                            ref _lastOpenRetryTimestamp,
+                            now,
+                            previous) == previous)
+                    {
+                        return true;
+                    }
+                }
+            }
+
+            public bool HasSameAvailableDevices(IReadOnlySet<string> deviceNames)
+            {
+                lock (_availableDevicesLock)
+                {
+                    return _availableDeviceNames.SetEquals(deviceNames);
+                }
+            }
+
+            public void ReplaceAvailableDevices(IEnumerable<string> deviceNames)
+            {
+                lock (_availableDevicesLock)
+                {
+                    _availableDeviceNames = new HashSet<string>(
+                        deviceNames,
+                        StringComparer.Ordinal);
+                }
             }
         }
 
@@ -1076,19 +2108,55 @@ namespace AlbionDataAvalonia.Network.Services
         {
             public CaptureDeviceRegistration(
                 ILiveDevice device,
-                PacketArrivalEventHandler packetHandler)
+                CaptureSession session,
+                NetworkListenerService listener)
             {
                 Device = device;
-                PacketHandler = packetHandler;
+                DeviceName = device.Name;
                 DisplayName = GetDeviceDisplayName(device);
+                Probe = new PhotonTrafficProbe();
+                PacketHandler = (sender, packet) =>
+                    listener.PacketHandler(session, this, sender, packet);
+                CaptureStoppedHandler = (sender, status) =>
+                    listener.CaptureStoppedHandler(session, this, sender, status);
             }
 
             public ILiveDevice Device { get; }
+            public string DeviceName { get; }
             public PacketArrivalEventHandler PacketHandler { get; }
+            public CaptureStoppedEventHandler CaptureStoppedHandler { get; }
             public string DisplayName { get; }
+            public PhotonTrafficProbe Probe { get; }
+            public TaskCompletionSource<bool> InitializationCompleted { get; } =
+                new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
             public TaskCompletionSource<bool> TerminationCompleted { get; } =
                 new TaskCompletionSource<bool>(TaskCreationOptions.RunContinuationsAsynchronously);
+            public int CaptureStoppedUnexpectedly;
+            public int IsRetired;
             public int IsTerminated;
+        }
+
+        private sealed class PhotonTrafficProbe : PhotonParser
+        {
+            protected override void OnRequest(
+                byte operationCode,
+                Dictionary<byte, object> parameters)
+            {
+            }
+
+            protected override void OnResponse(
+                byte operationCode,
+                short returnCode,
+                string debugMessage,
+                Dictionary<byte, object> parameters)
+            {
+            }
+
+            protected override void OnEvent(
+                byte code,
+                Dictionary<byte, object> parameters)
+            {
+            }
         }
 
         private readonly record struct LifecycleRequest(

@@ -39,6 +39,7 @@ public partial class App : Application
 {
     private System.Timers.Timer? _updateTimer;
     private DatabaseBackupService? _databaseBackupService;
+    private NetworkListenerService? _networkListenerService;
     private readonly HashSet<string> _shownManualUpdateDialogs = new();
     private readonly object _shownManualUpdateDialogsLock = new();
     private bool _showMainWindowWhenReady;
@@ -67,6 +68,7 @@ public partial class App : Application
         }
         catch (Exception ex)
         {
+            DisposeNetworkListener();
             _databaseBackupService?.Dispose();
             TryWriteStartupCrashLog(ex);
 
@@ -139,13 +141,13 @@ public partial class App : Application
 
         //GETTING SERVICES
         var listener = services.GetRequiredService<NetworkListenerService>();
+        _networkListenerService = listener;
         var uploader = services.GetRequiredService<Uploader>();
         var afmUploader = services.GetRequiredService<AFMUploader>();
         var emvBackendLoader = services.GetRequiredService<ItemEstimatedMarketValueBackendLoader>();
         var mobsService = services.GetRequiredService<MobsService>();
         var itemsIdsService = services.GetRequiredService<ItemsIdsService>();
         var achievementsService = services.GetRequiredService<AchievementsService>();
-        var idleService = services.GetRequiredService<IdleService>();
         var authService = services.GetRequiredService<AuthService>();
         var gatheringTracker = services.GetRequiredService<GatheringTrackerService>();
 
@@ -160,7 +162,11 @@ public partial class App : Application
         if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
-            desktop.Exit += (_, _) => _databaseBackupService?.Dispose();
+            desktop.Exit += (_, _) =>
+            {
+                DisposeNetworkListener();
+                _databaseBackupService?.Dispose();
+            };
 
             if (desktop.MainWindow == null)
             {
@@ -273,15 +279,6 @@ public partial class App : Application
                 if (t.IsFaulted)
                 {
                     Log.Error(t.Exception, "Error in uploader, exception: {exception}", t.Exception);
-                }
-            });
-
-            //IDLE SERVICE
-            _ = idleService.ExecuteAsync().ContinueWith(t =>
-            {
-                if (t.IsFaulted)
-                {
-                    Log.Error(t.Exception, "Error in idle service, exception: {exception}", t.Exception);
                 }
             });
 
@@ -406,6 +403,24 @@ public partial class App : Application
         }
     }
 
+    private void DisposeNetworkListener()
+    {
+        var listener = Interlocked.Exchange(ref _networkListenerService, null);
+        if (listener is null)
+        {
+            return;
+        }
+
+        try
+        {
+            listener.Dispose();
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to dispose the network listener.");
+        }
+    }
+
     private static void ShutdownApplication()
     {
         if (Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
@@ -461,7 +476,6 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<ConnectionService>();
         collection.AddSingleton<SettingsManager>();
         collection.AddSingleton<ListSink>();
-        collection.AddSingleton<IdleService>();
         collection.AddSingleton<Uploader>();
         collection.AddSingleton<AFMUploader>();
         collection.AddSingleton<MailService>();
