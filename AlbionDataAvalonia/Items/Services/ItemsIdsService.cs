@@ -2,6 +2,7 @@ using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Net.Http;
+using System.Text.Json;
 using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.Items.Services
@@ -10,11 +11,18 @@ namespace AlbionDataAvalonia.Items.Services
     {
         private class ItemIdEntry
         {
-            public string UniqueName { get; set; }
-            public string UsName { get; set; }
+            public string UniqueName { get; set; } = string.Empty;
+            public string UsName { get; set; } = string.Empty;
         }
 
-        private const string TxtUrl = "https://cdn.albionfreemarket.com/ao-bin-dumps/formatted/items.txt";
+        private class ItemJsonEntry
+        {
+            public string Index { get; set; } = string.Empty;
+            public string UniqueName { get; set; } = string.Empty;
+            public Dictionary<string, string>? LocalizedNames { get; set; }
+        }
+
+        private const string JsonUrl = "https://cdn.albionfreemarket.com/ao-bin-dumps/formatted/items.json";
         private Dictionary<int, ItemIdEntry> itemMappings = new();
         private Dictionary<string, string> itemNamesByUniqueName = new(StringComparer.OrdinalIgnoreCase);
 
@@ -25,39 +33,28 @@ namespace AlbionDataAvalonia.Items.Services
                 Log.Information("Initializing ItemsIds service...");
                 using (var httpClient = new HttpClient())
                 {
-                    var txt = await httpClient.GetStringAsync(TxtUrl);
-                    if (!string.IsNullOrEmpty(txt))
+                    var json = await httpClient.GetStringAsync(JsonUrl);
+                    var items = JsonSerializer.Deserialize<List<ItemJsonEntry>>(json);
+                    if (items is not null)
                     {
-                        var lines = txt.Split(new[] { '\n', '\r' }, StringSplitOptions.RemoveEmptyEntries);
-                        foreach (var line in lines)
+                        foreach (var item in items)
                         {
-                            var trimmedLine = line.Trim();
-                            if (string.IsNullOrWhiteSpace(trimmedLine)) continue;
-
-                            var parts = trimmedLine.Split(new[] { " : " }, 2, StringSplitOptions.None);
-                            var idAndUnique = parts[0].Trim();
-                            var usName = parts.Length == 2
-                                ? parts[1].Trim()
-                                : string.Empty;
-
-                            var colonIndex = idAndUnique.IndexOf(':');
-                            if (colonIndex > 0)
+                            if (int.TryParse(item.Index, out int id)
+                                && !string.IsNullOrWhiteSpace(item.UniqueName))
                             {
-                                var idStr = idAndUnique.Substring(0, colonIndex).Trim();
-                                var uniqueName = idAndUnique.Substring(colonIndex + 1).Trim();
-
-                                if (int.TryParse(idStr, out int id) && !string.IsNullOrWhiteSpace(uniqueName))
+                                var usName = item.LocalizedNames is not null
+                                    && item.LocalizedNames.TryGetValue("EN-US", out var localizedUsName)
+                                    ? localizedUsName
+                                    : string.Empty;
+                                var resolvedUsName = string.IsNullOrWhiteSpace(usName)
+                                    ? item.UniqueName
+                                    : ItemNameFormatter.FormatUsName(item.UniqueName, usName);
+                                itemMappings[id] = new ItemIdEntry
                                 {
-                                    var resolvedUsName = string.IsNullOrWhiteSpace(usName)
-                                        ? uniqueName
-                                        : ItemNameFormatter.FormatUsName(uniqueName, usName);
-                                    itemMappings[id] = new ItemIdEntry
-                                    {
-                                        UniqueName = uniqueName,
-                                        UsName = resolvedUsName
-                                    };
-                                    itemNamesByUniqueName[uniqueName] = resolvedUsName;
-                                }
+                                    UniqueName = item.UniqueName,
+                                    UsName = resolvedUsName
+                                };
+                                itemNamesByUniqueName[item.UniqueName] = resolvedUsName;
                             }
                         }
                     }
