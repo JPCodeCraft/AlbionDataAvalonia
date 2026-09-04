@@ -9,6 +9,7 @@
 
   <ItemGroup>
     <ProjectReference Include="..\AlbionDataAvalonia\AlbionDataAvalonia.csproj" />
+    <InternalsVisibleTo Include="PowBench.Tests" />
   </ItemGroup>
 
 </Project>

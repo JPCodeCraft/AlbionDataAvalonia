@@ -1,7 +1,6 @@
 ﻿using AlbionDataAvalonia.Network.Models;
 using Serilog;
 using System;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
@@ -13,13 +12,15 @@ using System.Runtime.CompilerServices;
 
 namespace AlbionDataAvalonia.Network.Pow;
 
-public partial class PowSolver
+public partial class PowSolver : IDisposable
 {
     private readonly SHA256 _sha256 = SHA256.Create();
     private ulong _counter;
     private static readonly byte[] HexDigits = "0123456789abcdef"u8.ToArray();
 
     internal void ResetCounter(ulong value) => _counter = value;
+
+    public void Dispose() => _sha256.Dispose();
 
     public async Task<PowRequest?> GetPowRequest(AlbionServer server, HttpClient client)
     {
@@ -75,9 +76,13 @@ public partial class PowSolver
             }
 
             ctr++;
-            IncrementHexAsciiInPlace(counterSpan); // O(1) on average
+            AdvanceCounter(counterSpan, ctr);
         }
     }
+
+    internal virtual void AdvanceCounter(Span<byte> counterSpan, ulong counter) =>
+        IncrementHexAsciiInPlace(counterSpan);
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void IncrementHexAsciiInPlace(Span<byte> s)
     {
@@ -116,11 +121,10 @@ public partial class PowSolver
     }
 
 
-    internal void TryComputeHash(ReadOnlySpan<byte> input, Span<byte> hashBuffer) =>
+    internal virtual void TryComputeHash(ReadOnlySpan<byte> input, Span<byte> hashBuffer) =>
         _sha256.TryComputeHash(input, hashBuffer, out _);
-    // SHA256.TryHashData(input, hashBuffer, out +_);
 
-    internal static bool CheckLeadingBits(ReadOnlySpan<byte> hash, PowDifficulty difficulty)
+    internal virtual bool CheckLeadingBits(ReadOnlySpan<byte> hash, PowDifficulty difficulty)
     {
         ReadOnlySpan<byte> expected = difficulty.ExpectedSpan;
         if (expected.Length == 0)

@@ -293,7 +293,7 @@ public class Uploader : IDisposable
     {
         try
         {
-            var _powSolver = new PowSolver();
+            using var _powSolver = new PowSolver();
             var powRequest = await _powSolver.GetPowRequest(server, _connectionService.httpClient);
             if (powRequest is not null)
             {
