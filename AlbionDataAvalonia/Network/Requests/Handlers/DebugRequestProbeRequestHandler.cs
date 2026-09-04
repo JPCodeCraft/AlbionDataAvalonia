@@ -11,8 +11,6 @@ public class DebugRequestProbeRequestHandler : PacketHandler<RequestPacket>
 {
     private static readonly int[] ProbeOperationCodeValues =
     [
-        (int)OperationCodes.AuctionGetOffers,
-        (int)OperationCodes.AuctionGetRequests,
     ];
 
     protected override Task OnHandleAsync(RequestPacket packet)

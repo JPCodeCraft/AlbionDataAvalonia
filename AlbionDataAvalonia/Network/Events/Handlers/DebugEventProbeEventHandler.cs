@@ -12,9 +12,8 @@ public class DebugEventProbeEventHandler : EventPacketHandler<DebugEventProbeEve
 {
     private static readonly int[] ProbeEventCodeValues =
     [
+        (int)EventCodes.PremiumChanged,
         (int)EventCodes.JoinFinished,
-        (int)EventCodes.CraftBuildingInfo,
-        (int)EventCodes.FeaturedFeatureUpdate,
     ];
 
     public DebugEventProbeEventHandler() : base(ProbeEventCodeValues)

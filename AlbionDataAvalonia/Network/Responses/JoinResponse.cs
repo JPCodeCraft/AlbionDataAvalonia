@@ -66,7 +66,7 @@ public class JoinResponse : BaseOperation
                 }
             }
 
-            if (parameters.TryGetValue(89, out object? premiumExpirationData))
+            if (parameters.TryGetValue(90, out object? premiumExpirationData))
             {
                 try
                 {
@@ -75,7 +75,7 @@ public class JoinResponse : BaseOperation
                 catch (InvalidCastException)
                 {
                     Log.Warning(
-                        "Join response param 89 was present but could not be parsed into Premium expiration ticks. Type: {Type}",
+                        "Join response param 90 was present but could not be parsed into Premium expiration ticks. Type: {Type}",
                         premiumExpirationData?.GetType());
                 }
             }
