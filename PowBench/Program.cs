@@ -16,6 +16,7 @@ internal static class Program
         }
 
         Console.WriteLine($"PoW comparison: {count} stable challenges, {difficultyBits} difficulty bits, {rounds} rounds.");
+        Console.WriteLine($"Batch hashing: {(PowSha256Batch.IsSupported ? "AVX2, eight counters on one thread" : "scalar fallback (AVX2 unavailable)")}.");
 #if DEBUG
         Console.WriteLine("Use a Release build for meaningful timings.");
 #endif
@@ -35,11 +36,13 @@ internal static class Program
         foreach (var variant in variants)
         {
             using var solver = variant.Create();
-            for (int i = 0; i < 3; i++)
+            long warmupStart = Stopwatch.GetTimestamp();
+            do
             {
                 solver.ResetCounter(0);
                 solver.ProcessPow(challenges[0]);
             }
+            while (Stopwatch.GetElapsedTime(warmupStart).TotalMilliseconds < 250);
         }
 
         var samples = variants.Select(_ => new List<double>()).ToArray();
@@ -83,7 +86,7 @@ internal static class Program
             Console.WriteLine($"{variants[i].Name,-22} {mean,10:F3} {median,10:F3} {p95,10:F3} {baselineMean / mean,9:F2}x");
         }
 
-        Console.WriteLine("Speedup is relative to Current; higher is faster. All solutions matched.");
+        Console.WriteLine($"Speedup is relative to {variants[0].Name}; higher is faster. All solutions matched.");
         return 0;
     }
 

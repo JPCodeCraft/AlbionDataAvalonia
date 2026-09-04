@@ -56,6 +56,21 @@ public class PowSolverTests
 
     [Theory]
     [MemberData(nameof(Variants))]
+    public void ReusedHasherMatchesSha256AcrossBlockBoundaries(string variant)
+    {
+        using var solver = CreateSolver(variant);
+        Span<byte> hash = stackalloc byte[32];
+        int[] lengths = [0, 1, 27, 55, 56, 63, 64, 65, 119, 120, 127, 128, 129, 1024, 0];
+        foreach (int length in lengths)
+        {
+            byte[] input = Enumerable.Range(0, length).Select(i => (byte)(i * 37)).ToArray();
+            solver.TryComputeHash(input, hash);
+            Assert.Equal(SHA256.HashData(input), hash.ToArray());
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(Variants))]
     public void MatchesBitsOfLowercaseHexTextIncludingPartialBytes(string variant)
     {
         using var solver = CreateSolver(variant);
@@ -77,6 +92,27 @@ public class PowSolverTests
         Assert.True(solver.CheckLeadingBits(hash, PowSolver.PowDifficulty.Create(null)));
         // The first raw hash byte is 0xba, but the first ASCII byte is 'b' (0x62).
         Assert.False(solver.CheckLeadingBits(hash, PowSolver.PowDifficulty.Create("1011")));
+    }
+
+    [Theory]
+    [MemberData(nameof(Variants))]
+    public void MatchesEveryFirstByteAndStillChecksTheRemainingPrefix(string variant)
+    {
+        using var solver = CreateSolver(variant);
+        var hash = new byte[32];
+        for (int value = 0; value < 256; value++)
+        {
+            hash[0] = (byte)value;
+            var difficulty = PowSolver.PowDifficulty.Create(ToAsciiBits(value.ToString("x2")));
+            Assert.True(solver.CheckLeadingBits(hash, difficulty));
+
+            hash[0] ^= 1;
+            Assert.False(solver.CheckLeadingBits(hash, difficulty));
+
+            hash[0] = (byte)value;
+            var longerDifficulty = PowSolver.PowDifficulty.Create(ToAsciiBits(value.ToString("x2") + "1"));
+            Assert.False(solver.CheckLeadingBits(hash, longerDifficulty));
+        }
     }
 
     [Theory]
@@ -113,6 +149,35 @@ public class PowSolverTests
 
         Assert.Equal(expected.ToString("x16"), solution);
         Assert.StartsWith(wanted, HashBits(solution, key));
+    }
+
+    [Theory]
+    [MemberData(nameof(Variants))]
+    public void RechecksCandidatesAndReturnsTheEarliestMatch(string variant)
+    {
+        // Counters 0 and 4 both start with raw hash byte 0x06; only 4 starts with hex "06c".
+        using var solver = CreateSolver(variant);
+        Assert.Equal("0000000000000000", solver.ProcessPow(new PowRequest { Key = "batch-0", Wanted = ToAsciiBits("06") }));
+        solver.ResetCounter(0);
+        Assert.Equal("0000000000000004", solver.ProcessPow(new PowRequest { Key = "batch-0", Wanted = ToAsciiBits("06c") }));
+    }
+
+    [Theory]
+    [MemberData(nameof(Variants))]
+    public void SolvesEveryLaneAndFallsBackForLongKeys(string variant)
+    {
+        using var solver = CreateSolver(variant);
+        string[] keys = ["", "test-key", new string('x', 34), new string('x', 35), new string('x', 128), new string('雪', 12)];
+        foreach (string key in keys)
+        {
+            for (ulong lane = 0; lane < 8; lane++)
+            {
+                string wanted = HashBits(lane.ToString("x16"), key);
+                solver.ResetCounter(0);
+                Assert.Equal(lane.ToString("x16"), solver.ProcessPow(new PowRequest { Key = key, Wanted = wanted }));
+                Assert.Equal((lane + 1).ToString("x16"), solver.ProcessPow(new PowRequest { Key = key, Wanted = "" }));
+            }
+        }
     }
 
     [Theory]

@@ -8,19 +8,21 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Runtime.CompilerServices;
+using System.Numerics;
+using System.Runtime.Intrinsics;
 
 
 namespace AlbionDataAvalonia.Network.Pow;
 
 public partial class PowSolver : IDisposable
 {
-    private readonly SHA256 _sha256 = SHA256.Create();
+    private readonly IncrementalHash _sha256 = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
     private ulong _counter;
     private static readonly byte[] HexDigits = "0123456789abcdef"u8.ToArray();
 
     internal void ResetCounter(ulong value) => _counter = value;
 
-    public void Dispose() => _sha256.Dispose();
+    public virtual void Dispose() => _sha256.Dispose();
 
     public async Task<PowRequest?> GetPowRequest(AlbionServer server, HttpClient client)
     {
@@ -46,6 +48,8 @@ public partial class PowSolver : IDisposable
 
     public Task<string> SolvePow(PowRequest pow) => Task.Run(() => ProcessPow(pow));
 
+    internal virtual bool UseBatchHashing => true;
+
     internal string ProcessPow(PowRequest pow)
     {
         ReadOnlySpan<byte> prefix = "aod^"u8;
@@ -57,6 +61,12 @@ public partial class PowSolver : IDisposable
         suffix.CopyTo(inputBuffer.AsSpan(prefix.Length + 16));
 
         PowDifficulty difficulty = PowDifficulty.Create(pow.Wanted);
+        if (UseBatchHashing && PowSha256Batch.IsSupported
+            && inputBuffer.Length <= PowSha256Batch.MaxInputLength && difficulty.FirstHashByte >= 0)
+        {
+            return ProcessPowBatch(inputBuffer, difficulty);
+        }
+
         Span<byte> counterSpan = inputBuffer.AsSpan(prefix.Length, 16);
         Span<byte> hashBuffer = stackalloc byte[32];
 
@@ -77,6 +87,40 @@ public partial class PowSolver : IDisposable
 
             ctr++;
             AdvanceCounter(counterSpan, ctr);
+        }
+    }
+
+    private string ProcessPowBatch(byte[] inputBuffer, PowDifficulty difficulty)
+    {
+        var batch = new PowSha256Batch(inputBuffer);
+        Span<Vector256<uint>> digest = stackalloc Vector256<uint>[8];
+        Span<byte> hash = stackalloc byte[32];
+        Span<byte> counterSpan = inputBuffer.AsSpan(4, 16);
+        ulong counter = _counter;
+        while (true)
+        {
+            batch.Hash(counter, digest);
+            uint candidates = Vector256.Equals(digest[0] >> 24, Vector256.Create((uint)difficulty.FirstHashByte))
+                .ExtractMostSignificantBits();
+
+            while (candidates != 0)
+            {
+                int lane = BitOperations.TrailingZeroCount(candidates);
+                ulong solution = unchecked(counter + (ulong)lane);
+                WriteCounterHex(counterSpan, solution);
+                // Verify the surviving candidates with the platform SHA-256 implementation.
+                // This happens for roughly one in 256 attempts, in original counter order.
+                TryComputeHash(inputBuffer, hash);
+                if (CheckLeadingBits(hash, difficulty))
+                {
+                    _counter = unchecked(solution + 1);
+                    return Encoding.ASCII.GetString(counterSpan);
+                }
+
+                candidates &= candidates - 1;
+            }
+
+            counter = unchecked(counter + 8);
         }
     }
 
@@ -121,11 +165,21 @@ public partial class PowSolver : IDisposable
     }
 
 
-    internal virtual void TryComputeHash(ReadOnlySpan<byte> input, Span<byte> hashBuffer) =>
-        _sha256.TryComputeHash(input, hashBuffer, out _);
+    internal virtual void TryComputeHash(ReadOnlySpan<byte> input, Span<byte> hashBuffer)
+    {
+        _sha256.AppendData(input);
+        _sha256.GetHashAndReset(hashBuffer);
+    }
 
     internal virtual bool CheckLeadingBits(ReadOnlySpan<byte> hash, PowDifficulty difficulty)
     {
+        // Two complete ASCII hex characters fix the first raw hash byte.
+        // Reject most attempts without extracting and checking each nibble.
+        if (difficulty.FirstHashByte >= 0 && hash[0] != difficulty.FirstHashByte)
+        {
+            return false;
+        }
+
         ReadOnlySpan<byte> expected = difficulty.ExpectedSpan;
         if (expected.Length == 0)
         {
@@ -161,7 +215,19 @@ public partial class PowSolver : IDisposable
         {
             _expected = expected;
             _mask = mask;
+
+            if (expected.Length >= 2 && mask[1] == byte.MaxValue)
+            {
+                int high = HexDigits.AsSpan().IndexOf(expected[0]);
+                int low = HexDigits.AsSpan().IndexOf(expected[1]);
+                if (high >= 0 && low >= 0)
+                {
+                    FirstHashByte = (high << 4) | low;
+                }
+            }
         }
+
+        public int FirstHashByte { get; } = -1;
 
         public ReadOnlySpan<byte> ExpectedSpan => _expected;
         public ReadOnlySpan<byte> MaskSpan => _mask;
