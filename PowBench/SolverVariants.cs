@@ -10,10 +10,16 @@ internal static class SolverVariants
         ("Scalar", () => new ScalarSolver()),
         ("Incremental only", () => new IncrementalOnlySolver()),
         ("Current", () => new PowSolver()),
+        ("No precompute", () => new NoPrecomputeSolver()),
         ("Rewrite counter", () => new RewriteCounterSolver()),
         ("Static SHA256", () => new StaticHashSolver()),
         ("Hex string check", () => new HexStringCheckSolver())
     ];
+
+    private sealed class NoPrecomputeSolver : PowSolver
+    {
+        internal override bool UsePrecomputation => false;
+    }
 
     private class ScalarSolver : PowSolver
     {

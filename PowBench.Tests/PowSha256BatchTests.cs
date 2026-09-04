@@ -11,17 +11,26 @@ namespace PowBench.Tests;
 public class PowSha256BatchTests
 {
     [Theory]
-    [InlineData(0)]
-    [InlineData(1)]
-    [InlineData(6)]
-    [InlineData(17)]
-    [InlineData(33)]
-    [InlineData(34)]
-    public void EveryLaneMatchesSha256AcrossCounterCarriesAndWraparound(int keyLength)
+    [InlineData(0, false)]
+    [InlineData(0, true)]
+    [InlineData(1, false)]
+    [InlineData(1, true)]
+    [InlineData(6, false)]
+    [InlineData(6, true)]
+    [InlineData(17, false)]
+    [InlineData(17, true)]
+    [InlineData(33, false)]
+    [InlineData(33, true)]
+    [InlineData(34, false)]
+    [InlineData(34, true)]
+    public void EveryLaneMatchesSha256AcrossCounterCarriesAndWraparound(int keyLength, bool precompute)
     {
         string key = new string('x', keyLength);
-        var batch = new PowSha256Batch(Encoding.UTF8.GetBytes($"aod^0000000000000000^{key}"));
-        ulong[] counters = [0, 1, 7, 9, 14, 0xfc, 0xfffd, 0x10000, uint.MaxValue - 3UL, ulong.MaxValue - 3, ulong.MaxValue];
+        var batch = new PowSha256Batch(Encoding.UTF8.GetBytes($"aod^0000000000000000^{key}"), precompute);
+        // Revisit prefixes after mixed-prefix batches as well as after ordinary cache hits.
+        ulong[] counters = [0, 1, 7, 9, 14, 0xfc, 0xfff8, 0xfff9, 0, 0x10000, 0x10008, 0,
+            uint.MaxValue - 7UL, uint.MaxValue - 3UL, 0, (ulong)uint.MaxValue + 1,
+            ulong.MaxValue - 7, ulong.MaxValue - 3, ulong.MaxValue, 0];
         Span<Vector256<uint>> digest = stackalloc Vector256<uint>[8];
         Span<byte> actual = stackalloc byte[32];
         foreach (ulong counter in counters)
@@ -41,8 +50,10 @@ public class PowSha256BatchTests
         }
     }
 
-    [Fact]
-    public void EveryLaneMatchesSha256ForRandomKeysAndCounters()
+    [Theory]
+    [InlineData(false)]
+    [InlineData(true)]
+    public void EveryLaneMatchesSha256ForRandomKeysAndCounters(bool precompute)
     {
         var random = new Random(1804);
         Span<Vector256<uint>> digest = stackalloc Vector256<uint>[8];
@@ -55,7 +66,7 @@ public class PowSha256BatchTests
             random.NextBytes(counterBytes);
             string key = Convert.ToHexStringLower(keyBytes)[..(sample % 35)];
             ulong counter = BinaryPrimitives.ReadUInt64LittleEndian(counterBytes);
-            var batch = new PowSha256Batch(Encoding.UTF8.GetBytes($"aod^0000000000000000^{key}"));
+            var batch = new PowSha256Batch(Encoding.UTF8.GetBytes($"aod^0000000000000000^{key}"), precompute);
             batch.Hash(counter, digest);
             for (int lane = 0; lane < 8; lane++)
             {

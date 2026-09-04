@@ -22,19 +22,21 @@ The comparison uses the same seeded challenges and starts each solve at counter 
 
 The application uses `Current`: eight SHA-256 attempts at a time using AVX2 on one thread. The fixed message and SHA-256 schedule storage are reused across batches. A first-byte check selects candidates, which are then rehashed with .NET SHA-256 and checked against the full difficulty in counter order. The returned solution and next counter are identical to the scalar solver. No extra worker threads, native libraries, or packages are needed.
 
+Precomputation caches the first four compression rounds, the fixed part of the fifth round, and fixed schedule contributions while the counter's first twelve hex digits stay unchanged. The cache is rebuilt when those digits change (every 65,536 consecutive counters). A batch that crosses this boundary uses the full calculation and invalidates the cache. `No precompute` keeps the earlier SIMD calculation available for comparison.
+
 The batch path handles a single padded SHA-256 block: up to 55 input bytes, or 34 UTF-8 key bytes for `aod^<16 hex digits>^<key>`. It requires a difficulty that fixes the first raw hash byte (two complete ASCII hex characters). Other inputs and CPUs without AVX2 automatically use the scalar path from the previous optimization pass: a reused incremental SHA-256 hasher and first-byte precheck. The benchmark prints whether AVX2 is available. `PowSha256Batch.cs` implements the SHA-256 schedule and compression from [FIPS 180-4, section 6.2](https://nvlpubs.nist.gov/nistpubs/FIPS/NIST.FIPS.180-4.pdf).
 
 `SolverVariants.cs` keeps `Previous` (the original reused `SHA256` instance and nibble check), `Scalar` (the previous optimization pass), `Incremental only` (without the precheck), and the counter-rewrite, static-SHA256, and hex-string alternatives. To compare another scalar step, derive from `ScalarSolver` in that file, override `AdvanceCounter`, `TryComputeHash`, or `CheckLeadingBits`, and add a named factory to `SolverVariants.All`. This keeps batching disabled so the chosen step is measured on every attempt. Change one step per variant to isolate its effect.
 
-The tests automatically exercise every registered variant. They also compare every SIMD lane with .NET SHA-256 across random keys, counter carries, wraparound, and message-length boundaries; check all possible winning lanes and multiple candidates in one batch; and verify fallback for long and multibyte UTF-8 keys.
+The tests automatically exercise every registered variant. They also compare every SIMD lane with .NET SHA-256, with precomputation both enabled and disabled, across random keys, counter carries, wraparound, and message-length boundaries. They cover cache reuse and invalidation, all possible winning lanes and multiple candidates in one batch, and fallback for long and multibyte UTF-8 keys.
 
 The protocol's difficulty counts bits of the **ASCII lowercase hex digest**, not raw hash bits. Increasing this setting can make runs much longer.
 
-Windows/.NET 10 Release measurements on 2026-09-04, using seven rotated rounds on one thread:
+Windows/.NET 10 Release measurements on 2026-09-04, using AVX2 and eight rotated rounds on one thread. The comparison without precomputation follows the SIMD implementation committed as `0f211db`:
 
-| Difficulty bits | Challenges | Previous mean | Scalar mean | Current mean | Speedup over Scalar |
-| --- | --- | --- | --- | --- | --- |
-| 31 | 40 | 2.857 ms | 2.621 ms | 1.106 ms | 2.37x |
-| 41 | 8 | 207.383 ms | 189.283 ms | 79.266 ms | 2.39x |
+| Difficulty bits | Challenges | No precompute mean | Current mean | Solve time reduction |
+| --- | --- | --- | --- | --- |
+| 31 | 40 | 1.113 ms | 1.002 ms | 10.0% |
+| 41 | 8 | 79.170 ms | 71.191 ms | 10.1% |
 
-All solutions matched. To repeat the harder run: `dotnet run -c Release --project PowBench -- 8 41 7`. Rerun on the target machine; timings depend on the workload and platform.
+On the harder run, `Scalar` averaged 187.888 ms and `Previous` averaged 196.697 ms, making `Current` 2.64x and 2.76x faster, respectively. All solutions matched. To repeat: `dotnet run -c Release --project PowBench -- 8 41 8`. Rerun on the target machine; timings depend on the workload and platform.

@@ -1,5 +1,6 @@
 using System;
 using System.Buffers.Binary;
+using System.Numerics;
 using System.Runtime.CompilerServices;
 using System.Runtime.Intrinsics;
 using System.Runtime.Intrinsics.X86;
@@ -14,6 +15,11 @@ internal sealed class PowSha256Batch
     internal static bool IsSupported => Avx2.IsSupported;
 
     private readonly Vector256<uint>[] words = new Vector256<uint>[64];
+    private readonly bool precompute;
+    private readonly Vector256<uint>[] prefixState = new Vector256<uint>[8];
+    private readonly Vector256<uint>[] scheduleBase = new Vector256<uint>[15];
+    private ulong cachedPrefix;
+    private bool hasCachedPrefix;
 
     private static ReadOnlySpan<uint> RoundConstants =>
     [
@@ -27,13 +33,14 @@ internal sealed class PowSha256Batch
         0x748f82ee, 0x78a5636f, 0x84c87814, 0x8cc70208, 0x90befffa, 0xa4506ceb, 0xbef9a3f7, 0xc67178f2
     ];
 
-    internal PowSha256Batch(ReadOnlySpan<byte> input)
+    internal PowSha256Batch(ReadOnlySpan<byte> input, bool precompute)
     {
         if (input.Length is < 21 or > MaxInputLength)
         {
             throw new ArgumentOutOfRangeException(nameof(input));
         }
 
+        this.precompute = precompute;
         Span<byte> block = stackalloc byte[64];
         block.Clear();
         input.CopyTo(block);
@@ -51,20 +58,66 @@ internal sealed class PowSha256Batch
         Span<Vector256<uint>> w = words;
         var start = Vector256.Create(unchecked((uint)counter));
         var low = start + Vector256.Create(0u, 1u, 2u, 3u, 4u, 5u, 6u, 7u);
-        var carry = Vector256.LessThan(low, start) & Vector256.Create(1u);
-        var high = Vector256.Create((uint)(counter >> 32)) + carry;
-        w[1] = HexWord(high >> 16);
-        w[2] = HexWord(high);
-        w[3] = HexWord(low >> 16);
         w[4] = HexWord(low);
 
-        for (int i = 16; i < 64; i++)
+        // All lanes must share the first twelve hex digits for the cached state to apply.
+        bool usePrefix = precompute && (counter >> 16) == (unchecked(counter + 7) >> 16);
+        if (usePrefix)
         {
-            Vector256<uint> x = w[i - 15];
-            Vector256<uint> y = w[i - 2];
-            var s0 = RotateRight(x, 7) ^ RotateRight(x, 18) ^ (x >> 3);
-            var s1 = RotateRight(y, 17) ^ RotateRight(y, 19) ^ (y >> 10);
-            w[i] = w[i - 16] + s0 + w[i - 7] + s1;
+            if (!hasCachedPrefix || cachedPrefix != (counter >> 16))
+            {
+                w[1] = HexWord(Vector256.Create((uint)(counter >> 48)));
+                w[2] = HexWord(Vector256.Create((uint)(counter >> 32)));
+                w[3] = HexWord(Vector256.Create(unchecked((uint)(counter >> 16))));
+                // Schedule words 16..18 depend on the fixed prefix, never on word 4.
+                for (int i = 16; i < 19; i++)
+                {
+                    w[i] = w[i - 16] + SmallSigma0(w[i - 15]) + w[i - 7] + SmallSigma1(w[i - 2]);
+                }
+
+                // Cache only fixed terms of W19..W33. W4 and W19 onward vary per batch.
+                for (int i = 19; i < 34; i++)
+                {
+                    scheduleBase[i - 19] = (i == 20 ? Vector256<uint>.Zero : w[i - 16])
+                        + (i == 19 ? Vector256<uint>.Zero : SmallSigma0(w[i - 15]))
+                        + (i <= 25 ? w[i - 7] : Vector256<uint>.Zero)
+                        + (i <= 20 ? SmallSigma1(w[i - 2]) : Vector256<uint>.Zero);
+                }
+
+                PrecomputePrefixState();
+                cachedPrefix = counter >> 16;
+                hasCachedPrefix = true;
+            }
+        }
+        else
+        {
+            // A boundary batch overwrites the cached words, so invalidate even if we later jump back.
+            hasCachedPrefix = false;
+            var carry = Vector256.LessThan(low, start) & Vector256.Create(1u);
+            var high = Vector256.Create((uint)(counter >> 32)) + carry;
+            w[1] = HexWord(high >> 16);
+            w[2] = HexWord(high);
+            w[3] = HexWord(low >> 16);
+        }
+
+        if (usePrefix)
+        {
+            w[19] = scheduleBase[0] + SmallSigma0(w[4]);
+            w[20] = scheduleBase[1] + w[4];
+            for (int i = 21; i < 26; i++)
+            {
+                w[i] = scheduleBase[i - 19] + SmallSigma1(w[i - 2]);
+            }
+
+            for (int i = 26; i < 34; i++)
+            {
+                w[i] = scheduleBase[i - 19] + w[i - 7] + SmallSigma1(w[i - 2]);
+            }
+        }
+
+        for (int i = usePrefix ? 34 : 16; i < 64; i++)
+        {
+            w[i] = w[i - 16] + SmallSigma0(w[i - 15]) + w[i - 7] + SmallSigma1(w[i - 2]);
         }
 
         var a = Vector256.Create(0x6a09e667u);
@@ -75,7 +128,20 @@ internal sealed class PowSha256Batch
         var f = Vector256.Create(0x9b05688cu);
         var g = Vector256.Create(0x1f83d9abu);
         var h = Vector256.Create(0x5be0cd19u);
-        for (int i = 0; i < 64; i++)
+        if (usePrefix)
+        {
+            // The fifth round is linear in W4: only a and e need its value added.
+            a = prefixState[0] + w[4];
+            b = prefixState[1];
+            c = prefixState[2];
+            d = prefixState[3];
+            e = prefixState[4] + w[4];
+            f = prefixState[5];
+            g = prefixState[6];
+            h = prefixState[7];
+        }
+
+        for (int i = usePrefix ? 5 : 0; i < 64; i++)
         {
             var sum1 = RotateRight(e, 6) ^ RotateRight(e, 11) ^ RotateRight(e, 25);
             var choose = g ^ (e & (f ^ g));
@@ -102,6 +168,46 @@ internal sealed class PowSha256Batch
         digest[6] = g + Vector256.Create(0x1f83d9abu);
         digest[7] = h + Vector256.Create(0x5be0cd19u);
     }
+
+    private void PrecomputePrefixState()
+    {
+        uint a = 0x6a09e667, b = 0xbb67ae85, c = 0x3c6ef372, d = 0xa54ff53a;
+        uint e = 0x510e527f, f = 0x9b05688c, g = 0x1f83d9ab, h = 0x5be0cd19;
+        for (int i = 0; i < 5; i++)
+        {
+            uint sum1 = BitOperations.RotateRight(e, 6) ^ BitOperations.RotateRight(e, 11) ^ BitOperations.RotateRight(e, 25);
+            uint choose = g ^ (e & (f ^ g));
+            uint word = i == 4 ? 0 : words[i].GetElement(0);
+            uint temp1 = unchecked(h + sum1 + choose + RoundConstants[i] + word);
+            uint sum0 = BitOperations.RotateRight(a, 2) ^ BitOperations.RotateRight(a, 13) ^ BitOperations.RotateRight(a, 22);
+            uint majority = (a & b) | (c & (a | b));
+            h = g;
+            g = f;
+            f = e;
+            e = unchecked(d + temp1);
+            d = c;
+            c = b;
+            b = a;
+            a = unchecked(temp1 + sum0 + majority);
+        }
+
+        prefixState[0] = Vector256.Create(a);
+        prefixState[1] = Vector256.Create(b);
+        prefixState[2] = Vector256.Create(c);
+        prefixState[3] = Vector256.Create(d);
+        prefixState[4] = Vector256.Create(e);
+        prefixState[5] = Vector256.Create(f);
+        prefixState[6] = Vector256.Create(g);
+        prefixState[7] = Vector256.Create(h);
+    }
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Vector256<uint> SmallSigma0(Vector256<uint> value) =>
+        RotateRight(value, 7) ^ RotateRight(value, 18) ^ (value >> 3);
+
+    [MethodImpl(MethodImplOptions.AggressiveInlining)]
+    private static Vector256<uint> SmallSigma1(Vector256<uint> value) =>
+        RotateRight(value, 17) ^ RotateRight(value, 19) ^ (value >> 10);
 
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     private static Vector256<uint> RotateRight(Vector256<uint> value, int bits) =>

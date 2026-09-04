@@ -50,6 +50,8 @@ public partial class PowSolver : IDisposable
 
     internal virtual bool UseBatchHashing => true;
 
+    internal virtual bool UsePrecomputation => true;
+
     internal string ProcessPow(PowRequest pow)
     {
         ReadOnlySpan<byte> prefix = "aod^"u8;
@@ -92,7 +94,7 @@ public partial class PowSolver : IDisposable
 
     private string ProcessPowBatch(byte[] inputBuffer, PowDifficulty difficulty)
     {
-        var batch = new PowSha256Batch(inputBuffer);
+        var batch = new PowSha256Batch(inputBuffer, UsePrecomputation);
         Span<Vector256<uint>> digest = stackalloc Vector256<uint>[8];
         Span<byte> hash = stackalloc byte[32];
         Span<byte> counterSpan = inputBuffer.AsSpan(4, 16);
