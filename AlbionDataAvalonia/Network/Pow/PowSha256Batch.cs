@@ -52,6 +52,8 @@ internal sealed class PowSha256Batch
         }
     }
 
+    // Compile the intrinsic-heavy loop at full speed on its first invocation.
+    [MethodImpl(MethodImplOptions.AggressiveOptimization)]
     internal void Hash(ulong counter, Span<Vector256<uint>> digest)
     {
         // Reuse the schedule; only the four counter words change between batches.

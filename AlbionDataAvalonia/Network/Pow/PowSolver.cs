@@ -98,11 +98,13 @@ public partial class PowSolver : IDisposable
         Span<Vector256<uint>> digest = stackalloc Vector256<uint>[8];
         Span<byte> hash = stackalloc byte[32];
         Span<byte> counterSpan = inputBuffer.AsSpan(4, 16);
+        var firstWord = Vector256.Create(difficulty.FirstHashWord);
+        var firstWordMask = Vector256.Create(difficulty.FirstHashWordMask);
         ulong counter = _counter;
         while (true)
         {
             batch.Hash(counter, digest);
-            uint candidates = Vector256.Equals(digest[0] >> 24, Vector256.Create((uint)difficulty.FirstHashByte))
+            uint candidates = Vector256.Equals(digest[0] & firstWordMask, firstWord)
                 .ExtractMostSignificantBits();
 
             while (candidates != 0)
@@ -111,7 +113,8 @@ public partial class PowSolver : IDisposable
                 ulong solution = unchecked(counter + (ulong)lane);
                 WriteCounterHex(counterSpan, solution);
                 // Verify the surviving candidates with the platform SHA-256 implementation.
-                // This happens for roughly one in 256 attempts, in original counter order.
+                // Filter all complete hex characters in the first word before rehashing;
+                // the full check still handles partial ASCII bits and longer difficulties.
                 TryComputeHash(inputBuffer, hash);
                 if (CheckLeadingBits(hash, difficulty))
                 {
@@ -218,6 +221,21 @@ public partial class PowSolver : IDisposable
             _expected = expected;
             _mask = mask;
 
+            // Each complete ASCII hex character fixes four raw digest bits. Keep
+            // partial ASCII bytes for the full check: their bits are not raw hash bits.
+            for (int i = 0; i < Math.Min(8, expected.Length) && mask[i] == byte.MaxValue; i++)
+            {
+                int nibble = HexDigits.AsSpan().IndexOf(expected[i]);
+                if (nibble < 0)
+                {
+                    break;
+                }
+
+                int shift = 28 - i * 4;
+                FirstHashWord |= (uint)nibble << shift;
+                FirstHashWordMask |= 0xfu << shift;
+            }
+
             if (expected.Length >= 2 && mask[1] == byte.MaxValue)
             {
                 int high = HexDigits.AsSpan().IndexOf(expected[0]);
@@ -230,6 +248,9 @@ public partial class PowSolver : IDisposable
         }
 
         public int FirstHashByte { get; } = -1;
+
+        public uint FirstHashWord { get; }
+        public uint FirstHashWordMask { get; }
 
         public ReadOnlySpan<byte> ExpectedSpan => _expected;
         public ReadOnlySpan<byte> MaskSpan => _mask;

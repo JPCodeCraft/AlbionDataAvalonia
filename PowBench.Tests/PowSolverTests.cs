@@ -164,6 +164,43 @@ public class PowSolverTests
 
     [Theory]
     [MemberData(nameof(Variants))]
+    public void FindsEarliestSolutionAcrossPartialFirstWordPrefixes(string variant)
+    {
+        const string key = "batch-0";
+        using var solver = CreateSolver(variant);
+        ulong[] starts = [0, 0xfffc, ulong.MaxValue - 3];
+        foreach (ulong start in starts)
+        {
+            // Independent SHA-256 results bound the reference search to eight counters,
+            // including a precomputation boundary and unsigned counter wraparound.
+            string[] counters = Enumerable.Range(0, 8)
+                .Select(offset => unchecked(start + (ulong)offset).ToString("x16", CultureInfo.InvariantCulture))
+                .ToArray();
+            string[] hashes = counters.Select(counter => HashBits(counter, key)).ToArray();
+            foreach (int target in new[] { 4, 7 })
+            {
+                // Eight ASCII hex characters encode the first 32 raw digest bits.
+                // Include every partial character and prefixes beyond that word.
+                for (int length = 16; length <= 72; length++)
+                {
+                    string wanted = hashes[target][..length];
+                    int expected = Array.FindIndex(hashes, hash => hash.StartsWith(wanted, StringComparison.Ordinal));
+                    Assert.InRange(expected, 0, target);
+
+                    solver.ResetCounter(start);
+                    string solution = solver.ProcessPow(new PowRequest { Key = key, Wanted = wanted });
+
+                    Assert.Equal(counters[expected], solution);
+                    Assert.Equal(
+                        unchecked(start + (ulong)expected + 1).ToString("x16", CultureInfo.InvariantCulture),
+                        solver.ProcessPow(new PowRequest { Key = key, Wanted = "" }));
+                }
+            }
+        }
+    }
+
+    [Theory]
+    [MemberData(nameof(Variants))]
     public void SolvesEveryLaneAndFallsBackForLongKeys(string variant)
     {
         using var solver = CreateSolver(variant);
