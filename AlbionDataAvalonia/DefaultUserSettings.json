@@ -10,6 +10,7 @@
   "MailsPerPage": 1000,
   "TradesToShow": 1000,
   "UploadSpecsToAfm": true,
+  "AfmIslandTrackerEnabled": true,
   "DisableCombatTracker": false,
   "DisableGatheringTracker": false,
   "DisableLootTracker": false,

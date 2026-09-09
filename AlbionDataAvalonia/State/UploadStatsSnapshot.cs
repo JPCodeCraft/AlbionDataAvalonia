@@ -23,4 +23,5 @@ public class PrivateUploadStatsSnapshot
     public int GlobalMultipliersCount { get; set; }
     public int FestivitiesCount { get; set; }
     public int ItemEstimatedMarketValuesCount { get; set; }
+    public int IslandUploadsCount { get; set; }
 }

@@ -1,9 +1,9 @@
 ﻿using AlbionDataAvalonia.Shared;
 using PhotonPackageParser;
+using Serilog;
 using System;
 using System.Collections.Generic;
 #if DEBUG
-using Serilog;
 using System.Collections;
 using System.Linq;
 #endif
@@ -13,6 +13,7 @@ namespace Albion.Network
     internal sealed class AlbionParser : PhotonParser, IPhotonReceiver
     {
         private readonly HandlersCollection handlers;
+        private readonly HashSet<(string PacketType, short Code)> unknownOperationCodes = new HashSet<(string PacketType, short Code)>();
 #if DEBUG
         // Debug packet logging settings.
         private const bool EnableParserDebugPacketLogging = false;
@@ -182,7 +183,10 @@ namespace Albion.Network
 
         protected override void OnRequest(byte OperationCode, Dictionary<byte, object> Parameters)
         {
-            short operationCode = ParseOperationCode(Parameters);
+            if (!TryParseOperationCode(Parameters, "request", out short operationCode))
+            {
+                return;
+            }
 #if DEBUG
             if (EnableParserDebugPacketLogging && TryGetOperationLogMatch(operationCode, Parameters, out string requestMatchPath, out object? requestMatchValue, out string? requestMatchedText))
             {
@@ -208,7 +212,10 @@ namespace Albion.Network
 
         protected override void OnResponse(byte OperationCode, short ReturnCode, string DebugMessage, Dictionary<byte, object> Parameters)
         {
-            short operationCode = ParseOperationCode(Parameters);
+            if (!TryParseOperationCode(Parameters, "response", out short operationCode))
+            {
+                return;
+            }
 #if DEBUG
             if (EnableParserDebugPacketLogging && TryGetOperationLogMatch(operationCode, Parameters, out string responseMatchPath, out object? responseMatchValue, out string? responseMatchedText))
             {
@@ -228,7 +235,8 @@ namespace Albion.Network
                 Parameters,
                 CurrentMessageSizeBytes,
                 CurrentMessageIsFragmented,
-                CurrentMessageFragmentCount);
+                CurrentMessageFragmentCount,
+                ReturnCode);
 
             _ = handlers.HandleAsync(responsePacket);
         }
@@ -525,19 +533,28 @@ namespace Albion.Network
         }
 #endif
 
-        private short ParseOperationCode(Dictionary<byte, object> parameters)
+        private bool TryParseOperationCode(Dictionary<byte, object> parameters, string packetType, out short operationCode)
         {
-            if (TryGetCodeParameter(parameters, 253, out short parameterOperationCode))
+            if (!TryGetCodeParameter(parameters, 253, out operationCode))
             {
-                if (IsKnownOperationCode(parameterOperationCode))
-                {
-                    return parameterOperationCode;
-                }
-
-                throw new InvalidOperationException($"Unknown operation code in parameter 253: {parameterOperationCode}.");
+                throw new InvalidOperationException("Operation code parameter 253 is missing.");
             }
 
-            throw new InvalidOperationException("Operation code parameter 253 is missing.");
+            if (IsKnownOperationCode(operationCode))
+            {
+                return true;
+            }
+
+            // PhotonParser serializes receipt. Report new protocol codes once per
+            // capture session so a frequent unknown packet cannot flood the log.
+            if (unknownOperationCodes.Add((packetType, operationCode)))
+            {
+                Log.Warning(
+                    "Skipping {PacketType} packet with unknown operation code in parameter 253: {OperationCode}.",
+                    packetType,
+                    operationCode);
+            }
+            return false;
         }
 
         private short ParseEventCode(Dictionary<byte, object> parameters)

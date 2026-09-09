@@ -1,3 +1,4 @@
+using AlbionDataAvalonia.Farming;
 using Albion.Network;
 using AlbionDataAvalonia.Loot;
 using AlbionDataAvalonia.Legendary;
@@ -15,6 +16,7 @@ namespace AlbionDataAvalonia.Network.Handlers;
 
 public class JoinResponseHandler : ResponsePacketHandler<JoinResponse>
 {
+    private readonly FarmingTrackerService farmingTracker;
     private readonly PlayerState playerState;
     private readonly AFMUploader afmUploader;
     private readonly PartyTrackerService partyTracker;
@@ -28,9 +30,11 @@ public class JoinResponseHandler : ResponsePacketHandler<JoinResponse>
         PartyTrackerService partyTracker,
         PlayerIdentityService playerIdentityService,
         LootTrackerService lootTracker,
-        LegendaryItemTrackerService legendaryTracker) : base((int)OperationCodes.Join)
+        LegendaryItemTrackerService legendaryTracker,
+        FarmingTrackerService farmingTracker) : base((int)OperationCodes.Join)
     {
         this.playerState = playerState;
+        this.farmingTracker = farmingTracker;
         this.afmUploader = afmUploader;
         this.partyTracker = partyTracker;
         this.playerIdentityService = playerIdentityService;
@@ -40,10 +44,14 @@ public class JoinResponseHandler : ResponsePacketHandler<JoinResponse>
 
     protected override async Task OnActionAsync(JoinResponse value)
     {
+        // Failed joins may contain no identity or location fields. Preserve the
+        // shared player state as well as the farming state until a successful join.
+        if (value.ReturnCode != 0) return;
         playerState.UserObjectId = value.userObjectId;
         playerState.PlayerName = value.playerName;
         playerState.Location = value.playerLocation;
         playerState.SetPremiumExpirationTicks(value.premiumExpirationTicks);
+        farmingTracker.OnJoin(value);
         playerIdentityService.AddOrUpdate(
             playerState.AlbionServer?.Id,
             value.userObjectId,

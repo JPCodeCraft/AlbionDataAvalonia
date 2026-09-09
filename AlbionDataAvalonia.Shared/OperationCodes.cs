@@ -557,5 +557,6 @@
         EnterDragonAreaEntrance,
         SmartQueueRegionQueueInfo,
         SurveyCompleted,
+        GetSurveyLogs,
     }
 }

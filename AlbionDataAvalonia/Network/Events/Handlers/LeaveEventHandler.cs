@@ -1,4 +1,5 @@
-﻿using Albion.Network;
+using AlbionDataAvalonia.Farming;
+using Albion.Network;
 using AlbionDataAvalonia.Locations;
 using AlbionDataAvalonia.Network.Events;
 using AlbionDataAvalonia.Shared;
@@ -9,21 +10,24 @@ namespace AlbionDataAvalonia.Network.Handlers;
 
 public class LeaveEventHandler : EventPacketHandler<LeaveEvent>
 {
+    private readonly FarmingTrackerService farmingTracker;
     private readonly PlayerState playerState;
 
-    public LeaveEventHandler(PlayerState playerState) : base((int)EventCodes.Leave)
+    public LeaveEventHandler(PlayerState playerState, FarmingTrackerService farmingTracker) : base((int)EventCodes.Leave)
     {
         this.playerState = playerState;
+        this.farmingTracker = farmingTracker;
     }
 
-    protected override async Task OnActionAsync(LeaveEvent value)
+    protected override Task OnActionAsync(LeaveEvent value)
     {
         if (value.userObjectId == playerState.UserObjectId)
         {
+            farmingTracker.OnLeave(value.userObjectId);
             playerState.PlayerName = "Not set";
             playerState.Location = AlbionLocations.Unset;
             playerState.ResetPremiumStatus();
         }
-        await Task.CompletedTask;
+        return Task.CompletedTask;
     }
 }

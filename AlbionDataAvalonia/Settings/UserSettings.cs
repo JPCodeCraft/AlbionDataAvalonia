@@ -211,6 +211,21 @@ public class UserSettings : INotifyPropertyChanged
         }
     }
 
+    private bool afmIslandTrackerEnabled = true;
+    public bool AfmIslandTrackerEnabled
+    {
+        get => afmIslandTrackerEnabled;
+        set
+        {
+            if (afmIslandTrackerEnabled != value)
+            {
+                afmIslandTrackerEnabled = value;
+                OnPropertyChanged(nameof(AfmIslandTrackerEnabled));
+                Log.Information("AFM island tracker enabled set to {AfmIslandTrackerEnabled}", afmIslandTrackerEnabled);
+            }
+        }
+    }
+
     private bool disableCombatTracker = false;
     public bool DisableCombatTracker
     {

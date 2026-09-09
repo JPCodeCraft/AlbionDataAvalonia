@@ -9,7 +9,7 @@
 Use the repository defaults: C# with nullable reference types enabled (`Directory.Build.props`) and implicit usings. Prefer 4-space indentation, PascalCase for types and public members, camelCase for locals and fields, and suffix view models with `ViewModel`. Keep XAML element names meaningful and mirror corresponding view models. Run `dotnet format` before submitting to enforce spacing, imports, and analyzer hints.
 
 ## Testing Guidelines
-We don't use tests. Do not add them.
+PoW tests live in `PowBench.Tests`; run them with `dotnet test PowBench.Tests`. Keep tests focused on PoW unless explicitly instructed otherwise. See `PowBench/README.md` for algorithm speed comparisons.
 
 ## Commit & Pull Request Guidelines
 Keep commits focused and write imperative, sentence-case messages, mirroring existing history (e.g., "Update LatestVersion.json"). For pull requests, include a succinct summary, affected OS targets, manual testing notes, and linked issues. Add screenshots when altering UI, and call out migrations or config changes that require user action.

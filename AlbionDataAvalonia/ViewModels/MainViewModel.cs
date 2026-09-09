@@ -196,6 +196,8 @@ public partial class MainViewModel : ViewModelBase
     private int privateUploadedFestivitiesCount;
     [ObservableProperty]
     private int privateUploadedItemEstimatedMarketValuesCount;
+    [ObservableProperty]
+    private int privateIslandUploadsCount;
 
     [ObservableProperty]
     private bool redBlinking = false;
@@ -418,6 +420,7 @@ public partial class MainViewModel : ViewModelBase
         PrivateUploadedGlobalMultipliersCount = stats.GlobalMultipliersCount;
         PrivateUploadedFestivitiesCount = stats.FestivitiesCount;
         PrivateUploadedItemEstimatedMarketValuesCount = stats.ItemEstimatedMarketValuesCount;
+        PrivateIslandUploadsCount = stats.IslandUploadsCount;
     }
 
     private void UpdateState(object? sender, PlayerStateEventArgs e)

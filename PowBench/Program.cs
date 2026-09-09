@@ -1,389 +1,199 @@
 using System.Diagnostics;
+using System.Globalization;
+using System.Reflection;
+using System.Runtime.InteropServices;
+using System.Runtime.Intrinsics.X86;
+using System.Security.Cryptography;
 using System.Text;
 using AlbionDataAvalonia.Network.Pow;
 
 internal static class Program
 {
-    private const int RandomnessBytes = 3;
-    private const int DifficultyBits = 39;
-    private const int ChallengeCount = 100;
-    private const int CounterHexLength = 16;
-    private static readonly double TickToNanoseconds = 1_000_000_000d / Stopwatch.Frequency;
-
-    private static void Main()
+    private static async Task<int> Main(string[] args)
     {
-        Console.WriteLine("PowSolver timing (Stopwatch)");
-        Console.WriteLine($"Randomness bytes: {RandomnessBytes}, difficulty bits: {DifficultyBits}");
-        Console.WriteLine($"Challenge count : {ChallengeCount}");
-        Console.WriteLine();
-
-        PowRequest[] challenges = PowChallengeFactory.CreateStableChallenges(ChallengeCount, RandomnessBytes, DifficultyBits);
-        Console.WriteLine($"Generated {challenges.Length} stable challenges.");
-
-        TimeSolvePow(challenges);
-
-        if (challenges.Length == 0)
+        var positional = new List<string>();
+        bool cold = false;
+        string? selectedVariant = null;
+        for (int i = 0; i < args.Length; i++)
         {
-            return;
-        }
-
-        MeasureSteps(challenges);
-    }
-
-    private static void TimeSolvePow(PowRequest[] challenges)
-    {
-        if (challenges.Length == 0)
-        {
-            Console.WriteLine("No challenges to solve.");
-            return;
-        }
-
-        var samples = new double[challenges.Length];
-        double totalMs = 0;
-        double minMs = double.MaxValue;
-        double maxMs = double.MinValue;
-
-        for (int i = 0; i < challenges.Length; i++)
-        {
-            var solver = new PowSolver();
-            solver.ResetCounter(0);
-            var sw = Stopwatch.StartNew();
-            solver.ProcessPow(challenges[i]);
-            sw.Stop();
-
-            double elapsed = sw.Elapsed.TotalMilliseconds;
-            samples[i] = elapsed;
-            totalMs += elapsed;
-            minMs = Math.Min(minMs, elapsed);
-            maxMs = Math.Max(maxMs, elapsed);
-        }
-
-        Array.Sort(samples);
-        double meanMs = totalMs / samples.Length;
-        double medianMs = Percentile(samples, 50);
-        double p95Ms = Percentile(samples, 95);
-
-        Console.WriteLine();
-        Console.WriteLine("SolvePow statistics:");
-        Console.WriteLine($"  Total ms : {totalMs:F3}");
-        Console.WriteLine($"  Mean  ms : {meanMs:F3}");
-        Console.WriteLine($"  Median   : {medianMs:F3}");
-        Console.WriteLine($"  95th pct : {p95Ms:F3}");
-        Console.WriteLine($"  Min   ms : {minMs:F3}");
-        Console.WriteLine($"  Max   ms : {maxMs:F3}");
-        Console.WriteLine();
-    }
-
-    private static void MeasureSteps(PowRequest[] challenges)
-    {
-        if (challenges.Length == 0)
-        {
-            Console.WriteLine("No steps to measure.");
-            return;
-        }
-
-        Console.WriteLine("Step timings:");
-
-        StepStats writeStats = MeasureStep(challenges, StepTarget.WriteCounterHex);
-        StepStats incrementStats = MeasureStep(challenges, StepTarget.IncrementHexAsciiInPlace);
-        StepStats hashStats = MeasureStep(challenges, StepTarget.TryComputeHash);
-        StepStats checkStats = MeasureStep(challenges, StepTarget.CheckLeadingBits);
-
-        PrintStepStats("WriteCounterHex", writeStats);
-        PrintStepStats("IncrementHex", incrementStats);
-        PrintStepStats("TryComputeHash", hashStats);
-        PrintStepStats("CheckLeadingBits", checkStats);
-    }
-
-    private static StepStats MeasureStep(PowRequest[] challenges, StepTarget target)
-    {
-        var perStepExecutionNanoseconds = new double[challenges.Length];
-        var perIterationTotalNanoseconds = new double[challenges.Length];
-        var perSolveStepMilliseconds = new double[challenges.Length];
-        double totalStepNanoseconds = 0;
-        double totalIterationNanoseconds = 0;
-        double totalSolveStepMilliseconds = 0;
-        long totalIterations = 0;
-        double totalIterationsPerSolve = 0;
-        long totalStepExecutions = 0;
-        double totalStepExecutionsPerSolve = 0;
-
-        for (int i = 0; i < challenges.Length; i++)
-        {
-            SingleStepResult result = MeasureStepForChallenge(challenges[i], target);
-            double stepPerExecutionNs = result.StepExecutions > 0 ? result.StepNanoseconds / result.StepExecutions : 0;
-            double iterationPerIterationNs = result.Iterations > 0 ? result.TotalIterationNanoseconds / result.Iterations : 0;
-            double stepPerSolveMs = result.StepNanoseconds / 1_000_000.0;
-
-            perStepExecutionNanoseconds[i] = stepPerExecutionNs;
-            perIterationTotalNanoseconds[i] = iterationPerIterationNs;
-            perSolveStepMilliseconds[i] = stepPerSolveMs;
-
-            totalStepNanoseconds += result.StepNanoseconds;
-            totalIterationNanoseconds += result.TotalIterationNanoseconds;
-            totalSolveStepMilliseconds += stepPerSolveMs;
-            totalIterations += result.Iterations;
-            totalIterationsPerSolve += result.Iterations;
-            totalStepExecutions += result.StepExecutions;
-            totalStepExecutionsPerSolve += result.StepExecutions;
-        }
-
-        Array.Sort(perStepExecutionNanoseconds);
-        Array.Sort(perIterationTotalNanoseconds);
-        Array.Sort(perSolveStepMilliseconds);
-
-        double stepMeanNs = totalStepExecutions > 0 ? totalStepNanoseconds / totalStepExecutions : 0;
-        double stepMedianNs = Percentile(perStepExecutionNanoseconds, 50);
-        double stepP95Ns = Percentile(perStepExecutionNanoseconds, 95);
-
-        double iterationMeanNs = totalIterations > 0 ? totalIterationNanoseconds / totalIterations : 0;
-        double iterationMedianNs = Percentile(perIterationTotalNanoseconds, 50);
-        double iterationP95Ns = Percentile(perIterationTotalNanoseconds, 95);
-
-        double stepMeanSolveMs = perSolveStepMilliseconds.Length > 0 ? totalSolveStepMilliseconds / perSolveStepMilliseconds.Length : 0;
-        double stepMedianSolveMs = Percentile(perSolveStepMilliseconds, 50);
-        double stepP95SolveMs = Percentile(perSolveStepMilliseconds, 95);
-        double meanIterationsPerSolve = perSolveStepMilliseconds.Length > 0 ? totalIterationsPerSolve / perSolveStepMilliseconds.Length : 0;
-        double meanStepsPerSolve = perSolveStepMilliseconds.Length > 0 ? totalStepExecutionsPerSolve / perSolveStepMilliseconds.Length : 0;
-
-        return new StepStats(
-            stepMeanNs,
-            stepMedianNs,
-            stepP95Ns,
-            iterationMeanNs,
-            iterationMedianNs,
-            iterationP95Ns,
-            stepMeanSolveMs,
-            stepMedianSolveMs,
-            stepP95SolveMs,
-            totalIterations,
-            meanIterationsPerSolve,
-            totalStepExecutions,
-            meanStepsPerSolve);
-    }
-
-    private static SingleStepResult MeasureStepForChallenge(PowRequest challenge, StepTarget target)
-    {
-        var solver = new PowSolver();
-        solver.ResetCounter(0);
-
-        ReadOnlySpan<byte> prefix = "aod^"u8;
-        int prefixLength = prefix.Length;
-        byte[] suffix = Encoding.UTF8.GetBytes($"^{challenge.Key}");
-        int totalLength = prefixLength + CounterHexLength + suffix.Length;
-
-        byte[] inputBuffer = new byte[totalLength];
-        prefix.CopyTo(inputBuffer);
-        suffix.CopyTo(inputBuffer.AsSpan(prefixLength + CounterHexLength));
-
-        PowSolver.PowDifficulty difficulty = PowSolver.PowDifficulty.Create(challenge.Wanted);
-        Span<byte> counterSpan = inputBuffer.AsSpan(prefixLength, CounterHexLength);
-        Span<byte> hashBuffer = stackalloc byte[32];
-
-        ulong counter = 0;
-        double totalStepNanoseconds = 0;
-        double totalIterationNanoseconds = 0;
-        long iterations = 0;
-        long stepExecutions = 0;
-
-        if (target == StepTarget.WriteCounterHex)
-        {
-            long start = Stopwatch.GetTimestamp();
-            PowSolver.WriteCounterHex(counterSpan, counter);
-            long end = Stopwatch.GetTimestamp();
-            totalStepNanoseconds += (end - start) * TickToNanoseconds;
-            stepExecutions++;
-        }
-        else
-        {
-            PowSolver.WriteCounterHex(counterSpan, counter);
-        }
-
-        while (true)
-        {
-            long iterationStart = Stopwatch.GetTimestamp();
-
-            if (target == StepTarget.TryComputeHash)
+            if (args[i] == "--cold")
             {
-                long start = Stopwatch.GetTimestamp();
-                solver.TryComputeHash(inputBuffer, hashBuffer);
-                long end = Stopwatch.GetTimestamp();
-                totalStepNanoseconds += (end - start) * TickToNanoseconds;
-                stepExecutions++;
+                cold = true;
+            }
+            else if (args[i] == "--variant" && i + 1 < args.Length)
+            {
+                selectedVariant = args[++i];
+            }
+            else if (args[i].StartsWith("--", StringComparison.Ordinal))
+            {
+                return PrintUsage();
             }
             else
             {
-                solver.TryComputeHash(inputBuffer, hashBuffer);
+                positional.Add(args[i]);
             }
-
-            bool isMatch;
-            if (target == StepTarget.CheckLeadingBits)
-            {
-                long start = Stopwatch.GetTimestamp();
-                isMatch = PowSolver.CheckLeadingBits(hashBuffer, difficulty);
-                long end = Stopwatch.GetTimestamp();
-                totalStepNanoseconds += (end - start) * TickToNanoseconds;
-                stepExecutions++;
-            }
-            else
-            {
-                isMatch = PowSolver.CheckLeadingBits(hashBuffer, difficulty);
-            }
-
-            iterations++;
-
-            long iterationEnd;
-            if (isMatch)
-            {
-                iterationEnd = Stopwatch.GetTimestamp();
-                totalIterationNanoseconds += (iterationEnd - iterationStart) * TickToNanoseconds;
-                break;
-            }
-
-            counter++;
-
-            if (target == StepTarget.IncrementHexAsciiInPlace)
-            {
-                long start = Stopwatch.GetTimestamp();
-                PowSolver.IncrementHexAsciiInPlace(counterSpan);
-                long end = Stopwatch.GetTimestamp();
-                totalStepNanoseconds += (end - start) * TickToNanoseconds;
-                stepExecutions++;
-            }
-            else
-            {
-                PowSolver.IncrementHexAsciiInPlace(counterSpan);
-            }
-
-            iterationEnd = Stopwatch.GetTimestamp();
-            totalIterationNanoseconds += (iterationEnd - iterationStart) * TickToNanoseconds;
         }
 
-        return new SingleStepResult(totalStepNanoseconds, totalIterationNanoseconds, iterations, stepExecutions);
-    }
-
-    private static void PrintStepStats(string name, StepStats stats)
-    {
-        Console.WriteLine($"  {name,-16} step/call mean {stats.StepMeanNanoseconds:F1} ns, median {stats.StepMedianNanoseconds:F1} ns, 95th {stats.StepNinetyFifthNanoseconds:F1} ns (calls {stats.TotalStepExecutions})");
-        Console.WriteLine($"  {string.Empty,-16} iter total mean {stats.IterationMeanNanoseconds:F1} ns, median {stats.IterationMedianNanoseconds:F1} ns, 95th {stats.IterationNinetyFifthNanoseconds:F1} ns (iters {stats.TotalIterations})");
-        Console.WriteLine($"  {string.Empty,-16} step/solve mean {stats.MeanSolveMilliseconds:F3} ms, median {stats.MedianSolveMilliseconds:F3} ms, 95th {stats.NinetyFifthSolveMilliseconds:F3} ms, steps/solve {stats.MeanStepsPerSolve:F1}, iterations/solve {stats.MeanIterationsPerSolve:F1}");
-    }
-
-    private static double Percentile(double[] sortedSamples, double percentile)
-    {
-        if (sortedSamples.Length == 0)
+        if (positional.Count > 4
+            || !TryReadArgument(positional, 0, 10, out int count) || count < 1
+            || !TryReadArgument(positional, 1, 31, out int difficultyBits) || difficultyBits is < 1 or > 48
+            || !TryReadArgument(positional, 2, 3, out int rounds) || rounds < 1
+            || !TryReadArgument(positional, 3, 6, out int keyLength) || keyLength is < 0 or > 1024)
         {
-            return 0;
+            return PrintUsage();
         }
 
-        double position = (percentile / 100d) * (sortedSamples.Length - 1);
-        int lowerIndex = (int)Math.Floor(position);
-        int upperIndex = (int)Math.Ceiling(position);
-
-        if (lowerIndex == upperIndex)
+        // Compare cold variants in separate processes so the first solver cannot warm the next one.
+        selectedVariant ??= cold ? "Current" : null;
+        var variants = SolverVariants.All
+            .Where(variant => selectedVariant is null || variant.Name.Equals(selectedVariant, StringComparison.OrdinalIgnoreCase))
+            .ToArray();
+        if (variants.Length == 0)
         {
-            return sortedSamples[lowerIndex];
+            Console.Error.WriteLine($"Unknown variant: {selectedVariant}.");
+            return PrintUsage();
         }
 
-        double fraction = position - lowerIndex;
-        return sortedSamples[lowerIndex] + fraction * (sortedSamples[upperIndex] - sortedSamples[lowerIndex]);
-    }
-
-    private enum StepTarget
-    {
-        WriteCounterHex,
-        IncrementHexAsciiInPlace,
-        TryComputeHash,
-        CheckLeadingBits
-    }
-
-    private readonly record struct StepStats(
-        double StepMeanNanoseconds,
-        double StepMedianNanoseconds,
-        double StepNinetyFifthNanoseconds,
-        double IterationMeanNanoseconds,
-        double IterationMedianNanoseconds,
-        double IterationNinetyFifthNanoseconds,
-        double MeanSolveMilliseconds,
-        double MedianSolveMilliseconds,
-        double NinetyFifthSolveMilliseconds,
-        long TotalIterations,
-        double MeanIterationsPerSolve,
-        long TotalStepExecutions,
-        double MeanStepsPerSolve);
-
-    private readonly record struct SingleStepResult(
-        double StepNanoseconds,
-        double TotalIterationNanoseconds,
-        long Iterations,
-        long StepExecutions);
-
-    private static class PowChallengeFactory
-    {
-        private const int Seed = 123456789;
-
-        public static PowRequest[] CreateStableChallenges(int count, int randomnessBytes, int difficultyBits)
+        Console.WriteLine($"PoW comparison: {count} stable challenges, {difficultyBits} difficulty bits, {rounds} rounds, {keyLength}-byte ASCII keys.");
+        Console.WriteLine($"Runtime: {RuntimeInformation.FrameworkDescription}; {RuntimeInformation.OSDescription}; {RuntimeInformation.ProcessArchitecture}; AVX2: {Avx2.IsSupported}.");
+        bool optimizerDisabled = typeof(PowSolver).Assembly.GetCustomAttribute<DebuggableAttribute>()?.IsJITOptimizerDisabled ?? false;
+        Console.WriteLine($"Solver JIT optimization: {(optimizerDisabled ? "disabled" : "enabled")}.");
+        Console.WriteLine(cold
+            ? "Cold mode: no warmup or baseline solve; new solver and async SolvePow per challenge. Only the first solve in this process is cold."
+            : "Warm mode: sequential synchronous solves after warmup; solver reused within each round.");
+#if DEBUG
+        Console.WriteLine("Use a Release build for meaningful timings.");
+#endif
+        PowRequest[] challenges = CreateChallenges(count, difficultyBits, keyLength);
+        var expected = new string[count];
+        if (!cold)
         {
-            if (count <= 0)
+            using (var baseline = new PowSolver())
             {
-                return Array.Empty<PowRequest>();
-            }
-
-            var rng = new Random(Seed);
-            var result = new PowRequest[count];
-
-            for (int i = 0; i < count; i++)
-            {
-                string wantedHex = RandomHex(rng, randomnessBytes);
-                string keyHex = RandomHex(rng, randomnessBytes);
-                string bits = HexToAsciiBits(wantedHex, difficultyBits);
-
-                result[i] = new PowRequest
+                for (int i = 0; i < count; i++)
                 {
-                    Key = keyHex,
-                    Wanted = bits
-                };
-            }
-
-            return result;
-        }
-
-        private static string RandomHex(Random rng, int byteCount)
-        {
-            byte[] buffer = new byte[byteCount];
-            rng.NextBytes(buffer);
-            return Convert.ToHexString(buffer).ToLowerInvariant();
-        }
-
-        private static string HexToAsciiBits(string hex, int bitCount)
-        {
-            if (bitCount <= 0)
-            {
-                return string.Empty;
-            }
-
-            var sb = new StringBuilder(bitCount);
-
-            foreach (char c in hex)
-            {
-                int ascii = c;
-                for (int bit = 7; bit >= 0 && sb.Length < bitCount; bit--)
-                {
-                    sb.Append(((ascii >> bit) & 1) == 1 ? '1' : '0');
-                }
-
-                if (sb.Length == bitCount)
-                {
-                    break;
+                    baseline.ResetCounter(0);
+                    expected[i] = baseline.ProcessPow(challenges[i]);
                 }
             }
 
-            if (sb.Length < bitCount)
+            // Warm every variant before measuring; construction and validation are outside the timer.
+            foreach (var variant in variants)
             {
-                sb.Append('0', bitCount - sb.Length);
+                using var solver = variant.Create();
+                long warmupStart = Stopwatch.GetTimestamp();
+                do
+                {
+                    solver.ResetCounter(0);
+                    solver.ProcessPow(challenges[0]);
+                }
+                while (Stopwatch.GetElapsedTime(warmupStart).TotalMilliseconds < 250);
+            }
+        }
+
+        var samples = variants.Select(_ => new List<(double ElapsedMs, double Attempts)>()).ToArray();
+        for (int round = 0; round < rounds; round++)
+        {
+            // Rotate the order to reduce the advantage of running first or last.
+            for (int offset = 0; offset < variants.Length; offset++)
+            {
+                int variantIndex = (round + offset) % variants.Length;
+                var variant = variants[variantIndex];
+                using var reusedSolver = cold ? null : variant.Create();
+                for (int i = 0; i < challenges.Length; i++)
+                {
+                    using var freshSolver = cold ? variant.Create() : null;
+                    var solver = freshSolver ?? reusedSolver!;
+                    solver.ResetCounter(0);
+                    long start = Stopwatch.GetTimestamp();
+                    string solution = cold
+                        ? await solver.SolvePow(challenges[i])
+                        : solver.ProcessPow(challenges[i]);
+                    double elapsedMs = Stopwatch.GetElapsedTime(start).TotalMilliseconds;
+
+                    // Validate only after the timer. Cold mode must never solve a baseline first.
+                    if (!IsValidSolution(solution, challenges[i], out ulong counter)
+                        || (!cold && solution != expected[i]))
+                    {
+                        Console.Error.WriteLine($"{variant.Name} returned an invalid or unexpected solution {solution} for challenge {i}.");
+                        return 1;
+                    }
+
+                    double attempts = (double)counter + 1;
+                    samples[variantIndex].Add((elapsedMs, attempts));
+                    if (cold && round == 0 && i == 0)
+                    {
+                        Console.WriteLine($"First solve: {elapsedMs:F3} ms, {attempts:F0} attempts, {attempts / elapsedMs / 1000:F3} MH/s.");
+                    }
+                }
             }
 
-            return sb.ToString();
+            Console.WriteLine($"Completed round {round + 1}/{rounds}.");
         }
+
+        double baselineMean = samples[0].Average(sample => sample.ElapsedMs);
+        Console.WriteLine();
+        Console.WriteLine($"{"Algorithm",-22} {"Mean ms",10} {"Median ms",10} {"P95 ms",10} {"Mean attempts",14} {"MH/s",10} {"Speedup",10}");
+        for (int i = 0; i < variants.Length; i++)
+        {
+            double[] sorted = samples[i].Select(sample => sample.ElapsedMs).Order().ToArray();
+            double mean = sorted.Average();
+            double median = (sorted[(sorted.Length - 1) / 2] + sorted[sorted.Length / 2]) / 2;
+            double p95 = sorted[(int)Math.Ceiling(sorted.Length * 0.95) - 1];
+            double meanAttempts = samples[i].Average(sample => sample.Attempts);
+            double megaHashesPerSecond = samples[i].Sum(sample => sample.Attempts) / sorted.Sum() / 1000;
+            Console.WriteLine($"{variants[i].Name,-22} {mean,10:F3} {median,10:F3} {p95,10:F3} {meanAttempts,14:F0} {megaHashesPerSecond,10:F3} {baselineMean / mean,9:F2}x");
+        }
+
+        Console.WriteLine($"Speedup is relative to {variants[0].Name}; higher is faster. All solutions validated{(cold ? "." : " and matched the baseline.")}");
+        Console.WriteLine("Attempts count searched counters through the solution (counter + 1); MH/s normalizes differing challenge work and excludes any extra SIMD lanes.");
+        return 0;
     }
+
+    private static int PrintUsage()
+    {
+        Console.Error.WriteLine("Usage: dotnet run -c Release --project PowBench -- [challenge-count=10] [difficulty-bits=31 (1..48)] [rounds=3] [key-bytes=6 (0..1024)] [--variant \"Name\"] [--cold]");
+        Console.Error.WriteLine($"Variants: {string.Join(", ", SolverVariants.All.Select(variant => variant.Name))}. Cold mode defaults to Current.");
+        return 1;
+    }
+
+    private static bool TryReadArgument(IReadOnlyList<string> args, int index, int fallback, out int value)
+    {
+        value = fallback;
+        return index >= args.Count || int.TryParse(args[index], out value);
+    }
+
+    private static bool IsValidSolution(string solution, PowRequest challenge, out ulong counter)
+    {
+        if (!ulong.TryParse(solution, NumberStyles.AllowHexSpecifier, CultureInfo.InvariantCulture, out counter)
+            || solution != counter.ToString("x16", CultureInfo.InvariantCulture))
+        {
+            return false;
+        }
+
+        byte[] hash = SHA256.HashData(Encoding.UTF8.GetBytes($"aod^{solution}^{challenge.Key}"));
+        string bits = ToAsciiBits(Convert.ToHexStringLower(hash));
+        return bits.StartsWith(challenge.Wanted, StringComparison.Ordinal);
+    }
+
+    private static PowRequest[] CreateChallenges(int count, int difficultyBits, int keyLength)
+    {
+        var random = new Random(123456789);
+        var challenges = new PowRequest[count];
+        var wantedBytes = new byte[3];
+        var keyBytes = new byte[(keyLength + 1) / 2];
+        for (int i = 0; i < count; i++)
+        {
+            random.NextBytes(wantedBytes);
+            string wantedHex = Convert.ToHexStringLower(wantedBytes);
+            random.NextBytes(keyBytes);
+            string key = Convert.ToHexStringLower(keyBytes)[..keyLength];
+            challenges[i] = new PowRequest { Key = key, Wanted = ToAsciiBits(wantedHex)[..difficultyBits] };
+        }
+
+        return challenges;
+    }
+
+    private static string ToAsciiBits(string hex) =>
+        string.Concat(Encoding.ASCII.GetBytes(hex).Select(value => Convert.ToString(value, 2).PadLeft(8, '0')));
 }

@@ -1,7 +1,6 @@
 ﻿using AlbionDataAvalonia.Network.Models;
 using Serilog;
 using System;
-using System.Linq;
 using System.Net;
 using System.Net.Http;
 using System.Security.Cryptography;
@@ -9,17 +8,21 @@ using System.Text;
 using System.Text.Json;
 using System.Threading.Tasks;
 using System.Runtime.CompilerServices;
+using System.Numerics;
+using System.Runtime.Intrinsics;
 
 
 namespace AlbionDataAvalonia.Network.Pow;
 
-public partial class PowSolver
+public partial class PowSolver : IDisposable
 {
-    private readonly SHA256 _sha256 = SHA256.Create();
+    private readonly IncrementalHash _sha256 = IncrementalHash.CreateHash(HashAlgorithmName.SHA256);
     private ulong _counter;
     private static readonly byte[] HexDigits = "0123456789abcdef"u8.ToArray();
 
     internal void ResetCounter(ulong value) => _counter = value;
+
+    public virtual void Dispose() => _sha256.Dispose();
 
     public async Task<PowRequest?> GetPowRequest(AlbionServer server, HttpClient client)
     {
@@ -45,6 +48,10 @@ public partial class PowSolver
 
     public Task<string> SolvePow(PowRequest pow) => Task.Run(() => ProcessPow(pow));
 
+    internal virtual bool UseBatchHashing => true;
+
+    internal virtual bool UsePrecomputation => true;
+
     internal string ProcessPow(PowRequest pow)
     {
         ReadOnlySpan<byte> prefix = "aod^"u8;
@@ -56,6 +63,12 @@ public partial class PowSolver
         suffix.CopyTo(inputBuffer.AsSpan(prefix.Length + 16));
 
         PowDifficulty difficulty = PowDifficulty.Create(pow.Wanted);
+        if (UseBatchHashing && PowSha256Batch.IsSupported
+            && inputBuffer.Length <= PowSha256Batch.MaxInputLength && difficulty.FirstHashByte >= 0)
+        {
+            return ProcessPowBatch(inputBuffer, difficulty);
+        }
+
         Span<byte> counterSpan = inputBuffer.AsSpan(prefix.Length, 16);
         Span<byte> hashBuffer = stackalloc byte[32];
 
@@ -75,9 +88,50 @@ public partial class PowSolver
             }
 
             ctr++;
-            IncrementHexAsciiInPlace(counterSpan); // O(1) on average
+            AdvanceCounter(counterSpan, ctr);
         }
     }
+
+    private string ProcessPowBatch(byte[] inputBuffer, PowDifficulty difficulty)
+    {
+        var batch = new PowSha256Batch(inputBuffer, UsePrecomputation);
+        Span<Vector256<uint>> digest = stackalloc Vector256<uint>[8];
+        Span<byte> hash = stackalloc byte[32];
+        Span<byte> counterSpan = inputBuffer.AsSpan(4, 16);
+        var firstWord = Vector256.Create(difficulty.FirstHashWord);
+        var firstWordMask = Vector256.Create(difficulty.FirstHashWordMask);
+        ulong counter = _counter;
+        while (true)
+        {
+            batch.Hash(counter, digest);
+            uint candidates = Vector256.Equals(digest[0] & firstWordMask, firstWord)
+                .ExtractMostSignificantBits();
+
+            while (candidates != 0)
+            {
+                int lane = BitOperations.TrailingZeroCount(candidates);
+                ulong solution = unchecked(counter + (ulong)lane);
+                WriteCounterHex(counterSpan, solution);
+                // Verify the surviving candidates with the platform SHA-256 implementation.
+                // Filter all complete hex characters in the first word before rehashing;
+                // the full check still handles partial ASCII bits and longer difficulties.
+                TryComputeHash(inputBuffer, hash);
+                if (CheckLeadingBits(hash, difficulty))
+                {
+                    _counter = unchecked(solution + 1);
+                    return Encoding.ASCII.GetString(counterSpan);
+                }
+
+                candidates &= candidates - 1;
+            }
+
+            counter = unchecked(counter + 8);
+        }
+    }
+
+    internal virtual void AdvanceCounter(Span<byte> counterSpan, ulong counter) =>
+        IncrementHexAsciiInPlace(counterSpan);
+
     [MethodImpl(MethodImplOptions.AggressiveInlining)]
     internal static void IncrementHexAsciiInPlace(Span<byte> s)
     {
@@ -116,12 +170,21 @@ public partial class PowSolver
     }
 
 
-    internal void TryComputeHash(ReadOnlySpan<byte> input, Span<byte> hashBuffer) =>
-        _sha256.TryComputeHash(input, hashBuffer, out _);
-    // SHA256.TryHashData(input, hashBuffer, out +_);
-
-    internal static bool CheckLeadingBits(ReadOnlySpan<byte> hash, PowDifficulty difficulty)
+    internal virtual void TryComputeHash(ReadOnlySpan<byte> input, Span<byte> hashBuffer)
     {
+        _sha256.AppendData(input);
+        _sha256.GetHashAndReset(hashBuffer);
+    }
+
+    internal virtual bool CheckLeadingBits(ReadOnlySpan<byte> hash, PowDifficulty difficulty)
+    {
+        // Two complete ASCII hex characters fix the first raw hash byte.
+        // Reject most attempts without extracting and checking each nibble.
+        if (difficulty.FirstHashByte >= 0 && hash[0] != difficulty.FirstHashByte)
+        {
+            return false;
+        }
+
         ReadOnlySpan<byte> expected = difficulty.ExpectedSpan;
         if (expected.Length == 0)
         {
@@ -157,7 +220,37 @@ public partial class PowSolver
         {
             _expected = expected;
             _mask = mask;
+
+            // Each complete ASCII hex character fixes four raw digest bits. Keep
+            // partial ASCII bytes for the full check: their bits are not raw hash bits.
+            for (int i = 0; i < Math.Min(8, expected.Length) && mask[i] == byte.MaxValue; i++)
+            {
+                int nibble = HexDigits.AsSpan().IndexOf(expected[i]);
+                if (nibble < 0)
+                {
+                    break;
+                }
+
+                int shift = 28 - i * 4;
+                FirstHashWord |= (uint)nibble << shift;
+                FirstHashWordMask |= 0xfu << shift;
+            }
+
+            if (expected.Length >= 2 && mask[1] == byte.MaxValue)
+            {
+                int high = HexDigits.AsSpan().IndexOf(expected[0]);
+                int low = HexDigits.AsSpan().IndexOf(expected[1]);
+                if (high >= 0 && low >= 0)
+                {
+                    FirstHashByte = (high << 4) | low;
+                }
+            }
         }
+
+        public int FirstHashByte { get; } = -1;
+
+        public uint FirstHashWord { get; }
+        public uint FirstHashWordMask { get; }
 
         public ReadOnlySpan<byte> ExpectedSpan => _expected;
         public ReadOnlySpan<byte> MaskSpan => _mask;

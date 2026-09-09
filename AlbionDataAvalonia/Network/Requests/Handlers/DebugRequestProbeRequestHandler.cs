@@ -11,18 +11,32 @@ public class DebugRequestProbeRequestHandler : PacketHandler<RequestPacket>
 {
     private static readonly int[] ProbeOperationCodeValues =
     [
+        (int)OperationCodes.Join,
+        (int)OperationCodes.ChangeCluster,
+        (int)OperationCodes.GetIslandInfos,
+        (int)OperationCodes.RegisterToObject,
+        (int)OperationCodes.UnRegisterFromObject,
+        (int)OperationCodes.PlaceableObjectPlace,
+        (int)OperationCodes.PlaceableObjectPlaceCancel,
+        (int)OperationCodes.PlaceableObjectPickup,
+        (int)OperationCodes.FarmableHarvest,
+        (int)OperationCodes.FarmableFinishGrownItem,
+        (int)OperationCodes.FarmableDestroy,
+        (int)OperationCodes.FarmableGetProduct,
+        (int)OperationCodes.FarmableFill,
+        (int)OperationCodes.BoostFarmable,
     ];
 
     protected override Task OnHandleAsync(RequestPacket packet)
     {
-        if (!ProbeOperationCodeValues.Contains(packet.OperationCode))
+        if (!Log.IsEnabled(Serilog.Events.LogEventLevel.Debug) || !ProbeOperationCodeValues.Contains(packet.OperationCode))
         {
             return NextAsync(packet);
         }
 
         var request = new DebugRequestProbeRequest(packet.Parameters);
         Log.Debug(
-            "Market order probe captured request {OperationCode} ({OperationName}). MessageSizeBytes={MessageSizeBytes}, IsFragmented={IsFragmented}, FragmentCount={FragmentCount}, ParameterCount={ParameterCount}: {Parameters}",
+            "Debug probe captured request {OperationCode} ({OperationName}). MessageSizeBytes={MessageSizeBytes}, IsFragmented={IsFragmented}, FragmentCount={FragmentCount}, ParameterCount={ParameterCount}: {Parameters}",
             packet.OperationCode,
             System.Enum.GetName(typeof(OperationCodes), packet.OperationCode) ?? "Unknown",
             packet.MessageSizeBytes,

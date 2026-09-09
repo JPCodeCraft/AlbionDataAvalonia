@@ -1,6 +1,5 @@
-﻿using System;
+using System;
 using System.Threading.Tasks;
-using AlbionDataAvalonia.Shared;
 
 namespace Albion.Network
 {
@@ -25,6 +24,7 @@ namespace Albion.Network
             {
                 TOperation instance = (TOperation)Activator.CreateInstance(typeof(TOperation), packet.Parameters);
 
+                instance.ReturnCode = packet.ReturnCode;
                 return OnActionAsync(instance);
             }
         }
