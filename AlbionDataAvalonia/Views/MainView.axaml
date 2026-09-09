@@ -339,6 +339,9 @@
 							<CheckBox IsChecked="{Binding UserSettings.UploadSpecsToAfm}"
 								ToolTip.Tip="If you mark this, your character specs will be uploaded to AFM."
 								Margin="0,0,0,5" FontSize="11">Upload Specs to AFM</CheckBox>
+							<CheckBox IsChecked="{Binding UserSettings.AfmIslandTrackerEnabled}"
+								ToolTip.Tip="Track and upload your island plots and farming collections to your AFM account. Turning this off stops tracking and uploads. After enabling it again, leave and re-enter the island to resume tracking."
+								Margin="0,0,0,5" FontSize="11">AFM Island Tracker</CheckBox>
 						</StackPanel>
 
 						<!-- Logout button -->

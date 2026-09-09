@@ -1,6 +1,7 @@
 ﻿using AlbionDataAvalonia.Auth.Services;
 using AlbionDataAvalonia.Combat;
 using AlbionDataAvalonia.DB;
+using AlbionDataAvalonia.Farming;
 using AlbionDataAvalonia.Gathering;
 using AlbionDataAvalonia.Legendary;
 using AlbionDataAvalonia.Items;
@@ -40,6 +41,7 @@ public partial class App : Application
     private System.Timers.Timer? _updateTimer;
     private DatabaseBackupService? _databaseBackupService;
     private NetworkListenerService? _networkListenerService;
+    private FarmingUploadService? _farmingUploadService;
     private readonly HashSet<string> _shownManualUpdateDialogs = new();
     private readonly object _shownManualUpdateDialogsLock = new();
     private bool _showMainWindowWhenReady;
@@ -69,6 +71,7 @@ public partial class App : Application
         catch (Exception ex)
         {
             DisposeNetworkListener();
+            _farmingUploadService?.Dispose();
             _databaseBackupService?.Dispose();
             TryWriteStartupCrashLog(ex);
 
@@ -142,6 +145,7 @@ public partial class App : Application
         //GETTING SERVICES
         var listener = services.GetRequiredService<NetworkListenerService>();
         _networkListenerService = listener;
+        _farmingUploadService = services.GetRequiredService<FarmingUploadService>();
         var uploader = services.GetRequiredService<Uploader>();
         var afmUploader = services.GetRequiredService<AFMUploader>();
         var emvBackendLoader = services.GetRequiredService<ItemEstimatedMarketValueBackendLoader>();
@@ -165,6 +169,7 @@ public partial class App : Application
             desktop.Exit += (_, _) =>
             {
                 DisposeNetworkListener();
+                _farmingUploadService?.Dispose();
                 _databaseBackupService?.Dispose();
             };
 
@@ -478,6 +483,8 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<ListSink>();
         collection.AddSingleton<Uploader>();
         collection.AddSingleton<AFMUploader>();
+        collection.AddSingleton<FarmingUploadService>();
+        collection.AddSingleton<FarmingTrackerService>();
         collection.AddSingleton<MailService>();
         collection.AddSingleton<TradeService>();
         collection.AddSingleton<PortfolioUploadService>();

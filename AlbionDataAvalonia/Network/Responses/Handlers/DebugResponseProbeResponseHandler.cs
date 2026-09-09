@@ -12,20 +12,34 @@ public class DebugResponseProbeResponseHandler : PacketHandler<ResponsePacket>
     private static readonly int[] ProbeOperationCodeValues =
     [
         (int)OperationCodes.Join,
+        (int)OperationCodes.ChangeCluster,
+        (int)OperationCodes.GetIslandInfos,
+        (int)OperationCodes.RegisterToObject,
+        (int)OperationCodes.UnRegisterFromObject,
+        (int)OperationCodes.PlaceableObjectPlace,
+        (int)OperationCodes.PlaceableObjectPlaceCancel,
+        (int)OperationCodes.PlaceableObjectPickup,
+        (int)OperationCodes.FarmableHarvest,
+        (int)OperationCodes.FarmableFinishGrownItem,
+        (int)OperationCodes.FarmableDestroy,
+        (int)OperationCodes.FarmableGetProduct,
+        (int)OperationCodes.FarmableFill,
+        (int)OperationCodes.BoostFarmable,
     ];
 
     protected override Task OnHandleAsync(ResponsePacket packet)
     {
-        if (!ProbeOperationCodeValues.Contains(packet.OperationCode))
+        if (!Log.IsEnabled(Serilog.Events.LogEventLevel.Debug) || !ProbeOperationCodeValues.Contains(packet.OperationCode))
         {
             return NextAsync(packet);
         }
 
         var response = new DebugResponseProbeResponse(packet.Parameters);
         Log.Debug(
-            "Debug probe captured response {OperationCode} ({OperationName}). MessageSizeBytes={MessageSizeBytes}, IsFragmented={IsFragmented}, FragmentCount={FragmentCount}, ParameterCount={ParameterCount}: {Parameters}",
+            "Debug probe captured response {OperationCode} ({OperationName}). ReturnCode={ReturnCode}, MessageSizeBytes={MessageSizeBytes}, IsFragmented={IsFragmented}, FragmentCount={FragmentCount}, ParameterCount={ParameterCount}: {Parameters}",
             packet.OperationCode,
             System.Enum.GetName(typeof(OperationCodes), packet.OperationCode) ?? "Unknown",
+            packet.ReturnCode,
             packet.MessageSizeBytes,
             packet.IsFragmented,
             packet.FragmentCount,

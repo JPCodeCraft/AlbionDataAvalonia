@@ -14,6 +14,15 @@ public class DebugEventProbeEventHandler : EventPacketHandler<DebugEventProbeEve
     [
         (int)EventCodes.PremiumChanged,
         (int)EventCodes.JoinFinished,
+        (int)EventCodes.NewBuilding,
+        (int)EventCodes.PlayerBuildingInfo,
+        (int)EventCodes.FarmBuildingInfo,
+        (int)EventCodes.FarmableObjectInfo,
+        (int)EventCodes.PlaceableObjectPlace,
+        (int)EventCodes.PlaceableObjectPlaceCancel,
+        (int)EventCodes.BoostFarmable,
+        (int)EventCodes.CraftingFocusUpdate,
+        (int)EventCodes.TimeSync,
     ];
 
     public DebugEventProbeEventHandler() : base(ProbeEventCodeValues)
@@ -22,7 +31,7 @@ public class DebugEventProbeEventHandler : EventPacketHandler<DebugEventProbeEve
 
     protected override Task OnHandleAsync(EventPacket packet)
     {
-        if (!ProbeEventCodeValues.Contains(packet.EventCode))
+        if (!Log.IsEnabled(Serilog.Events.LogEventLevel.Debug) || !ProbeEventCodeValues.Contains(packet.EventCode))
         {
             return NextAsync(packet);
         }

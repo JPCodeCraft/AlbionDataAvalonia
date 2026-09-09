@@ -1,4 +1,4 @@
-﻿using Albion.Network;
+using Albion.Network;
 using AlbionDataAvalonia.Locations;
 using AlbionDataAvalonia.Locations.Models;
 using Serilog;
@@ -9,6 +9,8 @@ namespace AlbionDataAvalonia.Network.Responses;
 
 public class JoinResponse : BaseOperation
 {
+    public string? IslandId { get; }
+    public string? IslandHomeCluster { get; }
     public readonly AlbionLocation playerLocation;
     public readonly string playerName;
     public readonly long userObjectId;
@@ -42,7 +44,12 @@ public class JoinResponse : BaseOperation
             {
                 string location = (string)locationData;
                 playerLocation = AlbionLocations.ResolveLocation(location);
+                IslandId = AlbionLocations.GetIslandId(location);
             }
+
+            if (parameters.TryGetValue(81, out var homeCluster) && homeCluster is string home
+                && !string.IsNullOrWhiteSpace(home) && home.Trim().Length <= 200)
+                IslandHomeCluster = home.Trim();
 
             if (parameters.TryGetValue(58, out object? guildNameData))
             {

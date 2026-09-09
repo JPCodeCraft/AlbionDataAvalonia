@@ -14,16 +14,19 @@ namespace Albion.Network
             Dictionary<byte, object> parameters,
             int messageSizeBytes,
             bool isFragmented,
-            int fragmentCount)
+            int fragmentCount,
+            short returnCode = 0)
         {
             OperationCode = operationCode;
             Parameters = parameters;
             MessageSizeBytes = messageSizeBytes;
             IsFragmented = isFragmented;
             FragmentCount = fragmentCount;
+            ReturnCode = returnCode;
         }
 
         public short OperationCode { get; }
+        public short ReturnCode { get; }
         public Dictionary<byte, object> Parameters { get; }
         public int MessageSizeBytes { get; }
         public bool IsFragmented { get; }

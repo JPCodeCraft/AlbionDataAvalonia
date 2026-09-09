@@ -382,6 +382,16 @@ namespace AlbionDataAvalonia.State
             return false;
         }
 
+        public void RecordIslandUpload(UploadStatus status, Guid identifier)
+        {
+            if (status == UploadStatus.Success)
+            {
+                PrivateUploadStats.IslandUploadsCount++;
+            }
+
+            ProcessUploadStatus(UploadScope.Private, status, identifier);
+        }
+
         private void ProcessUploadStatus(UploadScope scope, UploadStatus status, Guid identifier)
         {
             if (scope == UploadScope.Public)
@@ -451,7 +461,8 @@ namespace AlbionDataAvalonia.State
                 AchievementsCount = source.AchievementsCount,
                 GlobalMultipliersCount = source.GlobalMultipliersCount,
                 FestivitiesCount = source.FestivitiesCount,
-                ItemEstimatedMarketValuesCount = source.ItemEstimatedMarketValuesCount
+                ItemEstimatedMarketValuesCount = source.ItemEstimatedMarketValuesCount,
+                IslandUploadsCount = source.IslandUploadsCount
             };
         }
 
@@ -467,7 +478,10 @@ namespace AlbionDataAvalonia.State
 
         public bool CheckOkToUpload()
         {
-            return CheckLocationIsSet() && IsInGame && AlbionServer != null;
+            // Islands are recognized locations, but do not support these market/public uploads.
+            // Farming uploads use their own authenticated capture and upload flow.
+            return CheckLocationIsSet() && IsInGame && AlbionServer != null
+                && AlbionLocations.GetIslandId(location.Id) == null;
         }
 
         public void AddPowSolveTime(long time)

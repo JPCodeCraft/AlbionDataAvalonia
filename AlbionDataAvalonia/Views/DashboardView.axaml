@@ -537,6 +537,14 @@
 								<TextBlock Classes="StatValue" Text="{Binding PrivateUploadedFestivitiesCount, StringFormat=N0}" />
 							</StackPanel>
 						</Border>
+						<Border Classes="StatCard CompactStatCard"
+							Classes.DimmedUploadCard="{Binding !UserSettings.AfmIslandTrackerEnabled}"
+							ToolTip.Tip="Successful uploads of island, plot and farming collection data during this client session.">
+							<StackPanel Spacing="2">
+								<TextBlock Classes="StatLabel" Text="Island Uploads" />
+								<TextBlock Classes="StatValue" Text="{Binding PrivateIslandUploadsCount, StringFormat=N0}" />
+							</StackPanel>
+						</Border>
 					</WrapPanel>
 				</StackPanel>
 			</Border>

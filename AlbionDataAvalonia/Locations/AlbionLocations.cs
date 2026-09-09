@@ -136,6 +136,11 @@ namespace AlbionDataAvalonia.Locations
                 return Unknown;
             }
 
+            if (GetIslandId(rawLocationId) != null)
+            {
+                return new AlbionLocation(NormalizeRawLocationId(rawLocationId), "Island", "Island");
+            }
+
             foreach (var candidate in GetLocationCandidates(rawLocationId))
             {
                 var location = Get(candidate);
@@ -158,6 +163,18 @@ namespace AlbionDataAvalonia.Locations
             }
 
             return Unknown;
+        }
+
+        public static string? GetIslandId(string? rawLocationId)
+        {
+            if (string.IsNullOrWhiteSpace(rawLocationId))
+            {
+                return null;
+            }
+
+            var normalized = NormalizeRawLocationId(rawLocationId);
+            return normalized.StartsWith("@ISLAND@", StringComparison.Ordinal)
+                && Guid.TryParse(normalized[8..], out var id) ? id.ToString() : null;
         }
 
         public static int ResolveMarketLocationId(string rawLocationId)
