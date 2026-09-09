@@ -207,6 +207,8 @@ public sealed class FarmingTrackerService : IDisposable
         foreach (var (id, observation) in objects.ToArray())
         {
             var contextual = ApplyContext(observation);
+            if (contextual.State is { } state)
+                contextual = contextual with { State = state with { HasPremium = state.HasPremium ?? player.HasPremium } };
             objects[id] = contextual;
             uploader.EnqueueObject(accountId!, contextual);
         }
@@ -281,7 +283,11 @@ public sealed class FarmingTrackerService : IDisposable
             State = bufferedState
         };
         var hasNewState = pendingStates.Remove(sessionId, out var pending);
-        if (hasNewState) value = value with { State = pending.State, ObservedAt = pending.ObservedAt };
+        if (hasNewState) value = value with
+        {
+            State = pending.State with { HasPremium = pending.State.HasPremium ?? (joining ? null : player.HasPremium) },
+            ObservedAt = pending.ObservedAt
+        };
         value = ApplyContext(value);
         objects[sessionId] = value;
         if (island is not null) uploader.EnqueueObject(accountId!, hasNewState ? value : value with { State = null });
@@ -290,6 +296,7 @@ public sealed class FarmingTrackerService : IDisposable
     private void ObserveFarmable(FarmableObjectInfoEvent packet)
     {
         if ((!joining && island is null) || packet.State is not { } state) return;
+        state = state with { HasPremium = joining ? null : player.HasPremium };
         var id = packet.ObjectId;
         var observedAt = DateTime.UtcNow;
         if (!objects.TryGetValue(id, out var value))

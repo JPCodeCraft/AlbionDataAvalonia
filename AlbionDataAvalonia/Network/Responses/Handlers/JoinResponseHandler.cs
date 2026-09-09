@@ -47,11 +47,11 @@ public class JoinResponseHandler : ResponsePacketHandler<JoinResponse>
         // Failed joins may contain no identity or location fields. Preserve the
         // shared player state as well as the farming state until a successful join.
         if (value.ReturnCode != 0) return;
-        farmingTracker.OnJoin(value);
         playerState.UserObjectId = value.userObjectId;
         playerState.PlayerName = value.playerName;
         playerState.Location = value.playerLocation;
         playerState.SetPremiumExpirationTicks(value.premiumExpirationTicks);
+        farmingTracker.OnJoin(value);
         playerIdentityService.AddOrUpdate(
             playerState.AlbionServer?.Id,
             value.userObjectId,

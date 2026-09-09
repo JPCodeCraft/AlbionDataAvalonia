@@ -45,6 +45,8 @@ public sealed record FarmingObjectState
     public bool IsMature { get; init; }
     public List<FarmingNutrition> Nutrition { get; init; } = [];
     public double DurationMultiplier { get; init; } = 1;
+    // The observing character's status; null for older or pre-Join snapshots.
+    public bool? HasPremium { get; init; }
     public DateTime? LastBoostAt { get; init; }
     public int BoostCount { get; init; }
 

@@ -30,10 +30,11 @@ from scanning the full offline backlog on every successful upload.
 
 ## Optional farming action timings
 
-Adult-product progress is verified for the captured fed goats and sheep; product
-collection/reset behavior and next-nurture timing still need confirmation. The
-client model, upload validation, Mongo storage, and website support these optional
-fields inside an object's `state`. Packet parsing leaves these explicit action
+Adult-product progress is verified for the captured fed goats and sheep. The
+September 9 wolf capture also validates the predicted 22-hour nurture cooldown
+while food remains available. Product collection/reset and other timing conditions
+still need confirmation. The client model, upload validation, Mongo storage, and
+website support these optional fields inside an object's `state`. Packet parsing leaves these explicit action
 fields unset; verified product progress is uploaded separately as described below.
 
 | JSON field | Type | Meaning |
@@ -53,9 +54,9 @@ Deadlines must account for verified game timing, duration modifiers, and any foo
 or growth conditions that pause or block that action. Supply a deadline only when
 it can be reached without another feeding or other prerequisite action. Otherwise
 leave it unknown; the UI can still show a known unavailable flag and food status.
-The website keeps those confirmed fields separate from its explicitly labeled
+The website keeps those confirmed fields separate from its card's labeled
 estimate based on `lastBoostAt` plus the catalog cycle length. See the September 9
-capture below. Estimates never populate the confirmed upload fields.
+captures below. Calculated estimates never populate the confirmed upload fields.
 
 ## September 9: feeding and nurturing after prolonged hunger
 
@@ -76,7 +77,45 @@ The website therefore estimates last nurture + the item's catalog interval
 the result as estimated. Food must still be present before suggesting nurturing.
 First nurture requires food; completed nurture counts have no next timer. Animals
 expected to mature before the next cooldown instead say so. Missing timestamps
-remain unknown. A capture near the 22-hour boundary is still needed to verify it.
+remain unknown. The later wolf capture below validates this prediction near the
+22-hour boundary while food is available.
+
+## September 9, 2026: wolf nurture cooldown boundary
+
+The Caerleon Greywolf Pup (session entity 265) has two recorded nurtures. Its
+`FarmableObjectInfo` field 13 is `639244835286819525`, meaning the previous nurture
+occurred on September 8 at 13:58:48.682 local time (UTC-3). The catalog interval is
+79200 seconds, so `lastBoostAt + interval` predicts September 9 at 11:58:48.682.
+The animal's 0.5 Premium growth multiplier does not halve this cooldown.
+
+Screenshot file times and the user's observed countdown agree with that deadline:
+
+| Local time (UTC-3) | Predicted time remaining | Observed state |
+| --- | --- | --- |
+| Approximately 11:56:07 | 2m 41s | Website shows 3m; game says already nurtured. |
+| Approximately 11:57:34 | 1m 15s | Website shows 2m. |
+| Approximately 11:58:57 | Deadline passed by about 9s | Game enables the red Nurture button. |
+
+At 11:59:05 the logs record request 291 (`BoostFarmable`), a 603 Focus deduction,
+event 201 (`FarmableObjectInfo`) changing field 14 from 2 to 3 and updating field
+13, and completion event 321 (`BoostFarmable`). The new server action timestamp
+is 11:59:04.807; the client logs a successful object upload at 11:59:08.845.
+
+No separate nurture-unlock packet is recorded at the predicted boundary. The
+capture supports deriving the countdown from the last nurture and catalog
+interval; the usual action snapshot confirms the resulting nurture count. It
+does not identify an additional packet field for explicit readiness.
+
+The wolf still has about ten hours of food when the button unlocks, and no new
+feeding is needed at this transition. Although the game headline says "hungry,"
+its food and growth timers continue advancing. This capture therefore validates
+the fed-animal cooldown, not an unlock while food is exhausted. Keep food
+eligibility checks and the separate hunger/production verification tasks. Other
+animals must use their own catalog intervals rather than a hard-coded 22 hours.
+
+No timer correction is needed for this case. The current card calculation stays
+in place; `nurtureReady` and `nextNurtureAt` remain unset by packet parsing until
+their normalized semantics are verified for the relevant conditions.
 
 ## Completing the packet mapping
 
@@ -99,6 +138,14 @@ Normalizing the result in the client keeps subsequent mapping changes there.
 No new collection, endpoint, subscription rule, or schema-version bump is needed.
 
 ## Verified product progress and display
+
+Farming snapshots include optional `hasPremium` from the existing player Premium
+state. Join initializes that state before buffered farming observations are
+uploaded, including observations received before their building metadata. Older
+snapshots remain unknown. This is the observing character's status at the visit,
+not the island owner's status or a guarantee about Premium at collection time.
+The website reuses the calculator's local bonuses and expected-yield formula;
+animal growth bonuses continue to use the recorded duration multiplier.
 
 The client now reads a single field-10/11 pair into optional
 `productProgressSeconds` (fixed-point seconds normalized with the existing helper)
@@ -164,8 +211,9 @@ separately. Missing timing data retains the current unknown status.
 ## September 8, 2026 capture findings
 
 These observations compare local probe logs around 13:57-13:59 (UTC-3), the
-corresponding game screenshots, and the local item definitions. They do not
-enable any additional packet mapping.
+corresponding game screenshots, and the local item definitions. These are
+historical findings; later follow-ups above resolve the fed-wolf cooldown boundary.
+They do not enable any additional packet mapping.
 
 - **Second wolf nurture:** the screenshot shows a hungry wolf with 45:53:18
   growth remaining and Nurture 1/3 disabled. Feeding restores food and enables
@@ -202,10 +250,11 @@ enable any additional packet mapping.
   product mapping; do not rename every baby tile to its grown item. Field 2 is
   a tile index, not an interchangeable inventory item index.
 
-The next useful adult capture is a goat/sheep production panel before feeding,
-after feeding, during production, and after collecting milk. For next nurture,
-capture a fed multi-cycle animal immediately before and after nurture becomes
-available, with its previous nurture time known and any hunger interval recorded.
+At this point the next useful captures were adult panels across feeding,
+production, and milk collection, plus a fed animal crossing its nurture deadline.
+The follow-ups below verify advancing production; September 9's wolf capture
+above supplies the requested nurture-boundary observation. Adult collection/reset
+remains a separate verification task.
 
 ### Follow-up at 14:08: adult feeding
 
@@ -299,6 +348,7 @@ updates. Subsequent snapshots retain that nurture state; uploads succeed.
 There are 37:30:09 between this wolf's first and second nurtures, with 24:06:42 of
 growth accumulated before feeding. Both candidate 22-hour eligibility measures
 are already satisfied, so this repeats the food prerequisite confirmation without
-resolving the timer. The missing observation is nurture becoming available while
-the animal remains fed, without a feeding action at that transition. A separate
-wolf also receives its first feed/nurture at 14:23:34 (624 Focus, count 0 to 1).
+resolving the timer. The observation missing at this stage was nurture becoming
+available while the animal remains fed, without feeding at that transition; the
+September 9 wolf capture above now supplies it. A separate wolf also receives its
+first feed/nurture at 14:23:34 (624 Focus, count 0 to 1).
