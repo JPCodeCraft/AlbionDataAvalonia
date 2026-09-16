@@ -1,7 +1,8 @@
+using AlbionDataAvalonia.ReferenceData;
 using Serilog;
 using System;
 using System.Collections.Generic;
-using System.Net.Http;
+using System.IO;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
@@ -19,24 +20,7 @@ namespace AlbionDataAvalonia.Items.Services
             try
             {
                 Log.Information("Initializing mobs service...");
-                using (var httpClient = new HttpClient())
-                {
-                    var json = await httpClient.GetStringAsync(JsonUrl);
-                    if (!string.IsNullOrEmpty(json))
-                    {
-                        var mobs = JsonSerializer.Deserialize<List<MobEntry>>(json) ?? new List<MobEntry>();
-                        var loadedMobs = new Dictionary<int, MobEntry>();
-                        foreach (var mob in mobs)
-                        {
-                            if (mob.MobId > 0)
-                            {
-                                loadedMobs[mob.MobId] = mob;
-                            }
-                        }
-
-                        mobsById = loadedMobs;
-                    }
-                }
+                mobsById = await ReferenceDataLoader.Shared.LoadAsync(JsonUrl, ParseMobs);
 
                 Log.Information("Mobs service initialized with {MobCount} mob mappings.", mobsById.Count);
             }
@@ -44,6 +28,25 @@ namespace AlbionDataAvalonia.Items.Services
             {
                 Log.Error(e, "Failed to initialize mobs service.");
             }
+        }
+
+        private static Dictionary<int, MobEntry> ParseMobs(string json)
+        {
+            var mobs = JsonSerializer.Deserialize<List<MobEntry>>(json)
+                ?? throw new InvalidDataException("Mob data is null.");
+            var loadedMobs = new Dictionary<int, MobEntry>();
+            foreach (var mob in mobs)
+            {
+                if (mob.MobId > 0 && (!string.IsNullOrWhiteSpace(mob.En) || !string.IsNullOrWhiteSpace(mob.UniqueName)))
+                {
+                    loadedMobs.Add(mob.MobId, mob);
+                }
+            }
+            if (loadedMobs.Count == 0)
+            {
+                throw new InvalidDataException("Mob data contains no named mob mappings.");
+            }
+            return loadedMobs;
         }
 
         public string? GetMobName(int? mobId)

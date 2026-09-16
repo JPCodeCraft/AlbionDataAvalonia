@@ -1,7 +1,8 @@
+using AlbionDataAvalonia.ReferenceData;
 using Serilog;
 using System;
 using System.Collections.Generic;
-using System.Net.Http;
+using System.IO;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -31,40 +32,45 @@ namespace AlbionDataAvalonia.Items.Services
             try
             {
                 Log.Information("Initializing ItemsIds service...");
-                using (var httpClient = new HttpClient())
-                {
-                    var json = await httpClient.GetStringAsync(JsonUrl);
-                    var items = JsonSerializer.Deserialize<List<ItemJsonEntry>>(json);
-                    if (items is not null)
-                    {
-                        foreach (var item in items)
-                        {
-                            if (int.TryParse(item.Index, out int id)
-                                && !string.IsNullOrWhiteSpace(item.UniqueName))
-                            {
-                                var usName = item.LocalizedNames is not null
-                                    && item.LocalizedNames.TryGetValue("EN-US", out var localizedUsName)
-                                    ? localizedUsName
-                                    : string.Empty;
-                                var resolvedUsName = string.IsNullOrWhiteSpace(usName)
-                                    ? item.UniqueName
-                                    : ItemNameFormatter.FormatUsName(item.UniqueName, usName);
-                                itemMappings[id] = new ItemIdEntry
-                                {
-                                    UniqueName = item.UniqueName,
-                                    UsName = resolvedUsName
-                                };
-                                itemNamesByUniqueName[item.UniqueName] = resolvedUsName;
-                            }
-                        }
-                    }
-                }
+                var (mappings, names) = await ReferenceDataLoader.Shared.LoadAsync(JsonUrl, ParseItems);
+                itemMappings = mappings;
+                itemNamesByUniqueName = names;
                 Log.Information("ItemsIds service initialized.");
             }
             catch (Exception e)
             {
                 Log.Error(e, "Failed to initialize ItemsIds service.");
             }
+        }
+
+        private static (Dictionary<int, ItemIdEntry>, Dictionary<string, string>) ParseItems(string json)
+        {
+            var items = JsonSerializer.Deserialize<List<ItemJsonEntry>>(json)
+                ?? throw new InvalidDataException("Item data is null.");
+            var mappings = new Dictionary<int, ItemIdEntry>();
+            var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var item in items)
+            {
+                if (!int.TryParse(item.Index, out var id) || string.IsNullOrWhiteSpace(item.UniqueName))
+                {
+                    throw new InvalidDataException("Item data contains an invalid index or unique name.");
+                }
+
+                var usName = item.LocalizedNames is not null
+                    && item.LocalizedNames.TryGetValue("EN-US", out var localizedUsName)
+                    ? localizedUsName
+                    : string.Empty;
+                var resolvedUsName = string.IsNullOrWhiteSpace(usName)
+                    ? item.UniqueName
+                    : ItemNameFormatter.FormatUsName(item.UniqueName, usName);
+                mappings.Add(id, new ItemIdEntry { UniqueName = item.UniqueName, UsName = resolvedUsName });
+                names[item.UniqueName] = resolvedUsName;
+            }
+            if (mappings.Count == 0)
+            {
+                throw new InvalidDataException("Item data contains no item mappings.");
+            }
+            return (mappings, names);
         }
 
         public (string UniqueName, string UsName) GetItemById(int itemId)

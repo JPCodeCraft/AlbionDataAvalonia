@@ -1,16 +1,17 @@
 using AlbionDataAvalonia.Legendary.Models;
+using AlbionDataAvalonia.ReferenceData;
 using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
-using System.Net.Http;
+using System.IO;
 using System.Text.Json;
 using System.Threading;
 using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.Legendary;
 
-public sealed class LegendaryDefinitionsService : IDisposable
+public sealed class LegendaryDefinitionsService
 {
     private const string DefinitionsUrl = "https://cdn.albionfreemarket.com/ao-bin-dumps/legendaryitems.json";
     private const string LocalizationUrl = "https://cdn.albionfreemarket.com/AlbionLocalization/merged_localization.json";
@@ -47,19 +48,19 @@ public sealed class LegendaryDefinitionsService : IDisposable
         "magiccasttimereduction",
         "magiccooldownreduction"
     };
-    private readonly HttpClient httpClient = new() { Timeout = TimeSpan.FromSeconds(20) };
     private LegendaryDefinitionsSnapshot snapshot = LegendaryDefinitionsSnapshot.Empty;
 
     public async Task InitializeAsync(CancellationToken cancellationToken = default)
     {
         try
         {
-            var definitionsTask = httpClient.GetStringAsync(DefinitionsUrl, cancellationToken);
+            var definitionsTask = ReferenceDataLoader.Shared.LoadAsync(DefinitionsUrl, ValidateDefinitions, cancellationToken);
             var localizationTask = LoadUsNamesAsync(cancellationToken);
             var itemPowersTask = LoadItemPowersAsync(cancellationToken);
             var spellEffectsTask = LoadSpellEffectsAsync(cancellationToken);
             var gameDataTask = LoadGameDataAsync(cancellationToken);
 
+            await Task.WhenAll(definitionsTask, localizationTask, itemPowersTask, spellEffectsTask, gameDataTask).ConfigureAwait(false);
             var json = await definitionsTask.ConfigureAwait(false);
             var usNames = await localizationTask.ConfigureAwait(false);
             var itemPowers = await itemPowersTask.ConfigureAwait(false);
@@ -75,9 +76,12 @@ public sealed class LegendaryDefinitionsService : IDisposable
                 spellEffects.Count,
                 gameData.QualityItemPowerBonuses.Count);
         }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
-            snapshot = LegendaryDefinitionsSnapshot.Empty;
             Log.Warning(ex, "Failed to load legendary item definitions from {DefinitionsUrl}", DefinitionsUrl);
         }
     }
@@ -202,19 +206,26 @@ public sealed class LegendaryDefinitionsService : IDisposable
         return (long)Math.Floor(rating);
     }
 
-    public void Dispose()
+    private static string ValidateDefinitions(string json)
     {
-        httpClient.Dispose();
+        var empty = LegendaryDefinitionsSnapshot.Empty;
+        var definitions = Parse(json, empty.UsNames,
+            new Dictionary<string, LegendaryTraitEffectDefinition>(), empty.ItemPowers, GameDataLookup.Empty);
+        if (definitions.Traits.Count == 0 || definitions.TraitVariables.Count == 0
+            || definitions.RatingScalings.Count == 0 || definitions.ItemBaseTraits.Count == 0)
+        {
+            throw new InvalidDataException("Legendary data is missing trait or rating definitions.");
+        }
+        return json;
     }
 
     private async Task<IReadOnlyDictionary<string, string>> LoadUsNamesAsync(CancellationToken cancellationToken)
     {
         try
         {
-            var json = await httpClient.GetStringAsync(LocalizationUrl, cancellationToken).ConfigureAwait(false);
-            return ParseUsNames(json);
+            return await ReferenceDataLoader.Shared.LoadAsync(LocalizationUrl, ParseUsNames, cancellationToken).ConfigureAwait(false);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
             Log.Warning(ex, "Failed to load US legendary localization from {LocalizationUrl}", LocalizationUrl);
             return new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
@@ -226,15 +237,9 @@ public sealed class LegendaryDefinitionsService : IDisposable
     {
         try
         {
-            var json = await httpClient.GetStringAsync(ItemsUrl, cancellationToken).ConfigureAwait(false);
-            var itemPowers = ParseItemPowers(json);
-            if (itemPowers.Count == 0)
-            {
-                throw new InvalidOperationException("Processed item data contains no item power definitions.");
-            }
-            return itemPowers;
+            return await ReferenceDataLoader.Shared.LoadAsync(ItemsUrl, ParseItemPowers, cancellationToken).ConfigureAwait(false);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
             Log.Warning(ex, "Failed to load legendary item power data from {ItemsUrl}", ItemsUrl);
             return new Dictionary<string, LegendaryItemPowerDefinition>(StringComparer.OrdinalIgnoreCase);
@@ -246,15 +251,9 @@ public sealed class LegendaryDefinitionsService : IDisposable
     {
         try
         {
-            var json = await httpClient.GetStringAsync(SpellsUrl, cancellationToken).ConfigureAwait(false);
-            var spellEffects = ParseSpellEffects(json);
-            if (spellEffects.Count == 0)
-            {
-                throw new InvalidOperationException("Processed spell data contains no legendary trait effects.");
-            }
-            return spellEffects;
+            return await ReferenceDataLoader.Shared.LoadAsync(SpellsUrl, ParseSpellEffects, cancellationToken).ConfigureAwait(false);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
             Log.Warning(ex, "Failed to load legendary spell effects from {SpellsUrl}", SpellsUrl);
             return new Dictionary<string, LegendaryTraitEffectDefinition>(StringComparer.OrdinalIgnoreCase);
@@ -265,15 +264,9 @@ public sealed class LegendaryDefinitionsService : IDisposable
     {
         try
         {
-            var json = await httpClient.GetStringAsync(GameDataUrl, cancellationToken).ConfigureAwait(false);
-            var gameData = ParseGameData(json);
-            if (gameData.QualityItemPowerBonuses.Count == 0 || gameData.TraitProgressions.Count == 0)
-            {
-                throw new InvalidOperationException("Game data contains no legendary progression or quality data.");
-            }
-            return gameData;
+            return await ReferenceDataLoader.Shared.LoadAsync(GameDataUrl, ParseGameData, cancellationToken).ConfigureAwait(false);
         }
-        catch (Exception ex)
+        catch (Exception ex) when (!cancellationToken.IsCancellationRequested)
         {
             Log.Warning(ex, "Failed to load legendary progression data from {GameDataUrl}", GameDataUrl);
             return GameDataLookup.Empty;
@@ -408,6 +401,10 @@ public sealed class LegendaryDefinitionsService : IDisposable
                 break;
             }
         }
+        if (usNames.Count == 0)
+        {
+            throw new InvalidDataException("Legendary localization contains no relevant US names.");
+        }
         return usNames;
     }
 
@@ -444,6 +441,10 @@ public sealed class LegendaryDefinitionsService : IDisposable
                 itemPowers[uniqueName] = new LegendaryItemPowerDefinition(baseItemPower, enchantments);
             }
         }
+        if (itemPowers.Count == 0)
+        {
+            throw new InvalidDataException("Processed item data contains no item power definitions.");
+        }
         return itemPowers;
     }
 
@@ -472,6 +473,10 @@ public sealed class LegendaryDefinitionsService : IDisposable
             {
                 spellEffects[uniqueName] = effect;
             }
+        }
+        if (spellEffects.Count == 0)
+        {
+            throw new InvalidDataException("Processed spell data contains no legendary trait effects.");
         }
         return spellEffects;
     }
@@ -524,6 +529,10 @@ public sealed class LegendaryDefinitionsService : IDisposable
             {
                 qualityBonuses[level] = bonus;
             }
+        }
+        if (qualityBonuses.Count <= 1 || progressions.Count == 0)
+        {
+            throw new InvalidDataException("Game data contains no legendary progression or quality data.");
         }
         return new GameDataLookup(qualityBonuses, progressions);
     }

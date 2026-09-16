@@ -12,6 +12,7 @@ using AlbionDataAvalonia.Loot;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Party;
 using AlbionDataAvalonia.Players;
+using AlbionDataAvalonia.ReferenceData;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
 using AlbionDataAvalonia.ViewModels;
@@ -141,6 +142,7 @@ public partial class App : Application
         //INITIALIZE SETTINGS
         var settings = services.GetRequiredService<SettingsManager>();
         await settings.InitializeSettings();
+        ReferenceDataLoader.Shared.Configure(() => settings.AppSettings);
 
         //GETTING SERVICES
         var listener = services.GetRequiredService<NetworkListenerService>();

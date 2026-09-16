@@ -16,6 +16,9 @@ public class AppSettings
     public double FirstUpdateCheckDelayMins { get; set; }
     public double UpdateCheckIntervalHours { get; set; }
     public double AppSettingsRetryLoadIntervalMins { get; set; }
+    public int ReferenceDataFirstRetryDelaySeconds { get; set; } = 15;
+    public int ReferenceDataSecondRetryDelaySeconds { get; set; } = 60;
+    public int ReferenceDataRequestTimeoutSeconds { get; set; } = 20;
     public int NetworkDevicesStartDelaySecs { get; set; }
     public int NetworkDevicesRescanSeconds { get; set; } = 10;
     public int NetworkDevicesTrafficTimeoutSeconds { get; set; } = 30;
