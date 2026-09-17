@@ -12,11 +12,13 @@ using Serilog;
 using System;
 using System.Collections.Generic;
 using System.ComponentModel;
+using System.Diagnostics;
 using System.Linq;
+using System.Threading;
 
 namespace AlbionDataAvalonia.Farming;
 
-/// <summary>Tracks observed island objects, not inferred actions or inventory changes.</summary>
+/// <summary>Tracks island observations and reversible assumptions from confirmed demolition timers.</summary>
 public sealed class FarmingTrackerService : IDisposable
 {
     private const int MaxTransientEntries = 4096;
@@ -31,6 +33,11 @@ public sealed class FarmingTrackerService : IDisposable
     private readonly Dictionary<(short Operation, long Id), PendingAction> actions = new();
     private readonly Dictionary<(short Operation, long Id), DateTime> completedActions = new();
     private readonly Dictionary<string, IslandMetadata> islandMetadata = new();
+    private readonly HashSet<string> removedObjects = new(StringComparer.Ordinal);
+    private readonly Dictionary<PlotKey, PendingDemolition> demolitions = new();
+    private readonly Dictionary<long, int?> plotRenovations = new();
+    private readonly Timer demolitionTimer;
+    private bool disposed;
     private FarmingIslandObservation? island;
     private string? accountId;
     private int? serverId;
@@ -48,10 +55,17 @@ public sealed class FarmingTrackerService : IDisposable
         serverId = player.AlbionServer?.Id;
         auth.FirebaseUserChanged += OnAuthChanged;
         settings.UserSettings.PropertyChanged += OnSettingsChanged;
+        demolitionTimer = new Timer(_ => ExpireDemolitions(), null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
     }
 
     public void Dispose()
     {
+        lock (sync)
+        {
+            disposed = true;
+            demolitions.Clear();
+        }
+        demolitionTimer.Dispose();
         auth.FirebaseUserChanged -= OnAuthChanged;
         settings.UserSettings.PropertyChanged -= OnSettingsChanged;
     }
@@ -61,6 +75,7 @@ public sealed class FarmingTrackerService : IDisposable
         if (e.PropertyName != nameof(UserSettings.AfmIslandTrackerEnabled)) return;
         lock (sync)
         {
+            demolitions.Clear();
             islandMetadata.Clear();
             BeginTransition();
         }
@@ -88,6 +103,7 @@ public sealed class FarmingTrackerService : IDisposable
         {
             if (accountId == user?.LocalId) return;
             accountId = user?.LocalId;
+            demolitions.Clear();
             islandMetadata.Clear();
             BeginTransition();
         }
@@ -95,7 +111,7 @@ public sealed class FarmingTrackerService : IDisposable
 
     private bool CanObserve()
     {
-        if (!settings.UserSettings.AfmIslandTrackerEnabled || string.IsNullOrEmpty(accountId) || auth.FirebaseUserId != accountId) return false;
+        if (disposed || !settings.UserSettings.AfmIslandTrackerEnabled || string.IsNullOrEmpty(accountId) || auth.FirebaseUserId != accountId) return false;
         var currentServer = player.AlbionServer?.Id;
         if (serverId != currentServer)
         {
@@ -113,6 +129,12 @@ public sealed class FarmingTrackerService : IDisposable
         joining = true;
         pendingDestination = null;
         objects.Clear();
+        removedObjects.Clear();
+        plotRenovations.Clear();
+        // Confirmed countdowns belong to stable building identities, not a visit's
+        // session IDs. Only incomplete requests are discarded at a transition.
+        foreach (var key in demolitions.Where(entry => !entry.Value.Confirmed || entry.Value.Duration is null)
+            .Select(entry => entry.Key).ToArray()) demolitions.Remove(key);
         pendingStates.Clear();
         actions.Clear();
         completedActions.Clear();
@@ -120,7 +142,16 @@ public sealed class FarmingTrackerService : IDisposable
 
     public void OnLeave(long objectId) => Observe(() =>
     {
-        if (localObjectId != 0 && objectId == localObjectId) BeginTransition();
+        if (localObjectId != 0 && objectId == localObjectId)
+        {
+            BeginTransition();
+            return;
+        }
+        // Leave can be visibility loss even after the deadline. Keep the stable
+        // countdown; its expiry produces an assumption, never a confirmed removal.
+        pendingStates.Remove(objectId);
+        plotRenovations.Remove(objectId);
+        objects.Remove(objectId);
     });
 
     public void OnJoinStarted() => Observe(() =>
@@ -133,6 +164,28 @@ public sealed class FarmingTrackerService : IDisposable
     public void OnIslandList(GetIslandInfosResponse value) => Observe(() => ObserveIslandList(value));
     public void OnBuilding(NewBuildingEvent value) => Observe(() => ObserveBuilding(value));
     public void OnFarmable(FarmableObjectInfoEvent value) => Observe(() => ObserveFarmable(value));
+
+    public void OnRenovationRequest(BuildingRenovationRequest value) => Observe(() =>
+    {
+        if (island is null || value.ObjectId is not { } id || value.State is not { } state
+            || !objects.TryGetValue(id, out var plot) || plot.Kind != "plot" || (plot.Removed && plot.RemovalAssumed != true)) return;
+        var key = KeyOf(plot);
+        // Requests never prove success. Cancelling immediately disarms the timer.
+        if (state != 4) demolitions.Remove(key);
+        else if (!demolitions.ContainsKey(key) && demolitions.Count < MaxTransientEntries)
+            demolitions[key] = new PendingDemolition(plot, Stopwatch.GetTimestamp(), false, null);
+    });
+
+    public void OnFarmBuilding(FarmBuildingInfoEvent value) => Observe(() =>
+    {
+        if (value.ObjectId is not { } id || !objects.TryGetValue(id, out var plot) || island is null
+            || !demolitions.TryGetValue(KeyOf(plot), out var pendingDemolition)) return;
+        // Cancellation omits the start but retains the old end: never use the end alone.
+        TimeSpan? duration = value.RenovationStartedAt is { } start && value.RenovationEndsAt is { } end
+            && end > start && end - start <= TimeSpan.FromDays(7) ? end - start : null;
+        if (duration is null) demolitions.Remove(KeyOf(plot));
+        else demolitions[KeyOf(plot)] = pendingDemolition with { Duration = duration };
+    });
 
     public void OnActionRequest(OperationCodes operation, FarmingActionRequest value) => Observe(() =>
     {
@@ -181,8 +234,16 @@ public sealed class FarmingTrackerService : IDisposable
             localObjectId = value.userObjectId;
             return;
         }
-        // Transition snapshots can precede Join. Keep only those buffered for this transition.
-        if (!joining && (island?.IslandId != islandId || island.CharacterId != characterId)) BeginTransition();
+        // A repeated Join must never flush the current visit's cache again. A new
+        // session without an observed transition cannot adopt the previous session's objects.
+        if (!joining)
+        {
+            if (island?.IslandId == islandId && island.CharacterId == characterId
+                && localObjectId == value.userObjectId) return;
+            BeginTransition();
+        }
+        if (pendingDestination is not null && AlbionLocations.GetIslandId(pendingDestination) != islandId)
+            BeginTransition();
         if (localObjectId != value.userObjectId)
         {
             actions.Clear();
@@ -270,10 +331,22 @@ public sealed class FarmingTrackerService : IDisposable
         var name = observed.UniqueName;
         var rotation = observed.Rotation;
         objects.TryGetValue(sessionId, out var previous);
-        // Reliable packets may be retransmitted. The same session object cannot
-        // reappear after pickup, and duplicate metadata is not a fresh growth snapshot.
-        if (previous?.ObjectId == stableId && (previous.Removed
-            || (previous.UniqueName == name && previous.PositionX == observed.PositionX
+        if (removedObjects.Contains(stableId)) return;
+        var lifecycleChanged = false;
+        if (observed.Kind == "plot")
+        {
+            // Cancellation also supplies fresh positive evidence for the backend.
+            lifecycleChanged = !plotRenovations.TryGetValue(sessionId, out var lastRenovation)
+                || lastRenovation != packet.RenovationState;
+            plotRenovations[sessionId] = packet.RenovationState;
+            UpdateDemolitionFromBuilding(observed, packet.RenovationState);
+            foreach (var old in objects.Values.Where(candidate => candidate.Kind == "plot" && !candidate.Removed
+                && candidate.ObjectId != stableId && FarmingPlotSlots.SamePosition(candidate, observed)).ToArray())
+                RemovePlot(old, observed.ObservedAt);
+        }
+        // The same occupant's repeated metadata is not a fresh growth snapshot.
+        if (previous?.ObjectId == stableId && ((previous.Removed && previous.RemovalAssumed != true)
+            || (!previous.Removed && !lifecycleChanged && previous.UniqueName == name && previous.PositionX == observed.PositionX
                 && previous.PositionY == observed.PositionY && previous.Rotation == rotation))) return;
         if (objects.Count >= MaxTransientEntries && previous is null) return;
         var bufferedState = island is null && previous?.ObjectId == stableId ? previous.State : null;
@@ -289,8 +362,22 @@ public sealed class FarmingTrackerService : IDisposable
             ObservedAt = pending.ObservedAt
         };
         value = ApplyContext(value);
+        if (value.Kind == "farmable")
+            value = value with { PlotObjectId = FindPlot(value)?.ObjectId };
         objects[sessionId] = value;
         if (island is not null) uploader.EnqueueObject(accountId!, hasNewState ? value : value with { State = null });
+        if (value.Kind == "plot")
+        {
+            // Animal metadata may precede its plot. Bind and resend only unbound entries;
+            // never attach the previous building's animals to its replacement.
+            foreach (var (id, child) in objects.Where(entry => !entry.Value.Removed
+                && entry.Value.PlotObjectId is null && FarmingPlotSlots.Contains(value, entry.Value)).ToArray())
+            {
+                var bound = child with { PlotObjectId = value.ObjectId };
+                objects[id] = bound;
+                if (island is not null) uploader.EnqueueObject(accountId!, bound);
+            }
+        }
     }
 
     private void ObserveFarmable(FarmableObjectInfoEvent packet)
@@ -308,6 +395,84 @@ public sealed class FarmingTrackerService : IDisposable
         value = value with { State = state, ObservedAt = observedAt };
         objects[id] = value;
         if (island is not null) uploader.EnqueueObject(accountId!, value);
+    }
+
+    private static PlotKey KeyOf(FarmingObjectObservation plot) => new(plot.ServerId, plot.IslandId, plot.ObjectId);
+
+    private void UpdateDemolitionFromBuilding(FarmingObjectObservation observed, int? renovation)
+    {
+        if (renovation is null) return;
+        // Stable UUIDs also correlate snapshots buffered before Join supplies the
+        // visit context. Session IDs may have changed since starting demolition.
+        foreach (var (key, pendingDemolition) in demolitions.Where(entry => entry.Key.ServerId == serverId
+            && entry.Key.ObjectId == observed.ObjectId && (island is null || entry.Key.IslandId == island.IslandId)).ToArray())
+        {
+            if (renovation != 4) demolitions.Remove(key);
+            else
+            {
+                var evidence = observed with
+                {
+                    ServerId = pendingDemolition.Plot.ServerId,
+                    IslandId = pendingDemolition.Plot.IslandId,
+                    CharacterId = pendingDemolition.Plot.CharacterId,
+                    CharacterName = pendingDemolition.Plot.CharacterName
+                };
+                demolitions[key] = pendingDemolition with { Confirmed = true, Plot = evidence };
+            }
+        }
+    }
+
+    private void ExpireDemolitions()
+    {
+        lock (sync)
+        {
+            if (disposed || !settings.UserSettings.AfmIslandTrackerEnabled || string.IsNullOrEmpty(accountId)
+                || accountId != auth.FirebaseUserId) return;
+            foreach (var (key, pendingDemolition) in demolitions.ToArray())
+            {
+                var elapsed = Stopwatch.GetElapsedTime(pendingDemolition.RequestedAt);
+                if (!pendingDemolition.Confirmed || pendingDemolition.Duration is not { } duration)
+                {
+                    if (elapsed > RequestLifetime) demolitions.Remove(key);
+                    continue;
+                }
+                if (elapsed < duration) continue;
+                var now = DateTime.UtcNow;
+                var assumed = pendingDemolition.Plot with
+                {
+                    Removed = true,
+                    RemovalAssumed = true,
+                    State = null,
+                    ObservedAt = now < pendingDemolition.Plot.ObservedAt ? pendingDemolition.Plot.ObservedAt : now,
+                    OccupantObservedAt = pendingDemolition.Plot.ObservedAt
+                };
+                if (!uploader.EnqueueObject(accountId, assumed)) continue;
+                demolitions.Remove(key);
+                // No retired-UUID marker and no destructive child cleanup: a fresh
+                // building snapshot must be able to reverse the assumption.
+                foreach (var (id, cached) in objects.Where(entry => entry.Value.Kind == "plot"
+                    && KeyOf(entry.Value) == key).ToArray()) objects[id] = assumed;
+            }
+        }
+    }
+
+    private FarmingObjectObservation? FindPlot(FarmingObjectObservation farmable) => objects.Values
+        .FirstOrDefault(plot => !plot.Removed && FarmingPlotSlots.Contains(plot, farmable));
+
+    private void RemovePlot(FarmingObjectObservation plot, DateTime observedAt)
+    {
+        if (!removedObjects.Add(plot.ObjectId)) return;
+        demolitions.Remove(KeyOf(plot));
+        var removed = plot with { Removed = true, RemovalAssumed = null, State = null, ObservedAt = observedAt, OccupantObservedAt = plot.ObservedAt };
+        if (island is not null) uploader.EnqueueObject(accountId!, removed);
+        foreach (var (id, value) in objects.Where(entry => entry.Value.ObjectId == plot.ObjectId
+            || entry.Value.PlotObjectId == plot.ObjectId).ToArray())
+        {
+            objects.Remove(id);
+            pendingStates.Remove(id);
+            plotRenovations.Remove(id);
+            removedObjects.Add(value.ObjectId);
+        }
     }
 
     private FarmingObjectObservation ApplyContext(FarmingObjectObservation value) => island is null ? value : value with
@@ -331,10 +496,13 @@ public sealed class FarmingTrackerService : IDisposable
             var removed = action.Source with
             {
                 Removed = true,
+                RemovalAssumed = null,
                 State = null,
                 ObservedAt = DateTime.UtcNow,
                 OccupantObservedAt = action.Source.ObservedAt
             };
+            removedObjects.Add(removed.ObjectId);
+            if (removed.Kind == "plot") demolitions.Remove(KeyOf(removed));
             uploader.EnqueueObject(accountId!, removed);
             if (objects.TryGetValue(action.Target, out var current) && current.ObjectId == removed.ObjectId)
                 objects[action.Target] = removed;
@@ -396,6 +564,8 @@ public sealed class FarmingTrackerService : IDisposable
         foreach (var key in completedActions.Where(p => p.Value < cutoff).Select(p => p.Key).ToArray()) completedActions.Remove(key);
     }
 
+    private readonly record struct PlotKey(int ServerId, string IslandId, string ObjectId);
+    private sealed record PendingDemolition(FarmingObjectObservation Plot, long RequestedAt, bool Confirmed, TimeSpan? Duration);
     private sealed record IslandMetadata(string? OwnerName, string? HomeCluster, string? LayoutId);
     private sealed record PendingAction(string EventId, DateTime RequestedAt, FarmingIslandObservation Island, long Target, FarmingObjectObservation? Source);
 }

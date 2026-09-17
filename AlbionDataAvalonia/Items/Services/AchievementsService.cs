@@ -1,7 +1,8 @@
+using AlbionDataAvalonia.ReferenceData;
 using Serilog;
 using System;
 using System.Collections.Generic;
-using System.Net.Http;
+using System.IO;
 using System.Threading.Tasks;
 using System.Xml.Linq;
 
@@ -12,8 +13,7 @@ namespace AlbionDataAvalonia.Items.Services
         public readonly record struct AchievementInfo(string Id, bool IsTemplate);
 
         private const string XmlUrl = "https://cdn.albionfreemarket.com/ao-bin-dumps/achievements.xml";
-        private readonly Dictionary<int, AchievementInfo> achievementMappings = new();
-        private readonly List<AchievementInfo> achievements = new();
+        private List<AchievementInfo> achievements = new();
 
         public IReadOnlyList<AchievementInfo> Achievements => achievements;
 
@@ -22,46 +22,7 @@ namespace AlbionDataAvalonia.Items.Services
             try
             {
                 Log.Information("Initializing Achievements service...");
-                using (var httpClient = new HttpClient())
-                {
-                    var xml = await httpClient.GetStringAsync(XmlUrl);
-                    if (!string.IsNullOrEmpty(xml))
-                    {
-                        achievementMappings.Clear();
-                        achievements.Clear();
-
-                        var document = XDocument.Parse(xml);
-                        var achievementsElement = document.Root;
-                        if (achievementsElement == null)
-                        {
-                            Log.Warning("Achievements XML is missing root element.");
-                            return;
-                        }
-
-                        int index = 0;
-                        foreach (var element in achievementsElement.Elements())
-                        {
-                            var name = element.Name.LocalName;
-                            var isAchievement = string.Equals(name, "achievement", StringComparison.OrdinalIgnoreCase);
-                            var isTemplateAchievement = string.Equals(name, "templateachievement", StringComparison.OrdinalIgnoreCase);
-                            if (!isAchievement && !isTemplateAchievement)
-                            {
-                                continue;
-                            }
-
-                            var id = element.Attribute("id")?.Value;
-                            if (string.IsNullOrWhiteSpace(id))
-                            {
-                                continue;
-                            }
-
-                            var isTemplate = isTemplateAchievement;
-                            achievements.Add(new AchievementInfo(id, isTemplate));
-                            achievementMappings[index] = new AchievementInfo(id, isTemplate);
-                            index++;
-                        }
-                    }
-                }
+                achievements = await ReferenceDataLoader.Shared.LoadAsync(XmlUrl, ParseAchievements);
                 Log.Information("Achievements service initialized.");
             }
             catch (Exception e)
@@ -70,11 +31,41 @@ namespace AlbionDataAvalonia.Items.Services
             }
         }
 
+        private static List<AchievementInfo> ParseAchievements(string xml)
+        {
+            var document = XDocument.Parse(xml);
+            var root = document.Root ?? throw new InvalidDataException("Achievements XML is missing its root.");
+            var loadedAchievements = new List<AchievementInfo>();
+            foreach (var element in root.Elements())
+            {
+                var name = element.Name.LocalName;
+                var isAchievement = string.Equals(name, "achievement", StringComparison.OrdinalIgnoreCase);
+                var isTemplate = string.Equals(name, "templateachievement", StringComparison.OrdinalIgnoreCase);
+                if (!isAchievement && !isTemplate)
+                {
+                    continue;
+                }
+
+                var id = element.Attribute("id")?.Value;
+                if (string.IsNullOrWhiteSpace(id))
+                {
+                    throw new InvalidDataException("Achievement data contains an entry without an ID.");
+                }
+                loadedAchievements.Add(new AchievementInfo(id, isTemplate));
+            }
+            if (loadedAchievements.Count == 0)
+            {
+                throw new InvalidDataException("Achievement data contains no achievements.");
+            }
+            return loadedAchievements;
+        }
+
         public AchievementInfo GetAchievementInfoByIndex(int index)
         {
-            if (achievementMappings.TryGetValue(index, out var info))
+            var loadedAchievements = achievements;
+            if (index >= 0 && index < loadedAchievements.Count)
             {
-                return info;
+                return loadedAchievements[index];
             }
 
             return new AchievementInfo($"Unknown Achievement ({index})", false);

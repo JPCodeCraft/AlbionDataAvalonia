@@ -57,6 +57,14 @@ The website displays last-observed state, not a live view of unvisited plots. An
 
 The optional timing fields, storage, and website displays are prepared for that mapping work. See the [farming timing contract](AlbionDataAvalonia/Farming/README.md) for the integration points and unknown-state behavior.
 
+## Reference data cache
+
+Item names, mobs, achievements, locations, and the five legendary reference files are downloaded from the AFM CDN and cached under `AFMDataClient/cache/reference-data` in the operating system's local application data directory (`%LOCALAPPDATA%` on Windows). Downloads are parsed and validated before atomically replacing the previous cache. Invalid or empty data never replaces a usable cached file.
+
+Each load first checks the CDN for current data. If that fails, the client uses its last validated cached file, even if it is old, and logs the fallback. Cached data can lag behind game updates; the next launch attempts to refresh it again. A valid cache avoids all retry delays. Without one, transient network errors, timeouts, HTTP 408/429, and server errors get at most two retries, after 15 and 60 seconds, with a 30-second timeout per request and at most three concurrent reference downloads. Longer server retry instructions stop the load rather than retrying early. Invalid data and other HTTP errors are not retried. A first launch without internet or a usable cache can still leave reference data unavailable after these attempts.
+
+These timings are controlled by `ReferenceDataFirstRetryDelaySeconds` (default `15`), `ReferenceDataSecondRetryDelaySeconds` (default `60`), and `ReferenceDataRequestTimeoutSeconds` (default `30`) in app settings. Each load uses the current app settings, including downloaded settings; missing, nonpositive, or excessively large values fall back to the defaults. Settings refreshed during a load take effect on the next load. The two-retry limit and three-download concurrency limit remain fixed.
+
 ## 📥 Installation
 
 ### Windows

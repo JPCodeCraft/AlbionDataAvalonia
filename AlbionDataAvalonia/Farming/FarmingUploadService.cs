@@ -278,8 +278,17 @@ public sealed class FarmingUploadService : IDisposable
                 }
                 break;
             case FarmingObjectObservation farmObject:
-                if (!outbox.Objects.TryGetValue(key, out var oldObject) || farmObject.ObservedAt >= oldObject.ObservedAt)
+                outbox.Objects.TryGetValue(key, out var oldObject);
+                // A delayed timer must not overwrite positive evidence captured
+                // after it was armed, or downgrade an already confirmed removal.
+                if (farmObject.RemovalAssumed == true && oldObject is not null
+                    && ((oldObject.Removed && oldObject.RemovalAssumed != true)
+                        || (oldObject.RemovalAssumed != true && oldObject.ObservedAt > farmObject.OccupantObservedAt))) break;
+                var overridesAssumption = oldObject?.RemovalAssumed == true && farmObject.RemovalAssumed != true
+                    && farmObject.ObservedAt > oldObject.OccupantObservedAt;
+                if (oldObject is null || farmObject.ObservedAt >= oldObject.ObservedAt || overridesAssumption)
                 {
+                    if (farmObject.Kind == "plot" && farmObject.RemovalAssumed != true) PruneRetiredPlot(outbox, farmObject);
                     var preservePendingState = !farmObject.Removed && farmObject.State is null
                         && oldObject is { Removed: false, State: not null };
                     outbox.Objects[key] = farmObject with
@@ -295,6 +304,23 @@ public sealed class FarmingUploadService : IDisposable
                 outbox.Dirty |= outbox.Pickups.TryAdd(key, pickup);
                 break;
         }
+    }
+
+    private static void PruneRetiredPlot(AccountOutbox outbox, FarmingObjectObservation plot)
+    {
+        var retired = outbox.Objects.Values.Where(value => value.ServerId == plot.ServerId
+            && value.IslandId == plot.IslandId && value.Kind == "plot"
+            && value.ObservedAt <= plot.ObservedAt && FarmingPlotSlots.SamePosition(value, plot)
+            && (value.ObjectId != plot.ObjectId || plot.Removed)).Select(value => value.ObjectId).ToHashSet();
+        if (plot.Removed) retired.Add(plot.ObjectId);
+        if (retired.Count == 0) return;
+        foreach (var (key, value) in outbox.Objects.Where(entry => entry.Value.ServerId == plot.ServerId
+            && entry.Value.IslandId == plot.IslandId && entry.Value.Kind == "farmable"
+            && entry.Value.ObservedAt <= plot.ObservedAt
+            && (entry.Value.PlotObjectId is { } parent ? retired.Contains(parent)
+                : FarmingPlotSlots.Contains(plot, entry.Value))).ToArray())
+            outbox.Objects.Remove(key);
+        outbox.Dirty = true;
     }
 
     private static string GetPendingKey(FarmingContext value)
@@ -477,7 +503,10 @@ public sealed class FarmingUploadService : IDisposable
         // Pickups take priority so a busy stream of snapshots cannot starve the loot history.
         AddToBatch(outbox.Pickups.Values, batch.Pickups, 100, ref bytes);
         AddToBatch(outbox.Islands.Values, batch.Islands, 100, ref bytes);
-        AddToBatch(outbox.Objects.Values, batch.Objects, 250, ref bytes);
+        // Parents precede their contents even when the byte limit splits a visit across batches.
+        AddToBatch(outbox.Objects.Values.Where(value => value.Kind == "plot")
+            .OrderBy(value => value.ObservedAt).Concat(outbox.Objects.Values.Where(value => value.Kind != "plot")),
+            batch.Objects, 250, ref bytes);
         return batch;
     }
 
@@ -566,7 +595,9 @@ public sealed class FarmingUploadService : IDisposable
 
     private sealed class UploadBatch
     {
-        public int SchemaVersion { get; } = 1;
+        // Older backends must reject these batches instead of interpreting an
+        // unknown assumed-removal flag as a permanent building retirement.
+        public int SchemaVersion => Objects.Any(value => value.RemovalAssumed == true) ? 2 : 1;
         public List<FarmingIslandObservation> Islands { get; } = [];
         public List<FarmingObjectObservation> Objects { get; } = [];
         public List<FarmingPickup> Pickups { get; } = [];

@@ -209,6 +209,7 @@ namespace AlbionDataAvalonia.Network.Services
                 _farmingTracker.ResetTransientState();
                 builder.AddEventHandler(new NewBuildingEventHandler(_farmingTracker));
                 builder.AddEventHandler(new FarmableObjectInfoEventHandler(_farmingTracker));
+                builder.AddEventHandler(new FarmBuildingInfoEventHandler(_farmingTracker));
                 builder.AddEventHandler(new LeaveEventHandler(_playerState, _farmingTracker));
                 builder.AddEventHandler(new PremiumChangedEventHandler(_playerState));
                 // builder.AddEventHandler(new PlayerCountsEventHandler(_playerState, _afmUploader));
@@ -289,6 +290,7 @@ namespace AlbionDataAvalonia.Network.Services
                 // builder.AddResponseHandler(new AssetOverviewTabContentResponseHandler(_playerState));
                 // REQUEST
                 builder.AddRequestHandler(new JoinRequestHandler(_farmingTracker));
+                builder.AddRequestHandler(new BuildingRenovationRequestHandler(_farmingTracker));
                 builder.AddRequestHandler(new FarmingActionRequestHandler(_farmingTracker, OperationCodes.FarmableHarvest));
                 builder.AddRequestHandler(new FarmingActionRequestHandler(_farmingTracker, OperationCodes.FarmableFinishGrownItem));
                 builder.AddRequestHandler(new FarmingActionRequestHandler(_farmingTracker, OperationCodes.FarmableGetProduct));

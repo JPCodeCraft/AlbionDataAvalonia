@@ -16,6 +16,13 @@ public class DebugRequestProbeRequestHandler : PacketHandler<RequestPacket>
         (int)OperationCodes.GetIslandInfos,
         (int)OperationCodes.RegisterToObject,
         (int)OperationCodes.UnRegisterFromObject,
+        // Candidate demolition/rebuild operations; capture parameters before mapping them.
+        (int)OperationCodes.AttackBuildingStart,
+        (int)OperationCodes.ActionOnBuildingStart,
+        (int)OperationCodes.ActionOnBuildingCancel,
+        (int)OperationCodes.BuildingChangeRenovationState,
+        (int)OperationCodes.ConstructionSiteCreate,
+        (int)OperationCodes.TearDownConstructionSite,
         (int)OperationCodes.PlaceableObjectPlace,
         (int)OperationCodes.PlaceableObjectPlaceCancel,
         (int)OperationCodes.PlaceableObjectPickup,

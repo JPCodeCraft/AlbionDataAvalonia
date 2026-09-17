@@ -28,6 +28,99 @@ outbox JSON to and from disk, stops filling a batch when its byte budget runs ou
 and removes acknowledged records by key. This keeps batch preparation and cleanup
 from scanning the full offline backlog on every successful upload.
 
+## Building lifetimes and tracker cleanup
+
+Each visit has its own session-object cache. Join requests, local-player Leave,
+cluster transitions, account changes and capture resets discard that cache.
+A repeated Join response for the same session does not replay cached objects.
+Ordinary object Leave evicts only the transient entry and never proves demolition.
+
+Confirmed demolition timers are stored separately by server, island and stable
+building UUID. They survive visibility loss, island/character/server transitions
+and capture resets while the client keeps running. Disabling island tracking,
+switching/signing out of the AFM account, or disposing the client discards them;
+pending timers are not persisted across client restarts.
+
+The September 16 captures establish the supported start sequence: a local
+`BuildingChangeRenovationState` request with parameter 1 = 4, `NewBuilding`
+parameter 29 = 4, and `FarmBuildingInfo` parameters 4/5 containing start/end UTC
+ticks. A monotonic clock measures the full duration from the local request, so
+server/client UTC skew does not expire a timer early. Cancellation requests and
+building snapshots leaving state 4 disarm it. Cancellation can omit parameter 4
+while retaining the old end in parameter 5; an end without a start is insufficient.
+
+Once a confirmed countdown expires without an observed cancellation, the client
+uploads a plot removal with `removalAssumed: true` and `occupantObservedAt` set to
+the last building evidence supporting that countdown. It does so even when no
+more packets arrive or the character has left. A visibility Leave after expiry
+does not upgrade the assumption to a confirmed demolition.
+
+An assumed removal hides the plot and its contents through the backend's read
+filter. It does not retire its UUID, prune the outbox's children, or permanently
+erase saved farmables. Fresh building metadata reverses the assumption. Real
+observations later than the timer's supporting evidence win even if they were
+captured before expiry and uploaded afterwards, including cancellation from a
+different client. Genuine replacement or confirmed action removal still retires
+the old building and clears its contents.
+
+Farmables optionally include `plotObjectId`, the UUID of their owning building.
+Metadata arriving before its parent is bound when that parent appears. Confirmed
+replacement/removal retires the cached instance and contents, and the outbox
+uploads plots before farmables even across batch boundaries.
+
+Ordinary uploads retain schema version 1. Batches containing an assumed removal
+use version 2; update the backend first. An older backend rejects version 2, leaving
+the batch queued, instead of treating an unknown flag as a permanent retirement.
+Once queued, assumed removals use the existing durable account-specific outbox.
+
+The backend keeps manual-deletion cutoffs and confirmed retired plot UUIDs. Fresh
+observations can rediscover manually hidden plots/islands; old queued observations
+cannot. Historical ghosts without replacement/removal evidence still need manual
+tracker cleanup. Pickup history is retained.
+
+## Demolition and rebuild probe capture
+
+Debug builds also probe candidate building lifecycle packets without interpreting
+any of them as a confirmed demolition. Requests and responses include
+`AttackBuildingStart`, `ActionOnBuildingStart`, `ActionOnBuildingCancel`,
+`BuildingChangeRenovationState`, `ConstructionSiteCreate`, and
+`TearDownConstructionSite`. Responses retain their return codes and raw parameters.
+
+Events additionally include `Leave`, `AttackBuilding`, `ActionOnBuildingStart`,
+`ActionOnBuildingCancel`, `ActionOnBuildingFinished`, `ConstructionSiteInfo`,
+`NewBuildingBaseEvent`, `BuildingDurabilityUpdate`, and
+`MiniMapOwnedBuildingsPositions`. Existing building and farmable probes provide
+object identities, coordinates, and animal state for correlation. A `Leave` event
+can also mean an object left visibility; it is not demolition evidence by itself.
+
+For a capture, run a Debug client and select Debug or Verbose in the log viewer.
+Record the times when demolishing and rebuilding a plot, then leave and re-enter
+the island with the client still running. Keep some formerly occupied slots empty.
+Inspect `Debug probe captured` entries in the daily log under
+`%LOCALAPPDATA%/AFMDataClient/logs`. These probe additions do not change tracker state,
+upload behavior, or Release builds.
+
+### September 16, 2026 pasture demolition capture
+
+The local log records a new pasture at `(145, 135)` at 16:50:26 (UTC-3), session
+object 372. A goat appears at `(145, 129)` as object 373 at 16:50:51. Its
+`PlaceableObjectPickup` request and successful response share request ID 2; a
+`Leave` event for 373 arrives between them.
+
+At 16:50:56, `BuildingChangeRenovationState` (operation 61) targets object 372
+with parameter 1 equal to 4. The next `NewBuilding` retains that pasture's UUID
+and changes parameter 29 from 0 to 4. `FarmBuildingInfo` supplies parameters 4
+and 5 as UTC ticks exactly 60 seconds apart, consistent with this capture's
+demolition countdown. At 16:51:56, an empty `MiniMapOwnedBuildingsPositions`
+event and `Leave` for object 372 accompany the user-confirmed demolition. No
+`ActionOnBuildingFinished` or `TearDownConstructionSite` was logged for it.
+
+An unknown request with operation code 554 was rejected at 16:51:51, shortly
+before the building disappeared. Its parameters were not recorded, so its role
+is unverified. It did not appear in the subsequent cancellation/completion
+capture. The temporary parser probe for 554 has been removed; unknown-code
+routing remains unchanged. Ordinary visibility changes emit `Leave` too.
+
 ## Optional farming action timings
 
 Adult-product progress is verified for the captured fed goats and sheep. The

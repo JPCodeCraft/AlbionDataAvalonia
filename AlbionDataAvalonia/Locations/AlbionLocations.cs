@@ -1,9 +1,10 @@
 ﻿using AlbionDataAvalonia.Locations.Models;
+using AlbionDataAvalonia.ReferenceData;
 using Serilog;
 using System;
 using System.Collections.Generic;
+using System.IO;
 using System.Linq;
-using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
 
@@ -67,41 +68,7 @@ namespace AlbionDataAvalonia.Locations
             try
             {
                 Log.Information("Initializing locations service...");
-                var locations = new List<LocationJson>();
-                using (var httpClient = new HttpClient())
-                {
-                    var json = await httpClient.GetStringAsync(JsonUrl);
-                    if (!string.IsNullOrEmpty(json))
-                    {
-                        locations = JsonSerializer.Deserialize<LocationJson[]>(json)?.ToList() ?? new();
-                    }
-                }
-
-                foreach (var location in locations)
-                {
-                    if (location.UniqueName == "Caerleon") location.UniqueName = "Black Market";
-                    albionLocations.Add(new AlbionLocation(location.Index, location.UniqueName.Replace(" ", ""), location.UniqueName));
-                }
-
-                // add unknown location
-                albionLocations.Add(Unknown);
-
-                // add unset location
-                albionLocations.Add(Unset);
-
-                // set locations markets and friendly names
-                foreach (var location in albionLocations)
-                {
-                    var marketId = GetMarketLocationIdInt(location.Id);
-                    if (marketId.HasValue)
-                    {
-                        location.MarketLocation = GetByIntId(marketId.Value);
-                    }
-                    if (location.MarketLocation != null && location.Id != location.MarketLocation.Id)
-                    {
-                        location.FriendlyName = $"{location.FriendlyName} ({location.MarketLocation.FriendlyName})";
-                    }
-                }
+                albionLocations = await ReferenceDataLoader.Shared.LoadAsync(JsonUrl, ParseLocations);
 
                 Log.Information("Locations service initialized.");
             }
@@ -109,6 +76,47 @@ namespace AlbionDataAvalonia.Locations
             {
                 Log.Error(e, "Failed to initialize localization service.");
             }
+        }
+
+        private static List<AlbionLocation> ParseLocations(string json)
+        {
+            var locations = JsonSerializer.Deserialize<LocationJson[]>(json)
+                ?? throw new InvalidDataException("Location data is null.");
+            if (locations.Length == 0)
+            {
+                throw new InvalidDataException("Location data contains no locations.");
+            }
+
+            var loadedLocations = new List<AlbionLocation>();
+            var ids = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+            foreach (var location in locations)
+            {
+                if (string.IsNullOrWhiteSpace(location.Index)
+                    || string.IsNullOrWhiteSpace(location.UniqueName)
+                    || !ids.Add(location.Index))
+                {
+                    throw new InvalidDataException("Location data contains an invalid or duplicate entry.");
+                }
+                var name = location.UniqueName == "Caerleon" ? "Black Market" : location.UniqueName;
+                loadedLocations.Add(new AlbionLocation(location.Index, name.Replace(" ", ""), name));
+            }
+
+            // Finish the snapshot before replacing the currently usable location list.
+            foreach (var location in loadedLocations)
+            {
+                var marketId = GetMarketLocationIdInt(location.Id);
+                if (marketId.HasValue)
+                {
+                    location.MarketLocation = loadedLocations.SingleOrDefault(candidate => candidate.IdInt == marketId.Value) ?? Unknown;
+                }
+                if (location.MarketLocation != null && location.Id != location.MarketLocation.Id)
+                {
+                    location.FriendlyName = $"{location.FriendlyName} ({location.MarketLocation.FriendlyName})";
+                }
+            }
+            loadedLocations.Add(Unknown);
+            loadedLocations.Add(Unset);
+            return loadedLocations;
         }
 
 

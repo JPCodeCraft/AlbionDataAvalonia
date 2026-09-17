@@ -21,9 +21,9 @@ public class LeaveEventHandler : EventPacketHandler<LeaveEvent>
 
     protected override Task OnActionAsync(LeaveEvent value)
     {
+        farmingTracker.OnLeave(value.userObjectId);
         if (value.userObjectId == playerState.UserObjectId)
         {
-            farmingTracker.OnLeave(value.userObjectId);
             playerState.PlayerName = "Not set";
             playerState.Location = AlbionLocations.Unset;
             playerState.ResetPremiumStatus();
