@@ -10,6 +10,7 @@ namespace AlbionDataAvalonia.Network.Events;
 public sealed class NewBuildingEvent : BaseEvent
 {
     public long SessionId { get; private set; }
+    public int? RenovationState { get; private set; }
     public FarmingObjectObservation? Object { get; private set; }
 
     public NewBuildingEvent(Dictionary<byte, object> parameters) : base(parameters)
@@ -28,6 +29,11 @@ public sealed class NewBuildingEvent : BaseEvent
             if (rotation is not null && (!double.IsFinite(rotation.Value) || Math.Abs(rotation.Value) > 100_000)) return;
             var sessionId = Number(parameters, 0);
             SessionId = sessionId;
+            if (isPlot && parameters.ContainsKey(29))
+            {
+                var renovation = Number(parameters, 29);
+                if (renovation is >= 0 and <= 255) RenovationState = (int)renovation;
+            }
             Object = new FarmingObjectObservation
             {
                 ObjectId = stableId,

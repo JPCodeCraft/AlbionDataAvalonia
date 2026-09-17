@@ -16,6 +16,13 @@ public class DebugResponseProbeResponseHandler : PacketHandler<ResponsePacket>
         (int)OperationCodes.GetIslandInfos,
         (int)OperationCodes.RegisterToObject,
         (int)OperationCodes.UnRegisterFromObject,
+        // Match the request probe so successful and rejected actions can be correlated.
+        (int)OperationCodes.AttackBuildingStart,
+        (int)OperationCodes.ActionOnBuildingStart,
+        (int)OperationCodes.ActionOnBuildingCancel,
+        (int)OperationCodes.BuildingChangeRenovationState,
+        (int)OperationCodes.ConstructionSiteCreate,
+        (int)OperationCodes.TearDownConstructionSite,
         (int)OperationCodes.PlaceableObjectPlace,
         (int)OperationCodes.PlaceableObjectPlaceCancel,
         (int)OperationCodes.PlaceableObjectPickup,

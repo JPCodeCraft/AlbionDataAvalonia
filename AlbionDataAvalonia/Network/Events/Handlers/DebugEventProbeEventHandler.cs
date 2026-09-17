@@ -14,6 +14,16 @@ public class DebugEventProbeEventHandler : EventPacketHandler<DebugEventProbeEve
     [
         (int)EventCodes.PremiumChanged,
         (int)EventCodes.JoinFinished,
+        // Candidate demolition/rebuild signals. Leave alone does not prove removal.
+        (int)EventCodes.Leave,
+        (int)EventCodes.AttackBuilding,
+        (int)EventCodes.ActionOnBuildingStart,
+        (int)EventCodes.ActionOnBuildingCancel,
+        (int)EventCodes.ActionOnBuildingFinished,
+        (int)EventCodes.ConstructionSiteInfo,
+        (int)EventCodes.NewBuildingBaseEvent,
+        (int)EventCodes.BuildingDurabilityUpdate,
+        (int)EventCodes.MiniMapOwnedBuildingsPositions,
         (int)EventCodes.NewBuilding,
         (int)EventCodes.PlayerBuildingInfo,
         (int)EventCodes.FarmBuildingInfo,

@@ -27,10 +27,14 @@ public sealed record FarmingObjectObservation : FarmingContext
     public string ObjectId { get; init; } = string.Empty;
     public string UniqueName { get; init; } = string.Empty;
     public string Kind { get; init; } = string.Empty;
+    // The building instance owning this slot, not merely its coordinates.
+    public string? PlotObjectId { get; init; }
     public double PositionX { get; init; }
     public double PositionY { get; init; }
     public double? Rotation { get; init; }
     public bool Removed { get; init; }
+    // A timer expiry hides the plot provisionally; a fresh observation can restore it.
+    public bool? RemovalAssumed { get; init; }
     public FarmingObjectState? State { get; init; }
 }
 
