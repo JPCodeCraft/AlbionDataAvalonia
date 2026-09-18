@@ -43,28 +43,6 @@ An alternative client for [The Albion Online Data Project](https://www.albion-on
 | User-Friendly          | No admin permissions required (except for NpCap installation)                  |
 | Free and Open Source   | This software is free to use and is open source                                |
 
-## Farming tracking
-
-Farming tracking runs automatically while signed into AFM with **AFM Island Tracker** enabled (on by default, below **Upload Specs to AFM**). Enter or change islands after signing in or starting capture, then walk near each plot to record its crops, animals, growth, food, and Focus state. Harvested crops and seeds, grown animals and offspring, and collected animal products are recorded as production history. Feeding and picking up unfinished animals are not production.
-
-The client recognizes islands as valid locations and displays "Island" on the dashboard. It also records the island layout on entry so the website can show plots over the correct map, including its upgrade layout. Island farming uploads are separate from market data uploads.
-
-These observations are private to your AFM account. Uploads work without a subscription; the website's Farming Calculator and Farming Tracker require Masterpiece access. Signing out or turning off **AFM Island Tracker** stops farming collection and uploads, cancels uploads in progress, and clears the current tracking state. After enabling it again, leave and re-enter the island. Previously captured pending uploads remain saved locally and are retried only while tracking is enabled and the original account is signed in.
-
-The dashboard's **Island Uploads** counter shows successful farming upload batches during this client session. Each batch can contain island details, plot updates, and collections. Results also count toward the **Private Data (AFM)** success and failure totals; cancelled uploads do not count as failures.
-
-The website displays last-observed state, not a live view of unvisited plots. Animal growth pauses when food runs out. Updated clients also record verified milk/egg production progress; the website estimates completion when enough food remains and shows when another feed is needed. Next-nurture countdowns use the recorded last nurture and catalog interval, are explicitly estimated, and require feeding before nurturing is suggested. Their exact eligibility boundary is not yet verified.
-
-The optional timing fields, storage, and website displays are prepared for that mapping work. See the [farming timing contract](AlbionDataAvalonia/Farming/README.md) for the integration points and unknown-state behavior.
-
-## Reference data cache
-
-Item names, mobs, achievements, locations, and the five legendary reference files are downloaded from the AFM CDN and cached under `AFMDataClient/cache/reference-data` in the operating system's local application data directory (`%LOCALAPPDATA%` on Windows). Downloads are parsed and validated before atomically replacing the previous cache. Invalid or empty data never replaces a usable cached file.
-
-Each load first checks the CDN for current data. If that fails, the client uses its last validated cached file, even if it is old, and logs the fallback. Cached data can lag behind game updates; the next launch attempts to refresh it again. A valid cache avoids all retry delays. Without one, transient network errors, timeouts, HTTP 408/429, and server errors get at most two retries, after 15 and 60 seconds, with a 30-second timeout per request and at most three concurrent reference downloads. Longer server retry instructions stop the load rather than retrying early. Invalid data and other HTTP errors are not retried. A first launch without internet or a usable cache can still leave reference data unavailable after these attempts.
-
-These timings are controlled by `ReferenceDataFirstRetryDelaySeconds` (default `15`), `ReferenceDataSecondRetryDelaySeconds` (default `60`), and `ReferenceDataRequestTimeoutSeconds` (default `30`) in app settings. Each load uses the current app settings, including downloaded settings; missing, nonpositive, or excessively large values fall back to the defaults. Settings refreshed during a load take effect on the next load. The two-retry limit and three-download concurrency limit remain fixed.
-
 ## 📥 Installation
 
 ### Windows
