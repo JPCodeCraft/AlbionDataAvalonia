@@ -1,4 +1,4 @@
-﻿using Albion.Network;
+using Albion.Network;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Responses;
 using AlbionDataAvalonia.Network.Services;
@@ -10,12 +10,10 @@ namespace AlbionDataAvalonia.Network.Handlers;
 
 public class AuctionGetRequestsResponseHandler : ResponsePacketHandler<AuctionGetRequestsResponse>
 {
-    private readonly Uploader uploader;
     private readonly PlayerState playerState;
     private readonly TradeService tradeService;
-    public AuctionGetRequestsResponseHandler(Uploader uploader, PlayerState playerState, TradeService tradeService) : base((int)OperationCodes.AuctionGetRequests)
+    public AuctionGetRequestsResponseHandler(PlayerState playerState, TradeService tradeService) : base((int)OperationCodes.AuctionGetRequests)
     {
-        this.uploader = uploader;
         this.playerState = playerState;
         this.tradeService = tradeService;
     }
@@ -28,19 +26,6 @@ public class AuctionGetRequestsResponseHandler : ResponsePacketHandler<AuctionGe
 
         tradeService.AddMarketOrdersToCache(value.marketOrders);
 
-        MarketUpload marketUpload = new MarketUpload();
-
-        value.marketOrders.ForEach(x =>
-        {
-            if (string.IsNullOrEmpty(x.LocationId)) x.LocationId = playerState.Location.Id;
-        });
-
-        marketUpload.Orders.AddRange(value.marketOrders);
-
-        if (marketUpload.Orders.Count > 0)
-        {
-            uploader.EnqueueUpload(new Upload(marketUpload, null, null));
-        }
         await Task.CompletedTask;
     }
 }

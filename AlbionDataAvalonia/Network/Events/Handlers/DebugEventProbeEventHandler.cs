@@ -43,7 +43,7 @@ public class DebugEventProbeEventHandler : EventPacketHandler<DebugEventProbeEve
     {
         if (!Log.IsEnabled(Serilog.Events.LogEventLevel.Debug) || !ProbeEventCodeValues.Contains(packet.EventCode))
         {
-            return NextAsync(packet);
+            return Task.CompletedTask;
         }
         var value = new DebugEventProbeEvent(packet.Parameters);
         Log.Debug(
@@ -53,7 +53,7 @@ public class DebugEventProbeEventHandler : EventPacketHandler<DebugEventProbeEve
             value.Parameters.Count,
             DebugProbeFormatter.FormatParameters(value.Parameters));
 
-        return NextAsync(packet);
+        return Task.CompletedTask;
     }
 
     protected override Task OnActionAsync(DebugEventProbeEvent value)

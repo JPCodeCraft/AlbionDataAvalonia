@@ -1,4 +1,4 @@
-﻿<Project Sdk="Microsoft.NET.Sdk">
+<Project Sdk="Microsoft.NET.Sdk">
 	<PropertyGroup>
 		<TargetFramework>net10.0</TargetFramework>
 		<Version>0.48.0.0</Version>
@@ -8,6 +8,8 @@
 	</PropertyGroup>
 	<ItemGroup>
 		<AvaloniaResource Include="Assets\**" />
+		<AvaloniaResource Include="..\shared\AFMDataClientCore\assets\icons\icon_shop_premium.png"
+		                  Link="Assets\Icons\icon_shop_premium.png" />
 	</ItemGroup>
 	<ItemGroup>
 		<PackageReference Include="Avalonia" Version="11.3.10" />
@@ -79,8 +81,7 @@
 		<Folder Include="Themes\" />
 	</ItemGroup>
 	<ItemGroup>
-		<ProjectReference Include="..\Albion.Network\Albion.Network.csproj" />
-		<ProjectReference Include="..\AlbionDataAvalonia.Shared\AlbionDataAvalonia.Shared.csproj" />
+		<ProjectReference Include="..\shared\AFMDataClientCore\src\AFMDataClient.Core\AFMDataClient.Core.csproj" />
 	</ItemGroup>
 	<ItemGroup>
 		<AvaloniaResource Update="Assets\afm-logo.ico">

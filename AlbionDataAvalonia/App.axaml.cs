@@ -1,7 +1,6 @@
-﻿using AlbionDataAvalonia.Auth.Services;
+using AlbionDataAvalonia.Auth.Services;
 using AlbionDataAvalonia.Combat;
 using AlbionDataAvalonia.DB;
-using AlbionDataAvalonia.Farming;
 using AlbionDataAvalonia.Gathering;
 using AlbionDataAvalonia.Legendary;
 using AlbionDataAvalonia.Items;
@@ -42,7 +41,7 @@ public partial class App : Application
     private System.Timers.Timer? _updateTimer;
     private DatabaseBackupService? _databaseBackupService;
     private NetworkListenerService? _networkListenerService;
-    private FarmingUploadService? _farmingUploadService;
+    private DesktopClientCore? _clientCore;
     private readonly HashSet<string> _shownManualUpdateDialogs = new();
     private readonly object _shownManualUpdateDialogsLock = new();
     private bool _showMainWindowWhenReady;
@@ -72,7 +71,7 @@ public partial class App : Application
         catch (Exception ex)
         {
             DisposeNetworkListener();
-            _farmingUploadService?.Dispose();
+            _clientCore?.Dispose();
             _databaseBackupService?.Dispose();
             TryWriteStartupCrashLog(ex);
 
@@ -142,23 +141,25 @@ public partial class App : Application
         //INITIALIZE SETTINGS
         var settings = services.GetRequiredService<SettingsManager>();
         await settings.InitializeSettings();
-        ReferenceDataLoader.Shared.Configure(() => settings.AppSettings);
+        ReferenceDataLoader.ConfigureShared(new System.Net.Http.HttpClient { Timeout = Timeout.InfiniteTimeSpan },
+            Path.Combine(AppData.LocalPath, "cache", "reference-data"));
+        ReferenceDataLoader.Shared.Configure(() => new ReferenceDataOptions
+        {
+            ReferenceDataFirstRetryDelaySeconds = settings.AppSettings.ReferenceDataFirstRetryDelaySeconds,
+            ReferenceDataSecondRetryDelaySeconds = settings.AppSettings.ReferenceDataSecondRetryDelaySeconds,
+            ReferenceDataRequestTimeoutSeconds = settings.AppSettings.ReferenceDataRequestTimeoutSeconds
+        });
 
         //GETTING SERVICES
         var listener = services.GetRequiredService<NetworkListenerService>();
         _networkListenerService = listener;
-        _farmingUploadService = services.GetRequiredService<FarmingUploadService>();
-        var uploader = services.GetRequiredService<Uploader>();
-        var afmUploader = services.GetRequiredService<AFMUploader>();
+        _clientCore = services.GetRequiredService<DesktopClientCore>();
         var emvBackendLoader = services.GetRequiredService<ItemEstimatedMarketValueBackendLoader>();
         var mobsService = services.GetRequiredService<MobsService>();
-        var itemsIdsService = services.GetRequiredService<ItemsIdsService>();
-        var achievementsService = services.GetRequiredService<AchievementsService>();
         var authService = services.GetRequiredService<AuthService>();
         var gatheringTracker = services.GetRequiredService<GatheringTrackerService>();
 
         //CONFIGURE AUTHENTICATED BACKENDS BEFORE VIEWMODELS SUBSCRIBE TO LOGIN CHANGES
-        afmUploader.Initialize();
         emvBackendLoader.Initialize();
 
         //VIEWMODEL AND SHELL
@@ -171,7 +172,7 @@ public partial class App : Application
             desktop.Exit += (_, _) =>
             {
                 DisposeNetworkListener();
-                _farmingUploadService?.Dispose();
+                _clientCore?.Dispose();
                 _databaseBackupService?.Dispose();
             };
 
@@ -272,22 +273,10 @@ public partial class App : Application
             await Task.WhenAll(
                 authService.TryAutoLoginAsync(),
                 Task.Run(mobsService.InitializeAsync),
-                Task.Run(itemsIdsService.InitializeAsync),
-                Task.Run(achievementsService.InitializeAsync),
-                Task.Run(AlbionLocations.InitializeAsync));
+                _clientCore.Core.InitializeAsync());
 
             //RESTORE GATHERING SESSION BEFORE PACKETS ARRIVE
             await gatheringTracker.InitializeSessionRecoveryAsync();
-
-            //UPLOADER
-            var uploaderCancellationToken = new CancellationTokenSource();
-            _ = uploader.ProcessItemsAsync(uploaderCancellationToken.Token).ContinueWith(t =>
-            {
-                if (t.IsFaulted)
-                {
-                    Log.Error(t.Exception, "Error in uploader, exception: {exception}", t.Exception);
-                }
-            });
 
             //LISTENER
             _ = listener.StartNetworkListeningAsync().ContinueWith(t =>
@@ -480,22 +469,20 @@ public static class ServiceCollectionExtensions
     {
         collection.AddSingleton<NetworkListenerService>();
         collection.AddSingleton<PlayerState>();
-        collection.AddSingleton<ConnectionService>();
         collection.AddSingleton<SettingsManager>();
         collection.AddSingleton<ListSink>();
         collection.AddSingleton<Uploader>();
         collection.AddSingleton<AFMUploader>();
-        collection.AddSingleton<FarmingUploadService>();
-        collection.AddSingleton<FarmingTrackerService>();
+        collection.AddSingleton<DesktopUploadAuthSession>();
+        collection.AddSingleton<DesktopClientCore>();
         collection.AddSingleton<MailService>();
         collection.AddSingleton<TradeService>();
-        collection.AddSingleton<PortfolioUploadService>();
+        collection.AddSingleton(provider => new PortfolioUploadService(provider.GetRequiredService<DesktopClientCore>().Core));
         collection.AddSingleton<MobsService>();
-        collection.AddSingleton<ItemsIdsService>();
+        collection.AddSingleton(provider => provider.GetRequiredService<DesktopClientCore>().Core.Items);
         collection.AddSingleton<ItemImageService>();
         collection.AddSingleton<ItemEstimatedMarketValueService>();
         collection.AddSingleton<ItemEstimatedMarketValueBackendLoader>();
-        collection.AddSingleton<AchievementsService>();
         collection.AddSingleton<AuthService>();
         collection.AddSingleton<CsvExportService>();
         collection.AddSingleton<PartyTrackerService>();

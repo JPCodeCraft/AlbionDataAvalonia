@@ -13,5 +13,6 @@
       <IncludeAssets>runtime; build; native; contentfiles; analyzers; buildtransitive</IncludeAssets>
     </PackageReference>
     <ProjectReference Include="..\PowBench\PowBench.csproj" />
+    <Compile Include="..\shared\AFMDataClientCore\tests\AFMDataClient.Core.Pow.Tests\Desktop\*.cs" Link="%(Filename)%(Extension)" />
   </ItemGroup>
 </Project>

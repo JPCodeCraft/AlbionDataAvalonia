@@ -1,5 +1,11 @@
 # Repository Guidelines
 
+## Shared Core
+- Shared Photon decoding, packet models, passive upload handlers, farming, reference data, and PoW live in `shared/AFMDataClientCore`, a pinned Git submodule of `JPCodeCraft/AFMDataClientCore`.
+- Run `git submodule update --init --recursive` after cloning or changing branches. Make shared fixes in that repository, commit/push them there, then update this repository's submodule pointer deliberately.
+- Keep OS capture, authentication storage/UI, settings, EF persistence, and desktop trackers in this application. Register shared features explicitly in `DesktopClientCore`; add local packet subscriptions after shared handlers in `NetworkListenerService`.
+- The desktop Photon parser is the authoritative implementation for both clients. Do not add another parser or duplicate shared upload transports.
+
 ## Build, Test, and Development Commands
 - Only add, remove, or apply EF Core migrations when explicitly instructed. Don't modify migration files manually: only use EF commands.
 - `dotnet restore AlbionDataAvalonia.sln` – bootstrap dependencies.

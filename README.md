@@ -315,3 +315,23 @@ This software was developed by [JP CodeCraft](https://jpcodecraft.com/), the dev
 ## 📊 Download Statistics
 
 View detailed download statistics [here](https://tooomm.github.io/github-release-stats/?username=jpcodecraft&repository=AlbionDataAvalonia).
+
+
+## Building with the shared core
+
+The desktop and Android clients share [AFMDataClientCore](https://github.com/JPCodeCraft/AFMDataClientCore). This repository pins its library at `shared/AFMDataClientCore`; no sibling checkout or NuGet feed is required to build.
+
+```bash
+git clone --recurse-submodules https://github.com/JPCodeCraft/AlbionDataAvalonia.git
+cd AlbionDataAvalonia
+git submodule update --init --recursive
+dotnet restore AlbionDataAvalonia.sln
+dotnet build -c Debug AlbionDataAvalonia.sln
+dotnet test PowBench.Tests
+```
+
+After switching branches or pulling a change to the submodule pointer, run `git submodule update --init --recursive` again. Shared changes are committed and pushed in AFMDataClientCore first; each client then updates its pinned commit independently. A standalone development checkout can live beside the clients at `Repos/AFMDataClientCore`, while builds always reference the pinned submodule.
+
+`DesktopClientCore` explicitly enables market orders (including loadouts), market history, specs, EMV, islands, gold, and world events. It adapts desktop settings, account credentials, and upload statistics to the shared runtime. Combat, party, gathering/fishing, loot, awakened items, market mail, and trade history remain desktop services and subscribe after shared packet processing. Capture drivers, database schemas, installers, and UI stay in the desktop repository.
+
+Shared-library integration validation includes building the desktop solution and running the PoW correctness tests. Manual checks cover ordinary and loadout market routing, gold and bandit uploads during Private Flips Mode, authenticated specs/EMV/world events, local tracker updates, account/server changes, and island collection, failed actions, offline retry, and restart recovery. Cross-platform capture and UI checks require the corresponding operating systems; builds alone do not validate live game traffic.

@@ -1,0 +1,30 @@
+name: Validate clients
+
+on:
+  pull_request:
+  push:
+    branches: [master, beta]
+
+permissions:
+  contents: read
+
+jobs:
+  desktop:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [windows-latest, ubuntu-latest, macos-latest]
+    runs-on: ${{ matrix.os }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          submodules: recursive
+      - uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: "10.0.x"
+      - run: dotnet restore AlbionDataAvalonia.sln
+      - run: dotnet build -c Debug AlbionDataAvalonia.sln --no-restore
+      - name: Build macOS application
+        if: runner.os == 'macOS'
+        run: dotnet build -c Debug AlbionDataAvalonia.Desktop.MacOS/AlbionDataAvalonia.Desktop.MacOS.csproj -r osx-${{ runner.arch == 'ARM64' && 'arm64' || 'x64' }}
+      - run: dotnet test PowBench.Tests --no-build

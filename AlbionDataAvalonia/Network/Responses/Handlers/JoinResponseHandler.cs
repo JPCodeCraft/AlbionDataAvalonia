@@ -1,4 +1,3 @@
-using AlbionDataAvalonia.Farming;
 using Albion.Network;
 using AlbionDataAvalonia.Loot;
 using AlbionDataAvalonia.Legendary;
@@ -16,9 +15,7 @@ namespace AlbionDataAvalonia.Network.Handlers;
 
 public class JoinResponseHandler : ResponsePacketHandler<JoinResponse>
 {
-    private readonly FarmingTrackerService farmingTracker;
     private readonly PlayerState playerState;
-    private readonly AFMUploader afmUploader;
     private readonly PartyTrackerService partyTracker;
     private readonly PlayerIdentityService playerIdentityService;
     private readonly LootTrackerService lootTracker;
@@ -26,16 +23,12 @@ public class JoinResponseHandler : ResponsePacketHandler<JoinResponse>
 
     public JoinResponseHandler(
         PlayerState playerState,
-        AFMUploader afmUploader,
         PartyTrackerService partyTracker,
         PlayerIdentityService playerIdentityService,
         LootTrackerService lootTracker,
-        LegendaryItemTrackerService legendaryTracker,
-        FarmingTrackerService farmingTracker) : base((int)OperationCodes.Join)
+        LegendaryItemTrackerService legendaryTracker) : base((int)OperationCodes.Join)
     {
         this.playerState = playerState;
-        this.farmingTracker = farmingTracker;
-        this.afmUploader = afmUploader;
         this.partyTracker = partyTracker;
         this.playerIdentityService = playerIdentityService;
         this.lootTracker = lootTracker;
@@ -47,11 +40,6 @@ public class JoinResponseHandler : ResponsePacketHandler<JoinResponse>
         // Failed joins may contain no identity or location fields. Preserve the
         // shared player state as well as the farming state until a successful join.
         if (value.ReturnCode != 0) return;
-        playerState.UserObjectId = value.userObjectId;
-        playerState.PlayerName = value.playerName;
-        playerState.Location = value.playerLocation;
-        playerState.SetPremiumExpirationTicks(value.premiumExpirationTicks);
-        farmingTracker.OnJoin(value);
         playerIdentityService.AddOrUpdate(
             playerState.AlbionServer?.Id,
             value.userObjectId,
@@ -63,20 +51,5 @@ public class JoinResponseHandler : ResponsePacketHandler<JoinResponse>
         lootTracker.ResetTransientState();
         await legendaryTracker.ResetTransientStateAsync();
 
-        if (value.globalMultiplier.HasValue)
-        {
-            if (playerState.AlbionServer is null)
-            {
-                Log.Warning("Global multiplier parsed from join response, but current server is unknown. Upload skipped.");
-            }
-            else
-            {
-                afmUploader.UploadGlobalMultiplier(new GlobalMultiplierUpload
-                {
-                    ServerId = playerState.AlbionServer.Id,
-                    GlobalMultiplier = value.globalMultiplier.Value
-                });
-            }
-        }
     }
 }

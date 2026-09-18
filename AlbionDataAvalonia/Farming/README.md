@@ -1,27 +1,28 @@
 # Farming packet integration
 
-Farming uses the normal typed `EventPacketHandler`, `RequestPacketHandler`, and
-`ResponsePacketHandler` registrations in `Network`. The shared Join response and
-Leave event handlers notify `FarmingTrackerService` directly. A typed Join request
-starts transitions, while ChangeCluster and GetIslandInfos responses update island
-metadata. NewBuilding and FarmableObjectInfo models decode object observations.
+Farming packet models, `FarmingTrackerService`, and `FarmingUploadService` now live
+in the pinned `shared/AFMDataClientCore` library. `DesktopClientCore` enables them
+with `WithIslands()` and adapts desktop account credentials, settings, and upload
+statistics. The persisted outbox remains under the existing local application
+data directory, `AFMDataClient/data/farming-outbox`.
 
-Harvest, finish, product collection, destroy, and pickup each have an explicit
-request/response registration using the shared farming action models. The normal
-response handler copies the server return code into `BaseOperation.ReturnCode`;
-failed farming actions discard their pending correlation without recording a
-pickup or removal. Feeding and nurturing continue to update through snapshots.
+`ClientCore.RegisterHandlers` registers typed subscriptions for Join/Leave,
+transitions, island metadata, buildings, farmables, and farming actions. Shared
+session updates run before feature consumers; desktop-only subscribers receive
+the same decoded packets afterward. Multiple subscribers do not consume each
+other's packets. Debug probes remain optional observers.
 
-The tracker owns state, deduplication, pre-Join buffering, and upload coordination;
-it no longer inspects raw packet dictionaries or routes packet codes. Packet models
-reject unsupported data before updating the tracker. There are no broad farming
-observers or requirements to register farming at the head of the handler chain.
-Debug probes still forward packets through the existing chain as before.
+Harvest, finish, product collection, destroy, and pickup each have explicit
+request/response subscriptions using the shared farming action models. The
+receiver preserves the server return code in `BaseOperation.ReturnCode`; failed
+actions discard their pending correlation without recording a pickup or removal.
+Feeding and nurturing continue to update through snapshots.
 
-Object handlers skip decoding while tracking is disabled, signed out, or outside
-an island transition/visit. Missing object identities are rejected instead of
-being interpreted as object zero. Failed Join responses leave shared player state
-unchanged. Unknown operation codes are reported once per capture session.
+The tracker owns state, deduplication, pre-Join buffering, and upload coordination.
+Packet models decode observations, and tracker guards reject unsupported data or
+observations captured while tracking is disabled, signed out, or outside an island
+transition/visit. Missing identities are rejected rather than interpreted as object
+zero. Failed Join responses preserve the current shared player state.
 
 The upload worker keeps the existing account-specific durable outbox. It streams
 outbox JSON to and from disk, stops filling a batch when its byte budget runs out,
