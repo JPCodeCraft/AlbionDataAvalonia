@@ -8,7 +8,8 @@
   </PropertyGroup>
 
   <ItemGroup>
-    <ProjectReference Include="..\AlbionDataAvalonia\AlbionDataAvalonia.csproj" />
+    <ProjectReference Include="..\shared\AFMDataClientCore\src\AFMDataClient.Core\AFMDataClient.Core.csproj" />
+    <Compile Include="..\shared\AFMDataClientCore\tests\AFMDataClient.Core.Pow.Tests\Common\SolverVariants.cs" Link="SolverVariants.cs" />
     <InternalsVisibleTo Include="PowBench.Tests" />
   </ItemGroup>
 

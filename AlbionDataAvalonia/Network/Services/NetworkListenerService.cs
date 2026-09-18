@@ -1,6 +1,6 @@
+using AFMDataClient.Core;
 using Albion.Network;
 using AlbionDataAvalonia.Combat;
-using AlbionDataAvalonia.Farming;
 using AlbionDataAvalonia.Gathering;
 using AlbionDataAvalonia.Items.Services;
 using AlbionDataAvalonia.Loot;
@@ -11,7 +11,6 @@ using AlbionDataAvalonia.Party;
 using AlbionDataAvalonia.Players;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
-using AlbionDataAvalonia.Shared;
 using Microsoft.Win32;
 using PacketDotNet;
 using PhotonPackageParser;
@@ -22,6 +21,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -43,15 +43,11 @@ namespace AlbionDataAvalonia.Network.Services
         private readonly SemaphoreSlim _lifecycleGate = new SemaphoreSlim(1, 1);
         private readonly SemaphoreSlim _supervisorSignal = new SemaphoreSlim(0, 1);
 
-        private readonly Uploader _uploader;
-        private readonly AFMUploader _afmUploader;
         private readonly PlayerState _playerState;
         private readonly SettingsManager _settingsManager;
         private readonly MailService _mailService;
         private readonly TradeService _tradeService;
-        private readonly ItemsIdsService _itemsIdsService;
         private readonly ItemEstimatedMarketValueService _itemEstimatedMarketValues;
-        private readonly AchievementsService _achievementsService;
         private readonly CombatTrackerService _combatTracker;
         private readonly GatheringTrackerService _gatheringTracker;
         private readonly PartyTrackerService _partyTracker;
@@ -59,7 +55,7 @@ namespace AlbionDataAvalonia.Network.Services
         private readonly LootTrackerService _lootTracker;
         private readonly MobsService _mobsService;
         private readonly LegendaryItemTrackerService _legendaryTracker;
-        private readonly FarmingTrackerService _farmingTracker;
+        private readonly DesktopClientCore _clientCore;
 
         private CancellationTokenSource? _lifecycleCancellation;
         private CancellationTokenSource? _supervisorCancellation;
@@ -74,15 +70,12 @@ namespace AlbionDataAvalonia.Network.Services
         public bool IsMacOSCapturePermissionSetupRequired { get; private set; }
         public bool IsMacOSCapturePermissionSetupOutdated { get; private set; }
 
-        public NetworkListenerService(Uploader uploader, PlayerState playerState, SettingsManager settingsManager, MailService mailService, TradeService tradeService, AFMUploader afmUploader, ItemsIdsService itemsIdsService, ItemEstimatedMarketValueService itemEstimatedMarketValues, AchievementsService achievementsService, CombatTrackerService combatTracker, GatheringTrackerService gatheringTracker, PartyTrackerService partyTracker, PlayerIdentityService playerIdentityService, LootTrackerService lootTracker, MobsService mobsService, LegendaryItemTrackerService legendaryTracker, FarmingTrackerService farmingTracker)
+        public NetworkListenerService(PlayerState playerState, SettingsManager settingsManager, MailService mailService, TradeService tradeService, ItemEstimatedMarketValueService itemEstimatedMarketValues, CombatTrackerService combatTracker, GatheringTrackerService gatheringTracker, PartyTrackerService partyTracker, PlayerIdentityService playerIdentityService, LootTrackerService lootTracker, MobsService mobsService, LegendaryItemTrackerService legendaryTracker, DesktopClientCore clientCore)
         {
-            _uploader = uploader;
             _playerState = playerState;
             _settingsManager = settingsManager;
             _mailService = mailService;
-            _itemsIdsService = itemsIdsService;
             _itemEstimatedMarketValues = itemEstimatedMarketValues;
-            _achievementsService = achievementsService;
             _combatTracker = combatTracker;
             _gatheringTracker = gatheringTracker;
             _partyTracker = partyTracker;
@@ -90,7 +83,7 @@ namespace AlbionDataAvalonia.Network.Services
             _lootTracker = lootTracker;
             _mobsService = mobsService;
             _legendaryTracker = legendaryTracker;
-            _farmingTracker = farmingTracker;
+            _clientCore = clientCore;
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
@@ -98,7 +91,6 @@ namespace AlbionDataAvalonia.Network.Services
             }
 
             _tradeService = tradeService;
-            _afmUploader = afmUploader;
             IsMacOSCapturePermissionSetupOutdated =
                 RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
                 && HasLegacyMacOSCapturePermissionSetup();
@@ -204,15 +196,11 @@ namespace AlbionDataAvalonia.Network.Services
 
                 ReceiverBuilder builder = ReceiverBuilder.Create();
 
-                // ADD HANDLERS HERE
+                _clientCore.Core.ResetCapture();
+                _clientCore.Core.RegisterHandlers(builder);
+
+                // Desktop-only tracker subscribers run after shared enrichment.
                 // EVENTS
-                _farmingTracker.ResetTransientState();
-                builder.AddEventHandler(new NewBuildingEventHandler(_farmingTracker));
-                builder.AddEventHandler(new FarmableObjectInfoEventHandler(_farmingTracker));
-                builder.AddEventHandler(new FarmBuildingInfoEventHandler(_farmingTracker));
-                builder.AddEventHandler(new LeaveEventHandler(_playerState, _farmingTracker));
-                builder.AddEventHandler(new PremiumChangedEventHandler(_playerState));
-                // builder.AddEventHandler(new PlayerCountsEventHandler(_playerState, _afmUploader));
                 builder.AddEventHandler(new NewCharacterEventHandler(
                     _combatTracker,
                     _partyTracker,
@@ -231,10 +219,7 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddEventHandler(new TakeSilverEventHandler(_combatTracker));
                 builder.AddEventHandler(new InCombatStateUpdateEventHandler(_combatTracker));
                 builder.AddEventHandler(new TimeSyncEventHandler(_combatTracker));
-                builder.AddEventHandler(new EstimatedMarketValueUpdateEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _playerState));
-                builder.AddEventHandler(new FullAchievementInfoEventHandler(_achievementsService, _playerState, _afmUploader, _settingsManager));
-                builder.AddEventHandler(new FestivitiesUpdateEventHandler(_playerState, _afmUploader));
-                builder.AddEventHandler(new RedZoneWorldMapEventHandler(_playerState, _uploader));
+                builder.AddEventHandler(new EstimatedMarketValueUpdateEventHandler(_itemEstimatedMarketValues, _playerState));
                 builder.AddEventHandler(new HarvestFinishedEventHandler(_gatheringTracker));
                 builder.AddEventHandler(new RewardGrantedEventHandler(_gatheringTracker));
                 builder.AddEventHandler(new NewLootEventHandler(_lootTracker));
@@ -249,13 +234,13 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddEventHandler(new PartyLootItemsEventHandler(_lootTracker));
                 builder.AddEventHandler(new PartyLootItemsRemovedEventHandler(_lootTracker));
                 builder.AddEventHandler(new PartyLootItemTypesRemovedEventHandler(_lootTracker));
-                builder.AddEventHandler(new NewSimpleItemEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _gatheringTracker, _lootTracker, _playerState));
-                builder.AddEventHandler(new NewJournalItemEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _lootTracker, _playerState));
-                builder.AddEventHandler(new NewLaborerItemEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _lootTracker, _playerState));
-                builder.AddEventHandler(new NewEquipmentItemEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _lootTracker, _playerState, _legendaryTracker));
-                builder.AddEventHandler(new NewFurnitureItemEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _lootTracker, _playerState));
-                builder.AddEventHandler(new NewKillTrophyItemEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _lootTracker, _playerState));
-                builder.AddEventHandler(new NewSiegeBannerItemEventHandler(_itemsIdsService, _afmUploader, _itemEstimatedMarketValues, _lootTracker, _playerState));
+                builder.AddEventHandler(new NewSimpleItemEventHandler(_itemEstimatedMarketValues, _gatheringTracker, _lootTracker, _playerState));
+                builder.AddEventHandler(new NewJournalItemEventHandler(_itemEstimatedMarketValues, _lootTracker, _playerState));
+                builder.AddEventHandler(new NewLaborerItemEventHandler(_itemEstimatedMarketValues, _lootTracker, _playerState));
+                builder.AddEventHandler(new NewEquipmentItemEventHandler(_itemEstimatedMarketValues, _lootTracker, _playerState, _legendaryTracker));
+                builder.AddEventHandler(new NewFurnitureItemEventHandler(_itemEstimatedMarketValues, _lootTracker, _playerState));
+                builder.AddEventHandler(new NewKillTrophyItemEventHandler(_itemEstimatedMarketValues, _lootTracker, _playerState));
+                builder.AddEventHandler(new NewSiegeBannerItemEventHandler(_itemEstimatedMarketValues, _lootTracker, _playerState));
                 builder.AddEventHandler(new NewEquipmentItemLegendarySoulEventHandler(_legendaryTracker));
                 builder.AddEventHandler(new BankVaultInfoEventHandler(_legendaryTracker));
                 builder.AddEventHandler(new GuildVaultInfoEventHandler(_legendaryTracker));
@@ -263,19 +248,9 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddEventHandler(new DebugEventProbeEventHandler());
 #endif
                 // RESPONSE
-                builder.AddResponseHandler(new ChangeClusterResponseHandler(_farmingTracker));
-                builder.AddResponseHandler(new GetIslandInfosResponseHandler(_farmingTracker));
-                builder.AddResponseHandler(new FarmingActionResponseHandler(_farmingTracker, OperationCodes.FarmableHarvest));
-                builder.AddResponseHandler(new FarmingActionResponseHandler(_farmingTracker, OperationCodes.FarmableFinishGrownItem));
-                builder.AddResponseHandler(new FarmingActionResponseHandler(_farmingTracker, OperationCodes.FarmableGetProduct));
-                builder.AddResponseHandler(new FarmingActionResponseHandler(_farmingTracker, OperationCodes.FarmableDestroy));
-                builder.AddResponseHandler(new FarmingActionResponseHandler(_farmingTracker, OperationCodes.PlaceableObjectPickup));
-                builder.AddResponseHandler(new AuctionGetLoadoutOffersResponseHandler(_uploader, _playerState));
-                builder.AddResponseHandler(new AuctionGetOffersResponseHandler(_uploader, _playerState, _tradeService));
-                builder.AddResponseHandler(new AuctionGetRequestsResponseHandler(_uploader, _playerState, _tradeService));
-                builder.AddResponseHandler(new AuctionGetItemAverageStatsResponseHandler(_uploader, _playerState));
-                builder.AddResponseHandler(new JoinResponseHandler(_playerState, _afmUploader, _partyTracker, _playerIdentityService, _lootTracker, _legendaryTracker, _farmingTracker));
-                builder.AddResponseHandler(new AuctionGetGoldAverageStatsResponseHandler(_uploader));
+                builder.AddResponseHandler(new AuctionGetOffersResponseHandler(_playerState, _tradeService));
+                builder.AddResponseHandler(new AuctionGetRequestsResponseHandler(_playerState, _tradeService));
+                builder.AddResponseHandler(new JoinResponseHandler(_playerState, _partyTracker, _playerIdentityService, _lootTracker, _legendaryTracker));
                 builder.AddResponseHandler(new GetMailInfosResponseHandler(_playerState, _mailService));
                 builder.AddResponseHandler(new ReadMailResponseHandler(_playerState, _mailService));
                 builder.AddResponseHandler(new AuctionBuyOfferResponseHandler(_playerState, _tradeService));
@@ -284,19 +259,7 @@ namespace AlbionDataAvalonia.Network.Services
 #if DEBUG
                 builder.AddHandler(new DebugResponseProbeResponseHandler());
 #endif
-                // builder.AddResponseHandler(new AssetOverviewResponseHandler(_playerState));
-                // builder.AddResponseHandler(new AssetOverviewUnfreezeCacheResponseHandler(_playerState));
-                // builder.AddResponseHandler(new AssetOverviewTabsResponseHandler(_playerState));
-                // builder.AddResponseHandler(new AssetOverviewTabContentResponseHandler(_playerState));
                 // REQUEST
-                builder.AddRequestHandler(new JoinRequestHandler(_farmingTracker));
-                builder.AddRequestHandler(new BuildingRenovationRequestHandler(_farmingTracker));
-                builder.AddRequestHandler(new FarmingActionRequestHandler(_farmingTracker, OperationCodes.FarmableHarvest));
-                builder.AddRequestHandler(new FarmingActionRequestHandler(_farmingTracker, OperationCodes.FarmableFinishGrownItem));
-                builder.AddRequestHandler(new FarmingActionRequestHandler(_farmingTracker, OperationCodes.FarmableGetProduct));
-                builder.AddRequestHandler(new FarmingActionRequestHandler(_farmingTracker, OperationCodes.FarmableDestroy));
-                builder.AddRequestHandler(new FarmingActionRequestHandler(_farmingTracker, OperationCodes.PlaceableObjectPickup));
-                builder.AddRequestHandler(new AuctionGetItemAverageStatsRequestHandler(_playerState));
                 builder.AddRequestHandler(new AuctionBuyOfferRequestHandler(_playerState, _tradeService));
                 builder.AddRequestHandler(new AuctionSellSpecificItemRequestRequestHandler(_playerState, _tradeService));
                 builder.AddRequestHandler(new FishingStartRequestHandler(_gatheringTracker));
@@ -885,11 +848,19 @@ namespace AlbionDataAvalonia.Network.Services
         {
             try
             {
-                UdpPacket packet = Packet.ParsePacket(e.GetPacket().LinkLayerType, e.GetPacket().Data).Extract<UdpPacket>();
+                var capturedPacket = e.GetPacket();
+                UdpPacket packet = Packet.ParsePacket(capturedPacket.LinkLayerType, capturedPacket.Data).Extract<UdpPacket>();
                 if (packet is null)
                 {
                     return;
                 }
+
+                var ipPacket = packet.ParentPacket as IPPacket;
+                var datagram = new CapturedDatagram(
+                    packet.PayloadData,
+                    capturedPacket.Timeval.Date.ToUniversalTime(),
+                    ipPacket is null ? null : new IPEndPoint(ipPacket.SourceAddress, packet.SourcePort),
+                    ipPacket is null ? null : new IPEndPoint(ipPacket.DestinationAddress, packet.DestinationPort));
 
                 var selectedRegistration = Volatile.Read(ref session.SelectedRegistration);
                 if (selectedRegistration is not null
@@ -931,9 +902,7 @@ namespace AlbionDataAvalonia.Network.Services
                         return;
                     }
 
-                    PacketReceiveResult productionResult = ReceivePacketDetailed(
-                        session.Receiver,
-                        packet.PayloadData);
+                    PacketReceiveResult productionResult = session.Receiver.Receive(datagram);
                     HandlePacketResult(productionResult, packet.PayloadData.Length);
 
                     Log.Information(
@@ -944,9 +913,7 @@ namespace AlbionDataAvalonia.Network.Services
 
                 // Handlers need the incoming server identity before processing a new Join.
                 UpdateAlbionServer(packet);
-                PacketReceiveResult receiveResult = ReceivePacketDetailed(
-                    session.Receiver,
-                    packet.PayloadData);
+                PacketReceiveResult receiveResult = session.Receiver.Receive(datagram);
                 if (receiveResult.HasValidPhotonTraffic)
                 {
                     session.MarkValidTraffic();
@@ -974,30 +941,16 @@ namespace AlbionDataAvalonia.Network.Services
                 .SingleOrDefault(x => x.HostIps.Any(prefix => srcIp.StartsWith(prefix)));
             if (server is not null)
             {
+                _clientCore.Core.Session.SetServer(server);
                 _playerState.AlbionServer = server;
             }
             else if (!IsPrivateIp(srcIp) && _unknownServerIps.Add(srcIp))
             {
                 Log.Warning(
-                    "Received packet from unknown IP {Ip} — could not determine Albion server. Known unknown IPs so far: {Ips}",
+                    "Received packet from unknown IP {Ip}; could not determine Albion server. Known unknown IPs so far: {Ips}",
                     srcIp,
                     string.Join(", ", _unknownServerIps));
             }
-        }
-
-        private static PacketReceiveResult ReceivePacketDetailed(
-            IPhotonReceiver receiver,
-            byte[] payload)
-        {
-            if (receiver is PhotonParser parser)
-            {
-                return parser.ReceivePacketDetailed(payload);
-            }
-
-            PacketStatus status = receiver.ReceivePacket(payload);
-            return new PacketReceiveResult(
-                status,
-                status == PacketStatus.Success || status == PacketStatus.Encrypted);
         }
 
         private void HandlePacketResult(PacketReceiveResult result, int payloadBytes)

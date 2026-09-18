@@ -1,2 +1,0 @@
-Rebuild solution for Release
-nuget.exe pack .\PhotonPackageParser.csproj -IncludeReferencedProjects -Properties Configuration=Release

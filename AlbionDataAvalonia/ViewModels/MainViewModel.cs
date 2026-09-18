@@ -280,7 +280,7 @@ public partial class MainViewModel : ViewModelBase
         _authService = authService;
 
         LocationName = _playerState.Location.FriendlyName;
-        PlayerName = _playerState.PlayerName;
+        PlayerName = string.IsNullOrWhiteSpace(_playerState.PlayerName) ? "Not set" : _playerState.PlayerName;
         HasPremium = _playerState.HasPremium;
         AlbionServerName = _playerState.AlbionServer?.Name ?? "Unknown";
         RefreshPlayerAffiliation();
@@ -432,7 +432,7 @@ public partial class MainViewModel : ViewModelBase
         }
 
         LocationName = e.Location.FriendlyName;
-        PlayerName = e.Name;
+        PlayerName = string.IsNullOrWhiteSpace(e.Name) ? "Not set" : e.Name;
         HasPremium = e.HasPremium;
         AlbionServerName = e.AlbionServer?.Name ?? "Unknown";
         RefreshPlayerAffiliation();

@@ -38,7 +38,7 @@ public class DebugRequestProbeRequestHandler : PacketHandler<RequestPacket>
     {
         if (!Log.IsEnabled(Serilog.Events.LogEventLevel.Debug) || !ProbeOperationCodeValues.Contains(packet.OperationCode))
         {
-            return NextAsync(packet);
+            return Task.CompletedTask;
         }
 
         var request = new DebugRequestProbeRequest(packet.Parameters);
@@ -52,7 +52,7 @@ public class DebugRequestProbeRequestHandler : PacketHandler<RequestPacket>
             request.Parameters.Count,
             DebugProbeFormatter.FormatParameters(request.Parameters));
 
-        return NextAsync(packet);
+        return Task.CompletedTask;
     }
 
 }

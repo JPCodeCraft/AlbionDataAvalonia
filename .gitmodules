@@ -1,0 +1,3 @@
+[submodule "shared/AFMDataClientCore"]
+	path = shared/AFMDataClientCore
+	url = https://github.com/JPCodeCraft/AFMDataClientCore.git

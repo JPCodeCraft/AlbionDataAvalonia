@@ -1,11 +1,10 @@
-﻿using AlbionDataAvalonia.Locations;
+using AlbionDataAvalonia.Locations;
 using AlbionDataAvalonia.Locations.Models;
 using AlbionDataAvalonia.Network.Events;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.State.Events;
 using Serilog;
 using System;
-using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -25,13 +24,6 @@ namespace AlbionDataAvalonia.State
         private bool uploadToAfmOnly = false;
         private bool contributeToPublic = false;
         private bool shareWithFriends = false;
-        private readonly object banditEventLock = new();
-        private DateTime banditEventLastTimeSubmitted = DateTime.MinValue;
-        private static readonly TimeSpan BanditEventMinimumInterval = TimeSpan.FromSeconds(60);
-
-        public MarketHistoryInfo?[] MarketHistoryIDLookup { get; init; }
-        public ulong CacheSize => 8192;
-
         public event EventHandler<PlayerStateEventArgs>? OnPlayerStateChanged;
         public event Action<PublicUploadStatsSnapshot>? OnPublicUploadStatsChanged;
         public event Action<PrivateUploadStatsSnapshot>? OnPrivateUploadStatsChanged;
@@ -195,8 +187,6 @@ namespace AlbionDataAvalonia.State
 
         public PlayerState()
         {
-            MarketHistoryIDLookup = new MarketHistoryInfo[CacheSize];
-
             var timer = new System.Timers.Timer(1000);
             timer.Elapsed += OnTimerElapsed;
             timer.Start();
@@ -360,26 +350,6 @@ namespace AlbionDataAvalonia.State
 
             PrivateUploadStats.ItemEstimatedMarketValuesCount += e.ItemsCount;
             NotifyPrivateUploadStatsChanged();
-        }
-
-        public bool TryMarkBanditEventSubmission()
-        {
-            var now = DateTime.UtcNow;
-            lock (banditEventLock)
-            {
-                if (banditEventLastTimeSubmitted == DateTime.MinValue || (now - banditEventLastTimeSubmitted) >= BanditEventMinimumInterval)
-                {
-                    banditEventLastTimeSubmitted = now;
-                    Log.Debug("Bandit event submission accepted at {Timestamp}.", now);
-                    return true;
-                }
-            }
-
-            var nextAllowedAt = banditEventLastTimeSubmitted == DateTime.MinValue
-                ? now
-                : banditEventLastTimeSubmitted.Add(BanditEventMinimumInterval);
-            Log.Debug("Bandit event submission throttled. Last={LastTimestamp} NextAllowed={NextAllowedTimestamp}.", banditEventLastTimeSubmitted, nextAllowedAt);
-            return false;
         }
 
         public void RecordIslandUpload(UploadStatus status, Guid identifier)
