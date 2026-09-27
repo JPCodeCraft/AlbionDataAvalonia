@@ -116,6 +116,7 @@ public partial class MainViewModel : ViewModelBase
 
     partial void OnUploadToAfmOnlyChanged(bool value)
     {
+        _settingsManager.UserSettings.UploadToAfmOnly = value;
         _playerState.UploadToAfmOnly = value;
     }
 
@@ -124,6 +125,7 @@ public partial class MainViewModel : ViewModelBase
 
     partial void OnContributeToPublicChanged(bool value)
     {
+        _settingsManager.UserSettings.ContributeToPublic = value;
         _playerState.ContributeToPublic = value;
     }
 
@@ -132,6 +134,7 @@ public partial class MainViewModel : ViewModelBase
 
     partial void OnShareWithFriendsChanged(bool value)
     {
+        _settingsManager.UserSettings.ShareWithFriends = value;
         _playerState.ShareWithFriends = value;
     }
 
@@ -278,6 +281,9 @@ public partial class MainViewModel : ViewModelBase
         _legendaryViewModel = legendaryViewModel;
         _uploader = uploader;
         _authService = authService;
+        UploadToAfmOnly = _settingsManager.UserSettings.UploadToAfmOnly;
+        ContributeToPublic = _settingsManager.UserSettings.ContributeToPublic;
+        ShareWithFriends = _settingsManager.UserSettings.ShareWithFriends;
 
         LocationName = _playerState.Location.FriendlyName;
         PlayerName = string.IsNullOrWhiteSpace(_playerState.PlayerName) ? "Not set" : _playerState.PlayerName;
@@ -436,9 +442,10 @@ public partial class MainViewModel : ViewModelBase
         HasPremium = e.HasPremium;
         AlbionServerName = e.AlbionServer?.Name ?? "Unknown";
         RefreshPlayerAffiliation();
-        UploadToAfmOnly = e.UploadToAfmOnly;
-        ContributeToPublic = e.ContributeToPublic;
-        ShareWithFriends = e.ShareWithFriends;
+        // Queued player snapshots must not overwrite newer saved preferences.
+        UploadToAfmOnly = _settingsManager.UserSettings.UploadToAfmOnly;
+        ContributeToPublic = _settingsManager.UserSettings.ContributeToPublic;
+        ShareWithFriends = _settingsManager.UserSettings.ShareWithFriends;
 
         UpdateVisibilities();
         RefreshSidebarStatus();

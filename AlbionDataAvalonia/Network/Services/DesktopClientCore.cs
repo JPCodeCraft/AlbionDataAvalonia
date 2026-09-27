@@ -26,6 +26,10 @@ public sealed class DesktopClientCore : IDisposable
     {
         this.settings = settings;
         this.player = player;
+        // Restore saved routing and sharing choices before creating any upload workers.
+        player.UploadToAfmOnly = settings.UserSettings.UploadToAfmOnly;
+        player.ContributeToPublic = settings.UserSettings.ContributeToPublic;
+        player.ShareWithFriends = settings.UserSettings.ShareWithFriends;
         publicClient = CreateHttpClient();
         afmClient = CreateHttpClient(new Uri(settings.AppSettings.AfmDataClientIngestApiBase));
         backendClient = CreateHttpClient(settings.AppSettings.GetAfmBackendApiBaseUri());
@@ -58,10 +62,11 @@ public sealed class DesktopClientCore : IDisposable
 
     private ClientCoreOptions CreateOptions() => new()
     {
-        PrivateMarketOrders = player.UploadToAfmOnly,
-        ContributeToPublic = player.ContributeToPublic,
-        ShareWithFriends = player.ShareWithFriends,
-        PublicItemFilters = settings.AppSettings.ItemsToUploadToAfm.ToArray(),
+        PrivateMarketOrders = settings.UserSettings.UploadToAfmOnly,
+        ContributeToPublic = settings.UserSettings.ContributeToPublic,
+        ShareWithFriends = settings.UserSettings.ShareWithFriends,
+        // Private Mode has no public market-order exceptions, including remote configuration.
+        PublicItemFilters = [],
         UploadSpecs = settings.UserSettings.UploadSpecsToAfm,
         IslandTracking = settings.UserSettings.AfmIslandTrackerEnabled,
         DesiredConcurrency = settings.UserSettings.DesiredThreadCount,
@@ -73,7 +78,16 @@ public sealed class DesktopClientCore : IDisposable
         BanditEventIngestSubject = settings.AppSettings.BanditEventIngestSubject ?? string.Empty
     };
 
-    private void OnSettingsChanged(object? sender, PropertyChangedEventArgs args) => UpdateCoreOptions();
+    private void OnSettingsChanged(object? sender, PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName == nameof(UserSettings.UploadToAfmOnly))
+            player.UploadToAfmOnly = settings.UserSettings.UploadToAfmOnly;
+        else if (args.PropertyName == nameof(UserSettings.ContributeToPublic))
+            player.ContributeToPublic = settings.UserSettings.ContributeToPublic;
+        else if (args.PropertyName == nameof(UserSettings.ShareWithFriends))
+            player.ShareWithFriends = settings.UserSettings.ShareWithFriends;
+        UpdateCoreOptions();
+    }
 
     private void UpdateCoreOptions()
     {

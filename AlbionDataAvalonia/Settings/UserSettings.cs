@@ -196,6 +196,45 @@ public class UserSettings : INotifyPropertyChanged
         }
     }
 
+    private bool uploadToAfmOnly;
+    public bool UploadToAfmOnly
+    {
+        get => uploadToAfmOnly;
+        set
+        {
+            if (uploadToAfmOnly == value) return;
+            uploadToAfmOnly = value;
+            OnPropertyChanged(nameof(UploadToAfmOnly));
+            Log.Information("Private Mode set to {Enabled}", value);
+        }
+    }
+
+    private bool contributeToPublic;
+    public bool ContributeToPublic
+    {
+        get => contributeToPublic;
+        set
+        {
+            if (contributeToPublic == value) return;
+            contributeToPublic = value;
+            OnPropertyChanged(nameof(ContributeToPublic));
+            Log.Information("Share with Other AFM Users set to {Enabled}", value);
+        }
+    }
+
+    private bool shareWithFriends;
+    public bool ShareWithFriends
+    {
+        get => shareWithFriends;
+        set
+        {
+            if (shareWithFriends == value) return;
+            shareWithFriends = value;
+            OnPropertyChanged(nameof(ShareWithFriends));
+            Log.Information("Share with Friends set to {Enabled}", value);
+        }
+    }
+
     private bool uploadSpecsToAfm = true;
     public bool UploadSpecsToAfm
     {

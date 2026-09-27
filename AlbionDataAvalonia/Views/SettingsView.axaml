@@ -152,7 +152,7 @@
                         <TextBlock TextWrapping="Wrap"
                                    Opacity="0.8"
                                    HorizontalAlignment="Left"
-                                   Text="Add the people you want to share private uploads with. Sharing works only when they add you too. When sharing is enabled, your private flip uploads are added to their private flip data as if they uploaded those orders themselves. Send them your ID or your email so they can add you." />
+                                   Text="Add up to five people by user ID, email or AFM website username (not an Albion character name). Sharing works only when you have added each other and Share with Friends is enabled. They can use your market orders in the flipper and website price tools. Send them your ID, email or AFM username so they can add you. Turning sharing off stops new shared uploads. Previously shared price summaries keep their original expiry, up to two days." />
 
                         <TextBlock Text="{Binding SharedFriendsLimitText}"
                                    FontWeight="SemiBold" />
@@ -160,7 +160,7 @@
                         <Grid ColumnDefinitions="360,Auto" VerticalAlignment="Center" HorizontalAlignment="Left">
                             <TextBox Grid.Column="0"
                                      Text="{Binding FriendInput}"
-                                     Watermark="User ID or email" />
+                                     Watermark="User ID, email or AFM username" />
                             <Button Grid.Column="1"
                                     Content="Add"
                                     Command="{Binding AddSharedUserCommand}"

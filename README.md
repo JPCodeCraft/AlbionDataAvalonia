@@ -312,4 +312,32 @@ After switching branches or pulling a change to the submodule pointer, run `git 
 
 `DesktopClientCore` explicitly enables market orders (including loadouts), market history, specs, EMV, islands, gold, and world events. It adapts desktop settings, account credentials, and upload statistics to the shared runtime. Combat, party, gathering/fishing, loot, awakened items, market mail, and trade history remain desktop services and subscribe after shared packet processing. Capture drivers, database schemas, installers, and UI stay in the desktop repository.
 
-Shared-library integration validation includes building the desktop solution and running the PoW correctness tests. Manual checks cover ordinary and loadout market routing, gold and bandit uploads during Private Flips Mode, authenticated specs/EMV/world events, local tracker updates, account/server changes, and island collection, failed actions, offline retry, and restart recovery. Cross-platform capture and UI checks require the corresponding operating systems; builds alone do not validate live game traffic.
+Shared-library integration validation includes building the desktop solution and running the PoW correctness tests. Manual checks cover ordinary and loadout market routing, gold and bandit uploads during Private Mode, authenticated specs/EMV/world events, local tracker updates, account/server changes, and island collection, failed actions, offline retry, and restart recovery. Cross-platform capture and UI checks require the corresponding operating systems; builds alone do not validate live game traffic.
+
+## Private Mode and sharing
+
+Private Mode saves all captured buy/sell orders, including loadout offers, to your
+AFM account for the flipper and website price tools. No market-order categories
+are also sent to AODP. Market history, gold prices and bandit events remain public.
+Private Mode and both sharing choices default off and are saved in UserSettings.json.
+All three survive restarts, sign-out and account changes. Turning Private Mode off
+keeps the sharing choices saved for when it is enabled again. Sharing only applies
+to private orders while signed in; private order uploads are skipped while signed
+out, without a public fallback or an offline queue.
+
+Settings > Sharing accepts a user ID, email or exact AFM website username in one
+field. The website username is not an Albion character name. Both users must add
+each other; up to five friends are supported. Ambiguous matches are rejected; use
+email instead. Existing entries remain tied to the saved account if a username
+changes. Private and shared price summaries expire up to 48 hours after their
+five-minute observation bin starts. Turning sharing off affects new uploads only.
+
+Release validation: enable Private Mode and both sharing choices, restart, sign
+out and sign back in (also with another account); verify all choices stay selected.
+Turn Private Mode off and back on, then disable each sharing choice and repeat
+restart/sign-out checks to confirm both enabled and disabled values persist. Capture an
+ordinary item and each former public exception (runes, souls, relics, alchemy
+extracts and fish sauce), including loadout offers, and confirm no market orders
+reach AODP. Verify history/gold/bandit uploads remain public. Check tooltips and the
+Sharing field on a narrow window, and add/remove friends by all three identifiers.
+These UI/capture checks require a signed-in client and live game traffic.

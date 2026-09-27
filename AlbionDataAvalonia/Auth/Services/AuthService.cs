@@ -592,8 +592,6 @@ namespace AlbionDataAvalonia.Auth.Services
             // Clear the user information
             _firebaseUser = null;
 
-            _playerState.UploadToAfmOnly = false;
-
             // Clear the table
             var userAuths = await _dbContext.UserAuth.ToListAsync();
             _dbContext.UserAuth.RemoveRange(userAuths);

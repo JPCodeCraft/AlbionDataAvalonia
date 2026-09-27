@@ -585,8 +585,8 @@ public partial class SettingsViewModel : ViewModelBase
     private static string FormatUnableToAddMessage(IReadOnlyCollection<string> unresolvedEntries)
     {
         return unresolvedEntries.Count == 1
-            ? $"Unable to add {unresolvedEntries.First()}. Check the ID or email and try again."
-            : $"Unable to add {string.Join(", ", unresolvedEntries)}. Check the IDs or emails and try again.";
+            ? $"Unable to add {unresolvedEntries.First()}. Check the user ID, email or AFM username. If the entry is ambiguous, use the email instead."
+            : $"Unable to add {string.Join(", ", unresolvedEntries)}. Check the user IDs, emails or AFM usernames. For ambiguous entries, use email instead.";
     }
 
     private void SetSharingStatus(string status)
@@ -750,5 +750,10 @@ public sealed class PrivateOrderShareEntryViewModel
     public string Value { get; }
     public string Type { get; }
     public bool Resolved { get; }
-    public string TypeLabel => string.Equals(Type, "email", StringComparison.OrdinalIgnoreCase) ? "Email" : "User ID";
+    public string TypeLabel => Type.ToLowerInvariant() switch
+    {
+        "email" => "Email",
+        "username" => "AFM username",
+        _ => "User ID"
+    };
 }
