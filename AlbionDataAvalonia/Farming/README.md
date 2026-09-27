@@ -16,7 +16,8 @@ Harvest, finish, product collection, destroy, and pickup each have explicit
 request/response subscriptions using the shared farming action models. The
 receiver preserves the server return code in `BaseOperation.ReturnCode`; failed
 actions discard their pending correlation without recording a pickup or removal.
-Feeding and nurturing continue to update through snapshots.
+Feeding and nurturing also keep their normal snapshot updates; the action ledger
+records confirmed resource changes independently of those snapshots.
 
 The tracker owns state, deduplication, pre-Join buffering, and upload coordination.
 Packet models decode observations, and tracker guards reject unsupported data or
@@ -28,6 +29,77 @@ The upload worker keeps the existing account-specific durable outbox. It streams
 outbox JSON to and from disk, stops filling a batch when its byte budget runs out,
 and removes acknowledged records by key. This keeps batch preparation and cleanup
 from scanning the full offline backlog on every successful upload.
+
+## Farming resource ledger (schema 3)
+
+Confirmed actions now upload `actions` with `eventId`, `occurredAt`, island and
+character context, `operation`, `inputs`, `outputs`, and nullable `focusUsed`.
+Operations are `place`, `feed`, `boost`, `harvest`, `finish`, `product`, and
+`pickup`. Focus is a quantity, not a silver expense. Missing item quantities are
+marked by `inputsComplete`/`outputsComplete`; missing focus is null, not zero.
+Repeated snapshots, island entry, failed requests, and cancellations do not create
+resource usage. The event UUID and captured prices survive offline upload retry.
+
+Each item includes quantity, quality, and optional `observedEmv` and
+`emvObservedAt`. The client captures the latest observed per-unit normal EMV at or
+before the action; it never queries a later price to manufacture an observation.
+`WithIslands()` enables the item identity and price observers even without public
+EMV uploading. Inventory references, prices, and pending actions are scoped to
+the current account and game visit.
+
+The backend must support the action-only schema-3 contract before adopting this
+client. All batches contain `islands`, `objects`, and `actions`, even when only
+snapshots are pending. There is no pickup upload property or legacy schema path.
+Existing queued pickups are converted locally to output-only actions, preserving
+event IDs, capture context, quantities, and unknown input/focus status. Conversion
+is saved before upload; failed uploads remain in the durable outbox for retry.
+
+The website defaults to saved action-date EMV and can switch to current EMV.
+When the client had no price, the backend may save a labelled historical estimate
+from the latest available daily price no later than the action date. It can also
+enrich legacy output history, but cannot reconstruct historical inputs. Missing
+prices and incomplete capture make the balance partial. Resolved historical
+prices are immutable.
+
+### Packet mapping and verification
+
+- `FarmableFill` uses target/request correlation and returns consumed item names
+  and quantities on success. It must not run the object's removal path.
+- Placement request fields 0/1 are the action timestamp and source inventory
+  entity. Field 2 is a **placeable definition**, not an inventory item index.
+  When present, successful responses echo the timestamp and identify the placed
+  entity. The September 25 capture omitted these responses: correlate the local
+  request with an exact one-item inventory decrease and a newly seen farmable at
+  the requested position and placeable definition within 10 seconds. Require an
+  unambiguous matching inventory identity and ignore concurrent inventory moves.
+  Keep the cached inventory identity to distinguish adult animals from babies.
+- Boost requests carry timestamp, sequence, state, and target in fields 0–3.
+  Completion events carry actor/sequence/state/target in fields 0–3; state 3 is
+  completed and state 2 cancelled. Match the local actor and pending request.
+- `CraftingFocusUpdate` fields 2/3 are signed delta/resulting balance as ordinary
+  floats. Attribute a negative integer delta only to an unambiguous local boost;
+  regeneration and unrelated changes must not contribute to focus expenditure.
+- Item snapshots replace stack quantities. Animal returns need corroborating
+  inventory evidence; world tile names alone cannot identify the returned item.
+  Join fields 54/55 identify the local bag and its item entities; retain the item
+  snapshots received before Join when initializing this membership.
+
+The September 25 capture verifies two agaric harvests (24 crops and two seeds),
+two seed placements, four mature giantstag collections (four grown animals and
+one baby), four baby placements, and five feeds (32 agaric, 16 pumpkins, three
+corn, 13 turnips). Four nurture updates each report a -291 focus delta, so actual
+expenditure is 1,164. The user-reported balance changes from 7,309 to 6,148 (net
+1,161), consistent with three regenerated focus; do not use that net difference
+as the cost. Harvests, collections, feeds, and all four focus costs were present
+in the local action outbox. The missing placement responses exposed the fallback
+above; a new live capture must verify its resulting action records.
+
+Static packet mapping and builds do not replace live verification. Adult
+placement, live-animal pickup (operation 71), watering, and cancellation still
+need captures for this resource ledger. Compare before/after stack quantities
+and focus deltas using a Debug client with Debug logging.
+The debug probe includes simple/furniture item snapshots and inventory membership
+events for this check. Keep these logs local and do not commit packet dumps.
 
 ## Building lifetimes and tracker cleanup
 
@@ -69,10 +141,9 @@ Metadata arriving before its parent is bound when that parent appears. Confirmed
 replacement/removal retires the cached instance and contents, and the outbox
 uploads plots before farmables even across batch boundaries.
 
-Ordinary uploads retain schema version 1. Batches containing an assumed removal
-use version 2; update the backend first. An older backend rejects version 2, leaving
-the batch queued, instead of treating an unknown flag as a permanent retirement.
-Once queued, assumed removals use the existing durable account-specific outbox.
+All uploads, including assumed removals, use schema version 3. Update the backend
+before distributing the clients. Assumed removals use the existing durable
+account-specific outbox and remain queued until the backend acknowledges them.
 
 The backend keeps manual-deletion cutoffs and confirmed retired plot UUIDs. Fresh
 observations can rediscover manually hidden plots/islands; old queued observations
@@ -295,7 +366,7 @@ Direct login captures have no verified layout identifier. Leave and re-enter the
   event through the harvest/product response correlator: its packet shape differs.
 - Removal and replacement continue to clear the old occupant. Pickup history
   stays independent of these optional timers.
-- Existing uploads remain schema version 1. Null client fields are omitted by
+- All farming uploads use schema version 3. Null client fields are omitted by
   the existing serializer, and the existing byte limit still applies.
 
 The website uses its existing status cards and countdown formatting. Product

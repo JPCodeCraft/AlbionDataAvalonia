@@ -32,6 +32,12 @@ public class DebugEventProbeEventHandler : EventPacketHandler<DebugEventProbeEve
         (int)EventCodes.PlaceableObjectPlaceCancel,
         (int)EventCodes.BoostFarmable,
         (int)EventCodes.CraftingFocusUpdate,
+        // Verify item identity and stack changes around placement and pickup.
+        (int)EventCodes.NewSimpleItem,
+        (int)EventCodes.NewFurnitureItem,
+        (int)EventCodes.InventoryPutItem,
+        (int)EventCodes.InventoryDeleteItem,
+        (int)EventCodes.InventoryState,
         (int)EventCodes.TimeSync,
     ];
 

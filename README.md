@@ -35,7 +35,7 @@ An alternative client for [The Albion Online Data Project](https://www.albion-on
 | Loot Tracker         | Tracks loots from the player and others, includes estimated market value |
 | Enhanced Capture       | Captures data from loadout's quick buy screen, market screens, and gold screen |
 | Specs Capture          | Uploads character specs for use with AFM website                               |
-| Farming Tracker        | Privately uploads observed island plots and farming production to your AFM account |
+| Farming Tracker        | Privately records island plots, farming inputs/outputs, focus usage, and observed EMV for your AFM account |
 | Launch on Startup      | Automatically starts with your system                                          |
 | System Tray            | Runs quietly in system tray for minimal interference                           |
 | Auto-Updates           | Silent, automatic updates                                                      |
