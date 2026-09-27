@@ -1,13 +1,8 @@
 {
-  "version": "0.48.0.0",
+  "version": "0.50.0.0",
   "stable": {
-    "version": "0.48.0.0",
-    "windowsDownloadUrl": "https://github.com/JPCodeCraft/AlbionDataAvalonia/releases/download/v.0.48.0.0/AFMDataClientSetup_v_0.48.0.0.exe",
-    "releasePageUrl": "https://github.com/JPCodeCraft/AlbionDataAvalonia/releases/tag/v.0.48.0.0"
-  },
-  "beta": {
-    "version": "0.49.0.0",
-    "windowsDownloadUrl": "https://github.com/JPCodeCraft/AlbionDataAvalonia/releases/download/v.0.49.0.0-beta/AFMDataClientSetup_v_0.49.0.0.exe",
-    "releasePageUrl": "https://github.com/JPCodeCraft/AlbionDataAvalonia/releases/tag/v.0.49.0.0-beta"
+    "version": "0.50.0.0",
+    "windowsDownloadUrl": "https://github.com/JPCodeCraft/AlbionDataAvalonia/releases/download/v.0.50.0.0/AFMDataClientSetup_v_0.50.0.0.exe",
+    "releasePageUrl": "https://github.com/JPCodeCraft/AlbionDataAvalonia/releases/tag/v.0.50.0.0"
   }
 }
