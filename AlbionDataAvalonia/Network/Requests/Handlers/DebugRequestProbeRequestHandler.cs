@@ -43,12 +43,13 @@ public class DebugRequestProbeRequestHandler : PacketHandler<RequestPacket>
 
         var request = new DebugRequestProbeRequest(packet.Parameters);
         Log.Debug(
-            "Debug probe captured request {OperationCode} ({OperationName}). MessageSizeBytes={MessageSizeBytes}, IsFragmented={IsFragmented}, FragmentCount={FragmentCount}, ParameterCount={ParameterCount}: {Parameters}",
+            "Debug probe captured request {OperationCode} ({OperationName}). MessageSizeBytes={MessageSizeBytes}, IsFragmented={IsFragmented}, FragmentCount={FragmentCount}, CapturedAt={CapturedAt:O}, ParameterCount={ParameterCount}: {Parameters}",
             packet.OperationCode,
             System.Enum.GetName(typeof(OperationCodes), packet.OperationCode) ?? "Unknown",
             packet.MessageSizeBytes,
             packet.IsFragmented,
             packet.FragmentCount,
+            packet.CapturedAt,
             request.Parameters.Count,
             DebugProbeFormatter.FormatParameters(request.Parameters));
 

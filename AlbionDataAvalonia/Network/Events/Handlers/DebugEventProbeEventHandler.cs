@@ -53,10 +53,11 @@ public class DebugEventProbeEventHandler : EventPacketHandler<DebugEventProbeEve
         }
         var value = new DebugEventProbeEvent(packet.Parameters);
         Log.Debug(
-            "Debug probe captured event {EventCode} ({EventName}) with {ParameterCount} parameter(s): {Parameters}",
+            "Debug probe captured event {EventCode} ({EventName}) with {ParameterCount} parameter(s). CapturedAt={CapturedAt:O}: {Parameters}",
             packet.EventCode,
             System.Enum.GetName(typeof(EventCodes), packet.EventCode) ?? "Unknown",
             value.Parameters.Count,
+            packet.CapturedAt,
             DebugProbeFormatter.FormatParameters(value.Parameters));
 
         return Task.CompletedTask;

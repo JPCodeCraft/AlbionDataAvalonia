@@ -172,6 +172,10 @@ Inspect `Debug probe captured` entries in the daily log under
 `%LOCALAPPDATA%/AFMDataClient/logs`. These probe additions do not change tracker state,
 upload behavior, or Release builds.
 
+The probes include the packet's UTC `CapturedAt` timestamp. Use it to compare
+request and event timing: the timestamp at the start of a log line records
+processing, which can lag capture while the device buffers packets.
+
 ### September 16, 2026 pasture demolition capture
 
 The local log records a new pasture at `(145, 135)` at 16:50:26 (UTC-3), session
