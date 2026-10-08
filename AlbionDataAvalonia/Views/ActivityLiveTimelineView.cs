@@ -20,7 +20,11 @@ public sealed class ActivityLiveTimelineView : UserControl
     public static readonly StyledProperty<ICommand?> OpenEncounterCommandProperty =
         AvaloniaProperty.Register<ActivityLiveTimelineView, ICommand?>(nameof(OpenEncounterCommand));
 
+    public static readonly StyledProperty<bool> IsGatheringModeProperty =
+        AvaloniaProperty.Register<ActivityLiveTimelineView, bool>(nameof(IsGatheringMode));
     private readonly ActivityLiveTimelineCanvas canvas = new();
+    private readonly ComboBox mode = TimelineSelector(new[] { "Combat", "Gathering" }, 135);
+    private readonly ComboBox direction = TimelineSelector(new[] { "Dealt", "Received" }, 116);
     private readonly Button pauseButton = SecondaryButton("Pause timeline");
     private readonly TextBlock stateText = new() { FontSize = 12, Opacity = 0.8, VerticalAlignment = VerticalAlignment.Center };
     private readonly TextBlock inspectionText = new()
@@ -47,24 +51,15 @@ public sealed class ActivityLiveTimelineView : UserControl
 
     public ActivityLiveTimelineSnapshot? Snapshot { get => GetValue(SnapshotProperty); set => SetValue(SnapshotProperty, value); }
     public ICommand? OpenEncounterCommand { get => GetValue(OpenEncounterCommandProperty); set => SetValue(OpenEncounterCommandProperty, value); }
+    public bool IsGatheringMode { get => GetValue(IsGatheringModeProperty); set => SetValue(IsGatheringModeProperty, value); }
 
     public ActivityLiveTimelineView()
     {
-        var direction = new ComboBox
-        {
-            ItemsSource = new[] { "Dealt", "Received" },
-            SelectedIndex = 0,
-            Width = 116,
-            Height = 32,
-            Background = new SolidColorBrush(Color.Parse("#424242")),
-            BorderBrush = new SolidColorBrush(Color.Parse("#555555")),
-            VerticalContentAlignment = VerticalAlignment.Center
-        };
+        mode.SelectionChanged += (_, _) => IsGatheringMode = mode.SelectedIndex == 1;
         direction.SelectionChanged += (_, _) =>
         {
             canvas.ShowReceived = direction.SelectedIndex == 1;
-            damageLegend.Text = canvas.ShowReceived ? "●  Damage received" : "●  Damage dealt";
-            healingLegend.Text = canvas.ShowReceived ? "●  Healing received" : "●  Healing done";
+            UpdateMode();
             canvas.InvalidateVisual();
         };
         pauseButton.Click += (_, _) =>
@@ -78,7 +73,7 @@ public sealed class ActivityLiveTimelineView : UserControl
             Spacing = 3,
             Children = { new TextBlock { Text = "Last five minutes", FontSize = 18, FontWeight = FontWeight.DemiBold }, stateText }
         });
-        var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center, Children = { direction, pauseButton } };
+        var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center, Children = { mode, direction, pauseButton } };
         Grid.SetColumn(actions, 1);
         heading.Children.Add(actions);
 
@@ -86,7 +81,7 @@ public sealed class ActivityLiveTimelineView : UserControl
         foreach (var legend in new[]
         {
             damageLegend, healingLegend, Legend("Kills", Color.Parse("#64CBDD")), Legend("Deaths / knockdowns", Color.Parse("#F47D7D")),
-            Legend("Loot", Color.Parse("#BF91F0")), Legend("Your fame", Color.Parse("#86D1A2")), Legend("Silver", Color.Parse("#E7BD64"))
+            Legend("Loot", Color.Parse("#BF91F0")), Legend("Harvest", ActivityLiveTimelineCanvas.GatheringColor), Legend("Fishing", ActivityLiveTimelineCanvas.FishingColor), Legend("Your fame", Color.Parse("#86D1A2")), Legend("Silver", Color.Parse("#E7BD64"))
         }) legends.Children.Add(legend);
 
         var closeDetails = SecondaryButton("Close");
@@ -137,9 +132,10 @@ public sealed class ActivityLiveTimelineView : UserControl
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
+        if (change.Property == IsGatheringModeProperty) { UpdateMode(); return; }
         if (change.Property != SnapshotProperty) return;
         var snapshot = Snapshot;
-        var contextChanged = snapshot?.SessionId != latest?.SessionId || snapshot?.Scope != latest?.Scope;
+        var contextChanged = snapshot?.SessionId != latest?.SessionId || snapshot?.Scope != latest?.Scope || snapshot?.Categories != latest?.Categories;
         latest = snapshot;
         sinceSnapshot.Restart();
         if (contextChanged)
@@ -152,6 +148,30 @@ public sealed class ActivityLiveTimelineView : UserControl
         if (!pointerHolding && !manuallyPaused) DrawLatest();
         UpdateState();
     }
+
+    private void UpdateMode()
+    {
+        canvas.IsGatheringMode = IsGatheringMode;
+        mode.SelectedIndex = IsGatheringMode ? 1 : 0;
+        direction.IsVisible = !IsGatheringMode;
+        damageLegend.Text = IsGatheringMode ? "●  Harvested / sec" : canvas.ShowReceived ? "●  Damage received" : "●  Damage dealt";
+        healingLegend.Text = IsGatheringMode ? "●  Fishing rewards / sec" : canvas.ShowReceived ? "●  Healing received" : "●  Healing done";
+        damageLegend.Foreground = new SolidColorBrush(IsGatheringMode ? ActivityLiveTimelineCanvas.GatheringColor : ActivityLiveTimelineCanvas.DamageColor);
+        healingLegend.Foreground = new SolidColorBrush(IsGatheringMode ? ActivityLiveTimelineCanvas.FishingColor : ActivityLiveTimelineCanvas.HealingColor);
+        canvas.ClearInspection();
+        canvas.InvalidateVisual();
+    }
+
+    private static ComboBox TimelineSelector(string[] items, double width) => new()
+    {
+        ItemsSource = items,
+        SelectedIndex = 0,
+        Width = width,
+        Height = 32,
+        Background = new SolidColorBrush(Color.Parse("#424242")),
+        BorderBrush = new SolidColorBrush(Color.Parse("#555555")),
+        VerticalContentAlignment = VerticalAlignment.Center
+    };
 
     private void Hold()
     {

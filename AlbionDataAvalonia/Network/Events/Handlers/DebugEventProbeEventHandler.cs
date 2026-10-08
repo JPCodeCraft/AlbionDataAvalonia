@@ -27,6 +27,8 @@ public class DebugEventProbeEventHandler : EventPacketHandler<DebugEventProbeEve
         (int)EventCodes.RegenerationHealthChanged,
         (int)EventCodes.RegenerationHealthEnergyComboChanged,
         (int)EventCodes.UpdateFame,
+        (int)EventCodes.HarvestFinished,
+        (int)EventCodes.RewardGranted,
         (int)EventCodes.TakeSilver,
         (int)EventCodes.NewSilverObject,
         (int)EventCodes.RemoveSilver,

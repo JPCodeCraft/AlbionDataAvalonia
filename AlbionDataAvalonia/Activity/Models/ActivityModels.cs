@@ -10,8 +10,20 @@ public enum ActivityEvidence { Confirmed, Inferred, Supplemental }
 public enum ActivityEventKind
 {
     Damage, Healing, Fame, Silver, Loot, MobKilled, PlayerKilled, Death,
-    Knockdown, Location, CaptureGap, OutcomeEvidence
+    Knockdown, Location, CaptureGap, OutcomeEvidence,
+    Gathered, FishingReward, LegacyGatheringAggregate, LegacyImportMarker
 }
+[Flags]
+public enum ActivityTags { None = 0, Gathering = 1, Pve = 2, Pvp = 4 }
+[Flags]
+public enum ActivityCategories
+{
+    None = 0, Gathering = 1, Fishing = 2, Pve = 4, Pvp = 8, Other = 16,
+    Loot = 32, Fame = 64, Silver = 128, Outcomes = 256, Combat = 512, All = 1023
+}
+[Flags]
+public enum ActivityItemSources { None = 0, Loot = 1, Gathering = 2, Fishing = 4, LegacyMixed = 8, All = 15 }
+public enum ActivityResourceMethod { Unknown, Gathering, Fishing, Mixed }
 public enum ActivityState { Open, Closed, Interrupted }
 public enum ActivitySessionKind
 {
@@ -137,6 +149,18 @@ public sealed record ActivityEvent
 
 public sealed record ActivitySummary
 {
+    public int TagVersion { get; init; }
+    public long GatheringEvents { get; init; }
+    public long PveEvents { get; init; }
+    public long PvpEvents { get; init; }
+    public long GatheringItems { get; init; }
+    public long FishingItems { get; init; }
+    public long UnclassifiedResourceItems { get; init; }
+    public long GatheringValue { get; init; }
+    public long FishingValue { get; init; }
+    public long UnclassifiedResourceValue { get; init; }
+    public long MissingResourcePriceItems { get; init; }
+    public long LegacyAggregateEvents { get; init; }
     public double DamageDealt { get; init; }
     public double DamageReceived { get; init; }
     public double HealingDone { get; init; }
@@ -155,6 +179,11 @@ public sealed record ActivitySummary
     public double UnclassifiedFame => Fame;
     public long MissingLootPriceCount => MissingPriceItems;
     public long UnknownSilverCount => UnknownSilverEvents;
+    public long ResourceItems => GatheringItems + FishingItems + UnclassifiedResourceItems;
+    public long ResourceValue => GatheringValue + FishingValue + UnclassifiedResourceValue;
+    public bool IsLegacyAggregate => LegacyAggregateEvents > 0;
+    public ActivityTags Tags => (GatheringEvents > 0 ? ActivityTags.Gathering : ActivityTags.None) |
+        (PveEvents > 0 ? ActivityTags.Pve : ActivityTags.None) | (PvpEvents > 0 ? ActivityTags.Pvp : ActivityTags.None);
 }
 
 public sealed record ActivityQuery
@@ -173,10 +202,14 @@ public sealed record ActivityQuery
     public ActivityEventKind? Kind { get; init; }
     public string? Search { get; init; }
     public bool LootOnly { get; init; }
+    public bool ItemsOnly { get; init; }
+    public ActivityItemSources ItemSources { get; init; } = ActivityItemSources.All;
+    public ActivityTags ContainsTags { get; init; }
+    public ActivityCategories ShowCategories { get; init; } = ActivityCategories.All;
 }
 
 public sealed record ActivityPage<T>(IReadOnlyList<T> Items, bool HasMore);
-public enum ActivityChartMetric { DamageDealt, DamageReceived, HealingDone, HealingReceived, Fame, Silver, LootValue }
+public enum ActivityChartMetric { DamageDealt, DamageReceived, HealingDone, HealingReceived, Fame, Silver, LootValue, GatheringItems, FishingItems, ResourceItems, ResourceValue }
 public sealed record ActivityChartPoint(DateTime CapturedAtUtc, double Value);
 public sealed record ActivityActorTotal(string ActorId, string Name, ActorRelationship Relationship,
     double DamageDealt, double DamageReceived, double HealingDone, double HealingReceived);
@@ -185,4 +218,44 @@ public sealed record ActivityRecordingStatus(bool IsSuspended, int PendingChange
 public sealed record ActivityLootPrice(string Server, int ItemId, int Quality, long UnitValue, DateTime ObservedAtUtc);
 public sealed record ActivityRates(double DurationSeconds, double DamagePerSecond,
     double HealingPerSecond, double FamePerHour, double SilverPerHour, double LootValuePerHour,
-    double DamageReceivedPerSecond, double HealingReceivedPerSecond, double CombatDurationSeconds = 0);
+    double DamageReceivedPerSecond, double HealingReceivedPerSecond, double CombatDurationSeconds = 0,
+    double ResourceItemsPerHour = 0, double ResourceValuePerHour = 0);
+
+public sealed record ActivityResourceTotal(int? ItemId, int? Quality, string? UniqueName, string Name,
+    ActivityResourceMethod Source, long Quantity, long KnownValue, long MissingPriceItems);
+public sealed record ActivityImportResult(int ImportedSessions, int SkippedSessions, IReadOnlyList<string> Errors);
+public sealed record ActivityResourceDetails
+{
+    public long? ResourceObjectId { get; init; }
+    public long? StandardAmount { get; init; }
+    public long? GatheringBonusAmount { get; init; }
+    public long? PremiumBonusAmount { get; init; }
+    public string? FishingAttemptId { get; init; }
+    public long? InventoryItemObjectId { get; init; }
+    public string? Proof { get; init; }
+    public DateTime? FinishAtUtc { get; init; }
+    public string? AcquisitionOriginKey { get; init; }
+    public string Timing { get; init; } = "Exact";
+    public ActivityResourceMethod Method { get; init; }
+    public string? ResourceFamily { get; init; }
+    public int? Tier { get; init; }
+    public int? Enchantment { get; init; }
+    public IReadOnlyDictionary<string, string>? ComponentStates { get; init; }
+    public ActivityLegacyImportInfo? Legacy { get; init; }
+}
+public sealed record ActivityLegacyImportInfo
+{
+    public Guid SourceSessionId { get; init; }
+    public Guid? SourceItemId { get; init; }
+    public Guid? CheckpointId { get; init; }
+    public int? CheckpointItemIndex { get; init; }
+    public long? RecordedTotalValue { get; init; }
+    public long OriginalTotalAmount { get; init; }
+    public long OriginalTotalValue { get; init; }
+    public long OriginalSilverPerHour { get; init; }
+    public DateTime StartedAtUtc { get; init; }
+    public DateTime EndedAtUtc { get; init; }
+    public bool IsCheckpoint { get; init; }
+    public bool HasMismatch { get; init; }
+    public string Coverage { get; init; } = "Session totals only; event times, location, character GUID, combat, fame and cash were not recorded.";
+}

@@ -22,6 +22,7 @@ public partial class ActivityViewModel
         if (tracker is null || SelectedTabIndex != 0 || liveTimelineRefreshing || isDisposed) return;
         var sessionId = tracker.CurrentSessionId;
         var scope = SelectedScope.Value;
+        var categories = VisibleCategories;
         if (sessionId is null)
         {
             CurrentLiveTimeline = null;
@@ -31,8 +32,8 @@ public partial class ActivityViewModel
         liveTimelineRefreshing = true;
         try
         {
-            var snapshot = await tracker.GetLiveTimelineAsync(sessionId, scope, DateTime.UtcNow, liveTimelineCancellation.Token);
-            if (isDisposed || SelectedTabIndex != 0 || tracker.CurrentSessionId != sessionId || SelectedScope.Value != scope) return;
+            var snapshot = await tracker.GetLiveTimelineAsync(sessionId, scope, DateTime.UtcNow, liveTimelineCancellation.Token, categories);
+            if (isDisposed || SelectedTabIndex != 0 || tracker.CurrentSessionId != sessionId || SelectedScope.Value != scope || VisibleCategories != categories) return;
             CurrentLiveTimeline = snapshot;
             if (liveTimelineReadFailed && ErrorText == LiveTimelineReadError) ErrorText = "";
             liveTimelineReadFailed = false;

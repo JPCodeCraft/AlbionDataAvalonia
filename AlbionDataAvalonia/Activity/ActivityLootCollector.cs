@@ -27,6 +27,8 @@ internal sealed class ActivityLootCollector : IDisposable
     private readonly Dictionary<long, Guid> membership = new();
     private readonly List<Candidate> candidates = new();
     private readonly List<Gain> gains = new();
+    private readonly Dictionary<long, LocalIntroduction> localIntroductions = new();
+    private readonly List<ResourceClaim> resourceClaims = new();
     private readonly List<RecentPickup> recent = new();
     private DateTime nonLootMoveUntil;
     private Guid? inventory;
@@ -78,12 +80,13 @@ internal sealed class ActivityLootCollector : IDisposable
         if (previous is not null && previous.LastSeen > at) return;
         if (previous is null && pendingInventoryMetadata.Count >= 4096) return;
         var sameItem = previous?.Id == value.ItemIndex ? previous : null;
+        var validatedSimple = packet is NewSimpleItemEvent { HasValidAcquisitionMetadata: true };
         pendingInventoryMetadata[key] = new Item(value.ObjectId.Value, value.ItemIndex,
             value.Quality > 0 ? value.Quality : sameItem?.Quality,
             value.Quantity > 0 ? value.Quantity : sameItem?.Quantity ?? 0,
             value.ItemUniqueName == "Unset" ? sameItem?.UniqueName : value.ItemUniqueName,
             value.ItemUsName == "Unset" ? sameItem?.Name : value.ItemUsName, at,
-            value.Quantity > 0 ? at : sameItem?.QuantitySeenAt ?? DateTime.MinValue);
+            value.Quantity > 0 ? at : sameItem?.QuantitySeenAt ?? DateTime.MinValue, validatedSimple);
     }
 
     private static PendingInventoryItemKey PendingKey(string connection, PhotonMessageIdentity? identity, long objectId)
@@ -176,7 +179,9 @@ internal sealed class ActivityLootCollector : IDisposable
             case OtherGrabbedLootEvent pickup:
                 Broadcast(pickup, at);
                 break;
-            case NewSimpleItemEvent item: NewItem(item.Item, at); break;
+            case NewSimpleItemEvent item when item.ObjectIdState == PacketFieldState.Valid && item.ItemIdState == PacketFieldState.Valid:
+                NewItem(item.Item, at, item.HasValidAcquisitionMetadata);
+                break;
             case NewEquipmentItemEvent item: NewItem(item.Item, at); break;
             case NewFurnitureItemEvent item: NewItem(item.Item, at); break;
             case NewJournalItemEvent item: NewItem(item.Item, at); break;
@@ -228,24 +233,31 @@ internal sealed class ActivityLootCollector : IDisposable
     private Item ItemSnapshot(long objectId, DateTime at) => items.GetValueOrDefault(objectId)
         ?? new Item(objectId, 0, null, 0, null, null, at, DateTime.MinValue);
 
-    private void NewItem(NewItem? item, DateTime at)
+    private void NewItem(NewItem? item, DateTime at, bool? validatedSimple = null)
     {
         if (item is null || item.ObjectId is not > 0 || item.ItemIndex <= 0) return;
-        Metadata(item.ObjectId.Value, item.ItemIndex, item.Quality > 0 ? item.Quality : null, item.Quantity > 0 ? item.Quantity : null,
+        Metadata(item.ObjectId.Value, item.ItemIndex, item.Quality > 0 ? item.Quality : null,
+            item.Quantity > 0 && validatedSimple != false ? item.Quantity : null,
             item.ItemUniqueName == "Unset" ? null : item.ItemUniqueName,
-            item.ItemUsName == "Unset" ? null : item.ItemUsName, at);
+            item.ItemUsName == "Unset" ? null : item.ItemUsName, at, validatedSimple == true);
     }
 
-    private void Metadata(long objectId, int itemId, int? quality, long? quantity, string? uniqueName, string? name, DateTime at)
+    private void Metadata(long objectId, int itemId, int? quality, long? quantity, string? uniqueName, string? name, DateTime at,
+        bool validatedSimple = false)
     {
         var old = items.GetValueOrDefault(objectId);
         var next = new Item(objectId, itemId, quality ?? old?.Quality, quantity ?? old?.Quantity ?? 0,
             uniqueName ?? old?.UniqueName, name ?? old?.Name, at,
-            quantity is > 0 ? at : old?.QuantitySeenAt ?? DateTime.MinValue);
+            quantity is > 0 ? at : old?.QuantitySeenAt ?? DateTime.MinValue,
+            quantity is > 0 ? validatedSimple : old?.ValidAcquisitionQuantity ?? false);
         items[objectId] = next;
-        if (membership.GetValueOrDefault(objectId) == inventory && old is not null
+        if (membership.GetValueOrDefault(objectId) == inventory && quantity is > 0 && validatedSimple && at > nonLootMoveUntil
+            && localIntroductions.Remove(objectId, out var introduction) && at - introduction.At <= TimeSpan.FromSeconds(2))
+            AddGain(new Gain(objectId, quantity.Value, next, at, introduction.Context, true));
+        else if (membership.GetValueOrDefault(objectId) == inventory && old is not null
             && old.Id == itemId && next.Quantity > old.Quantity && at > nonLootMoveUntil)
-            gains.Add(new Gain(objectId, next.Quantity - old.Quantity, next, at, tracker.Stamp(ActivityEventKind.Loot, at, null)));
+            AddGain(new Gain(objectId, next.Quantity - old.Quantity, next, at, tracker.Stamp(ActivityEventKind.Loot, at, null),
+                next.ValidAcquisitionQuantity && old.ValidAcquisitionQuantity));
         if (quantity is { } observedQuantity)
             foreach (var candidate in candidates.Where(x => x.ObjectId == objectId && x.Baseline.Quantity > observedQuantity))
                 candidate.Decrement = candidate.Baseline.Quantity - observedQuantity;
@@ -284,6 +296,8 @@ internal sealed class ActivityLootCollector : IDisposable
                 (!containers.TryGetValue(destination, out var next) || next.SourceId != x.Source.Id));
         if (destination == inventory)
         {
+            if (previous != inventory && previous == Guid.Empty && at > nonLootMoveUntil && localIntroductions.Count < 256)
+                localIntroductions[objectId] = new LocalIntroduction(at, tracker.Stamp(ActivityEventKind.Loot, at, origin));
             var matches = candidates.Where(x => x.ObjectId == objectId && !x.Confirmed && at - x.CreatedAt <= TimeSpan.FromSeconds(10)).ToArray();
             if (matches.Length == 0 && previous != inventory && candidates.Count < 256
                 && containers.TryGetValue(previous, out var sourceContainer) && sources.TryGetValue(sourceContainer.SourceId, out var source))
@@ -320,7 +334,11 @@ internal sealed class ActivityLootCollector : IDisposable
             else if (previous != destination && at > nonLootMoveUntil
                 && (previous == Guid.Empty || containers.TryGetValue(previous, out var from) && sources.ContainsKey(from.SourceId))
                 && items.TryGetValue(objectId, out var newItem))
-                gains.Add(new Gain(objectId, newItem.Quantity, newItem, at, tracker.Stamp(ActivityEventKind.Loot, at, origin)));
+            {
+                AddGain(new Gain(objectId, newItem.Quantity, newItem, at, tracker.Stamp(ActivityEventKind.Loot, at, origin),
+                    newItem.ValidAcquisitionQuantity && at - newItem.QuantitySeenAt <= TimeSpan.FromSeconds(2)));
+                if (newItem.ValidAcquisitionQuantity && newItem.Quantity > 0) localIntroductions.Remove(objectId);
+            }
         }
         membership[objectId] = destination;
     }
@@ -374,6 +392,8 @@ internal sealed class ActivityLootCollector : IDisposable
     {
         if (quantity <= 0 || candidate.Confirmed) return;
         candidate.Confirmed = true;
+        foreach (var gain in gains.Where(x => x.ObjectId == item.ObjectId && x.Item.Id == item.Id
+            && Math.Abs((x.At - at).TotalSeconds) <= 3)) gain.Consumed = true;
         var matching = MatchRecent(candidate.Source.Name, item.Id, quantity, candidate.Actor.Id, at);
         if (matching is not null && matching.IsBroadcast)
         {
@@ -433,6 +453,9 @@ internal sealed class ActivityLootCollector : IDisposable
         }
         if (packet.ItemId <= 0 || packet.RawAmount is not > 0 || string.IsNullOrWhiteSpace(packet.PlayerName)) return;
         var picker = tracker.ResolveActor(null, packet.PlayerName);
+        if (picker.Relationship == ActorRelationship.Self)
+            foreach (var gain in gains.Where(x => x.Item.Id == packet.ItemId && x.Quantity == packet.RawAmount
+                && Math.Abs((x.At - at).TotalSeconds) <= 3)) gain.Consumed = true;
         var descriptor = itemNames.GetItemById(packet.ItemId);
         var pendingTransfers = candidates.Where(x => !x.Confirmed && x.Transfer is { } transfer
             && transfer.ItemId == packet.ItemId && transfer.SourceActorId == picker.Id
@@ -541,6 +564,9 @@ internal sealed class ActivityLootCollector : IDisposable
 
     public void Expire(DateTime at)
     {
+        foreach (var key in localIntroductions.Where(x => at - x.Value.At > TimeSpan.FromSeconds(2)).Select(x => x.Key).ToArray())
+            localIntroductions.Remove(key);
+        resourceClaims.RemoveAll(x => at - x.At > TimeSpan.FromSeconds(5));
         foreach (var key in pendingInventoryMetadata.Where(x => at - x.Value.LastSeen > TimeSpan.FromSeconds(10))
             .Select(x => x.Key).ToArray()) pendingInventoryMetadata.Remove(key);
         foreach (var candidate in candidates.Where(x => !x.Confirmed && x.Removed
@@ -551,7 +577,7 @@ internal sealed class ActivityLootCollector : IDisposable
             candidate.Confirmed = true;
         }
         candidates.RemoveAll(x => at - x.CreatedAt > TimeSpan.FromSeconds(10));
-        gains.RemoveAll(x => x.Consumed || at - x.At > TimeSpan.FromSeconds(3));
+        gains.RemoveAll(x => x.Consumed || at - x.At > TimeSpan.FromSeconds(5));
         recent.RemoveAll(x => at - x.At > TimeSpan.FromMinutes(2));
         foreach (var key in items.Where(x => at - x.Value.LastSeen > TimeSpan.FromMinutes(10)).Select(x => x.Key).ToArray()) items.Remove(key);
         foreach (var key in containers.Where(x => at - x.Value.LastSeen > TimeSpan.FromMinutes(10)).Select(x => x.Key).ToArray()) containers.Remove(key);
@@ -561,7 +587,51 @@ internal sealed class ActivityLootCollector : IDisposable
         if (recent.Count > 4096) recent.RemoveRange(0, recent.Count - 4096);
     }
 
-    public void ResetCandidates() { candidates.Clear(); gains.Clear(); }
+    // Only the local inventory proofs used by loot are exposed. Requests, source
+    // removals, and ambiguous membership changes cannot confirm fishing rewards.
+    internal ActivityAcquisitionEvidence? ClaimResourceAcquisition(int itemId, long quantity, long excludedObjectId,
+        DateTime from, DateTime until, long epoch)
+    {
+        var matches = gains.Where(gain => !gain.Consumed && gain.ValidatedSimple && gain.ObjectId != excludedObjectId
+            && gain.Item.Id == itemId && gain.Quantity == quantity && gain.At >= from && gain.At <= until
+            && gain.Context.MapEpoch == epoch
+            && !candidates.Any(candidate => candidate.ObjectId == gain.ObjectId && !candidate.Confirmed)
+            && !recent.Any(pickup => pickup.Event.Evidence == ActivityEvidence.Confirmed && pickup.Event.ItemId == itemId
+                && pickup.Event.Quantity == quantity && pickup.Event.SourceRelationship == ActorRelationship.Self
+                && Math.Abs((pickup.At - gain.At).TotalSeconds) <= 3)
+            && !resourceClaims.Any(claim => claim.ItemId == itemId && claim.Quantity == quantity
+                && Math.Abs((claim.At - gain.At).TotalSeconds) <= 2)).ToArray();
+        if (matches.Length != 1) return null;
+        var match = matches[0];
+        match.Consumed = true;
+        resourceClaims.Add(new ResourceClaim(itemId, quantity, match.At));
+        return new ActivityAcquisitionEvidence(match.ObjectId, match.Item.Quality, match.Item.UniqueName, match.Item.Name,
+            match.At, match.Context.OriginKey);
+    }
+
+    internal void NoteHarvestAcquisition(int itemId, long quantity, DateTime at)
+    {
+        if (resourceClaims.Count >= 256) resourceClaims.RemoveAt(0);
+        resourceClaims.Add(new ResourceClaim(itemId, quantity, at));
+        foreach (var gain in gains.Where(x => x.Item.Id == itemId && x.Quantity == quantity
+            && Math.Abs((x.At - at).TotalSeconds) <= 2)) gain.Consumed = true;
+    }
+
+    private void AddGain(Gain value)
+    {
+        if (value.Quantity <= 0 || gains.Any(x => x.ObjectId == value.ObjectId && x.At == value.At && x.Quantity == value.Quantity)) return;
+        if (gains.Count >= 256) gains.RemoveAt(0);
+        gains.Add(value);
+    }
+
+    public void ResetCandidates() { candidates.Clear(); gains.Clear(); localIntroductions.Clear(); resourceClaims.Clear(); }
+    internal void DisruptLocalAcquisition(DateTime at)
+    {
+        if (nonLootMoveUntil < at.AddSeconds(10)) nonLootMoveUntil = at.AddSeconds(10);
+        gains.RemoveAll(x => x.At <= at);
+        foreach (var key in localIntroductions.Where(x => x.Value.At <= at).Select(x => x.Key).ToArray())
+            localIntroductions.Remove(key);
+    }
     public void Reset()
     { ResetCandidates(); items.Clear(); pendingInventoryMetadata.Clear(); sources.Clear(); containers.Clear(); membership.Clear(); recent.Clear(); inventory = null; nonLootMoveUntil = default; }
     public void ForgetSession(Guid id) { recent.RemoveAll(x => x.Event.SessionId == id); ResetCandidates(); }
@@ -570,7 +640,7 @@ internal sealed class ActivityLootCollector : IDisposable
     public void Dispose() => values.EstimatedMarketValuesChanged -= PricesChanged;
 
     private sealed record Item(long ObjectId, int Id, int? Quality, long Quantity, string? UniqueName, string? Name,
-        DateTime LastSeen, DateTime QuantitySeenAt);
+        DateTime LastSeen, DateTime QuantitySeenAt, bool ValidAcquisitionQuantity = false);
     private readonly record struct PendingInventoryItemKey(string Connection, Guid? ReceiverGeneration, short? PeerId,
         int? Challenge, long ObjectId);
     private sealed record Source(long Id, string Name, string Kind, DateTime LastSeen);
@@ -595,8 +665,13 @@ internal sealed class ActivityLootCollector : IDisposable
         public ActivityEvent? Transfer { get; set; }
         public ActivityEvent? Removal { get; set; }
     }
-    private sealed class Gain(long objectId, long quantity, Item item, DateTime at, ActivityEvent context)
-    { public long ObjectId { get; } = objectId; public long Quantity { get; } = quantity; public Item Item { get; } = item; public DateTime At { get; } = at; public ActivityEvent Context { get; } = context; public bool Consumed { get; set; } }
+    private sealed class Gain(long objectId, long quantity, Item item, DateTime at, ActivityEvent context, bool validatedSimple = false)
+    { public long ObjectId { get; } = objectId; public long Quantity { get; } = quantity; public Item Item { get; } = item; public DateTime At { get; } = at; public ActivityEvent Context { get; } = context; public bool ValidatedSimple { get; } = validatedSimple; public bool Consumed { get; set; } }
+    private sealed record LocalIntroduction(DateTime At, ActivityEvent Context);
+    private sealed record ResourceClaim(int ItemId, long Quantity, DateTime At);
     private sealed class RecentPickup(ActivityEvent observation, long? objectId, DateTime at, bool isBroadcast)
     { public ActivityEvent Event { get; set; } = observation; public long? ObjectId { get; set; } = objectId; public DateTime At { get; } = at; public bool IsBroadcast { get; } = isBroadcast; public bool Matched { get; set; } }
 }
+
+internal sealed record ActivityAcquisitionEvidence(long ObjectId, int? Quality, string? UniqueName, string? Name,
+    DateTime CapturedAtUtc, string? OriginKey);

@@ -27,11 +27,10 @@ An alternative client for [The Albion Online Data Project](https://www.albion-on
 
 | Feature                   | Description                                                                    |
 | ------------------------- | ------------------------------------------------------------------------------ |
-| Gathering and Fishing Tracker | Tracks harvested resources, fishing rewards, session value, and silver per hour |
 | Market Data Collection | Captures in-game market data and uploads to AODP servers                       |
 | Market Mail Tracking   | Collects and displays your market mail data for price tracking                 |
 | Trade History          | Stores instant buy/sell trades for later reference                             |
-| Activity Tracker       | Saves sessions containing encounters, combat, participated mob deaths, silver, observed fame, and loot |
+| Activity Tracker       | Saves sessions containing combat encounters, gathering, fishing, loot, silver, observed fame, and participated mob deaths |
 | Enhanced Capture       | Captures data from loadout's quick buy screen, market screens, and gold screen |
 | Specs Capture          | Uploads character specs for use with AFM website                               |
 | Farming Tracker        | Privately records island plots, farming inputs/outputs, focus usage, and observed EMV for your AFM account |
@@ -168,9 +167,9 @@ rm -rf "$HOME/Library/Application Support/AFMDataClient"
 
 ### Activity Tracker
 
-Activity combines **Current**, **History**, and **Loot**. Sessions contain encounters and activity between fights; session totals include every assigned event directly. Personal and Party filters use membership saved when each event occurred. Party includes your character. Loot also supports All observed.
+Activity combines **Current**, **History**, and **Items**. Sessions contain encounters and activity between fights; session totals include every assigned event directly. Personal and Party filters use membership saved when each event occurred. Party includes your character. Items also supports All observed and source filters for loot, gathering, and fishing.
 
-Current includes a rolling **Last five minutes** timeline with damage/healing areas, grouped outcome and reward markers, and encounter combat spans. **Dealt / Received** changes the health series. Hover or **Pause timeline** holds the display while recording continues; **Resume live** returns to the latest activity. Markers open details, and encounter spans open history. The graph shows health per second in each short window, including idle zeros; headline DPS/HPS uses combat time. Capture gaps are shown separately from downtime.
+Current includes a rolling **Last five minutes** timeline with damage/healing areas, grouped outcome and reward markers, and encounter combat spans. **Dealt / Received** changes the health series. Hover or **Pause timeline** holds the display while recording continues; **Resume live** returns to the latest activity. Markers open details, and encounter spans open history. The graph shows health per second in each short window, including idle zeros; headline DPS/HPS uses combat time. Capture gaps are shown separately from downtime. **Gathering** chart mode shows harvested and fished items per second on a separate scale. **Show** filters apply to charts and events, leaving whole-session cards unchanged; selected categories match any. History **Contains all** tags match every selected tag. PvE/PvP views include earnings observed during matching encounters, without attributing those rewards to combat.
 
 Relevant damage or attributable healing opens an encounter and refreshes its seven-second inactivity deadline. Loot, silver, fame and outcome signals never extend combat. Encounter DPS/HPS uses the first-to-last combat span with a one-second minimum. Encounter earnings mean **observed during the encounter**, without claiming the fight produced them.
 
@@ -182,29 +181,17 @@ Inventory requests only create short-lived candidates. Server-confirmed exact tr
 
 The journal batches writes every second or 250 changes. Database failures retain accepted work and visibly suspend recording if needed. Capture restart waits for fresh identity/map confirmation; traffic silence is not logout. Process restart marks unfinished activity Interrupted. Shutdown drains recording before disposing capture/core services. Existing SQLite backups include Activity tables.
 
-Debug builds log raw Activity packet probes when **Logs → Log verbosity** is **Debug** or **Verbose**. Probes include combat, earnings, party, map/Join, chest, inventory, and move responses with capture time and transport identity. Information or higher stops packet probes.
+Debug builds log raw Activity packet probes when **Logs → Log verbosity** is **Debug** or **Verbose**. Probes include combat, harvest, fishing, rewards, earnings, party, map/Join, chest, inventory, and move responses with capture time and transport identity. Information or higher stops packet probes.
 
 The Activity schema is provided by the EF-generated `20261007145317_AddActivityJournal` migration. Existing startup database initialization applies pending migrations when the application is launched. Do not hand-edit migration files; generate future schema changes with EF Core commands.
 
-### Gathering and Fishing Tracker
+### Gathering and fishing in Activity
 
-The Gathering tab includes a passive tracker for reviewing gathering and fishing sessions. A session starts when the first gathered or fished item is recorded, then tracks harvested resources and confirmed fishing rewards from captured packets.
+Confirmed harvests from your character or party and confirmed local fishing rewards are recorded by Activity. They start or refresh the session inactivity deadline, but never start or prolong an encounter. Sessions receive Gathering, PvE, and PvP tags from the events visible in the selected scope; a session can have several tags. Fishing is part of Gathering and can also be filtered separately. Fame remains a packet award, and cash silver stays separate from all item estimates.
 
-The tracker shows:
+Fishing requires a successful completion response, a server reward, and a unique matching gain in your inventory. Shared inventory claims prevent the same acquisition from counting as both loot and fishing. Requests and ambiguous rewards are not personal earnings.
 
-- Total estimated session value, silver per hour, total item amount, and elapsed active time
-- Item summaries with item images, amount, estimated market value, total estimated value, and silver per hour
-- Minute-by-minute activity with item amount, estimated market value, and silver per hour
-- Completed session history with saved session totals and item summaries
-- Shareable 2400x1350 PNG cards for completed history sessions
-- Pause/resume controls for temporarily ignoring new gathering and fishing events
-- Save Session and Discard Session controls for manually closing or clearing the current live session
-
-Active gathering/fishing sessions are checkpointed locally so progress can be recovered if the app closes unexpectedly. On startup, an unfinished checkpoint is closed into History using the last recorded activity time. Completed history is saved locally in SQLite and keeps the estimated values from when the session was recorded.
-
-If no gathered or fished reward is recorded for 30 minutes, the current session is automatically saved to History.
-
-If you do not want gathering and fishing data tracked, enable **Disable Gathering Tracker** in Settings.
+Existing gathering history is converted automatically at startup into closed Activity sessions with item summary records. The original gathering tables and rows remain untouched. Conversion preserves stored quantities, values, dates, and observed duration; it does not invent individual pickup times, map locations, fame, cash, or combat. Imported runs are labelled as summaries and have no temporal chart or encounters. Valid orphan checkpoints become partial Interrupted sessions; completed records take precedence. Conversion uses deterministic identifiers and durable import markers, so rerunning it does not duplicate runs or restore deleted Activity history. Invalid records and inconsistent totals are reported while the source data remains intact. This conversion uses the existing Activity schema and needs no additional migration.
 
 ### User Trades
 
@@ -315,7 +302,7 @@ dotnet test PowBench.Tests
 
 After switching branches or pulling a change to the submodule pointer, run `git submodule update --init --recursive` again. Shared changes are committed and pushed in AFMDataClientCore first; each client then updates its pinned commit independently. A standalone development checkout can live beside the clients at `Repos/AFMDataClientCore`, while builds always reference the pinned submodule.
 
-`DesktopClientCore` explicitly enables market orders (including loadouts), market history, specs, EMV, islands, gold, and world events. It adapts desktop settings, account credentials, and upload statistics to the shared runtime. Activity, party, gathering/fishing, awakened items, market mail, and trade history remain desktop services and subscribe after shared packet processing. Capture drivers, database schemas, installers, and UI stay in the desktop repository.
+`DesktopClientCore` explicitly enables market orders (including loadouts), market history, specs, EMV, islands, gold, and world events. It adapts desktop settings, account credentials, and upload statistics to the shared runtime. Activity, party, awakened items, market mail, and trade history remain desktop services and subscribe after shared packet processing. Capture drivers, database schemas, installers, and UI stay in the desktop repository.
 
 Shared-library integration validation includes building the desktop solution and running the PoW correctness tests. Manual checks cover ordinary and loadout market routing, gold and bandit uploads during Private Mode, authenticated specs/EMV/world events, local tracker updates, account/server changes, and island collection, failed actions, offline retry, and restart recovery. Cross-platform capture and UI checks require the corresponding operating systems; builds alone do not validate live game traffic.
 

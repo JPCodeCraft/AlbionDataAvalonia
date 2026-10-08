@@ -15,6 +15,7 @@ public class DebugResponseProbeResponseHandler : PacketHandler<ResponsePacket>
     private static readonly int[] ProbeOperationCodeValues =
     [
         (int)OperationCodes.Join,
+        (int)OperationCodes.FishingFinish,
         (int)OperationCodes.ChangeCluster,
         // Match Activity requests so successful and rejected transfers can be traced.
         (int)OperationCodes.ExitEnterStart,

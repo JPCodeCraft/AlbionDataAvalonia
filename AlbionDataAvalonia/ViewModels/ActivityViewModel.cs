@@ -46,17 +46,17 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     public IReadOnlyList<ActivityOption<string?>> ServerOptions { get; } =
         [new(null, "All servers"), new("1", "Americas"), new("2", "Asia"), new("3", "Europe")];
     public IReadOnlyList<ActivityOption<ActivitySessionKind?>> KindOptions { get; } =
-        new[] { new ActivityOption<ActivitySessionKind?>(null, "All activity") }
+        new[] { new ActivityOption<ActivitySessionKind?>(null, "All locations") }
             .Concat(Enum.GetValues<ActivitySessionKind>().Select(kind => new ActivityOption<ActivitySessionKind?>(kind, KindLabel(kind)))).ToArray();
     public IReadOnlyList<ActivityOption<ActivityChartMetric>> ChartMetricOptions { get; } =
         [new(ActivityChartMetric.DamageDealt, "Damage dealt"), new(ActivityChartMetric.DamageReceived, "Damage received"),
          new(ActivityChartMetric.HealingDone, "Healing done"), new(ActivityChartMetric.HealingReceived, "Healing received"),
-         new(ActivityChartMetric.Fame, "Your observed fame"), new(ActivityChartMetric.Silver, "Silver earned"), new(ActivityChartMetric.LootValue, "Estimated loot value")];
+         new(ActivityChartMetric.Fame, "Your observed fame"), new(ActivityChartMetric.Silver, "Silver earned"), new(ActivityChartMetric.LootValue, "Estimated loot value"), new(ActivityChartMetric.GatheringItems, "Harvested quantity"), new(ActivityChartMetric.FishingItems, "Fishing quantity"), new(ActivityChartMetric.ResourceValue, "Estimated gathering value")];
 
     [ObservableProperty] private ActivityOption<ActivityScope> selectedScope = new(ActivityScope.Personal, "Personal");
     [ObservableProperty] private ActivityOption<ActivityScope> selectedLootScope = new(ActivityScope.Personal, "Personal");
     [ObservableProperty] private ActivityOption<ActivityScope> selectedSessionLootScope = new(ActivityScope.Personal, "Personal");
-    [ObservableProperty] private ActivityOption<ActivitySessionKind?> selectedKind = new(null, "All activity");
+    [ObservableProperty] private ActivityOption<ActivitySessionKind?> selectedKind = new(null, "All locations");
     [ObservableProperty] private ActivityOption<ActivityChartMetric> selectedChartMetric = new(ActivityChartMetric.DamageDealt, "Damage dealt");
     [ObservableProperty] private int selectedTabIndex;
     [ObservableProperty] private int selectedDetailTabIndex;
@@ -111,13 +111,13 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     public bool CanDeleteSelectedSession => SelectedSession is { Source.State: not ActivityState.Open } && SelectedSession.Id != tracker?.CurrentSessionId;
     public string CurrentCombatDurationText => $"Combat time: {ActivityDisplay.Duration(CurrentSummary.Rates.CombatDurationSeconds)}";
     public string DetailTitle => SelectedEncounter is { } encounter ? $"Encounter {encounter.Number} · {encounter.Classification}" : SelectedSession?.Title ?? "Select a session";
-    public string DetailDurationText => SelectedEncounter is { } encounter ? $"Combat time: {encounter.DurationText}"
+    public string DetailDurationText => IsImportedDetail ? $"Recorded duration: {SelectedSession?.DurationText} · Imported summary" : SelectedEncounter is { } encounter ? $"Combat time: {encounter.DurationText}"
         : $"Session time: {SelectedSession?.DurationText ?? "0:00"} · Combat time: {ActivityDisplay.Duration(DetailSummary.Rates.CombatDurationSeconds)}";
     public string DetailScopeText => $"{SelectedScope.Label}{(SelectedPlayer is { } player ? $" · {player.Name}" : "")}{(SelectedSession?.Source.IsPartial == true ? " · partial capture" : "")}";
-    public string DetailEarningsText => SelectedEncounter is not null ? "Loot observed during this encounter" : "Loot recorded during this session";
+    public string DetailEarningsText => IsImportedDetail ? "Imported item totals · individual pickup times unavailable" : SelectedEncounter is not null ? "Items observed during this encounter" : "Items recorded during this session";
     public string HistoryCountText => $"{Sessions.Count:N0} sessions loaded";
-    public string LootCountText => $"{GlobalLoot.Count:N0} pickups loaded";
-    public string GlobalLootTotalsText => $"{GlobalLootSummary.Summary.LootItems:N0} items · estimated value {GlobalLootSummary.LootValue} silver{(GlobalLootSummary.HasMissingLootPrices ? $" · {GlobalLootSummary.MissingLootPrices}" : "")}";
+    public string LootCountText => $"{GlobalLoot.Count:N0} item records loaded";
+    public string GlobalLootTotalsText => $"{GlobalLootSummary.Summary.LootItems + GlobalLootSummary.Summary.ResourceItems:N0} items · {GlobalLootSummary.ItemsEstimateText.ToLowerInvariant()} {GlobalLootSummary.ItemsValue} silver{(GlobalLootSummary.HasMissingItemPrices ? $" · {GlobalLootSummary.MissingItemPrices}" : "")}";
     public string ChartDescription => SelectedEncounter is null ? "Whole session" : $"Encounter {SelectedEncounter.Number}";
 
     public ActivityViewModel()
@@ -188,6 +188,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
             : tracker.IsCaptureSuspended ? "Capture paused" : "Recording";
         if (status.Error is { Length: > 0 }) ErrorText = status.Error;
         OnPropertyChanged(nameof(CanDeleteSelectedSession));
+        OnPropertyChanged(nameof(HasLegacyImportWarning));
     }
 
     private async Task RefreshVisibleAsync()
@@ -254,7 +255,8 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         Server = SelectedServer.Value,
         CharacterName = EmptyToNull(CharacterFilter),
         Location = EmptyToNull(LocationFilter),
-        SessionKind = SelectedKind.Value
+        SessionKind = SelectedKind.Value,
+        ContainsTags = HistoryTags
     };
 
     private ActivityQuery DetailQuery(bool lootOnly = false) => new()
@@ -263,7 +265,8 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         EncounterId = SelectedEncounter?.Id,
         ActorKey = SelectedPlayer?.ActorId,
         Scope = lootOnly ? SelectedSessionLootScope.Value : SelectedScope.Value,
-        LootOnly = lootOnly
+        ItemsOnly = lootOnly,
+        ItemSources = lootOnly ? SelectedSessionItemSource.Value : ActivityItemSources.All
     };
 
     private async Task LoadSessionsAsync(bool append, bool refresh = false)
@@ -320,9 +323,11 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         var query = DetailQuery();
         var summaryTask = persistence.GetSummaryAsync(query);
         var combatTask = encounter is null ? persistence.GetCombatDurationSecondsAsync(query) : Task.FromResult(encounter.CombatDurationSeconds);
-        await Task.WhenAll(summaryTask, combatTask);
+        var legacyTask = IsImportedDetail ? persistence.GetLegacyImportInfoAsync(sessionId) : Task.FromResult<ActivityLegacyImportInfo?>(null);
+        await Task.WhenAll(summaryTask, combatTask, legacyTask);
         if (!IsCurrentDetail(version, selected.Id)) return;
         var summary = summaryTask.Result;
+        LegacyImportInfo = legacyTask.Result;
         DetailSummary = new(summary, encounter is null ? ActivityProjection.GetRates(summary, selected, combatTask.Result, DateTime.UtcNow) : ActivityProjection.GetRates(summary, encounter), encounter is null);
         NotifyDetailProperties();
         if (SelectedDetailTabIndex == 0) await LoadEncountersAsync(false, true);
@@ -377,7 +382,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     private async Task LoadChartAsync(long version, ActivityQuery query)
     {
         if (persistence is null || query.SessionId is not { } sessionId) return;
-        var points = await persistence.GetChartsAsync(query, SelectedChartMetric.Value);
+        var points = await persistence.GetChartsAsync(query with { ShowCategories = VisibleCategories }, SelectedChartMetric.Value);
         if (!IsCurrentDetail(version, sessionId)) return;
         ChartSeries = [new LineSeries<DateTimePoint>
         {
@@ -429,6 +434,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         ApplyEventRows(SessionLoot, result.Items.Select(observation => new ActivityLootRow(observation)).ToArray(), row => row.SourceEvent, append);
         sessionLootPage = page;
         HasMoreSessionLoot = result.HasMore;
+        await RefreshSessionResourcesAsync(query, version ?? detailVersion);
     }
 
     private async Task LoadTimelineAsync(bool append, long? version = null, bool refresh = false)
@@ -436,7 +442,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         if (persistence is null || SelectedSession is null) return;
         var sessionId = SelectedSession.Id;
         var page = append ? timelinePage + 1 : refresh ? timelinePage : 0;
-        var query = DetailQuery();
+        var query = DetailQuery() with { ShowCategories = VisibleCategories };
         var result = await ReadPagesAsync(index => persistence.GetEventsAsync(query, index), page, append);
         if (isDisposed || SelectedSession?.Id != sessionId || version is { } expected && detailVersion != expected) return;
         ApplyEventRows(Timeline, result.Items.Select(observation => new ActivityEventRow(observation)).ToArray(), row => row.SourceEvent, append);
@@ -449,11 +455,13 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         if (persistence is null) return;
         var version = ++globalLootVersion;
         var page = append ? globalLootPage + 1 : refresh ? globalLootPage : 0;
-        var query = HistoryQuery() with { Scope = SelectedLootScope.Value, LootOnly = true, Search = EmptyToNull(LootSearch) };
+        var query = HistoryQuery() with { Scope = SelectedLootScope.Value, ItemsOnly = true, ItemSources = SelectedItemSource.Value, ContainsTags = ActivityTags.None, Search = EmptyToNull(LootSearch) };
         var result = await ReadPagesAsync(index => persistence.GetEventsAsync(query, index), page, append);
         var summary = append ? null : await persistence.GetSummaryAsync(query);
+        var resources = append ? null : await persistence.GetResourceTotalsAsync(query);
         if (isDisposed || version != globalLootVersion) return;
         ApplyEventRows(GlobalLoot, result.Items.Select(observation => new ActivityLootRow(observation)).ToArray(), row => row.SourceEvent, append);
+        if (resources is not null) GlobalResources = new(resources.Select(row => new ActivityResourceRow(row)));
         globalLootPage = page;
         HasMoreGlobalLoot = result.HasMore;
         if (summary is not null)
@@ -544,6 +552,10 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(DetailScopeText));
         OnPropertyChanged(nameof(DetailEarningsText));
         OnPropertyChanged(nameof(ChartDescription));
+        OnPropertyChanged(nameof(DetailTagsText));
+        OnPropertyChanged(nameof(IsImportedDetail));
+        OnPropertyChanged(nameof(HasDetailedHistory));
+        OnPropertyChanged(nameof(ImportedDetailText));
     }
 
     partial void OnSelectedScopeChanged(ActivityOption<ActivityScope> value)
@@ -567,8 +579,8 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     partial void OnSelectedChartMetricChanged(ActivityOption<ActivityChartMetric> value) { if (isActive) _ = RunSafelyAsync(RefreshDetailsAsync); }
     partial void OnErrorTextChanged(string value) => OnPropertyChanged(nameof(HasError));
     partial void OnIsRecordingEnabledChanged(bool value) => OnPropertyChanged(nameof(RecordingButtonText));
-    partial void OnCurrentSummaryChanged(ActivitySummaryPresentation value) => OnPropertyChanged(nameof(CurrentCombatDurationText));
-    partial void OnDetailSummaryChanged(ActivitySummaryPresentation value) => OnPropertyChanged(nameof(DetailDurationText));
+    partial void OnCurrentSummaryChanged(ActivitySummaryPresentation value) { OnPropertyChanged(nameof(CurrentCombatDurationText)); OnPropertyChanged(nameof(CurrentTagsText)); }
+    partial void OnDetailSummaryChanged(ActivitySummaryPresentation value) => NotifyDetailProperties();
     partial void OnGlobalLootSummaryChanged(ActivitySummaryPresentation value) => OnPropertyChanged(nameof(GlobalLootTotalsText));
     partial void OnSelectedSessionChanged(ActivitySessionRow? value)
     {
@@ -581,6 +593,9 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         encounterPage = timelinePage = sessionLootPage = 0;
         HasMoreEncounters = HasMoreSessionLoot = HasMoreTimeline = false;
         DetailSummary = ActivitySummaryPresentation.Empty;
+        SessionResources = new();
+        LegacyImportInfo = null;
+        if (IsImportedDetail) SelectedDetailTabIndex = 4;
         ++detailVersion;
         if (value is not null) _ = RunSafelyAsync(RefreshDetailsAsync);
     }
@@ -619,6 +634,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         CharacterFilter = LocationFilter = "";
         SelectedKind = KindOptions[0];
         SelectedTabIndex = 1;
+        HistoryGathering = HistoryPve = HistoryPvp = false;
         await LoadSessionsAsync(false);
         var row = Sessions.FirstOrDefault(existing => existing.Id == id);
         if (row is null) { row = new(session, SelectedScope.Value); Sessions.Insert(0, row); }
@@ -637,6 +653,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     private async Task ResetFiltersAsync()
     {
         FromDate = ThroughDate = null; SelectedServer = ServerOptions[0]; CharacterFilter = LocationFilter = ""; SelectedKind = KindOptions[0];
+        HistoryGathering = HistoryPve = HistoryPvp = false;
         await ApplyFiltersAsync();
     }
     [RelayCommand] private async Task ApplyLootFiltersAsync() => await RunSafelyAsync(() => LoadGlobalLootAsync(false));

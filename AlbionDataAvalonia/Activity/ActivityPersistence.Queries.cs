@@ -13,14 +13,15 @@ namespace AlbionDataAvalonia.Activity;
 public sealed partial class ActivityPersistence
 {
     internal async Task<ActivityLiveTimelineSnapshot> GetLiveTimelineAsync(Guid? sessionId, ActivityScope scope,
-        DateTime endUtc, ActivitySession? liveSession, ActivityEncounter? liveEncounter, CancellationToken cancellationToken)
+        DateTime endUtc, ActivitySession? liveSession, ActivityEncounter? liveEncounter, CancellationToken cancellationToken,
+        ActivityCategories categories = ActivityCategories.All)
     {
         endUtc = ActivityLiveTimeline.WindowEnd(endUtc);
-        if (sessionId is not { } id) return ActivityLiveTimeline.Empty(null, scope, endUtc);
+        if (sessionId is not { } id) return ActivityLiveTimeline.Empty(null, scope, endUtc) with { Categories = categories };
         WriteCommand[] accepted;
         lock (acceptedSync)
         {
-            if (deletedSessions.Contains(id)) return ActivityLiveTimeline.Empty(id, scope, endUtc);
+            if (deletedSessions.Contains(id)) return ActivityLiveTimeline.Empty(id, scope, endUtc) with { Categories = categories };
             accepted = acceptedWrites.ToArray();
         }
         var fromUtc = endUtc.AddSeconds(-ActivityLiveTimeline.WindowSeconds);
@@ -35,53 +36,7 @@ public sealed partial class ActivityPersistence
         foreach (var pendingHeader in accepted.OfType<SessionCommand>().Where(x => x.Value.Id == id))
             if (header is null || pendingHeader.Value.Revision > header.Revision) header = pendingHeader.Value;
         if (liveSession?.Id == id && (header is null || liveSession.Revision >= header.Revision)) header = liveSession;
-        if (header is null) return ActivityLiveTimeline.Empty(id, scope, endUtc);
-
-        var filter = new ActivityQuery { SessionId = id, Scope = scope, FromUtc = fromUtc, ToUtc = endUtc };
-        var combat = FilterEvents(context, filter).Where(x => x.Kind == ActivityEventKind.Damage || x.Kind == ActivityEventKind.Healing);
-        var dealt = ActivityProjection.ChartExpression(scope, null, ActivityChartMetric.DamageDealt);
-        var received = ActivityProjection.ChartExpression(scope, null, ActivityChartMetric.DamageReceived);
-        var healed = ActivityProjection.ChartExpression(scope, null, ActivityChartMetric.HealingDone);
-        var healingReceived = ActivityProjection.ChartExpression(scope, null, ActivityChartMetric.HealingReceived);
-        var firstSecond = fromUtc.Hour * 3600 + fromUtc.Minute * 60 + fromUtc.Second;
-        // Calendar second fields translate to SQLite strftime, avoiding julianday floating point
-        // boundary drift. Modulo handles a five-minute window crossing UTC midnight.
-        var healthRows = await combat.GroupBy(x =>
-                (x.CapturedAtUtc.Hour * 3600 + x.CapturedAtUtc.Minute * 60 + x.CapturedAtUtc.Second - firstSecond + 86400) % 86400)
-            .Select(g => new
-            {
-                Bucket = g.Key,
-                DamageDealt = g.AsQueryable().Select(dealt).Sum(),
-                DamageReceived = g.AsQueryable().Select(received).Sum(),
-                HealingDone = g.AsQueryable().Select(healed).Sum(),
-                HealingReceived = g.AsQueryable().Select(healingReceived).Sum()
-            }).Take(ActivityLiveTimeline.WindowSeconds).ToArrayAsync(cancellationToken);
-        var samples = Enumerable.Range(0, ActivityLiveTimeline.WindowSeconds).Select(i =>
-            new ActivityLiveTimelineSample(fromUtc.AddSeconds(i), 0, 0, 0, 0)).ToArray();
-        foreach (var row in healthRows)
-            if (row.Bucket is >= 0 and < ActivityLiveTimeline.WindowSeconds)
-                samples[row.Bucket] = new(fromUtc.AddSeconds(row.Bucket), row.DamageDealt, row.DamageReceived, row.HealingDone, row.HealingReceived);
-
-        var markerQuery = FilterEvents(context, filter).Where(x =>
-                x.Kind == ActivityEventKind.MobKilled || x.Kind == ActivityEventKind.PlayerKilled ||
-                x.Kind == ActivityEventKind.Death || x.Kind == ActivityEventKind.Knockdown ||
-                x.Kind == ActivityEventKind.Loot || x.Kind == ActivityEventKind.Fame || x.Kind == ActivityEventKind.Silver)
-            .OrderByDescending(x => x.Kind == ActivityEventKind.Death || x.Kind == ActivityEventKind.PlayerKilled || x.Kind == ActivityEventKind.Knockdown)
-            .ThenByDescending(x => x.CapturedAtUtc).ThenByDescending(x => x.CaptureOrder).ThenBy(x => x.Id);
-        var markerRows = new List<ActivityEvent>();
-        while (markerRows.Count <= ActivityLiveTimeline.MaximumMarkerRows)
-        {
-            var size = Math.Min(250, ActivityLiveTimeline.MaximumMarkerRows + 1 - markerRows.Count);
-            var page = await markerQuery.Skip(markerRows.Count).Take(size).ToArrayAsync(cancellationToken);
-            markerRows.AddRange(page);
-            if (page.Length < size) break;
-        }
-        var truncated = markerRows.Count > ActivityLiveTimeline.MaximumMarkerRows;
-        var markerEvents = markerRows.Take(ActivityLiveTimeline.MaximumMarkerRows).ToDictionary(x => x.Id);
-        var gapRows = await context.ActivityEvents.AsNoTracking().Where(x => x.SessionId == id &&
-                x.Kind == ActivityEventKind.CaptureGap && !x.IsRetracted && x.CapturedAtUtc < endUtc)
-            .OrderByDescending(x => x.CapturedAtUtc).Take(301).ToArrayAsync(cancellationToken);
-        var gapEvents = gapRows.ToDictionary(x => x.Id);
+        if (header is null) return ActivityLiveTimeline.Empty(id, scope, endUtc) with { Categories = categories };
 
         // Read only the identities touched by the bounded pending queue. In particular, health
         // history stays aggregated in SQL rather than materializing every party hit.
@@ -134,18 +89,108 @@ public sealed partial class ActivityPersistence
                 canonical[retract.Id] = previous with { Revision = retract.Revision, IsRetracted = true };
         }
         var before = baselines.ToDictionary(x => x.Id);
+
+        // Category evidence is read before filtered aggregates, then adjusted by accepted mutations.
+        // A pending first hit or retraction changes the category of every event in that encounter.
+        var recentEncounterIds = await context.ActivityEvents.AsNoTracking().Where(x => x.SessionId == id &&
+                x.EncounterId != null && !x.IsRetracted && x.CapturedAtUtc >= fromUtc && x.CapturedAtUtc < endUtc)
+            .Select(x => x.EncounterId!.Value).Distinct().ToArrayAsync(cancellationToken);
+        var proofIds = recentEncounterIds.Concat(canonical.Values.Where(InWindow).Where(x => x.EncounterId != null)
+            .Select(x => x.EncounterId!.Value)).Distinct().ToArray();
+        var pveContribution = ActivityProjection.CountExpression(scope, nameof(ActivitySummary.PveEvents));
+        var pvpContribution = ActivityProjection.CountExpression(scope, nameof(ActivitySummary.PvpEvents));
+        var combatExpression = ActivityClassification.CombatExpression(scope);
+        var isScopedCombat = combatExpression.Compile();
+        var proofs = await context.ActivityEvents.AsNoTracking().Where(x => x.SessionId == id && x.EncounterId != null && proofIds.Contains(x.EncounterId.Value))
+            .GroupBy(x => x.EncounterId!.Value).Select(g => new
+            {
+                Id = g.Key,
+                Pve = g.AsQueryable().Select(pveContribution).Sum(),
+                Pvp = g.AsQueryable().Select(pvpContribution).Sum(),
+                Combat = g.AsQueryable().Where(combatExpression).LongCount()
+            }).ToArrayAsync(cancellationToken);
+        var proofCounts = proofs.ToDictionary(x => x.Id, x => (x.Pve, x.Pvp, x.Combat));
+        foreach (var value in canonical.Values)
+        {
+            if (before.TryGetValue(value.Id, out var old)) AddProof(old, -1);
+            AddProof(value, 1);
+        }
+        var pveIds = proofCounts.Where(x => x.Value.Pve > 0).Select(x => x.Key).ToArray();
+        var pvpIds = proofCounts.Where(x => x.Value.Pvp > 0).Select(x => x.Key).ToArray();
+        var visibleEncounterIds = proofCounts.Where(x => x.Value.Combat > 0 &&
+            (categories == ActivityCategories.All || (categories & ActivityCategories.Combat) != 0 ||
+                (categories & ActivityCategories.Pve) != 0 && x.Value.Pve > 0 ||
+                (categories & ActivityCategories.Pvp) != 0 && x.Value.Pvp > 0 ||
+                (categories & ActivityCategories.Other) != 0 && x.Value.Pve == 0 && x.Value.Pvp == 0))
+            .Select(x => x.Key).ToArray();
+        var categoryExpression = ActivityClassification.CategoryExpression(categories, pveIds, pvpIds);
+        var matchesCategory = categoryExpression.Compile();
+        var filter = new ActivityQuery { SessionId = id, Scope = scope, FromUtc = fromUtc, ToUtc = endUtc };
+        var filtered = FilterEvents(context, filter).Where(categoryExpression);
+        var combat = filtered.Where(x => x.Kind == ActivityEventKind.Damage || x.Kind == ActivityEventKind.Healing ||
+            x.Kind == ActivityEventKind.Gathered || x.Kind == ActivityEventKind.FishingReward);
+        var dealt = ActivityProjection.ChartExpression(scope, null, ActivityChartMetric.DamageDealt);
+        var received = ActivityProjection.ChartExpression(scope, null, ActivityChartMetric.DamageReceived);
+        var healed = ActivityProjection.ChartExpression(scope, null, ActivityChartMetric.HealingDone);
+        var healingReceived = ActivityProjection.ChartExpression(scope, null, ActivityChartMetric.HealingReceived);
+        var gathering = ActivityProjection.ChartExpression(scope, null, ActivityChartMetric.GatheringItems);
+        var fishing = ActivityProjection.ChartExpression(scope, null, ActivityChartMetric.FishingItems);
+        var firstSecond = fromUtc.Hour * 3600 + fromUtc.Minute * 60 + fromUtc.Second;
+        // Calendar second fields translate to SQLite strftime, avoiding julianday floating point
+        // boundary drift. Modulo handles a five-minute window crossing UTC midnight.
+        var healthRows = await combat.GroupBy(x =>
+                (x.CapturedAtUtc.Hour * 3600 + x.CapturedAtUtc.Minute * 60 + x.CapturedAtUtc.Second - firstSecond + 86400) % 86400)
+            .Select(g => new
+            {
+                Bucket = g.Key,
+                DamageDealt = g.AsQueryable().Select(dealt).Sum(),
+                DamageReceived = g.AsQueryable().Select(received).Sum(),
+                HealingDone = g.AsQueryable().Select(healed).Sum(),
+                HealingReceived = g.AsQueryable().Select(healingReceived).Sum(),
+                Gathering = g.AsQueryable().Select(gathering).Sum(),
+                Fishing = g.AsQueryable().Select(fishing).Sum()
+            }).Take(ActivityLiveTimeline.WindowSeconds).ToArrayAsync(cancellationToken);
+        var samples = Enumerable.Range(0, ActivityLiveTimeline.WindowSeconds).Select(i =>
+            new ActivityLiveTimelineSample(fromUtc.AddSeconds(i), 0, 0, 0, 0)).ToArray();
+        foreach (var row in healthRows)
+            if (row.Bucket is >= 0 and < ActivityLiveTimeline.WindowSeconds)
+                samples[row.Bucket] = new(fromUtc.AddSeconds(row.Bucket), row.DamageDealt, row.DamageReceived, row.HealingDone, row.HealingReceived, row.Gathering, row.Fishing);
+
+        var markerQuery = filtered.Where(x =>
+                x.Kind == ActivityEventKind.MobKilled || x.Kind == ActivityEventKind.PlayerKilled ||
+                x.Kind == ActivityEventKind.Death || x.Kind == ActivityEventKind.Knockdown ||
+                x.Kind == ActivityEventKind.Loot || x.Kind == ActivityEventKind.Fame || x.Kind == ActivityEventKind.Silver ||
+                x.Kind == ActivityEventKind.Gathered || x.Kind == ActivityEventKind.FishingReward)
+            .OrderByDescending(x => x.Kind == ActivityEventKind.Death || x.Kind == ActivityEventKind.PlayerKilled || x.Kind == ActivityEventKind.Knockdown)
+            .ThenByDescending(x => x.CapturedAtUtc).ThenByDescending(x => x.CaptureOrder).ThenBy(x => x.Id);
+        var markerRows = new List<ActivityEvent>();
+        while (markerRows.Count <= ActivityLiveTimeline.MaximumMarkerRows)
+        {
+            var size = Math.Min(250, ActivityLiveTimeline.MaximumMarkerRows + 1 - markerRows.Count);
+            var page = await markerQuery.Skip(markerRows.Count).Take(size).ToArrayAsync(cancellationToken);
+            markerRows.AddRange(page);
+            if (page.Length < size) break;
+        }
+        var truncated = markerRows.Count > ActivityLiveTimeline.MaximumMarkerRows;
+        var markerEvents = markerRows.Take(ActivityLiveTimeline.MaximumMarkerRows).ToDictionary(x => x.Id);
+        var gapRows = await context.ActivityEvents.AsNoTracking().Where(x => x.SessionId == id &&
+                x.Kind == ActivityEventKind.CaptureGap && !x.IsRetracted && x.CapturedAtUtc < endUtc)
+            .OrderByDescending(x => x.CapturedAtUtc).Take(301).ToArrayAsync(cancellationToken);
+        var gapEvents = gapRows.ToDictionary(x => x.Id);
+
         foreach (var value in canonical.Values)
         {
             if (before.TryGetValue(value.Id, out var old)) AddHealth(old, -1);
             AddHealth(value, 1);
             markerEvents.Remove(value.Id);
-            if (InWindow(value) && !value.IsRetracted && !ActivityLiveTimeline.IsCombat(value)) markerEvents[value.Id] = value;
+            if (InWindow(value) && !value.IsRetracted && ActivityClassification.IsTemporal(value.Kind) &&
+                matchesCategory(value) && !ActivityLiveTimeline.IsCombat(value)) markerEvents[value.Id] = value;
             gapEvents.Remove(value.Id);
             if (value.SessionId == id && value.Kind == ActivityEventKind.CaptureGap && !value.IsRetracted && value.CapturedAtUtc < endUtc)
                 gapEvents[value.Id] = value;
         }
 
-        var encounterQuery = context.ActivityEncounters.AsNoTracking().Where(x => x.SessionId == id &&
+        var encounterQuery = context.ActivityEncounters.AsNoTracking().Where(x => x.SessionId == id && visibleEncounterIds.Contains(x.Id) &&
                 x.StartedAtUtc < endUtc && x.LastCombatAtUtc >= fromUtc)
             .OrderBy(x => x.Number);
         var encounterRows = new List<ActivityEncounter>();
@@ -165,16 +210,16 @@ public sealed partial class ActivityPersistence
             encounters[liveEncounter.Id] = liveEncounter;
         var markers = ActivityLiveTimeline.Markers(markerEvents.Values, scope, out var markersTruncated);
         lock (acceptedSync)
-            if (deletedSessions.Contains(id)) return ActivityLiveTimeline.Empty(id, scope, endUtc);
+            if (deletedSessions.Contains(id)) return ActivityLiveTimeline.Empty(id, scope, endUtc) with { Categories = categories };
         return new(id, scope, fromUtc, endUtc, samples, markers,
-            encounters.Values.Where(x => x.StartedAtUtc < endUtc && x.LastCombatAtUtc >= fromUtc).OrderBy(x => x.Number)
+            encounters.Values.Where(x => visibleEncounterIds.Contains(x.Id) && x.StartedAtUtc < endUtc && x.LastCombatAtUtc >= fromUtc).OrderBy(x => x.Number)
                 .Select(x => new ActivityLiveTimelineEncounter(x.Id, x.Number, x.StartedAtUtc, x.LastCombatAtUtc, x.Kind, x.State)).ToArray(),
-            ActivityLiveTimeline.Gaps(header, fromUtc, endUtc, gapEvents.Values.ToArray()), header.IsPartial, truncated || markersTruncated);
+            ActivityLiveTimeline.Gaps(header, fromUtc, endUtc, gapEvents.Values.ToArray()), header.IsPartial, truncated || markersTruncated, categories);
 
         bool InWindow(ActivityEvent value) => value.SessionId == id && value.CapturedAtUtc >= fromUtc && value.CapturedAtUtc < endUtc;
         void AddHealth(ActivityEvent value, int sign)
         {
-            if (!InWindow(value) || !ActivityLiveTimeline.IsCombat(value)) return;
+            if (!InWindow(value) || !matchesCategory(value) || !ActivityClassification.IsTemporal(value.Kind)) return;
             var index = (int)((value.CapturedAtUtc.Ticks - fromUtc.Ticks) / TimeSpan.TicksPerSecond);
             var contribution = ActivityProjection.Contribution(value, scope);
             var sample = samples[index];
@@ -183,8 +228,19 @@ public sealed partial class ActivityPersistence
                 DamageDealt = sample.DamageDealt + sign * contribution.DamageDealt,
                 DamageReceived = sample.DamageReceived + sign * contribution.DamageReceived,
                 HealingDone = sample.HealingDone + sign * contribution.HealingDone,
-                HealingReceived = sample.HealingReceived + sign * contribution.HealingReceived
+                HealingReceived = sample.HealingReceived + sign * contribution.HealingReceived,
+                GatheringQuantity = sample.GatheringQuantity + sign * contribution.GatheringItems,
+                FishingQuantity = sample.FishingQuantity + sign * contribution.FishingItems
             };
+        }
+
+        void AddProof(ActivityEvent value, int sign)
+        {
+            if (value.SessionId != id || value.EncounterId is not { } encounterId || !proofIds.Contains(encounterId)) return;
+            var contribution = ActivityProjection.Contribution(value, scope);
+            var previous = proofCounts.GetValueOrDefault(encounterId);
+            proofCounts[encounterId] = (previous.Pve + sign * contribution.PveEvents, previous.Pvp + sign * contribution.PvpEvents,
+                previous.Combat + (isScopedCombat(value) ? sign : 0));
         }
     }
 
@@ -236,6 +292,21 @@ public sealed partial class ActivityPersistence
         if (!string.IsNullOrWhiteSpace(filter.CharacterName)) query = query.Where(x => x.CharacterName.Contains(filter.CharacterName));
         if (!string.IsNullOrWhiteSpace(filter.Location)) query = query.Where(x => x.LocationName.Contains(filter.Location) || x.RootMapId.Contains(filter.Location));
         if (filter.SessionKind is { } kind) query = query.Where(x => x.Kind == kind);
+        if ((filter.ContainsTags & ActivityTags.Gathering) != 0)
+        {
+            var evidence = context.ActivityEvents.Where(ActivityClassification.GatheringExpression(filter.Scope));
+            query = query.Where(s => evidence.Any(e => e.SessionId == s.Id));
+        }
+        if ((filter.ContainsTags & ActivityTags.Pve) != 0)
+        {
+            var evidence = context.ActivityEvents.Where(ActivityClassification.PveExpression(filter.Scope));
+            query = query.Where(s => evidence.Any(e => e.SessionId == s.Id));
+        }
+        if ((filter.ContainsTags & ActivityTags.Pvp) != 0)
+        {
+            var evidence = context.ActivityEvents.Where(ActivityClassification.PvpExpression(filter.Scope));
+            query = query.Where(s => evidence.Any(e => e.SessionId == s.Id));
+        }
         if (!string.IsNullOrWhiteSpace(filter.Search)) query = query.Where(x => x.Title.Contains(filter.Search) || x.CharacterName.Contains(filter.Search));
         var rows = await query.OrderByDescending(x => x.StartedAtUtc).ThenBy(x => x.Id).Skip(Math.Max(0, page) * 100).Take(101).ToListAsync(cancellationToken);
         return new(rows.Take(100).ToArray(), rows.Count > 100);
@@ -257,7 +328,7 @@ public sealed partial class ActivityPersistence
 
     private static IQueryable<ActivityEvent> FilterEvents(LocalContext context, ActivityQuery filter)
     {
-        var query = context.ActivityEvents.AsNoTracking().Where(x => !x.IsRetracted);
+        var query = context.ActivityEvents.AsNoTracking().Where(x => !x.IsRetracted && x.Kind != ActivityEventKind.LegacyImportMarker);
         if (filter.SessionId is { } session) query = query.Where(x => x.SessionId == session);
         if (filter.EncounterId is { } encounter) query = query.Where(x => x.EncounterId == encounter);
         if (filter.FromUtc is { } from) query = query.Where(x => x.CapturedAtUtc >= from);
@@ -273,6 +344,23 @@ public sealed partial class ActivityPersistence
         if (!string.IsNullOrWhiteSpace(filter.Location)) query = query.Where(x => x.LocationName.Contains(filter.Location) || x.RawMapId.Contains(filter.Location));
         if (filter.Kind is { } kind) query = query.Where(x => x.Kind == kind);
         if (filter.LootOnly) query = query.Where(x => x.Kind == ActivityEventKind.Loot);
+        if (filter.ItemsOnly) query = query.Where(x => x.Kind == ActivityEventKind.Loot || x.Kind == ActivityEventKind.Gathered ||
+            x.Kind == ActivityEventKind.FishingReward || x.Kind == ActivityEventKind.LegacyGatheringAggregate);
+        if (filter.ItemsOnly && filter.ItemSources != ActivityItemSources.All)
+        {
+            var sources = filter.ItemSources;
+            var loot = (sources & ActivityItemSources.Loot) != 0;
+            var gathering = (sources & ActivityItemSources.Gathering) != 0;
+            var fishing = (sources & ActivityItemSources.Fishing) != 0;
+            var mixed = (sources & ActivityItemSources.LegacyMixed) != 0;
+            query = query.Where(x => loot && x.Kind == ActivityEventKind.Loot ||
+                gathering && (x.Kind == ActivityEventKind.Gathered || x.Kind == ActivityEventKind.LegacyGatheringAggregate &&
+                    ActivityDatabaseFunctions.JsonLong(x.DetailsJson, "$.Method") == (long)ActivityResourceMethod.Gathering) ||
+                fishing && (x.Kind == ActivityEventKind.FishingReward || x.Kind == ActivityEventKind.LegacyGatheringAggregate &&
+                    ActivityDatabaseFunctions.JsonLong(x.DetailsJson, "$.Method") == (long)ActivityResourceMethod.Fishing) ||
+                mixed && x.Kind == ActivityEventKind.LegacyGatheringAggregate &&
+                    (ActivityDatabaseFunctions.JsonLong(x.DetailsJson, "$.Method") == 0 || ActivityDatabaseFunctions.JsonLong(x.DetailsJson, "$.Method") == (long)ActivityResourceMethod.Mixed));
+        }
         if (filter.SessionKind is { } sessionKind)
             query = query.Where(x => x.SessionId != null && context.ActivitySessions.Any(s => s.Id == x.SessionId && s.Kind == sessionKind));
         if (!string.IsNullOrWhiteSpace(filter.Search))
@@ -287,7 +375,7 @@ public sealed partial class ActivityPersistence
                 x.TargetRelationship == ActorRelationship.Self || x.TargetRelationship == ActorRelationship.Party ||
                 (x.Kind == ActivityEventKind.MobKilled && (x.ParticipatedSelf || x.ParticipatedParty)) ||
                 x.Kind == ActivityEventKind.Location || x.Kind == ActivityEventKind.CaptureGap);
-        return query;
+        return ActivityClassification.FilterCategories(query, context.ActivityEvents.AsNoTracking(), filter);
     }
 
     public async Task<ActivitySummary> GetSummaryAsync(ActivityQuery filter, CancellationToken cancellationToken = default)
@@ -296,6 +384,18 @@ public sealed partial class ActivityPersistence
         return await FilterEvents(context, filter).Select(ActivityProjection.ContributionExpression(filter.Scope, filter.ActorKey))
             .GroupBy(_ => 1).Select(g => new ActivitySummary
             {
+                TagVersion = ActivityClassification.TagVersion,
+                GatheringEvents = g.Sum(x => x.GatheringEvents),
+                PveEvents = g.Sum(x => x.PveEvents),
+                PvpEvents = g.Sum(x => x.PvpEvents),
+                GatheringItems = g.Sum(x => x.GatheringItems),
+                FishingItems = g.Sum(x => x.FishingItems),
+                UnclassifiedResourceItems = g.Sum(x => x.UnclassifiedResourceItems),
+                GatheringValue = g.Sum(x => x.GatheringValue),
+                FishingValue = g.Sum(x => x.FishingValue),
+                UnclassifiedResourceValue = g.Sum(x => x.UnclassifiedResourceValue),
+                MissingResourcePriceItems = g.Sum(x => x.MissingResourcePriceItems),
+                LegacyAggregateEvents = g.Sum(x => x.LegacyAggregateEvents),
                 DamageDealt = g.Sum(x => x.DamageDealt),
                 DamageReceived = g.Sum(x => x.DamageReceived),
                 HealingDone = g.Sum(x => x.HealingDone),
@@ -316,7 +416,7 @@ public sealed partial class ActivityPersistence
     public async Task<IReadOnlyList<ActivityChartPoint>> GetChartsAsync(ActivityQuery filter, ActivityChartMetric metric, CancellationToken cancellationToken = default)
     {
         await using var context = contextFactory();
-        var query = FilterEvents(context, filter);
+        var query = FilterEvents(context, filter).Where(x => x.Kind != ActivityEventKind.LegacyGatheringAggregate);
         var range = await query.GroupBy(_ => 1).Select(g => new { Start = g.Min(x => x.CapturedAtUtc), End = g.Max(x => x.CapturedAtUtc) })
             .SingleOrDefaultAsync(cancellationToken);
         if (range is null) return [];
@@ -371,6 +471,58 @@ public sealed partial class ActivityPersistence
             .OrderByDescending(x => x.DamageDealt + x.HealingDone).Take(250).ToArray();
     }
 
+    public Task<ActivityPage<ActivityEvent>> GetItemsAsync(ActivityQuery filter, int page = 0, CancellationToken cancellationToken = default) =>
+        GetEventsAsync(filter with { ItemsOnly = true, LootOnly = false }, page, cancellationToken);
+
+    public async Task<IReadOnlyList<ActivityResourceTotal>> GetResourceTotalsAsync(ActivityQuery filter, CancellationToken cancellationToken = default)
+    {
+        await using var context = contextFactory();
+        var connection = (SqliteConnection)context.Database.GetDbConnection();
+        await connection.OpenAsync(cancellationToken);
+        await using var transaction = connection.BeginTransaction(deferred: true);
+        await context.Database.UseTransactionAsync(transaction, cancellationToken);
+        var query = FilterEvents(context, filter).Where(ActivityClassification.GatheringExpression(filter.Scope, filter.ActorKey));
+        var contribution = ActivityProjection.CountExpression(filter.Scope, nameof(ActivitySummary.ResourceValue), filter.ActorKey);
+        var grouped = query.GroupBy(x => new
+        {
+            x.ItemId,
+            x.Quality,
+            x.ItemUniqueName,
+            x.ItemName,
+            Source = x.Kind == ActivityEventKind.Gathered ? ActivityResourceMethod.Gathering : x.Kind == ActivityEventKind.FishingReward ? ActivityResourceMethod.Fishing :
+                    (ActivityResourceMethod)(ActivityDatabaseFunctions.JsonLong(x.DetailsJson, "$.Method") ?? 0)
+        })
+            .Select(g => new
+            {
+                g.Key.ItemId,
+                g.Key.Quality,
+                g.Key.ItemUniqueName,
+                g.Key.ItemName,
+                g.Key.Source,
+                Quantity = g.Sum(x => x.Quantity),
+                KnownValue = g.AsQueryable().Select(contribution).Sum(),
+                Missing = g.Sum(x => (x.Kind == ActivityEventKind.LegacyGatheringAggregate ? ActivityDatabaseFunctions.JsonLong(x.DetailsJson, "$.Legacy.RecordedTotalValue") == null : x.EstimatedUnitValue == null) ? x.Quantity : 0)
+            })
+            .OrderByDescending(x => x.KnownValue).ThenBy(x => x.ItemName).ThenBy(x => x.ItemId).ThenBy(x => x.Quality).ThenBy(x => x.Source);
+        var totals = new List<ActivityResourceTotal>();
+        var page = 0;
+        while (true)
+        {
+            var rows = await grouped.Skip(page++ * 250).Take(250).ToArrayAsync(cancellationToken);
+            totals.AddRange(rows.Select(x => new ActivityResourceTotal(x.ItemId, x.Quality, x.ItemUniqueName, x.ItemName, x.Source, x.Quantity, x.KnownValue, x.Missing)));
+            if (rows.Length < 250) return totals;
+        }
+    }
+
+    public async Task<ActivityLegacyImportInfo?> GetLegacyImportInfoAsync(Guid sessionId, CancellationToken cancellationToken = default)
+    {
+        await using var context = contextFactory();
+        var details = await context.ActivityEvents.AsNoTracking().Where(x => x.SessionId == sessionId && x.Kind == ActivityEventKind.LegacyGatheringAggregate)
+            .OrderBy(x => x.CaptureOrder).Select(x => x.DetailsJson).FirstOrDefaultAsync(cancellationToken);
+        try { return details is null ? null : System.Text.Json.JsonSerializer.Deserialize<ActivityResourceDetails>(details)?.Legacy; }
+        catch (System.Text.Json.JsonException) { return null; }
+    }
+
     public async Task<IReadOnlyList<ActivityMobTotal>> GetMobsAsync(ActivityQuery filter, CancellationToken cancellationToken = default)
     {
         await using var context = contextFactory();
@@ -385,4 +537,16 @@ public sealed partial class ActivityPersistence
 public static class ActivityDatabaseFunctions
 {
     public static double JulianDay(DateTime value) => throw new InvalidOperationException("This function is translated to SQLite julianday().");
+    public static long? JsonLong(string json, string path)
+    {
+        try
+        {
+            using var document = System.Text.Json.JsonDocument.Parse(json);
+            var value = document.RootElement;
+            foreach (var part in path.TrimStart('$', '.').Split('.'))
+                if (value.ValueKind != System.Text.Json.JsonValueKind.Object || !value.TryGetProperty(part, out value)) return null;
+            return value.ValueKind == System.Text.Json.JsonValueKind.Number && value.TryGetInt64(out var number) ? number : null;
+        }
+        catch (System.Text.Json.JsonException) { return null; }
+    }
 }

@@ -273,21 +273,6 @@ public class UserSettings : INotifyPropertyChanged
             Log.Information("Activity recording enabled set to {ActivityRecordingEnabled}", activityRecordingEnabled);
         }
     }
-    private bool disableGatheringTracker = false;
-    public bool DisableGatheringTracker
-    {
-        get => disableGatheringTracker;
-        set
-        {
-            if (disableGatheringTracker != value)
-            {
-                disableGatheringTracker = value;
-                OnPropertyChanged(nameof(DisableGatheringTracker));
-                Log.Information("Disable gathering tracker set to {DisableGatheringTracker}", disableGatheringTracker);
-            }
-        }
-    }
-
     private bool disableAwakeningItemsTracker;
     public bool DisableAwakeningItemsTracker
     {

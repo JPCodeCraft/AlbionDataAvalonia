@@ -1,7 +1,6 @@
 using AlbionDataAvalonia.Auth.Services;
 using AlbionDataAvalonia.Activity;
 using AlbionDataAvalonia.DB;
-using AlbionDataAvalonia.Gathering;
 using AlbionDataAvalonia.Legendary;
 using AlbionDataAvalonia.Items;
 using AlbionDataAvalonia.Items.Services;
@@ -160,7 +159,6 @@ public partial class App : Application
         var emvBackendLoader = services.GetRequiredService<ItemEstimatedMarketValueBackendLoader>();
         var mobsService = services.GetRequiredService<MobsService>();
         var authService = services.GetRequiredService<AuthService>();
-        var gatheringTracker = services.GetRequiredService<GatheringTrackerService>();
         _activityPersistence = services.GetRequiredService<ActivityPersistence>();
         await _activityPersistence.RecoverInterruptedAsync();
         _activityTracker = services.GetRequiredService<ActivityTrackerService>();
@@ -279,8 +277,12 @@ public partial class App : Application
                 Task.Run(mobsService.InitializeAsync),
                 _clientCore.Core.InitializeAsync());
 
-            //RESTORE GATHERING SESSION BEFORE PACKETS ARRIVE
-            await gatheringTracker.InitializeSessionRecoveryAsync();
+            // Import immutable legacy gathering snapshots before packets arrive.
+            // The importer never runs the old checkpoint deletion/recovery path.
+            var gatheringImport = await _activityPersistence.ImportLegacyGatheringAsync();
+            foreach (var error in gatheringImport.Errors)
+                Log.Warning("Legacy gathering history import needs attention: {ImportError}", error);
+            await _activityPersistence.RebuildActivityTagsAsync();
 
             //LISTENER
             _ = listener.StartNetworkListeningAsync().ContinueWith(t =>
@@ -518,8 +520,6 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<PlayerIdentityService>();
         collection.AddSingleton<ActivityPersistence>();
         collection.AddSingleton<ActivityTrackerService>();
-        collection.AddSingleton<GatheringSessionPersistenceService>();
-        collection.AddSingleton<GatheringTrackerService>();
         collection.AddSingleton<LegendaryDefinitionsService>();
         collection.AddSingleton<LegendaryItemTrackerService>();
         collection.AddSingleton<LegendarySaleService>();
@@ -532,7 +532,6 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<MailsViewModel>();
         collection.AddSingleton<TradesViewModel>();
         collection.AddSingleton<ActivityViewModel>();
-        collection.AddSingleton<GatheringViewModel>();
         collection.AddSingleton<LegendaryViewModel>();
     }
 }

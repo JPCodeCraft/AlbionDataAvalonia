@@ -61,7 +61,7 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                     await FlushAsync(cancellationToken).ConfigureAwait(false);
                     ActivityEvent[] missing;
                     await using (var context = contextFactory())
-                        missing = await context.ActivityEvents.AsNoTracking().Where(x => x.Kind == ActivityEventKind.Loot && !x.IsRetracted &&
+                        missing = await context.ActivityEvents.AsNoTracking().Where(x => (x.Kind == ActivityEventKind.Loot || x.Kind == ActivityEventKind.Gathered || x.Kind == ActivityEventKind.FishingReward) && !x.IsRetracted &&
                                 x.Server == price.Server && x.ItemId == price.ItemId && x.Quality == price.Quality && x.EstimatedUnitValue == null &&
                                 (x.Quantity == 0 || x.Quantity <= long.MaxValue / price.UnitValue))
                             .OrderBy(x => x.CapturedAtUtc).ThenBy(x => x.Id).Take(250).ToArrayAsync(cancellationToken).ConfigureAwait(false);
@@ -199,7 +199,7 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                     var oldSession = await context.ActivitySessions.FindAsync([header.Value.Id], cancellationToken);
                     if (oldSession is not null && oldSession.Revision >= header.Value.Revision) break;
                     var session = oldSession is null ? header.Value with
-                    { PersonalSummaryJson = "{}", PartySummaryJson = "{}", ObservedSummaryJson = "{}" } : header.Value with
+                    { PersonalSummaryJson = EmptySummary, PartySummaryJson = EmptySummary, ObservedSummaryJson = EmptySummary } : header.Value with
                     {
                         PersonalSummaryJson = oldSession.PersonalSummaryJson,
                         PartySummaryJson = oldSession.PartySummaryJson,
@@ -214,7 +214,7 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                     var oldEncounter = await context.ActivityEncounters.FindAsync([header.Value.Id], cancellationToken);
                     if (oldEncounter is not null && oldEncounter.Revision >= header.Value.Revision) break;
                     var encounter = oldEncounter is null ? header.Value with
-                    { PersonalSummaryJson = "{}", PartySummaryJson = "{}", ObservedSummaryJson = "{}" } : header.Value with
+                    { PersonalSummaryJson = EmptySummary, PartySummaryJson = EmptySummary, ObservedSummaryJson = EmptySummary } : header.Value with
                     {
                         PersonalSummaryJson = oldEncounter.PersonalSummaryJson,
                         PartySummaryJson = oldEncounter.PartySummaryJson,
@@ -332,6 +332,8 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
     private async Task ExecuteControlAsync(ControlCommand command, CancellationToken cancellationToken)
     {
         if (command is FlushCommand) return;
+        if (command is ImportLegacyCommand import) { import.Result = await ImportLegacyRunsAsync(cancellationToken); return; }
+        if (command is RebuildTagsCommand) { await RebuildTagsAsync(cancellationToken); return; }
         await using var context = contextFactory();
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
         switch (command)
@@ -408,4 +410,5 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
     private sealed record RecoverCommand(TaskCompletionSource Completion) : ControlCommand(Completion);
     private sealed record DeleteSessionCommand(Guid Id, TaskCompletionSource Completion) : ControlCommand(Completion);
     private sealed record DeleteLootCommand(TaskCompletionSource Completion) : ControlCommand(Completion);
+    private static string EmptySummary => ActivityProjection.Serialize(new ActivitySummary { TagVersion = ActivityClassification.TagVersion });
 }

@@ -17,6 +17,8 @@ internal sealed class ActivityLiveTimelineCanvas : Control
 {
     internal static readonly Color DamageColor = Color.Parse("#69B2F0");
     internal static readonly Color HealingColor = Color.Parse("#69D2A0");
+    internal static readonly Color GatheringColor = Color.Parse("#A0D477");
+    internal static readonly Color FishingColor = Color.Parse("#64CBDD");
     private static readonly IBrush TextBrush = new SolidColorBrush(Color.Parse("#EFEFEF"));
     private static readonly IBrush MutedBrush = new SolidColorBrush(Color.Parse("#C5C5C5"));
     private static readonly IBrush ChartBrush = new SolidColorBrush(Color.Parse("#343434"));
@@ -42,6 +44,7 @@ internal sealed class ActivityLiveTimelineCanvas : Control
     public event Action<ActivityLiveTimelineMarker>? MarkerSelected;
     public event Action<Guid>? EncounterSelected;
     public bool ShowReceived { get; set; }
+    public bool IsGatheringMode { get; set; }
     public bool IsLive { get; set; } = true;
     public bool HasInspection => pointer != null;
 
@@ -58,7 +61,7 @@ internal sealed class ActivityLiveTimelineCanvas : Control
         if (!ReferenceEquals(snapshot, value))
         {
             var ids = value?.Markers.Select(marker => marker.Id).ToHashSet() ?? new HashSet<string>();
-            if (snapshot?.SessionId != value?.SessionId || snapshot?.Scope != value?.Scope)
+            if (snapshot?.SessionId != value?.SessionId || snapshot?.Scope != value?.Scope || snapshot?.Categories != value?.Categories)
                 introducedMarkers.Clear();
             else
             {
@@ -97,18 +100,18 @@ internal sealed class ActivityLiveTimelineCanvas : Control
             context.DrawLine(GridPen, new Point(plot.Left, y), new Point(plot.Right, y));
             Text(context, Compact(max * line / 3), new Point(plot.Left - 7, y - 7), 11, MutedBrush, rightAligned: true);
         }
-        Text(context, "/ sec", new Point(3, ChartTop - 19), 10, MutedBrush);
+        Text(context, IsGatheringMode ? "items/s" : "HP/s", new Point(3, ChartTop - 19), 10, MutedBrush);
         using (context.PushClip(plot))
         {
-            DrawArea(context, samples, max, Damage, DamageColor);
-            DrawArea(context, samples, max, Healing, HealingColor);
+            DrawArea(context, samples, max, Damage, IsGatheringMode ? GatheringColor : DamageColor);
+            DrawArea(context, samples, max, Healing, IsGatheringMode ? FishingColor : HealingColor);
             DrawGaps(context);
         }
         DrawAxis(context);
         DrawEncounters(context);
         DrawMarkers(context);
         if (snapshot?.SessionId == null || (samples.Count == 0 && snapshot.Markers.Count == 0))
-            Text(context, "Your combat and important events will appear here", new Point(plot.Center.X, plot.Center.Y - 8), 12, MutedBrush, centered: true);
+            Text(context, "Your activity and important events will appear here", new Point(plot.Center.X, plot.Center.Y - 8), 12, MutedBrush, centered: true);
         if (pointer is { } position && position.X >= plot.Left && position.X <= plot.Right)
         {
             context.DrawLine(new Pen(new SolidColorBrush(Color.Parse("#969696")), 1), new Point(position.X, ChartTop), new Point(position.X, ChartBottom));
@@ -291,7 +294,7 @@ internal sealed class ActivityLiveTimelineCanvas : Control
             var sample = snapshot?.Samples.MinBy(item => Math.Abs((item.CapturedAtUtc - time).TotalSeconds));
             var damage = sample != null && Math.Abs((sample.CapturedAtUtc - time).TotalSeconds) <= 1.5 ? Damage(sample) : 0;
             var healing = sample != null && Math.Abs((sample.CapturedAtUtc - time).TotalSeconds) <= 1.5 ? Healing(sample) : 0;
-            text = time.ToLocalTime().ToString("HH:mm:ss") + " · Damage " + damage.ToString("N0") + " / sec · Healing " + healing.ToString("N0") + " / sec";
+            text = time.ToLocalTime().ToString("HH:mm:ss") + (IsGatheringMode ? " · Harvested " : " · Damage ") + damage.ToString("N0") + (IsGatheringMode ? " items/s · Fishing " : " / sec · Healing ") + healing.ToString("N0") + (IsGatheringMode ? " items/s" : " / sec");
         }
         Cursor = new Cursor(marker != null || encounter != null ? StandardCursorType.Hand : StandardCursorType.Cross);
         if (text == lastInspection) return;
@@ -327,15 +330,15 @@ internal sealed class ActivityLiveTimelineCanvas : Control
     }
 
     private double X(DateTime time) => Plot.Left + (time - StartUtc).TotalSeconds / 300 * Plot.Width;
-    private double Damage(ActivityLiveTimelineSample sample) => ShowReceived ? sample.DamageReceived : sample.DamageDealt;
-    private double Healing(ActivityLiveTimelineSample sample) => ShowReceived ? sample.HealingReceived : sample.HealingDone;
+    private double Damage(ActivityLiveTimelineSample sample) => IsGatheringMode ? sample.GatheringQuantity : ShowReceived ? sample.DamageReceived : sample.DamageDealt;
+    private double Healing(ActivityLiveTimelineSample sample) => IsGatheringMode ? sample.FishingQuantity : ShowReceived ? sample.HealingReceived : sample.HealingDone;
     private static string EncounterKind(ActivityEncounterKind kind) => kind switch { ActivityEncounterKind.Pve => "PvE", ActivityEncounterKind.Pvp => "PvP", _ => kind.ToString() };
     private static int Priority(ActivityLiveTimelineMarkerKind kind) => kind switch
     {
         ActivityLiveTimelineMarkerKind.Death => 7,
         ActivityLiveTimelineMarkerKind.PlayerKill => 6,
         ActivityLiveTimelineMarkerKind.Knockdown => 5,
-        ActivityLiveTimelineMarkerKind.Loot => 4,
+        ActivityLiveTimelineMarkerKind.Loot or ActivityLiveTimelineMarkerKind.Gathering or ActivityLiveTimelineMarkerKind.Fishing => 4,
         ActivityLiveTimelineMarkerKind.MobKill => 3,
         ActivityLiveTimelineMarkerKind.Fame => 2,
         _ => 1
@@ -345,6 +348,8 @@ internal sealed class ActivityLiveTimelineCanvas : Control
         ActivityLiveTimelineMarkerKind.Death or ActivityLiveTimelineMarkerKind.Knockdown => Color.Parse("#F47D7D"),
         ActivityLiveTimelineMarkerKind.PlayerKill => Color.Parse("#EB9C64"),
         ActivityLiveTimelineMarkerKind.Loot => Color.Parse("#BF91F0"),
+        ActivityLiveTimelineMarkerKind.Gathering => GatheringColor,
+        ActivityLiveTimelineMarkerKind.Fishing => FishingColor,
         ActivityLiveTimelineMarkerKind.Fame => Color.Parse("#86D1A2"),
         ActivityLiveTimelineMarkerKind.Silver => Color.Parse("#E7BD64"),
         _ => Color.Parse("#64CBDD")
@@ -370,6 +375,17 @@ internal sealed class ActivityLiveTimelineCanvas : Control
                 context.DrawLine(pen, center + new Vector(-3, -3), center + new Vector(-2, -6));
                 context.DrawLine(pen, center + new Vector(-2, -6), center + new Vector(2, -6));
                 context.DrawLine(pen, center + new Vector(2, -6), center + new Vector(3, -3));
+                break;
+            case ActivityLiveTimelineMarkerKind.Gathering:
+                context.DrawLine(pen, center + new Vector(-4, 5), center + new Vector(3, -4));
+                context.DrawLine(pen, center + new Vector(-5, -3), center + new Vector(0, -6));
+                context.DrawLine(pen, center + new Vector(0, -6), center + new Vector(5, -3));
+                break;
+            case ActivityLiveTimelineMarkerKind.Fishing:
+                context.DrawLine(pen, center + new Vector(-4, 5), center + new Vector(1, -6));
+                context.DrawLine(pen, center + new Vector(1, -6), center + new Vector(5, -3));
+                context.DrawLine(pen, center + new Vector(5, -3), center + new Vector(5, 2));
+                context.DrawEllipse(null, pen, center + new Vector(3, 3), 2, 2);
                 break;
             case ActivityLiveTimelineMarkerKind.Silver:
                 context.DrawEllipse(null, pen, center, 5, 6);

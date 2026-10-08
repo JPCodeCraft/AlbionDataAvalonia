@@ -29,6 +29,8 @@ namespace AlbionDataAvalonia.DB
             base.OnModelCreating(modelBuilder);
             modelBuilder.HasDbFunction(typeof(ActivityDatabaseFunctions).GetMethod(nameof(ActivityDatabaseFunctions.JulianDay))!)
                 .HasName("julianday").IsBuiltIn();
+            modelBuilder.HasDbFunction(typeof(ActivityDatabaseFunctions).GetMethod(nameof(ActivityDatabaseFunctions.JsonLong))!)
+                .HasName("json_extract").IsBuiltIn();
             modelBuilder.Entity<ActivitySession>(entity =>
             {
                 entity.ToTable("ActivitySessions");

@@ -32,6 +32,7 @@ public sealed class ActivityTrackerService : IDisposable
     private readonly ActivityPersistence persistence;
     private readonly ActivityActorContext actors;
     private readonly ActivityLootCollector loot;
+    private readonly ActivityGatheringCollector gathering;
     private readonly Timer timer;
     private readonly Dictionary<string, DateTime> origins = new(StringComparer.Ordinal);
     private readonly Queue<string> originOrder = new();
@@ -72,6 +73,7 @@ public sealed class ActivityTrackerService : IDisposable
         enabled = settings.UserSettings.ActivityRecordingEnabled;
         actors = new ActivityActorContext(party, mobs);
         loot = new ActivityLootCollector(this, values, items);
+        gathering = new ActivityGatheringCollector(this, loot, values, items);
         timer = new Timer(_ => Tick(), null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
         settings.UserSettings.PropertyChanged += SettingsChanged;
         persistence.StatusChanged += StorageChanged;
@@ -86,7 +88,7 @@ public sealed class ActivityTrackerService : IDisposable
     public bool IsAwaitingContext { get { lock (sync) return awaitingContext; } }
     public bool IsCaptureSuspended { get { lock (sync) return captureSuspended; } }
     public Task<ActivityLiveTimelineSnapshot> GetLiveTimelineAsync(Guid? sessionId, ActivityScope scope, DateTime endUtc,
-        CancellationToken cancellationToken = default)
+        CancellationToken cancellationToken = default, ActivityCategories categories = ActivityCategories.All)
     {
         ActivitySession? liveSession;
         ActivityEncounter? liveEncounter;
@@ -95,7 +97,7 @@ public sealed class ActivityTrackerService : IDisposable
             liveSession = session?.Id == sessionId ? session : null;
             liveEncounter = encounter?.SessionId == sessionId ? encounter : null;
         }
-        return persistence.GetLiveTimelineAsync(sessionId, scope, endUtc, liveSession, liveEncounter, cancellationToken);
+        return persistence.GetLiveTimelineAsync(sessionId, scope, endUtc, liveSession, liveEncounter, cancellationToken, categories);
     }
     public string StatusText
     {
@@ -123,6 +125,7 @@ public sealed class ActivityTrackerService : IDisposable
             if (value && map is not null) { mapEnteredAt = DateTime.UtcNow; partialEntry = true; }
             if (!value) CloseSession(DateTime.UtcNow, ActivityEndReason.Disabled);
             loot.Reset();
+            gathering.Reset();
             mobParticipation.Clear();
             pendingTerminals.Clear();
             SaveHeaders();
@@ -138,6 +141,7 @@ public sealed class ActivityTrackerService : IDisposable
             CloseSession(DateTime.UtcNow, ActivityEndReason.Finished);
             resumable = null;
             loot.ResetCandidates();
+            gathering.Reset();
             mobParticipation.Clear();
             pendingTerminals.Clear();
             mapEnteredAt = DateTime.UtcNow;
@@ -185,6 +189,7 @@ public sealed class ActivityTrackerService : IDisposable
         actors.Suspend();
         map = null;
         loot.Reset();
+        gathering.Reset();
         mobParticipation.Clear();
         pendingTerminals.Clear();
     }
@@ -198,7 +203,8 @@ public sealed class ActivityTrackerService : IDisposable
             // Item baselines can precede Join on the next connection. Cache only;
             // Join confirms their connection and inventory membership before use.
             loot.ObservePendingInventoryMetadata(packet, at);
-            if (!awaitingContext && (at < mapEnteredAt || !SameConnection(packet.ConnectionId, packet.MessageIdentity))) return;
+            if (!awaitingContext && (at < mapEnteredAt || !SameConnection(packet.ConnectionId, packet.MessageIdentity)))
+            { gathering.Reset(); return; }
             Expire(at);
             switch (packet)
             {
@@ -262,6 +268,12 @@ public sealed class ActivityTrackerService : IDisposable
                         { Signal = "PartySilver", silver.TargetObjectId, silver.NetRaw, silver.GrossRaw })
                     });
                     break;
+                case HarvestFinishedEvent harvest when CanRecord:
+                    gathering.Observe(harvest, at);
+                    break;
+                case RewardGrantedEvent reward when CanRecord:
+                    gathering.Observe(reward, at);
+                    break;
                 default:
                     if (enabled && !storageSuspended) loot.Observe(packet, at);
                     break;
@@ -277,11 +289,16 @@ public sealed class ActivityTrackerService : IDisposable
         {
             if (disposed || !Accept(packet.MessageIdentity?.OriginKey, packet.GetType().Name, packet.CapturedAt)) return;
             var at = Utc(packet.CapturedAt);
-            if (packet is not JoinResponse && !awaitingContext && (at < mapEnteredAt || !SameConnection(packet.ConnectionId, packet.MessageIdentity))) return;
+            if (packet is not JoinResponse && !awaitingContext && (at < mapEnteredAt || !SameConnection(packet.ConnectionId, packet.MessageIdentity)))
+            { gathering.Reset(); return; }
             Expire(at);
             if (packet is JoinResponse join && join.ReturnCode == 0
                 && join.userObjectId > 0 && !string.IsNullOrWhiteSpace(join.RawLocationId)) Join(join, at);
-            else if (CanRecord) loot.Observe(packet, at);
+            else if (CanRecord)
+            {
+                gathering.Observe(packet, at);
+                loot.Observe(packet, at);
+            }
             if (headersDirty) SaveHeaders();
         }
         Changed?.Invoke(this, EventArgs.Empty);
@@ -328,6 +345,7 @@ public sealed class ActivityTrackerService : IDisposable
             && old.CharacterId == (packet.userGuid?.ToString() ?? "") && !old.HasLocalDeath
             && JsonSerializer.Deserialize<string[]>(old.KnownInstancesJson)?.Contains(InstanceKey(next)) == true;
         loot.Join(packet, at);
+        gathering.Reset();
         mobParticipation.Clear();
         pendingTerminals.Clear();
 
@@ -736,9 +754,45 @@ public sealed class ActivityTrackerService : IDisposable
         return value;
     }
     internal void AmendLoot(ActivityEvent value) => persistence.Amend(value);
+    internal void RecordResource(ActivityEvent value)
+    {
+        if (!CanRecord || value.Evidence != ActivityEvidence.Confirmed || !Tracked(value.SourceRelationship)
+            || value.MapEpoch != mapEpoch || value.SessionId is { } originalSession && originalSession != session?.Id) return;
+        EnsureSession(value.CapturedAtUtc);
+        // Fishing confirmation can trail a later first combat event. The
+        // first confirmed roaming observation still determines session entry.
+        if (value.SessionId is null && session is { Kind: ActivitySessionKind.Roaming } current
+            && value.CapturedAtUtc < current.StartedAtUtc && value.CapturedAtUtc >= mapEnteredAt
+            && current.ObservationStartedAtUtc == current.StartedAtUtc && visits.Count == 1)
+        {
+            visits[0] = visits[0] with { StartedAtUtc = value.CapturedAtUtc };
+            session = current with
+            {
+                Revision = current.Revision + 1,
+                StartedAtUtc = value.CapturedAtUtc,
+                ObservationStartedAtUtc = value.CapturedAtUtc,
+                VisitsJson = JsonSerializer.Serialize(visits)
+            };
+            headersDirty = true;
+        }
+        TouchRelevant(value.CapturedAtUtc);
+        // Enrichment retains the reward's original encounter association. A
+        // gathering award neither opens combat nor refreshes its inactivity.
+        Persist(value with { SessionId = value.SessionId ?? session?.Id });
+    }
     internal void RetractLoot(Guid id, int revision) => persistence.Retract(id, revision);
     internal Task FillLootPricesAsync(IReadOnlyCollection<ActivityLootPrice> prices) => persistence.FillMissingLootPricesAsync(prices);
     internal void Collect(Action action) { lock (sync) { if (!disposed) action(); } }
+    internal void ObserveInventoryRearrangement(RequestPacket packet)
+    {
+        lock (sync)
+        {
+            var at = Utc(packet.CapturedAt);
+            if (disposed || !CanRecord || at < mapEnteredAt || !SameConnection(packet.ConnectionId, packet.MessageIdentity)) return;
+            gathering.InventoryIntent(at);
+            loot.DisruptLocalAcquisition(at);
+        }
+    }
     internal static ActivityEvent WithSource(ActivityEvent value, ActivityActor actor) => value with
     {
         SourceActorId = actor.Id,
@@ -760,7 +814,7 @@ public sealed class ActivityTrackerService : IDisposable
 
     private void Persist(ActivityEvent value)
     {
-        if (!persistence.Create(value)) storageSuspended = true;
+        if (!persistence.Create(value)) { storageSuspended = true; gathering.Reset(); }
         if (session is not null && value.SessionId == session.Id)
         {
             session = session with
@@ -787,6 +841,7 @@ public sealed class ActivityTrackerService : IDisposable
     private ActivitySession? CloseSession(DateTime at, ActivityEndReason reason)
     {
         CloseEncounter(at, reason);
+        gathering.Reset();
         if (session is null) return null;
         CloseObservation(at);
         var ended = session with
@@ -816,6 +871,7 @@ public sealed class ActivityTrackerService : IDisposable
         if (!reentryConfirmed && resumable?.ClosedAtUtc is { } exited && at - exited > ReentryGrace) resumable = null;
         pendingTerminals.RemoveAll(x => x.ExpiresAt < at);
         actors.Expire(at);
+        gathering.Expire(at);
         loot.Expire(at);
     }
 
@@ -928,6 +984,7 @@ public sealed class ActivityTrackerService : IDisposable
         lock (sync)
         {
             loot.ForgetSession(id);
+            gathering.Reset();
             deferredSessions.Remove(id);
             foreach (var key in deferredEncounters.Where(x => x.Value.SessionId == id).Select(x => x.Key).ToArray()) deferredEncounters.Remove(key);
             if (deferredGap?.SessionId == id) deferredGap = null;
@@ -944,7 +1001,7 @@ public sealed class ActivityTrackerService : IDisposable
 
     public async Task StopAsync(CancellationToken cancellationToken = default)
     {
-        lock (sync) { CloseSession(DateTime.UtcNow, ActivityEndReason.Interrupted); captureSuspended = true; }
+        lock (sync) { gathering.Reset(); CloseSession(DateTime.UtcNow, ActivityEndReason.Interrupted); captureSuspended = true; }
         await persistence.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 

@@ -1,7 +1,6 @@
 using AFMDataClient.Core;
 using Albion.Network;
 using AlbionDataAvalonia.Activity;
-using AlbionDataAvalonia.Gathering;
 using AlbionDataAvalonia.Items.Services;
 using AlbionDataAvalonia.Legendary;
 using AlbionDataAvalonia.Network.Handlers;
@@ -48,7 +47,6 @@ namespace AlbionDataAvalonia.Network.Services
         private readonly TradeService _tradeService;
         private readonly ItemEstimatedMarketValueService _itemEstimatedMarketValues;
         private readonly ActivityTrackerService _activityTracker;
-        private readonly GatheringTrackerService _gatheringTracker;
         private readonly PartyTrackerService _partyTracker;
         private readonly PlayerIdentityService _playerIdentityService;
         private readonly LegendaryItemTrackerService _legendaryTracker;
@@ -67,14 +65,13 @@ namespace AlbionDataAvalonia.Network.Services
         public bool IsMacOSCapturePermissionSetupRequired { get; private set; }
         public bool IsMacOSCapturePermissionSetupOutdated { get; private set; }
 
-        public NetworkListenerService(PlayerState playerState, SettingsManager settingsManager, MailService mailService, TradeService tradeService, ItemEstimatedMarketValueService itemEstimatedMarketValues, ActivityTrackerService activityTracker, GatheringTrackerService gatheringTracker, PartyTrackerService partyTracker, PlayerIdentityService playerIdentityService, LegendaryItemTrackerService legendaryTracker, DesktopClientCore clientCore)
+        public NetworkListenerService(PlayerState playerState, SettingsManager settingsManager, MailService mailService, TradeService tradeService, ItemEstimatedMarketValueService itemEstimatedMarketValues, ActivityTrackerService activityTracker, PartyTrackerService partyTracker, PlayerIdentityService playerIdentityService, LegendaryItemTrackerService legendaryTracker, DesktopClientCore clientCore)
         {
             _playerState = playerState;
             _settingsManager = settingsManager;
             _mailService = mailService;
             _itemEstimatedMarketValues = itemEstimatedMarketValues;
             _activityTracker = activityTracker;
-            _gatheringTracker = gatheringTracker;
             _partyTracker = partyTracker;
             _playerIdentityService = playerIdentityService;
             _legendaryTracker = legendaryTracker;
@@ -208,13 +205,11 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddEventHandler(new PartyOnClusterPartyJoinedEventHandler(_partyTracker));
                 builder.AddEventHandler(new PartySetRoleFlagEventHandler(_partyTracker));
                 builder.AddEventHandler(new EstimatedMarketValueUpdateEventHandler(_itemEstimatedMarketValues, _playerState));
-                builder.AddEventHandler(new HarvestFinishedEventHandler(_gatheringTracker));
-                builder.AddEventHandler(new RewardGrantedEventHandler(_gatheringTracker));
                 builder.AddEventHandler(new AttachItemContainerEventHandler(_legendaryTracker));
                 builder.AddEventHandler(new DetachItemContainerEventHandler(_legendaryTracker));
                 builder.AddEventHandler(new InventoryDeleteItemEventHandler(_legendaryTracker));
                 builder.AddEventHandler(new InventoryPutItemEventHandler(_legendaryTracker));
-                builder.AddEventHandler(new NewSimpleItemEventHandler(_itemEstimatedMarketValues, _gatheringTracker, _playerState));
+                builder.AddEventHandler(new NewSimpleItemEventHandler(_itemEstimatedMarketValues, _playerState));
                 builder.AddEventHandler(new NewJournalItemEventHandler(_itemEstimatedMarketValues, _playerState));
                 builder.AddEventHandler(new NewLaborerItemEventHandler(_itemEstimatedMarketValues, _playerState));
                 builder.AddEventHandler(new NewEquipmentItemEventHandler(_itemEstimatedMarketValues, _playerState, _legendaryTracker));
@@ -235,16 +230,12 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddResponseHandler(new ReadMailResponseHandler(_playerState, _mailService));
                 builder.AddResponseHandler(new AuctionBuyOfferResponseHandler(_playerState, _tradeService));
                 builder.AddResponseHandler(new AuctionSellSpecificItemRequestResponseHandler(_playerState, _tradeService));
-                builder.AddResponseHandler(new FishingFinishResponseHandler(_gatheringTracker));
 #if DEBUG
                 builder.AddHandler(new DebugResponseProbeResponseHandler(() => _settingsManager.UserSettings.LogLevel <= Serilog.Events.LogEventLevel.Debug));
 #endif
                 // REQUEST
                 builder.AddRequestHandler(new AuctionBuyOfferRequestHandler(_playerState, _tradeService));
                 builder.AddRequestHandler(new AuctionSellSpecificItemRequestRequestHandler(_playerState, _tradeService));
-                builder.AddRequestHandler(new FishingStartRequestHandler(_gatheringTracker));
-                builder.AddRequestHandler(new FishingFinishRequestHandler(_gatheringTracker));
-                builder.AddRequestHandler(new FishingCancelRequestHandler(_gatheringTracker));
 #if DEBUG
                 builder.AddHandler(new DebugRequestProbeRequestHandler(() => _settingsManager.UserSettings.LogLevel <= Serilog.Events.LogEventLevel.Debug));
 #endif

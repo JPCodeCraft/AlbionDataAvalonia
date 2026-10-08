@@ -17,7 +17,7 @@ public static class ActivityProjection
     {
         var party = scope != ActivityScope.Personal;
         var all = scope == ActivityScope.AllObserved;
-        return e => new ActivitySummary
+        Expression<Func<ActivityEvent, ActivitySummary>> expression = e => new ActivitySummary
         {
             DamageDealt = !e.IsRetracted && e.Kind == ActivityEventKind.Damage &&
                 (actorKey == null || e.SourceActorId == actorKey) &&
@@ -62,21 +62,98 @@ public static class ActivityProjection
                 (actorKey == null || e.TargetActorId == actorKey) &&
                 (all || e.TargetRelationship == ActorRelationship.Self || (party && e.TargetRelationship == ActorRelationship.Party)) ? 1 : 0
         };
+        return WithResourceContributions(expression, scope, actorKey);
     }
 
+    private static Expression<Func<ActivityEvent, ActivitySummary>> WithResourceContributions(
+        Expression<Func<ActivityEvent, ActivitySummary>> original, ActivityScope scope, string? actorKey)
+    {
+        var party = scope != ActivityScope.Personal;
+        var all = scope == ActivityScope.AllObserved;
+        Expression<Func<ActivityEvent, ActivitySummary>> resources = e => new ActivitySummary
+        {
+            GatheringItems = !e.IsRetracted && e.Evidence == ActivityEvidence.Confirmed &&
+                (e.Kind == ActivityEventKind.Gathered || e.Kind == ActivityEventKind.LegacyGatheringAggregate && ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.Method") == (long)ActivityResourceMethod.Gathering) &&
+                (actorKey == null || e.SourceActorId == actorKey) && (all || e.SourceRelationship == ActorRelationship.Self || party && e.SourceRelationship == ActorRelationship.Party) ? e.Quantity : 0,
+            FishingItems = !e.IsRetracted && e.Evidence == ActivityEvidence.Confirmed &&
+                (e.Kind == ActivityEventKind.FishingReward || e.Kind == ActivityEventKind.LegacyGatheringAggregate && ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.Method") == (long)ActivityResourceMethod.Fishing) &&
+                (actorKey == null || e.SourceActorId == actorKey) && (all || e.SourceRelationship == ActorRelationship.Self || party && e.SourceRelationship == ActorRelationship.Party) ? e.Quantity : 0,
+            UnclassifiedResourceItems = !e.IsRetracted && e.Evidence == ActivityEvidence.Confirmed && e.Kind == ActivityEventKind.LegacyGatheringAggregate &&
+                (ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.Method") == null || ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.Method") == 0 || ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.Method") == (long)ActivityResourceMethod.Mixed) &&
+                (actorKey == null || e.SourceActorId == actorKey) && (all || e.SourceRelationship == ActorRelationship.Self || party && e.SourceRelationship == ActorRelationship.Party) ? e.Quantity : 0,
+            MissingResourcePriceItems = !e.IsRetracted && e.Evidence == ActivityEvidence.Confirmed &&
+                (e.Kind == ActivityEventKind.Gathered || e.Kind == ActivityEventKind.FishingReward || e.Kind == ActivityEventKind.LegacyGatheringAggregate) &&
+                (e.Kind == ActivityEventKind.LegacyGatheringAggregate ? ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.Legacy.RecordedTotalValue") == null : e.EstimatedUnitValue == null) &&
+                (actorKey == null || e.SourceActorId == actorKey) && (all || e.SourceRelationship == ActorRelationship.Self || party && e.SourceRelationship == ActorRelationship.Party) ? e.Quantity : 0,
+            LegacyAggregateEvents = !e.IsRetracted && e.Kind == ActivityEventKind.LegacyGatheringAggregate &&
+                (all || e.SourceRelationship == ActorRelationship.Self || party && e.SourceRelationship == ActorRelationship.Party) ? 1 : 0
+        };
+        var parameter = original.Parameters[0];
+        var bindings = ((MemberInitExpression)original.Body).Bindings.Cast<MemberAssignment>().ToList();
+        foreach (var binding in ((MemberInitExpression)resources.Body).Bindings.Cast<MemberAssignment>())
+            bindings.Add(Expression.Bind(binding.Member, new ParameterSubstitution(resources.Parameters[0], parameter).Visit(binding.Expression)!));
+        AddCount(nameof(ActivitySummary.GatheringEvents), ActivityClassification.GatheringExpression(scope, actorKey));
+        AddCount(nameof(ActivitySummary.PveEvents), ActivityClassification.PveExpression(scope, actorKey));
+        AddCount(nameof(ActivitySummary.PvpEvents), ActivityClassification.PvpExpression(scope, actorKey));
+        AddValue(nameof(ActivitySummary.GatheringValue), nameof(ActivitySummary.GatheringItems));
+        AddValue(nameof(ActivitySummary.FishingValue), nameof(ActivitySummary.FishingItems));
+        AddValue(nameof(ActivitySummary.UnclassifiedResourceValue), nameof(ActivitySummary.UnclassifiedResourceItems));
+        return Expression.Lambda<Func<ActivityEvent, ActivitySummary>>(Expression.MemberInit(Expression.New(typeof(ActivitySummary)), bindings), parameter);
+
+        void AddCount(string property, Expression<Func<ActivityEvent, bool>> predicate) => bindings.Add(Expression.Bind(typeof(ActivitySummary).GetProperty(property)!,
+            Expression.Condition(new ParameterSubstitution(predicate.Parameters[0], parameter).Visit(predicate.Body)!, Expression.Constant(1L), Expression.Constant(0L))));
+        void AddValue(string property, string quantityProperty)
+        {
+            var eligible = Expression.GreaterThan(bindings.Single(x => x.Member.Name == quantityProperty).Expression, Expression.Constant(0L));
+            var value = new ParameterSubstitution(ActivityClassification.ItemValueExpression.Parameters[0], parameter).Visit(ActivityClassification.ItemValueExpression.Body)!;
+            bindings.Add(Expression.Bind(typeof(ActivitySummary).GetProperty(property)!, Expression.Condition(eligible,
+                Expression.Coalesce(value, Expression.Constant(0L)), Expression.Constant(0L))));
+        }
+    }
+    private sealed class ParameterSubstitution(ParameterExpression source, ParameterExpression target) : ExpressionVisitor
+    { protected override Expression VisitParameter(ParameterExpression node) => node == source ? target : base.VisitParameter(node); }
+
     public static ActivitySummary Contribution(ActivityEvent observation, ActivityScope scope) => Contributions[scope](observation);
-    public static long? GetLootValue(ActivityEvent observation) => observation.EstimatedUnitValue is { } price ? price * observation.Quantity : null;
+    public static long? GetLootValue(ActivityEvent observation) => ActivityClassification.GetItemValue(observation);
     internal static Expression<Func<ActivityEvent, double>> ChartExpression(ActivityScope scope, string? actorKey, ActivityChartMetric metric)
     {
         var contribution = ContributionExpression(scope, actorKey);
         var property = metric == ActivityChartMetric.Silver ? nameof(ActivitySummary.SilverRaw) : metric.ToString();
-        var binding = ((MemberInitExpression)contribution.Body).Bindings.OfType<MemberAssignment>().Single(x => x.Member.Name == property);
-        Expression value = binding.Expression.Type == typeof(double) ? binding.Expression : Expression.Convert(binding.Expression, typeof(double));
+        var bindings = ((MemberInitExpression)contribution.Body).Bindings.OfType<MemberAssignment>().ToArray();
+        Expression metricValue = metric is ActivityChartMetric.ResourceItems or ActivityChartMetric.ResourceValue
+            ? bindings.Where(x => x.Member.Name == (metric == ActivityChartMetric.ResourceItems ? nameof(ActivitySummary.GatheringItems) : nameof(ActivitySummary.GatheringValue)) ||
+                x.Member.Name == (metric == ActivityChartMetric.ResourceItems ? nameof(ActivitySummary.FishingItems) : nameof(ActivitySummary.FishingValue)) ||
+                x.Member.Name == (metric == ActivityChartMetric.ResourceItems ? nameof(ActivitySummary.UnclassifiedResourceItems) : nameof(ActivitySummary.UnclassifiedResourceValue)))
+                .Select(x => x.Expression).Aggregate((a, b) => Expression.Add(a, b))
+            : bindings.Single(x => x.Member.Name == property).Expression;
+        Expression value = metricValue.Type == typeof(double) ? metricValue : Expression.Convert(metricValue, typeof(double));
         if (metric == ActivityChartMetric.Silver) value = Expression.Divide(value, Expression.Constant(10000d));
         return Expression.Lambda<Func<ActivityEvent, double>>(value, contribution.Parameters);
     }
+    internal static Expression<Func<ActivityEvent, long>> CountExpression(ActivityScope scope, string property, string? actorKey = null)
+    {
+        var contribution = ContributionExpression(scope, actorKey);
+        var bindings = ((MemberInitExpression)contribution.Body).Bindings.OfType<MemberAssignment>().ToArray();
+        Expression value = property == nameof(ActivitySummary.ResourceValue)
+            ? bindings.Where(x => x.Member.Name == nameof(ActivitySummary.GatheringValue) || x.Member.Name == nameof(ActivitySummary.FishingValue) ||
+                x.Member.Name == nameof(ActivitySummary.UnclassifiedResourceValue)).Select(x => x.Expression).Aggregate(Expression.Add)
+            : bindings.Single(x => x.Member.Name == property).Expression;
+        return Expression.Lambda<Func<ActivityEvent, long>>(value, contribution.Parameters);
+    }
+
     public static ActivitySummary Add(ActivitySummary a, ActivitySummary b, int sign = 1) => a with
     {
+        GatheringEvents = a.GatheringEvents + sign * b.GatheringEvents,
+        PveEvents = a.PveEvents + sign * b.PveEvents,
+        PvpEvents = a.PvpEvents + sign * b.PvpEvents,
+        GatheringItems = a.GatheringItems + sign * b.GatheringItems,
+        FishingItems = a.FishingItems + sign * b.FishingItems,
+        UnclassifiedResourceItems = a.UnclassifiedResourceItems + sign * b.UnclassifiedResourceItems,
+        GatheringValue = a.GatheringValue + sign * b.GatheringValue,
+        FishingValue = a.FishingValue + sign * b.FishingValue,
+        UnclassifiedResourceValue = a.UnclassifiedResourceValue + sign * b.UnclassifiedResourceValue,
+        MissingResourcePriceItems = a.MissingResourcePriceItems + sign * b.MissingResourcePriceItems,
+        LegacyAggregateEvents = a.LegacyAggregateEvents + sign * b.LegacyAggregateEvents,
         DamageDealt = a.DamageDealt + sign * b.DamageDealt,
         DamageReceived = a.DamageReceived + sign * b.DamageReceived,
         HealingDone = a.HealingDone + sign * b.HealingDone,
@@ -125,6 +202,7 @@ public static class ActivityProjection
             combatSeconds > 0 ? summary.HealingDone / combatDenominator : 0,
             summary.Fame * 3600 / denominator, summary.Silver * 3600 / denominator, summary.LootValue * 3600d / denominator,
             combatSeconds > 0 ? summary.DamageReceived / combatDenominator : 0,
-            combatSeconds > 0 ? summary.HealingReceived / combatDenominator : 0, combatSeconds);
+            combatSeconds > 0 ? summary.HealingReceived / combatDenominator : 0, combatSeconds,
+            summary.ResourceItems * 3600d / denominator, summary.ResourceValue * 3600d / denominator);
     }
 }

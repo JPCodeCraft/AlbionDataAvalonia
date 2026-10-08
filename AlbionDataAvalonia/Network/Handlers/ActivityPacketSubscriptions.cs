@@ -22,6 +22,8 @@ internal static class ActivityPacketSubscriptions
         Event<HealthUpdatesEvent>(builder, EventCodes.HealthUpdates, activity);
         Event<UpdateFameEvent>(builder, EventCodes.UpdateFame, activity);
         Event<TakeSilverEvent>(builder, EventCodes.TakeSilver, activity);
+        Event<HarvestFinishedEvent>(builder, EventCodes.HarvestFinished, activity);
+        Event<RewardGrantedEvent>(builder, EventCodes.RewardGranted, activity);
         Event<DiedEvent>(builder, EventCodes.Died, activity);
         Event<KnockedDownEvent>(builder, EventCodes.KnockedDown, activity);
         Event<KilledPlayerEvent>(builder, EventCodes.KilledPlayer, activity);
@@ -50,6 +52,11 @@ internal static class ActivityPacketSubscriptions
         builder.SubscribeResponse<JoinResponse>((int)OperationCodes.Join, packet => Observe(activity, packet));
         builder.SubscribeRequest<InventoryMoveItemRequest>((int)OperationCodes.InventoryMoveItem, packet => Observe(activity, packet));
         builder.SubscribeRequest<InventoryMoveGivenItemsRequest>((int)OperationCodes.InventoryMoveGivenItems, packet => Observe(activity, packet));
+        builder.SubscribeRequest<FishingStartRequest>((int)OperationCodes.FishingStart, packet => Observe(activity, packet));
+        builder.SubscribeRequest<FishingFinishRequest>((int)OperationCodes.FishingFinish, packet => Observe(activity, packet));
+        builder.SubscribeRequest<FishingCancelRequest>((int)OperationCodes.FishingCancel, packet => Observe(activity, packet));
+        builder.SubscribeResponse<FishingFinishResponse>((int)OperationCodes.FishingFinish, packet => Observe(activity, packet));
+        builder.AddHandler(new AcquisitionIntentHandler(activity));
     }
 
     private static void Event<T>(ReceiverBuilder builder, EventCodes code, ActivityTrackerService activity) where T : BaseEvent
@@ -59,5 +66,19 @@ internal static class ActivityPacketSubscriptions
     {
         activity.Observe(packet);
         return Task.CompletedTask;
+    }
+
+    // These requests do not prove acquisitions. They only make nearby stack
+    // gains ambiguous, so discard the short-lived fishing correlation.
+    private sealed class AcquisitionIntentHandler(ActivityTrackerService activity) : PacketHandler<RequestPacket>
+    {
+        protected override Task OnHandleAsync(RequestPacket packet)
+        {
+            if (packet.OperationCode is (int)OperationCodes.InventorySplitStack or (int)OperationCodes.InventorySplitStackInto
+                or (int)OperationCodes.InventoryStack or (int)OperationCodes.InventoryAddToStacks
+                or (int)OperationCodes.InventoryDestroyItem or (int)OperationCodes.InventoryDropAll)
+                activity.ObserveInventoryRearrangement(packet);
+            return Task.CompletedTask;
+        }
     }
 }

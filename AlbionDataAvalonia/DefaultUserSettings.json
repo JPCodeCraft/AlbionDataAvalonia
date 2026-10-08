@@ -15,7 +15,6 @@
   "UploadSpecsToAfm": true,
   "AfmIslandTrackerEnabled": true,
   "ActivityRecordingEnabled": true,
-  "DisableGatheringTracker": false,
   "DisableAwakeningItemsTracker": false,
   "LogLevel": 2
 }
