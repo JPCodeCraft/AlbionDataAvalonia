@@ -58,15 +58,6 @@ public sealed class GatheringUnfinishedSessionCheckpoint
     public string PayloadJson { get; set; } = string.Empty;
 }
 
-public sealed record GatheringSessionCheckpoint(
-    Guid SessionId,
-    DateTime StartedAtUtc,
-    DateTime LastActivityAtUtc,
-    DateTime UpdatedAtUtc,
-    bool IsPaused,
-    GatheringSessionSource Source,
-    GatheringSessionCheckpointPayload Payload);
-
 public sealed record GatheringSessionCheckpointPayload(
     List<GatheringSessionCheckpointItem> Items,
     List<GatheringSessionCheckpointPauseInterval> PauseIntervals,
@@ -85,55 +76,3 @@ public sealed record GatheringSessionCheckpointItem(
 public sealed record GatheringSessionCheckpointPauseInterval(
     DateTime StartedAtUtc,
     DateTime? EndedAtUtc);
-
-public sealed record GatheringCompletedSessionSnapshot(
-    Guid Id,
-    DateTime StartedAtUtc,
-    DateTime EndedAtUtc,
-    DateTime LastActivityAtUtc,
-    TimeSpan ActiveElapsed,
-    long TotalAmount,
-    long TotalEstimatedMarketValue,
-    long SilverPerHour,
-    int? AlbionServerId,
-    string PlayerName,
-    GatheringSessionSource Source,
-    IReadOnlyList<GatheringCompletedSessionItemSnapshot> Items);
-
-public sealed record GatheringCompletedSessionItemSnapshot(
-    int ItemId,
-    int Quality,
-    string ItemUniqueName,
-    string ItemName,
-    long Amount,
-    long? EstimatedMarketValue,
-    long? TotalEstimatedMarketValue,
-    GatheringSessionSource Source);
-
-public sealed record GatheringCompletedSessionItemDetails(
-    Guid Id,
-    int ItemId,
-    int Quality,
-    string ItemUniqueName,
-    string ItemName,
-    long Amount,
-    long? EstimatedMarketValue,
-    long? TotalEstimatedMarketValue,
-    GatheringSessionSource Source);
-
-public sealed record GatheringCompletedSessionSummary(
-    Guid Id,
-    DateTime StartedAtUtc,
-    DateTime EndedAtUtc,
-    DateTime LastActivityAtUtc,
-    TimeSpan ActiveElapsed,
-    long TotalAmount,
-    long TotalEstimatedMarketValue,
-    long SilverPerHour,
-    int? AlbionServerId,
-    string PlayerName,
-    GatheringSessionSource Source);
-
-public sealed record GatheringCompletedSessionDetails(
-    GatheringCompletedSessionSummary Summary,
-    IReadOnlyList<GatheringCompletedSessionItemDetails> Items);

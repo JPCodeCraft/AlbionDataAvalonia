@@ -12,7 +12,7 @@ namespace AlbionDataAvalonia.Activity;
 
 public sealed partial class ActivityPersistence
 {
-    internal async Task<ActivityLiveTimelineSnapshot> GetLiveTimelineAsync(Guid? sessionId, ActivityScope scope,
+    private async Task<ActivityLiveTimelineSnapshot> GetLiveTimelineCoreAsync(Guid? sessionId, ActivityScope scope,
         DateTime endUtc, ActivitySession? liveSession, ActivityEncounter? liveEncounter, CancellationToken cancellationToken,
         ActivityCategories categories = ActivityCategories.All)
     {
@@ -244,24 +244,24 @@ public sealed partial class ActivityPersistence
         }
     }
 
-    public async Task<ActivitySession?> GetSessionAsync(Guid id, CancellationToken cancellationToken = default)
+    private async Task<ActivitySession?> GetSessionCoreAsync(Guid id, CancellationToken cancellationToken = default)
     {
         await using var context = contextFactory();
         return await context.ActivitySessions.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
-    public async Task<ActivityEncounter?> GetEncounterAsync(Guid id, CancellationToken cancellationToken = default)
+    private async Task<ActivityEncounter?> GetEncounterCoreAsync(Guid id, CancellationToken cancellationToken = default)
     {
         await using var context = contextFactory();
         return await context.ActivityEncounters.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
-    public async Task<ActivityEncounter?> GetLatestEncounterAsync(Guid sessionId, CancellationToken cancellationToken = default)
+    private async Task<ActivityEncounter?> GetLatestEncounterCoreAsync(Guid sessionId, CancellationToken cancellationToken = default)
     {
         await using var context = contextFactory();
         return await context.ActivityEncounters.AsNoTracking().Where(x => x.SessionId == sessionId)
             .OrderByDescending(x => x.Number).FirstOrDefaultAsync(cancellationToken);
     }
 
-    public async Task<double> GetCombatDurationSecondsAsync(ActivityQuery filter, CancellationToken cancellationToken = default)
+    private async Task<double> GetCombatDurationSecondsCoreAsync(ActivityQuery filter, CancellationToken cancellationToken = default)
     {
         await using var context = contextFactory();
         var combatEvents = FilterEvents(context, filter).Where(x => x.EncounterId != null &&
@@ -275,12 +275,12 @@ public sealed partial class ActivityPersistence
             .SumAsync(x => Math.Max(1, (ActivityDatabaseFunctions.JulianDay(x.LastCombatAtUtc) -
                 ActivityDatabaseFunctions.JulianDay(x.StartedAtUtc)) * 86400), cancellationToken);
     }
-    public async Task<ActivityEvent?> GetEventAsync(Guid id, CancellationToken cancellationToken = default)
+    private async Task<ActivityEvent?> GetEventCoreAsync(Guid id, CancellationToken cancellationToken = default)
     {
         await using var context = contextFactory();
         return await context.ActivityEvents.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
-    public async Task<ActivityPage<ActivitySession>> GetSessionsAsync(ActivityQuery filter, int page = 0, CancellationToken cancellationToken = default)
+    private async Task<ActivityPage<ActivitySession>> GetSessionsCoreAsync(ActivityQuery filter, int page = 0, CancellationToken cancellationToken = default)
     {
         await using var context = contextFactory();
         var query = context.ActivitySessions.AsNoTracking().AsQueryable();
@@ -311,14 +311,14 @@ public sealed partial class ActivityPersistence
         var rows = await query.OrderByDescending(x => x.StartedAtUtc).ThenBy(x => x.Id).Skip(Math.Max(0, page) * 100).Take(101).ToListAsync(cancellationToken);
         return new(rows.Take(100).ToArray(), rows.Count > 100);
     }
-    public async Task<ActivityPage<ActivityEncounter>> GetEncountersAsync(Guid sessionId, int page = 0, CancellationToken cancellationToken = default)
+    private async Task<ActivityPage<ActivityEncounter>> GetEncountersCoreAsync(Guid sessionId, int page = 0, CancellationToken cancellationToken = default)
     {
         await using var context = contextFactory();
         var rows = await context.ActivityEncounters.AsNoTracking().Where(x => x.SessionId == sessionId)
             .OrderBy(x => x.Number).Skip(Math.Max(0, page) * 100).Take(101).ToListAsync(cancellationToken);
         return new(rows.Take(100).ToArray(), rows.Count > 100);
     }
-    public async Task<ActivityPage<ActivityEvent>> GetEventsAsync(ActivityQuery filter, int page = 0, CancellationToken cancellationToken = default)
+    private async Task<ActivityPage<ActivityEvent>> GetEventsCoreAsync(ActivityQuery filter, int page = 0, CancellationToken cancellationToken = default)
     {
         await using var context = contextFactory();
         var rows = await FilterEvents(context, filter).OrderByDescending(x => x.CapturedAtUtc).ThenByDescending(x => x.CaptureOrder)
@@ -378,7 +378,7 @@ public sealed partial class ActivityPersistence
         return ActivityClassification.FilterCategories(query, context.ActivityEvents.AsNoTracking(), filter);
     }
 
-    public async Task<ActivitySummary> GetSummaryAsync(ActivityQuery filter, CancellationToken cancellationToken = default)
+    private async Task<ActivitySummary> GetSummaryCoreAsync(ActivityQuery filter, CancellationToken cancellationToken = default)
     {
         await using var context = contextFactory();
         return await FilterEvents(context, filter).Select(ActivityProjection.ContributionExpression(filter.Scope, filter.ActorKey))
@@ -413,7 +413,7 @@ public sealed partial class ActivityPersistence
             }).SingleOrDefaultAsync(cancellationToken) ?? new();
     }
 
-    public async Task<IReadOnlyList<ActivityChartPoint>> GetChartsAsync(ActivityQuery filter, ActivityChartMetric metric, CancellationToken cancellationToken = default)
+    private async Task<IReadOnlyList<ActivityChartPoint>> GetChartsCoreAsync(ActivityQuery filter, ActivityChartMetric metric, CancellationToken cancellationToken = default)
     {
         await using var context = contextFactory();
         var query = FilterEvents(context, filter).Where(x => x.Kind != ActivityEventKind.LegacyGatheringAggregate);
@@ -431,7 +431,7 @@ public sealed partial class ActivityPersistence
         return Enumerable.Range(0, count).Select(i => new ActivityChartPoint(range.Start.AddSeconds((long)i * seconds), values.GetValueOrDefault(i))).ToArray();
     }
 
-    public async Task<IReadOnlyList<ActivityActorTotal>> GetPlayersAsync(ActivityQuery filter, CancellationToken cancellationToken = default)
+    private async Task<IReadOnlyList<ActivityActorTotal>> GetPlayersCoreAsync(ActivityQuery filter, CancellationToken cancellationToken = default)
     {
         await using var context = contextFactory();
         var query = FilterEvents(context, filter).Where(x => x.Kind == ActivityEventKind.Damage || x.Kind == ActivityEventKind.Healing);
@@ -474,7 +474,7 @@ public sealed partial class ActivityPersistence
     public Task<ActivityPage<ActivityEvent>> GetItemsAsync(ActivityQuery filter, int page = 0, CancellationToken cancellationToken = default) =>
         GetEventsAsync(filter with { ItemsOnly = true, LootOnly = false }, page, cancellationToken);
 
-    public async Task<IReadOnlyList<ActivityResourceTotal>> GetResourceTotalsAsync(ActivityQuery filter, CancellationToken cancellationToken = default)
+    private async Task<IReadOnlyList<ActivityResourceTotal>> GetResourceTotalsCoreAsync(ActivityQuery filter, CancellationToken cancellationToken = default)
     {
         await using var context = contextFactory();
         var connection = (SqliteConnection)context.Database.GetDbConnection();
@@ -514,7 +514,7 @@ public sealed partial class ActivityPersistence
         }
     }
 
-    public async Task<ActivityLegacyImportInfo?> GetLegacyImportInfoAsync(Guid sessionId, CancellationToken cancellationToken = default)
+    private async Task<ActivityLegacyImportInfo?> GetLegacyImportInfoCoreAsync(Guid sessionId, CancellationToken cancellationToken = default)
     {
         await using var context = contextFactory();
         var details = await context.ActivityEvents.AsNoTracking().Where(x => x.SessionId == sessionId && x.Kind == ActivityEventKind.LegacyGatheringAggregate)
@@ -523,7 +523,7 @@ public sealed partial class ActivityPersistence
         catch (System.Text.Json.JsonException) { return null; }
     }
 
-    public async Task<IReadOnlyList<ActivityMobTotal>> GetMobsAsync(ActivityQuery filter, CancellationToken cancellationToken = default)
+    private async Task<IReadOnlyList<ActivityMobTotal>> GetMobsCoreAsync(ActivityQuery filter, CancellationToken cancellationToken = default)
     {
         await using var context = contextFactory();
         var rows = await FilterEvents(context, filter).Where(x => x.Kind == ActivityEventKind.MobKilled)

@@ -91,9 +91,15 @@ internal sealed class ActivityGatheringCollector
         switch (packet)
         {
             case FishingStartRequest start:
+                var previous = fishing;
                 Reset();
                 if (start.IsValid && tracker.HasContext)
-                    fishing = new FishingAttempt(Guid.NewGuid().ToString("N"), start.UsedRodObjectId, at, tracker.LocalActor, tracker.MapEpoch);
+                {
+                    if (previous?.CompletedAt is { } completed && at >= completed)
+                        Finalize(previous, at < completed + CompletionGrace ? at : completed + CompletionGrace);
+                    if (tracker.HasContext)
+                        fishing = new FishingAttempt(Guid.NewGuid().ToString("N"), start.UsedRodObjectId, at, tracker.LocalActor, tracker.MapEpoch);
+                }
                 break;
             case FishingCancelRequest:
                 Reset();
@@ -123,16 +129,23 @@ internal sealed class ActivityGatheringCollector
         { Reset(); return; }
         if (attempt.CompletedAt is not { } completed || at <= completed + CompletionGrace) return;
         Reset();
-        if (attempt.IsAmbiguous) return;
-        foreach (var reward in attempt.Rewards)
+        Finalize(attempt, completed + CompletionGrace);
+    }
+
+    private void Finalize(FishingAttempt attempt, DateTime cutoff)
+    {
+        if (attempt.IsAmbiguous || !tracker.HasContext || tracker.MapEpoch != attempt.MapEpoch
+            || tracker.LocalActor.Id != attempt.Actor.Id || attempt.CompletedAt is not { } completed) return;
+        var rewards = attempt.Rewards.Where(x => x.CapturedAtUtc <= cutoff).ToArray();
+        foreach (var reward in rewards)
         {
             // Equal rewards or multiple eligible inventory gains cannot be
             // assigned uniquely, even if one looks likely to be the catch.
-            if (reward.ItemId is not { } itemId || attempt.Rewards.Count(x => x.ItemId == itemId && x.Quantity == reward.Quantity) != 1) continue;
+            if (reward.ItemId is not { } itemId || rewards.Count(x => x.ItemId == itemId && x.Quantity == reward.Quantity) != 1) continue;
             var from = reward.CapturedAtUtc - CompletionGrace;
             if (from < attempt.StartedAt) from = attempt.StartedAt;
             var acquisition = loot.ClaimResourceAcquisition(itemId, reward.Quantity, attempt.RodObjectId,
-                from, completed + CompletionGrace, attempt.MapEpoch);
+                from, cutoff, attempt.MapEpoch);
             if (acquisition is null) continue;
             var item = Describe(itemId);
             var uniqueName = acquisition.UniqueName ?? item.UniqueName;

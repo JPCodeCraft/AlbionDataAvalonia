@@ -13,6 +13,7 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.ViewModels;
@@ -24,7 +25,6 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     private readonly DispatcherTimer refreshTimer;
     private bool isActive;
     private bool isDisposed;
-    private bool refreshPending = true;
     private bool refreshing;
     private bool applyingSelection;
     private int loadingCount;
@@ -36,6 +36,16 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     private long detailVersion;
     private long sessionListVersion;
     private long globalLootVersion;
+    private long historyChangeVersion = 1;
+    private long historyReadVersion;
+    private long detailChangeVersion = 1;
+    private long detailReadVersion;
+    private long itemChangeVersion = 1;
+    private long itemReadVersion;
+    private CancellationTokenSource historyQueryCancellation = new();
+    private CancellationTokenSource detailQueryCancellation = new();
+    private CancellationTokenSource itemsQueryCancellation = new();
+    private CancellationTokenSource currentQueryCancellation = new();
     private ActivitySession? currentSession;
     private ActivityEncounter? currentEncounter;
 
@@ -134,6 +144,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         this.persistence = persistence;
         tracker.Changed += OnActivityChanged;
         persistence.StatusChanged += OnPersistenceStatusChanged;
+        persistence.DataChanged += OnCommittedDataChanged;
         UpdateStatus();
     }
 
@@ -143,11 +154,21 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         isActive = active;
         if (active)
         {
-            refreshPending = true;
+            if (historyQueryCancellation.IsCancellationRequested) BeginRead(ref historyQueryCancellation);
+            if (detailQueryCancellation.IsCancellationRequested) BeginRead(ref detailQueryCancellation);
+            if (itemsQueryCancellation.IsCancellationRequested) BeginRead(ref itemsQueryCancellation);
             refreshTimer.Start();
             _ = RunSafelyAsync(RefreshVisibleAsync);
         }
-        else refreshTimer.Stop();
+        else
+        {
+            refreshTimer.Stop();
+            historyQueryCancellation.Cancel();
+            detailQueryCancellation.Cancel();
+            itemsQueryCancellation.Cancel();
+            currentQueryCancellation.Cancel();
+            liveTimelineCancellation.Cancel();
+        }
     }
 
     private void OnActivityChanged(object? sender, EventArgs args)
@@ -155,12 +176,19 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         Dispatcher.UIThread.Post(() =>
         {
             if (isDisposed) return;
-            refreshPending = true;
             UpdateStatus();
         });
     }
 
     private void OnPersistenceStatusChanged(ActivityRecordingStatus status) => OnActivityChanged(persistence, EventArgs.Empty);
+
+    private void OnCommittedDataChanged(ActivityDataChange change) => Dispatcher.UIThread.Post(() =>
+    {
+        if (isDisposed) return;
+        if (change.HistoryChanged) ++historyChangeVersion;
+        if (change.ItemsChanged) ++itemChangeVersion;
+        if (SelectedSession is { } selected && change.SessionIds.Contains(selected.Id)) ++detailChangeVersion;
+    });
 
     private async void OnRefreshTick(object? sender, EventArgs args)
     {
@@ -168,11 +196,16 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         UpdateStatus();
         if (currentSession is not null)
             CurrentDurationText = $"Session time: {ActivityDisplay.Duration(ActivityProjection.GetDurationSeconds(currentSession, DateTime.UtcNow))}";
-        if (!refreshPending)
+        if (SelectedTabIndex == 1)
         {
-            await RefreshLiveTimelineSafelyAsync();
-            return;
+            foreach (var row in Sessions.Where(x => x.Source.State == ActivityState.Open)) row.Update(row.Source, SelectedScope.Value);
+            if (SelectedSession is { Source.State: ActivityState.Open } open && SelectedEncounter is null)
+                DetailSummary = new(DetailSummary.Summary, ActivityProjection.GetRates(DetailSummary.Summary, open.Source,
+                    DetailSummary.Rates.CombatDurationSeconds, DateTime.UtcNow), true);
         }
+        if (SelectedTabIndex == 1 && historyReadVersion == historyChangeVersion &&
+            (SelectedSession is null || detailReadVersion == detailChangeVersion)) return;
+        if (SelectedTabIndex == 2 && itemReadVersion == itemChangeVersion) return;
         await RunSafelyAsync(RefreshVisibleAsync);
     }
 
@@ -195,17 +228,19 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     {
         if (persistence is null || tracker is null || refreshing || isDisposed) return;
         refreshing = true;
-        refreshPending = false;
         try
         {
-            await RefreshCurrentAsync();
-            await RefreshLiveTimelineSafelyAsync();
-            if (SelectedTabIndex == 1)
+            if (SelectedTabIndex == 0)
             {
-                await LoadSessionsAsync(false, true);
-                if (SelectedSession is not null) await RefreshDetailsAsync();
+                await RefreshCurrentAsync();
+                await RefreshLiveTimelineSafelyAsync();
             }
-            else if (SelectedTabIndex == 2) await LoadGlobalLootAsync(false, true);
+            else if (SelectedTabIndex == 1)
+            {
+                if (historyReadVersion != historyChangeVersion) await LoadSessionsAsync(false, true);
+                if (SelectedSession is not null && detailReadVersion != detailChangeVersion) await RefreshDetailsAsync();
+            }
+            else if (SelectedTabIndex == 2 && itemReadVersion != itemChangeVersion) await LoadGlobalLootAsync(false, true);
         }
         finally { refreshing = false; }
     }
@@ -216,15 +251,18 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         var sessionId = tracker.CurrentSessionId;
         var encounterId = tracker.CurrentEncounterId;
         var scope = SelectedScope.Value;
-        var sessionTask = sessionId is { } id ? persistence.GetSessionAsync(id) : Task.FromResult<ActivitySession?>(null);
-        var encounterTask = encounterId is { } fightId ? persistence.GetEncounterAsync(fightId)
-            : sessionId is { } currentId ? persistence.GetLatestEncounterAsync(currentId) : Task.FromResult<ActivityEncounter?>(null);
+        var cancellationToken = BeginRead(ref currentQueryCancellation);
+        var sessionTask = sessionId is { } id ? persistence.GetSessionAsync(id, cancellationToken) : Task.FromResult<ActivitySession?>(null);
+        var encounterTask = encounterId is { } fightId ? persistence.GetEncounterAsync(fightId, cancellationToken)
+            : sessionId is { } currentId ? persistence.GetLatestEncounterAsync(currentId, cancellationToken) : Task.FromResult<ActivityEncounter?>(null);
         var combatTask = sessionId is { } combatSessionId
-            ? persistence.GetCombatDurationSecondsAsync(new ActivityQuery { SessionId = combatSessionId, Scope = scope }) : Task.FromResult(0d);
+            ? persistence.GetCombatDurationSecondsAsync(new ActivityQuery { SessionId = combatSessionId, Scope = scope }, cancellationToken) : Task.FromResult(0d);
         await Task.WhenAll(sessionTask, encounterTask, combatTask);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (isDisposed || !isActive || SelectedTabIndex != 0 || SelectedScope.Value != scope ||
+            tracker.CurrentSessionId != sessionId || tracker.CurrentEncounterId != encounterId) return;
         currentSession = sessionTask.Result;
         currentEncounter = encounterTask.Result;
-        if (isDisposed) return;
         CurrentTitle = currentSession is { } currentTitle ? ActivityDisplay.SessionTitle(currentTitle) : "No active session";
         CurrentDescription = currentSession is { } session ? $"{session.CharacterName} · {ActivityDisplay.Server(session.Server)} · {session.LocationName}{(session.IsPartial ? " · partial recording" : "")}"
             : tracker.IsAwaitingContext ? "Waiting for your character and location." : "Start playing to record your activity.";
@@ -239,7 +277,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         CurrentEncounterHeading = currentEncounter?.State == ActivityState.Open ? "Active encounter" : "Last encounter";
         if (currentEncounter is { } combat)
         {
-            var summary = ActivityProjection.GetSummary(combat, SelectedScope.Value);
+            var summary = ActivityProjection.GetSummary(combat, scope);
             CurrentEncounterSummary = new(summary, ActivityProjection.GetRates(summary, combat));
             CurrentEncounterText = $"Encounter {combat.Number} · {ActivityDisplay.EncounterKind(combat.Kind)} · {combat.LocationName}";
             CurrentEncounterStateText = $"{ActivityDisplay.State(combat.State, combat.EndReason)} · {ActivityDisplay.LocalTime(combat.StartedAtUtc)} · {ActivityDisplay.Duration(combat.CombatDurationSeconds)} combat time";
@@ -273,21 +311,24 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     {
         if (persistence is null) return;
         var version = ++sessionListVersion;
+        var dataVersion = historyChangeVersion;
+        var cancellationToken = BeginRead(ref historyQueryCancellation);
         var page = append ? sessionPage + 1 : refresh ? sessionPage : 0;
         var query = HistoryQuery();
-        var result = await ReadPagesAsync(index => persistence.GetSessionsAsync(query, index), page, append);
-        if (isDisposed || version != sessionListVersion) return;
+        var result = await ReadPagesAsync(index => persistence.GetSessionsAsync(query, index, cancellationToken), page, append);
+        if (isDisposed || version != sessionListVersion || HistoryQuery() != query) return;
         var selectedId = SelectedSession?.Id;
         applyingSelection = true;
         try
         {
             ApplyHeaderRows(Sessions, result.Items, row => row.Id, source => source.Id,
-                source => new ActivitySessionRow(source, SelectedScope.Value), (row, source) => row.Update(source, SelectedScope.Value), append);
+                source => new ActivitySessionRow(source, query.Scope), (row, source) => row.Update(source, query.Scope), append);
             SelectedSession = selectedId is { } id ? Sessions.FirstOrDefault(row => row.Id == id) : null;
             sessionPage = page;
             HasMoreSessions = result.HasMore;
             OnPropertyChanged(nameof(HistoryCountText));
             NotifyDetailProperties();
+            if (!append) historyReadVersion = dataVersion;
         }
         finally { applyingSelection = false; }
     }
@@ -296,46 +337,51 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     {
         if (persistence is null || SelectedSession is null) return;
         var version = ++detailVersion;
+        var dataVersion = detailChangeVersion;
+        var cancellationToken = BeginRead(ref detailQueryCancellation);
         var sessionId = SelectedSession.Id;
         var encounterId = SelectedEncounter?.Id;
-        var sessionTask = persistence.GetSessionAsync(sessionId);
-        var encounterTask = encounterId is { } id ? persistence.GetEncounterAsync(id) : Task.FromResult<ActivityEncounter?>(null);
+        var scope = SelectedScope.Value;
+        var query = DetailQuery();
+        var detailTab = SelectedDetailTabIndex;
+        var isImported = IsImportedDetail;
+        var sessionTask = persistence.GetSessionAsync(sessionId, cancellationToken);
+        var encounterTask = encounterId is { } id ? persistence.GetEncounterAsync(id, cancellationToken) : Task.FromResult<ActivityEncounter?>(null);
         await Task.WhenAll(sessionTask, encounterTask);
-        if (!IsCurrentDetail(version, sessionId) || sessionTask.Result is not { } selected) return;
+        if (!IsCurrentDetail(version, sessionId) || DetailQuery() != query || SelectedDetailTabIndex != detailTab || sessionTask.Result is not { } selected) return;
         var encounter = encounterTask.Result;
         applyingSelection = true;
         try
         {
-            var sessionRow = Sessions.FirstOrDefault(row => row.Id == sessionId) ?? SelectedSession ?? new ActivitySessionRow(selected, SelectedScope.Value);
-            sessionRow.Update(selected, SelectedScope.Value);
+            var sessionRow = Sessions.FirstOrDefault(row => row.Id == sessionId) ?? SelectedSession ?? new ActivitySessionRow(selected, scope);
+            sessionRow.Update(selected, scope);
             if (!Sessions.Contains(sessionRow)) Sessions.Insert(0, sessionRow);
             SelectedSession = sessionRow;
             if (encounter is not null)
             {
-                var encounterRow = Encounters.FirstOrDefault(row => row.Id == encounter.Id) ?? SelectedEncounter ?? new ActivityEncounterRow(encounter, SelectedScope.Value);
-                encounterRow.Update(encounter, SelectedScope.Value);
+                var encounterRow = Encounters.FirstOrDefault(row => row.Id == encounter.Id) ?? SelectedEncounter ?? new ActivityEncounterRow(encounter, scope);
+                encounterRow.Update(encounter, scope);
                 if (!Encounters.Contains(encounterRow)) Encounters.Add(encounterRow);
                 SelectedEncounter = encounterRow;
             }
             else SelectedEncounter = null;
         }
         finally { applyingSelection = false; }
-        var query = DetailQuery();
-        var summaryTask = persistence.GetSummaryAsync(query);
-        var combatTask = encounter is null ? persistence.GetCombatDurationSecondsAsync(query) : Task.FromResult(encounter.CombatDurationSeconds);
-        var legacyTask = IsImportedDetail ? persistence.GetLegacyImportInfoAsync(sessionId) : Task.FromResult<ActivityLegacyImportInfo?>(null);
+        var summaryTask = persistence.GetSummaryAsync(query, cancellationToken);
+        var combatTask = encounter is null ? persistence.GetCombatDurationSecondsAsync(query, cancellationToken) : Task.FromResult(encounter.CombatDurationSeconds);
+        var legacyTask = isImported ? persistence.GetLegacyImportInfoAsync(sessionId, cancellationToken) : Task.FromResult<ActivityLegacyImportInfo?>(null);
         await Task.WhenAll(summaryTask, combatTask, legacyTask);
-        if (!IsCurrentDetail(version, selected.Id)) return;
+        if (!IsCurrentDetail(version, selected.Id) || DetailQuery() != query || SelectedDetailTabIndex != detailTab) return;
         var summary = summaryTask.Result;
         LegacyImportInfo = legacyTask.Result;
         DetailSummary = new(summary, encounter is null ? ActivityProjection.GetRates(summary, selected, combatTask.Result, DateTime.UtcNow) : ActivityProjection.GetRates(summary, encounter), encounter is null);
         NotifyDetailProperties();
-        if (SelectedDetailTabIndex == 0) await LoadEncountersAsync(false, true);
-        else if (SelectedDetailTabIndex == 1) await LoadChartAsync(version, query);
-        else if (SelectedDetailTabIndex == 2)
+        if (detailTab == 0) await LoadEncountersAsync(false, true);
+        else if (detailTab == 1) await LoadChartAsync(version, query);
+        else if (detailTab == 2)
         {
-            var totals = await persistence.GetPlayersAsync(query with { ActorKey = null });
-            if (!IsCurrentDetail(version, selected.Id)) return;
+            var totals = await persistence.GetPlayersAsync(query with { ActorKey = null }, cancellationToken);
+            if (!IsCurrentDetail(version, selected.Id) || DetailQuery() != query || SelectedDetailTabIndex != detailTab) return;
             var actorId = SelectedPlayer?.ActorId;
             applyingSelection = true;
             try
@@ -345,13 +391,15 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
             }
             finally { applyingSelection = false; }
         }
-        else if (SelectedDetailTabIndex == 3)
+        else if (detailTab == 3)
         {
-            var totals = await persistence.GetMobsAsync(query);
-            if (IsCurrentDetail(version, selected.Id)) Mobs = new(totals.Select(total => new ActivityMobRow(total)));
+            var totals = await persistence.GetMobsAsync(query, cancellationToken);
+            if (IsCurrentDetail(version, selected.Id) && DetailQuery() == query && SelectedDetailTabIndex == detailTab) Mobs = new(totals.Select(total => new ActivityMobRow(total)));
         }
-        else if (SelectedDetailTabIndex == 4) await LoadSessionLootAsync(false, version, true);
-        else if (SelectedDetailTabIndex == 5) await LoadTimelineAsync(false, version, true);
+        else if (detailTab == 4) await LoadSessionLootAsync(false, version, true);
+        else if (detailTab == 5) await LoadTimelineAsync(false, version, true);
+        if (IsCurrentDetail(version, sessionId) && DetailQuery() == query && SelectedDetailTabIndex == detailTab)
+            detailReadVersion = dataVersion;
     }
 
     private bool IsCurrentDetail(long version, Guid sessionId) => !isDisposed && detailVersion == version && SelectedSession?.Id == sessionId;
@@ -360,9 +408,12 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     {
         if (persistence is null || SelectedSession is null) return;
         var sessionId = SelectedSession.Id;
+        var version = detailVersion;
+        var scope = SelectedScope.Value;
+        var cancellationToken = detailQueryCancellation.Token;
         var page = append ? encounterPage + 1 : refresh ? encounterPage : 0;
-        var result = await ReadPagesAsync(index => persistence.GetEncountersAsync(sessionId, index), page, append);
-        if (isDisposed || SelectedSession?.Id != sessionId) return;
+        var result = await ReadPagesAsync(index => persistence.GetEncountersAsync(sessionId, index, cancellationToken), page, append);
+        if (!IsCurrentDetail(version, sessionId) || SelectedScope.Value != scope) return;
         var selectedEncounter = SelectedEncounter;
         var selectedId = selectedEncounter?.Id;
         applyingSelection = true;
@@ -371,7 +422,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
             var headers = selectedEncounter is not null && !result.Items.Any(source => source.Id == selectedId)
                 ? result.Items.Append(selectedEncounter.Source).ToArray() : result.Items;
             ApplyHeaderRows(Encounters, headers, row => row.Id, source => source.Id,
-                source => new ActivityEncounterRow(source, SelectedScope.Value), (row, source) => row.Update(source, SelectedScope.Value), append);
+                source => new ActivityEncounterRow(source, scope), (row, source) => row.Update(source, scope), append);
             SelectedEncounter = selectedId is { } id ? Encounters.FirstOrDefault(row => row.Id == id) : null;
             encounterPage = page;
             HasMoreEncounters = result.HasMore;
@@ -382,11 +433,13 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     private async Task LoadChartAsync(long version, ActivityQuery query)
     {
         if (persistence is null || query.SessionId is not { } sessionId) return;
-        var points = await persistence.GetChartsAsync(query with { ShowCategories = VisibleCategories }, SelectedChartMetric.Value);
-        if (!IsCurrentDetail(version, sessionId)) return;
+        var categories = VisibleCategories;
+        var metric = SelectedChartMetric;
+        var points = await persistence.GetChartsAsync(query with { ShowCategories = categories }, metric.Value, detailQueryCancellation.Token);
+        if (!IsCurrentDetail(version, sessionId) || VisibleCategories != categories || SelectedChartMetric != metric || DetailQuery() != query) return;
         ChartSeries = [new LineSeries<DateTimePoint>
         {
-            Name = SelectedChartMetric.Label,
+            Name = metric.Label,
             Values = points.Select(point => new DateTimePoint(point.CapturedAtUtc, point.Value)).ToArray(),
             Fill = null,
             Stroke = new SolidColorPaint(SKColors.DeepSkyBlue) { StrokeThickness = 2 },
@@ -399,7 +452,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
             YToolTipLabelFormatter = point => point.Coordinate.PrimaryValue.ToString("N1")
         }];
         ChartXAxes = [CreateTimeAxis()];
-        ChartYAxes = [CreateAmountAxis(SelectedChartMetric.Label)];
+        ChartYAxes = [CreateAmountAxis(metric.Label)];
     }
 
     private static Axis CreateTimeAxis() => new()
@@ -427,10 +480,11 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     {
         if (persistence is null || SelectedSession is null) return;
         var query = DetailQuery(true);
+        var cancellationToken = detailQueryCancellation.Token;
         var sessionId = SelectedSession.Id;
         var page = append ? sessionLootPage + 1 : refresh ? sessionLootPage : 0;
-        var result = await ReadPagesAsync(index => persistence.GetEventsAsync(query, index), page, append);
-        if (isDisposed || SelectedSession?.Id != sessionId || version is { } expected && detailVersion != expected) return;
+        var result = await ReadPagesAsync(index => persistence.GetEventsAsync(query, index, cancellationToken), page, append);
+        if (isDisposed || SelectedSession?.Id != sessionId || DetailQuery(true) != query || version is { } expected && detailVersion != expected) return;
         ApplyEventRows(SessionLoot, result.Items.Select(observation => new ActivityLootRow(observation)).ToArray(), row => row.SourceEvent, append);
         sessionLootPage = page;
         HasMoreSessionLoot = result.HasMore;
@@ -443,8 +497,9 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         var sessionId = SelectedSession.Id;
         var page = append ? timelinePage + 1 : refresh ? timelinePage : 0;
         var query = DetailQuery() with { ShowCategories = VisibleCategories };
-        var result = await ReadPagesAsync(index => persistence.GetEventsAsync(query, index), page, append);
-        if (isDisposed || SelectedSession?.Id != sessionId || version is { } expected && detailVersion != expected) return;
+        var cancellationToken = detailQueryCancellation.Token;
+        var result = await ReadPagesAsync(index => persistence.GetEventsAsync(query, index, cancellationToken), page, append);
+        if (isDisposed || SelectedSession?.Id != sessionId || (DetailQuery() with { ShowCategories = VisibleCategories }) != query || version is { } expected && detailVersion != expected) return;
         ApplyEventRows(Timeline, result.Items.Select(observation => new ActivityEventRow(observation)).ToArray(), row => row.SourceEvent, append);
         timelinePage = page;
         HasMoreTimeline = result.HasMore;
@@ -454,12 +509,14 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     {
         if (persistence is null) return;
         var version = ++globalLootVersion;
+        var dataVersion = itemChangeVersion;
+        var cancellationToken = BeginRead(ref itemsQueryCancellation);
         var page = append ? globalLootPage + 1 : refresh ? globalLootPage : 0;
-        var query = HistoryQuery() with { Scope = SelectedLootScope.Value, ItemsOnly = true, ItemSources = SelectedItemSource.Value, ContainsTags = ActivityTags.None, Search = EmptyToNull(LootSearch) };
-        var result = await ReadPagesAsync(index => persistence.GetEventsAsync(query, index), page, append);
-        var summary = append ? null : await persistence.GetSummaryAsync(query);
-        var resources = append ? null : await persistence.GetResourceTotalsAsync(query);
-        if (isDisposed || version != globalLootVersion) return;
+        var query = GlobalItemsQuery();
+        var result = await ReadPagesAsync(index => persistence.GetEventsAsync(query, index, cancellationToken), page, append);
+        var summary = append ? null : await persistence.GetSummaryAsync(query, cancellationToken);
+        var resources = append ? null : await persistence.GetResourceTotalsAsync(query, cancellationToken);
+        if (isDisposed || version != globalLootVersion || GlobalItemsQuery() != query) return;
         ApplyEventRows(GlobalLoot, result.Items.Select(observation => new ActivityLootRow(observation)).ToArray(), row => row.SourceEvent, append);
         if (resources is not null) GlobalResources = new(resources.Select(row => new ActivityResourceRow(row)));
         globalLootPage = page;
@@ -470,6 +527,24 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
             OnPropertyChanged(nameof(GlobalLootTotalsText));
         }
         OnPropertyChanged(nameof(LootCountText));
+        if (!append) itemReadVersion = dataVersion;
+    }
+
+    private ActivityQuery GlobalItemsQuery() => HistoryQuery() with
+    {
+        Scope = SelectedLootScope.Value,
+        ItemsOnly = true,
+        ItemSources = SelectedItemSource.Value,
+        ContainsTags = ActivityTags.None,
+        Search = EmptyToNull(LootSearch)
+    };
+
+    private static CancellationToken BeginRead(ref CancellationTokenSource source)
+    {
+        source.Cancel();
+        source.Dispose();
+        source = new CancellationTokenSource();
+        return source.Token;
     }
 
     private static async Task<ActivityPage<T>> ReadPagesAsync<T>(Func<int, Task<ActivityPage<T>>> readPage, int lastPage, bool append)
@@ -529,6 +604,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
             await action();
             if (persistence?.Status.Error is not { Length: > 0 }) ErrorText = "";
         }
+        catch (OperationCanceledException) { /* Superseded view requests are expected. */ }
         catch (Exception exception)
         {
             Log.Warning(exception, "Unable to load activity history");
@@ -560,23 +636,41 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
 
     partial void OnSelectedScopeChanged(ActivityOption<ActivityScope> value)
     {
-        refreshPending = true;
+        currentQueryCancellation.Cancel();
+        liveTimelineCancellation.Cancel();
+        ++historyChangeVersion; ++detailChangeVersion; ++itemChangeVersion;
+        ++sessionListVersion; ++detailVersion; ++globalLootVersion;
         ResetEventPages();
         if (SelectedSessionLootScope.Value != ActivityScope.AllObserved) SelectedSessionLootScope = value;
         if (SelectedLootScope.Value != ActivityScope.AllObserved) SelectedLootScope = value;
         NotifyDetailProperties();
         if (isActive) _ = RunSafelyAsync(RefreshVisibleAsync);
     }
-    partial void OnSelectedLootScopeChanged(ActivityOption<ActivityScope> value) { globalLootPage = 0; if (isActive && SelectedTabIndex == 2) _ = RunSafelyAsync(() => LoadGlobalLootAsync(false)); }
+    partial void OnSelectedLootScopeChanged(ActivityOption<ActivityScope> value)
+    { ++itemChangeVersion; ++globalLootVersion; globalLootPage = 0; if (isActive && SelectedTabIndex == 2) _ = RunSafelyAsync(() => LoadGlobalLootAsync(false)); }
     partial void OnSelectedSessionLootScopeChanged(ActivityOption<ActivityScope> value)
     {
+        ++detailChangeVersion; ++detailVersion;
         sessionLootPage = 0;
         SessionLoot.Clear();
-        if (isActive && SelectedDetailTabIndex == 4) _ = RunSafelyAsync(RefreshDetailsAsync);
+        if (isActive && SelectedTabIndex == 1 && SelectedDetailTabIndex == 4) _ = RunSafelyAsync(RefreshDetailsAsync);
     }
-    partial void OnSelectedTabIndexChanged(int value) { if (isActive) { refreshPending = true; _ = RunSafelyAsync(RefreshVisibleAsync); } }
-    partial void OnSelectedDetailTabIndexChanged(int value) { if (isActive && !applyingSelection) _ = RunSafelyAsync(RefreshDetailsAsync); }
-    partial void OnSelectedChartMetricChanged(ActivityOption<ActivityChartMetric> value) { if (isActive) _ = RunSafelyAsync(RefreshDetailsAsync); }
+    partial void OnSelectedTabIndexChanged(int value)
+    {
+        if (value != 0) { currentQueryCancellation.Cancel(); liveTimelineCancellation.Cancel(); }
+        if (value != 1) { historyQueryCancellation.Cancel(); detailQueryCancellation.Cancel(); }
+        else
+        {
+            if (historyQueryCancellation.IsCancellationRequested) BeginRead(ref historyQueryCancellation);
+            if (detailQueryCancellation.IsCancellationRequested) BeginRead(ref detailQueryCancellation);
+        }
+        if (value != 2) itemsQueryCancellation.Cancel();
+        if (isActive) _ = RunSafelyAsync(RefreshVisibleAsync);
+    }
+    partial void OnSelectedDetailTabIndexChanged(int value)
+    { ++detailChangeVersion; ++detailVersion; if (isActive && !applyingSelection) _ = RunSafelyAsync(RefreshDetailsAsync); }
+    partial void OnSelectedChartMetricChanged(ActivityOption<ActivityChartMetric> value)
+    { ++detailChangeVersion; ++detailVersion; if (isActive) _ = RunSafelyAsync(RefreshDetailsAsync); }
     partial void OnErrorTextChanged(string value) => OnPropertyChanged(nameof(HasError));
     partial void OnIsRecordingEnabledChanged(bool value) => OnPropertyChanged(nameof(RecordingButtonText));
     partial void OnCurrentSummaryChanged(ActivitySummaryPresentation value) { OnPropertyChanged(nameof(CurrentCombatDurationText)); OnPropertyChanged(nameof(CurrentTagsText)); }
@@ -586,6 +680,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     {
         NotifyDetailProperties();
         if (applyingSelection) return;
+        ++detailChangeVersion;
         applyingSelection = true;
         try { SelectedEncounter = null; SelectedPlayer = null; }
         finally { applyingSelection = false; }
@@ -599,8 +694,10 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         ++detailVersion;
         if (value is not null) _ = RunSafelyAsync(RefreshDetailsAsync);
     }
-    partial void OnSelectedEncounterChanged(ActivityEncounterRow? value) { NotifyDetailProperties(); if (!applyingSelection) { ResetEventPages(); _ = RunSafelyAsync(RefreshDetailsAsync); } }
-    partial void OnSelectedPlayerChanged(ActivityPlayerRow? value) { NotifyDetailProperties(); if (!applyingSelection) { ResetEventPages(); _ = RunSafelyAsync(RefreshDetailsAsync); } }
+    partial void OnSelectedEncounterChanged(ActivityEncounterRow? value)
+    { NotifyDetailProperties(); if (!applyingSelection) { ++detailChangeVersion; ++detailVersion; ResetEventPages(); _ = RunSafelyAsync(RefreshDetailsAsync); } }
+    partial void OnSelectedPlayerChanged(ActivityPlayerRow? value)
+    { NotifyDetailProperties(); if (!applyingSelection) { ++detailChangeVersion; ++detailVersion; ResetEventPages(); _ = RunSafelyAsync(RefreshDetailsAsync); } }
 
     private void ResetEventPages()
     {
@@ -610,7 +707,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     }
 
     [RelayCommand] private void ToggleRecording() { tracker?.SetRecordingEnabled(!IsRecordingEnabled); UpdateStatus(); }
-    public void FinishCurrentSession(Guid? expectedSessionId = null) { tracker?.FinishSession(expectedSessionId); refreshPending = true; UpdateStatus(); }
+    public void FinishCurrentSession(Guid? expectedSessionId = null) { tracker?.FinishSession(expectedSessionId); UpdateStatus(); }
     [RelayCommand] private void FinishSession() => FinishCurrentSession();
     [RelayCommand]
     private async Task OpenCurrentSessionAsync()
@@ -628,7 +725,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     {
         if (persistence is null) return;
         var session = await persistence.GetSessionAsync(id);
-        if (session is null) return;
+        if (isDisposed || session is null) return;
         FromDate = ThroughDate = null;
         SelectedServer = ServerOptions[0];
         CharacterFilter = LocationFilter = "";
@@ -648,7 +745,9 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         else SelectedEncounter = null;
         await RefreshDetailsAsync();
     }
-    [RelayCommand] private async Task ApplyFiltersAsync() => await RunSafelyAsync(async () => { await LoadSessionsAsync(false); if (SelectedTabIndex == 2) await LoadGlobalLootAsync(false); });
+    [RelayCommand]
+    private async Task ApplyFiltersAsync() => await RunSafelyAsync(async () =>
+    { ++historyChangeVersion; ++itemChangeVersion; await LoadSessionsAsync(false); if (SelectedTabIndex == 2) await LoadGlobalLootAsync(false); });
     [RelayCommand]
     private async Task ResetFiltersAsync()
     {
@@ -656,7 +755,9 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         HistoryGathering = HistoryPve = HistoryPvp = false;
         await ApplyFiltersAsync();
     }
-    [RelayCommand] private async Task ApplyLootFiltersAsync() => await RunSafelyAsync(() => LoadGlobalLootAsync(false));
+    [RelayCommand]
+    private async Task ApplyLootFiltersAsync() => await RunSafelyAsync(() =>
+    { ++itemChangeVersion; return LoadGlobalLootAsync(false); });
     [RelayCommand] private async Task LoadMoreSessionsAsync() => await RunSafelyAsync(() => LoadSessionsAsync(true));
     [RelayCommand] private async Task LoadMoreEncountersAsync() => await RunSafelyAsync(() => LoadEncountersAsync(true));
     [RelayCommand] private async Task LoadMoreTimelineAsync() => await RunSafelyAsync(() => LoadTimelineAsync(true));
@@ -674,7 +775,6 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
             await persistence.DeleteSessionAsync(id);
             SelectedSession = null;
             await LoadSessionsAsync(false);
-            refreshPending = true;
         });
     }
 
@@ -699,11 +799,18 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         if (isDisposed) return;
         isDisposed = true;
         ++detailVersion;
+        historyQueryCancellation.Cancel(); detailQueryCancellation.Cancel(); itemsQueryCancellation.Cancel();
+        historyQueryCancellation.Dispose(); detailQueryCancellation.Dispose(); itemsQueryCancellation.Dispose();
+        currentQueryCancellation.Cancel(); currentQueryCancellation.Dispose();
         liveTimelineCancellation.Cancel();
         liveTimelineCancellation.Dispose();
         refreshTimer.Stop();
         refreshTimer.Tick -= OnRefreshTick;
         if (tracker is not null) tracker.Changed -= OnActivityChanged;
-        if (persistence is not null) persistence.StatusChanged -= OnPersistenceStatusChanged;
+        if (persistence is not null)
+        {
+            persistence.StatusChanged -= OnPersistenceStatusChanged;
+            persistence.DataChanged -= OnCommittedDataChanged;
+        }
     }
 }

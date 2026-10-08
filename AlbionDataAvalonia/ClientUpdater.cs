@@ -116,6 +116,7 @@ public static class ClientUpdater
             return;
         }
 
+        var shutdownStarted = false;
         try
         {
             Log.Information("Downloading the new version from {DownloadUrl}", update.WindowsDownloadUrl);
@@ -123,7 +124,7 @@ public static class ClientUpdater
             var filePath = Path.Combine(Path.GetTempPath(), $"AFMDataClientSetup_v_{update.Version}.exe");
             await File.WriteAllBytesAsync(filePath, data);
 
-            var process = new Process
+            using var process = new Process
             {
                 StartInfo = new ProcessStartInfo
                 {
@@ -133,13 +134,30 @@ public static class ClientUpdater
                 }
             };
 
+            shutdownStarted = true;
             await App.ShutdownAsync().ConfigureAwait(false);
-            process.Start();
+            if (!process.Start())
+                throw new InvalidOperationException("The update installer did not start.");
             Environment.Exit(0);
         }
         catch (Exception ex)
         {
             Log.Error(ex, "An error occurred while installing update v.{Version}.", update.Version);
+            if (shutdownStarted)
+            {
+                try
+                {
+                    await App.ShowUpdateInstallationFailureAsync(update.Version).ConfigureAwait(false);
+                }
+                catch (Exception dialogException)
+                {
+                    Log.Error(dialogException, "Could not show the update failure message. The stopped application will exit.");
+                }
+                finally
+                {
+                    Environment.Exit(1);
+                }
+            }
         }
     }
 

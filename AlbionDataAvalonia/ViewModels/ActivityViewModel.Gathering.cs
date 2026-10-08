@@ -98,11 +98,11 @@ public partial class ActivityViewModel
     partial void OnLegacyImportInfoChanged(ActivityLegacyImportInfo? value) => OnPropertyChanged(nameof(ImportedDetailText));
     partial void OnSelectedItemSourceChanged(ActivityOption<ActivityItemSources> value)
 
-    { globalLootPage = 0; if (isActive && SelectedTabIndex == 2) _ = RunSafelyAsync(() => LoadGlobalLootAsync(false)); }
+    { ++itemChangeVersion; ++globalLootVersion; globalLootPage = 0; if (isActive && SelectedTabIndex == 2) _ = RunSafelyAsync(() => LoadGlobalLootAsync(false)); }
 
     partial void OnSelectedSessionItemSourceChanged(ActivityOption<ActivityItemSources> value)
 
-    { sessionLootPage = 0; if (isActive && SelectedDetailTabIndex == 4) _ = RunSafelyAsync(RefreshDetailsAsync); }
+    { ++detailChangeVersion; ++detailVersion; sessionLootPage = 0; if (isActive && SelectedTabIndex == 1 && SelectedDetailTabIndex == 4) _ = RunSafelyAsync(RefreshDetailsAsync); }
 
     partial void OnSessionResourcesChanged(ObservableCollection<ActivityResourceRow> value) => OnPropertyChanged(nameof(HasSessionResources));
 
@@ -161,8 +161,8 @@ public partial class ActivityViewModel
         finally { changingVisibility = false; }
 
         OnPropertyChanged(nameof(VisibleCategories));
-
-        refreshPending = true;
+        liveTimelineCancellation.Cancel();
+        ++detailChangeVersion; ++detailVersion;
 
         if (isActive && SelectedTabIndex == 0) _ = RefreshLiveTimelineSafelyAsync();
 
@@ -178,9 +178,9 @@ public partial class ActivityViewModel
 
         if (persistence is null || query.SessionId is not { } id) return;
 
-        var rows = await persistence.GetResourceTotalsAsync(query);
+        var rows = await persistence.GetResourceTotalsAsync(query, detailQueryCancellation.Token);
 
-        if (IsCurrentDetail(version, id)) SessionResources = new(rows.Select(row => new ActivityResourceRow(row)));
+        if (IsCurrentDetail(version, id) && DetailQuery(true) == query) SessionResources = new(rows.Select(row => new ActivityResourceRow(row)));
 
     }
 

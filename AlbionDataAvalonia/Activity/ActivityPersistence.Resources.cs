@@ -49,7 +49,10 @@ public sealed partial class ActivityPersistence
                 };
                 context.Entry(row).CurrentValues.SetValues(replacement);
             }
+            var changes = new CommittedChanges();
+            changes.Include(context);
             await context.SaveChangesAsync(cancellationToken);
+            NotifyCommitted(changes);
         }
         while (true)
         {
@@ -66,7 +69,10 @@ public sealed partial class ActivityPersistence
                     PartySummaryJson = await SummaryJson(new() { EncounterId = row.Id, Scope = ActivityScope.Party }),
                     ObservedSummaryJson = await SummaryJson(new() { EncounterId = row.Id, Scope = ActivityScope.AllObserved })
                 });
+            var changes = new CommittedChanges();
+            changes.Include(context);
             await context.SaveChangesAsync(cancellationToken);
+            NotifyCommitted(changes);
         }
         async Task<string> SummaryJson(ActivityQuery query) => ActivityProjection.Serialize(
             (await GetSummaryAsync(query, cancellationToken)) with { TagVersion = ActivityClassification.TagVersion });
@@ -270,8 +276,11 @@ public sealed partial class ActivityPersistence
         context.ActivitySessions.Add(header);
         context.ActivityEvents.AddRange(events);
         context.ActivityEvents.Add(marker);
+        var changes = new CommittedChanges();
+        changes.Include(context);
         await context.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+        NotifyCommitted(changes);
         // Unassigned marker survives assigned-session deletion and is hidden from all public reads.
     }
 

@@ -124,7 +124,7 @@ public sealed class ActivityTrackerService : IDisposable
             enabled = value;
             if (value && map is not null) { mapEnteredAt = DateTime.UtcNow; partialEntry = true; }
             if (!value) CloseSession(DateTime.UtcNow, ActivityEndReason.Disabled);
-            loot.Reset();
+            loot.ResetRecordingCorrelations();
             gathering.Reset();
             mobParticipation.Clear();
             pendingTerminals.Clear();
@@ -276,6 +276,7 @@ public sealed class ActivityTrackerService : IDisposable
                     break;
                 default:
                     if (enabled && !storageSuspended) loot.Observe(packet, at);
+                    else if (HasConfirmedContext) loot.Observe(packet, at, record: false);
                     break;
             }
             if (headersDirty && at - lastHeaderSave >= TimeSpan.FromSeconds(1)) SaveHeaders();
@@ -299,12 +300,14 @@ public sealed class ActivityTrackerService : IDisposable
                 gathering.Observe(packet, at);
                 loot.Observe(packet, at);
             }
+            else if (HasConfirmedContext) loot.Observe(packet, at, record: false);
             if (headersDirty) SaveHeaders();
         }
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
-    private bool CanRecord => enabled && !storageSuspended && !awaitingContext && actors.HasIdentity;
+    private bool HasConfirmedContext => !captureSuspended && !awaitingContext && map is not null && actors.HasIdentity;
+    private bool CanRecord => enabled && !storageSuspended && HasConfirmedContext;
 
     private void Join(JoinResponse packet, DateTime at)
     {

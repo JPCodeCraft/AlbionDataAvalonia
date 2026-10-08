@@ -11,7 +11,7 @@ namespace AlbionDataAvalonia.ViewModels;
 public partial class ActivityViewModel
 {
     private const string LiveTimelineReadError = "Could not refresh the live timeline. Recording continues; the view will retry.";
-    private readonly CancellationTokenSource liveTimelineCancellation = new();
+    private CancellationTokenSource liveTimelineCancellation = new();
     private bool liveTimelineRefreshing;
     private bool liveTimelineReadFailed;
 
@@ -19,7 +19,7 @@ public partial class ActivityViewModel
 
     private async Task RefreshLiveTimelineSafelyAsync()
     {
-        if (tracker is null || SelectedTabIndex != 0 || liveTimelineRefreshing || isDisposed) return;
+        if (tracker is null || !isActive || SelectedTabIndex != 0 || liveTimelineRefreshing || isDisposed) return;
         var sessionId = tracker.CurrentSessionId;
         var scope = SelectedScope.Value;
         var categories = VisibleCategories;
@@ -30,15 +30,17 @@ public partial class ActivityViewModel
         }
 
         liveTimelineRefreshing = true;
+        var cancellationToken = BeginRead(ref liveTimelineCancellation);
         try
         {
-            var snapshot = await tracker.GetLiveTimelineAsync(sessionId, scope, DateTime.UtcNow, liveTimelineCancellation.Token, categories);
+            var snapshot = await tracker.GetLiveTimelineAsync(sessionId, scope, DateTime.UtcNow, cancellationToken, categories);
+            cancellationToken.ThrowIfCancellationRequested();
             if (isDisposed || SelectedTabIndex != 0 || tracker.CurrentSessionId != sessionId || SelectedScope.Value != scope || VisibleCategories != categories) return;
             CurrentLiveTimeline = snapshot;
             if (liveTimelineReadFailed && ErrorText == LiveTimelineReadError) ErrorText = "";
             liveTimelineReadFailed = false;
         }
-        catch (OperationCanceledException) when (liveTimelineCancellation.IsCancellationRequested) { }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
         catch (Exception exception)
         {
             if (!liveTimelineReadFailed) Log.Warning(exception, "Unable to refresh the live activity timeline");

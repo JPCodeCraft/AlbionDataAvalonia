@@ -59,12 +59,14 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                 while (!disposed)
                 {
                     await FlushAsync(cancellationToken).ConfigureAwait(false);
-                    ActivityEvent[] missing;
-                    await using (var context = contextFactory())
-                        missing = await context.ActivityEvents.AsNoTracking().Where(x => (x.Kind == ActivityEventKind.Loot || x.Kind == ActivityEventKind.Gathered || x.Kind == ActivityEventKind.FishingReward) && !x.IsRetracted &&
+                    var missing = await ReadAsync(async readCancellation =>
+                    {
+                        await using var context = contextFactory();
+                        return await context.ActivityEvents.AsNoTracking().Where(x => (x.Kind == ActivityEventKind.Loot || x.Kind == ActivityEventKind.Gathered || x.Kind == ActivityEventKind.FishingReward) && !x.IsRetracted &&
                                 x.Server == price.Server && x.ItemId == price.ItemId && x.Quality == price.Quality && x.EstimatedUnitValue == null &&
                                 (x.Quantity == 0 || x.Quantity <= long.MaxValue / price.UnitValue))
-                            .OrderBy(x => x.CapturedAtUtc).ThenBy(x => x.Id).Take(250).ToArrayAsync(cancellationToken).ConfigureAwait(false);
+                            .OrderBy(x => x.CapturedAtUtc).ThenBy(x => x.Id).Take(250).ToArrayAsync(readCancellation);
+                    }, cancellationToken).ConfigureAwait(false);
                     if (missing.Length == 0) break;
                     foreach (var observation in missing)
                     {
@@ -274,8 +276,11 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                     break;
             }
         }
+        var changes = new CommittedChanges();
+        changes.Include(context);
         await context.SaveChangesAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
+        NotifyCommitted(changes);
     }
 
     private static void Validate(ActivityEvent observation)
@@ -336,13 +341,17 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
         if (command is RebuildTagsCommand) { await RebuildTagsAsync(cancellationToken); return; }
         await using var context = contextFactory();
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
+        var changes = new CommittedChanges();
         switch (command)
         {
             case DeleteSessionCommand delete:
+                changes.Sessions.Add(delete.Id);
+                changes.Items = await context.ActivityEvents.AnyAsync(x => x.SessionId == delete.Id &&
+                    (x.Kind == ActivityEventKind.Loot || x.Kind == ActivityEventKind.Gathered || x.Kind == ActivityEventKind.FishingReward || x.Kind == ActivityEventKind.LegacyGatheringAggregate), cancellationToken);
                 await context.ActivitySessions.Where(x => x.Id == delete.Id).ExecuteDeleteAsync(cancellationToken);
                 break;
             case DeleteLootCommand:
-                await context.ActivityEvents.Where(x => x.SessionId == null && x.Kind == ActivityEventKind.Loot).ExecuteDeleteAsync(cancellationToken);
+                changes.Items = await context.ActivityEvents.Where(x => x.SessionId == null && x.Kind == ActivityEventKind.Loot).ExecuteDeleteAsync(cancellationToken) > 0;
                 break;
             case RecoverCommand:
                 while (true)
@@ -360,6 +369,7 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                             ObservationStartedAtUtc = null,
                             ObservedDurationSeconds = ActivityProjection.GetDurationSeconds(session, session.LastObservedAtUtc)
                         });
+                    changes.Include(context);
                     await context.SaveChangesAsync(cancellationToken);
                     context.ChangeTracker.Clear();
                 }
@@ -375,13 +385,15 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                             EndReason = ActivityEndReason.Interrupted,
                             ClosedAtUtc = encounter.LastObservedAtUtc
                         });
+                    changes.Include(context);
                     await context.SaveChangesAsync(cancellationToken);
                     context.ChangeTracker.Clear();
                 }
-                await RestoreKnownFameAwardsAsync(context, cancellationToken);
+                await RestoreKnownFameAwardsAsync(context, changes, cancellationToken);
                 break;
         }
         await transaction.CommitAsync(cancellationToken);
+        NotifyCommitted(changes);
         if (command is DeleteSessionCommand deleted)
         {
             lock (acceptedSync) deletedSessions.Add(deleted.Id);
@@ -397,6 +409,11 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
         commands.Writer.TryComplete();
         shutdown.CancelAfter(TimeSpan.FromSeconds(10));
         await worker.ConfigureAwait(false);
+        readsClosed = true;
+        readShutdown.Cancel();
+        await readGate.WaitAsync().ConfigureAwait(false);
+        readGate.Release();
+        readShutdown.Dispose();
         shutdown.Dispose();
     }
 

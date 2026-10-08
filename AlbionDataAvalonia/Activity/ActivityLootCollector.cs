@@ -92,7 +92,7 @@ internal sealed class ActivityLootCollector : IDisposable
     private static PendingInventoryItemKey PendingKey(string connection, PhotonMessageIdentity? identity, long objectId)
         => new(connection, identity?.ReceiverGeneration, identity?.PeerId, identity?.Challenge, objectId);
 
-    public void Observe(BaseOperation packet, DateTime at)
+    public void Observe(BaseOperation packet, DateTime at, bool record = true)
     {
         if (inventory is not { } destination) return;
         switch (packet)
@@ -102,21 +102,21 @@ internal sealed class ActivityLootCollector : IDisposable
                     && move.SourceSlot >= 0 && move.SourceSlot < container.Slots.Length)
                 {
                     if (!sources.ContainsKey(container.SourceId)) nonLootMoveUntil = at.AddSeconds(10);
-                    Intent(container.Slots[move.SourceSlot], container, null, at);
+                    if (record) Intent(container.Slots[move.SourceSlot], container, null, at);
                 }
                 else nonLootMoveUntil = at.AddSeconds(10);
                 break;
             case InventoryMoveGivenItemsRequest move when move.DestinationContainerId == destination:
                 if (!containers.TryGetValue(move.SourceContainerId, out var source)
                     || !sources.ContainsKey(source.SourceId)) { nonLootMoveUntil = at.AddSeconds(10); return; }
-                for (var index = 0; index < move.ItemObjectIds.Count && candidates.Count < 256; index++)
+                for (var index = 0; record && index < move.ItemObjectIds.Count && candidates.Count < 256; index++)
                     Intent(move.ItemObjectIds[index], source,
                         move.Quantities is { } amounts && index < amounts.Count ? amounts[index] : null, at);
                 break;
         }
     }
 
-    public void Observe(BaseEvent packet, DateTime at)
+    public void Observe(BaseEvent packet, DateTime at, bool record = true)
     {
         switch (packet)
         {
@@ -134,22 +134,26 @@ internal sealed class ActivityLootCollector : IDisposable
                 IdentifySource(updated.ObjectId, null, "Chest", at);
                 break;
             case AttachItemContainerEvent attach:
-                Attach(attach, at);
+                Attach(attach, at, record);
                 break;
             case DetachItemContainerEvent detach:
                 // Detachment is visibility evidence, never a pickup or an emptied chest.
                 if (containers.TryGetValue(detach.ContainerId, out var detached)) detached.LastSeen = at;
                 break;
             case InventoryStateEvent state when state.ContainerId is { } id:
+                var observedItems = state.ItemObjectIds.Where(x => x > 0).ToHashSet();
+                if (!record)
+                    foreach (var missing in membership.Where(x => x.Value == id && !observedItems.Contains(x.Key)).Select(x => x.Key).ToArray())
+                        ForgetMembership(missing);
                 for (var index = 0; index < state.ItemObjectIds.Count; index++)
                     if (state.ItemObjectIds[index] > 0)
-                        Put(state.ItemObjectIds[index], id, at, ActivityTrackerService.Origin(packet, "InventoryState", index));
+                        Put(state.ItemObjectIds[index], id, at, ActivityTrackerService.Origin(packet, "InventoryState", index), record);
                 break;
             case InventoryPutItemEvent put when put.ItemObjectId > 0 && put.ContainerId != Guid.Empty:
-                Put(put.ItemObjectId, put.ContainerId, at, ActivityTrackerService.Origin(packet, "InventoryPut"));
+                Put(put.ItemObjectId, put.ContainerId, at, ActivityTrackerService.Origin(packet, "InventoryPut"), record);
                 break;
             case InventoryDeleteItemEvent deleted:
-                Removed(deleted.ItemObjectId, at, ActivityTrackerService.Origin(packet, "InventoryDelete"));
+                Removed(deleted.ItemObjectId, at, ActivityTrackerService.Origin(packet, "InventoryDelete"), record: record);
                 break;
             case PartyLootItemsEvent party:
                 IdentifySource(party.SourceObjectId, null, "Chest", at);
@@ -158,7 +162,7 @@ internal sealed class ActivityLootCollector : IDisposable
                     if (index >= party.ItemIds.Count || index >= party.Amounts.Count || party.Amounts[index] <= 0) continue;
                     var objectId = party.ItemObjectIds[index];
                     var quality = index < party.Qualities.Count && party.Qualities[index] > 0 ? party.Qualities[index] : (int?)null;
-                    Metadata(objectId, party.ItemIds[index], quality, party.Amounts[index], null, null, at);
+                    Metadata(objectId, party.ItemIds[index], quality, party.Amounts[index], null, null, at, record: record);
                     if (sources.ContainsKey(party.SourceObjectId))
                         foreach (var container in containers.Values.Where(x => x.SourceId == party.SourceObjectId))
                             membership[objectId] = container.Id;
@@ -168,28 +172,28 @@ internal sealed class ActivityLootCollector : IDisposable
             case PartyLootItemsRemovedEvent removed:
                 IdentifySource(removed.SourceObjectId, null, "Chest", at);
                 for (var index = 0; index < removed.ItemObjectIds.Count; index++)
-                    Removed(removed.ItemObjectIds[index], at, ActivityTrackerService.Origin(packet, "PartyRemoval", index), removed.SourceObjectId);
+                    Removed(removed.ItemObjectIds[index], at, ActivityTrackerService.Origin(packet, "PartyRemoval", index), removed.SourceObjectId, record);
                 break;
             case PartyLootItemTypesRemovedEvent removed:
                 IdentifySource(removed.SourceObjectId, null, "Chest", at);
-                for (var index = 0; index < removed.ItemIds.Count && index < removed.Amounts.Count; index++)
+                for (var index = 0; record && index < removed.ItemIds.Count && index < removed.Amounts.Count; index++)
                     AmbiguousRemoval(removed.SourceObjectId, removed.ItemIds[index], removed.Amounts[index], at,
                         ActivityTrackerService.Origin(packet, "TypeRemoval", index));
                 break;
             case OtherGrabbedLootEvent pickup:
-                Broadcast(pickup, at);
+                if (record) Broadcast(pickup, at);
                 break;
             case NewSimpleItemEvent item when item.ObjectIdState == PacketFieldState.Valid && item.ItemIdState == PacketFieldState.Valid:
-                NewItem(item.Item, at, item.HasValidAcquisitionMetadata);
+                NewItem(item.Item, at, item.HasValidAcquisitionMetadata, record);
                 break;
-            case NewEquipmentItemEvent item: NewItem(item.Item, at); break;
-            case NewFurnitureItemEvent item: NewItem(item.Item, at); break;
-            case NewJournalItemEvent item: NewItem(item.Item, at); break;
-            case NewLaborerItemEvent item: NewItem(item.Item, at); break;
-            case NewKillTrophyItemEvent item: NewItem(item.Item, at); break;
-            case NewSiegeBannerItemEvent item: NewItem(item.Item, at); break;
+            case NewEquipmentItemEvent item: NewItem(item.Item, at, record: record); break;
+            case NewFurnitureItemEvent item: NewItem(item.Item, at, record: record); break;
+            case NewJournalItemEvent item: NewItem(item.Item, at, record: record); break;
+            case NewLaborerItemEvent item: NewItem(item.Item, at, record: record); break;
+            case NewKillTrophyItemEvent item: NewItem(item.Item, at, record: record); break;
+            case NewSiegeBannerItemEvent item: NewItem(item.Item, at, record: record); break;
         }
-        ConfirmUniqueGains(at);
+        if (record) ConfirmUniqueGains(at);
     }
 
     private void IdentifySource(long objectId, string? name, string kind, DateTime at)
@@ -210,10 +214,14 @@ internal sealed class ActivityLootCollector : IDisposable
             : value.Length == 0 ? "Unknown" : "Player";
     }
 
-    private void Attach(AttachItemContainerEvent packet, DateTime at)
+    private void Attach(AttachItemContainerEvent packet, DateTime at, bool record)
     {
         foreach (var id in new[] { packet.ContainerId, packet.PrivateContainerId }.Where(x => x != Guid.Empty).Distinct())
         {
+            var observedItems = packet.SlotItems.Where(x => x > 0).ToHashSet();
+            if (!record)
+                foreach (var missing in membership.Where(x => x.Value == id && !observedItems.Contains(x.Key)).Select(x => x.Key).ToArray())
+                    ForgetMembership(missing);
             containers[id] = new Container(id, packet.ObjectId, packet.SlotItems.ToArray(), at);
             foreach (var objectId in packet.SlotItems.Where(x => x > 0)) membership[objectId] = id;
         }
@@ -233,17 +241,17 @@ internal sealed class ActivityLootCollector : IDisposable
     private Item ItemSnapshot(long objectId, DateTime at) => items.GetValueOrDefault(objectId)
         ?? new Item(objectId, 0, null, 0, null, null, at, DateTime.MinValue);
 
-    private void NewItem(NewItem? item, DateTime at, bool? validatedSimple = null)
+    private void NewItem(NewItem? item, DateTime at, bool? validatedSimple = null, bool record = true)
     {
         if (item is null || item.ObjectId is not > 0 || item.ItemIndex <= 0) return;
         Metadata(item.ObjectId.Value, item.ItemIndex, item.Quality > 0 ? item.Quality : null,
             item.Quantity > 0 && validatedSimple != false ? item.Quantity : null,
             item.ItemUniqueName == "Unset" ? null : item.ItemUniqueName,
-            item.ItemUsName == "Unset" ? null : item.ItemUsName, at, validatedSimple == true);
+            item.ItemUsName == "Unset" ? null : item.ItemUsName, at, validatedSimple == true, record);
     }
 
     private void Metadata(long objectId, int itemId, int? quality, long? quantity, string? uniqueName, string? name, DateTime at,
-        bool validatedSimple = false)
+        bool validatedSimple = false, bool record = true)
     {
         var old = items.GetValueOrDefault(objectId);
         var next = new Item(objectId, itemId, quality ?? old?.Quality, quantity ?? old?.Quantity ?? 0,
@@ -251,6 +259,7 @@ internal sealed class ActivityLootCollector : IDisposable
             quantity is > 0 ? at : old?.QuantitySeenAt ?? DateTime.MinValue,
             quantity is > 0 ? validatedSimple : old?.ValidAcquisitionQuantity ?? false);
         items[objectId] = next;
+        if (!record) return;
         if (membership.GetValueOrDefault(objectId) == inventory && quantity is > 0 && validatedSimple && at > nonLootMoveUntil
             && localIntroductions.Remove(objectId, out var introduction) && at - introduction.At <= TimeSpan.FromSeconds(2))
             AddGain(new Gain(objectId, quantity.Value, next, at, introduction.Context, true));
@@ -288,9 +297,11 @@ internal sealed class ActivityLootCollector : IDisposable
         }
     }
 
-    private void Put(long objectId, Guid destination, DateTime at, string? origin)
+    private void Put(long objectId, Guid destination, DateTime at, string? origin, bool record = true)
     {
         var previous = membership.GetValueOrDefault(objectId);
+        if (previous != destination) ForgetMembership(objectId);
+        if (!record) { membership[objectId] = destination; return; }
         if (destination != inventory)
             candidates.RemoveAll(x => x.ObjectId == objectId &&
                 (!containers.TryGetValue(destination, out var next) || next.SourceId != x.Source.Id));
@@ -343,8 +354,9 @@ internal sealed class ActivityLootCollector : IDisposable
         membership[objectId] = destination;
     }
 
-    private void Removed(long objectId, DateTime at, string? origin, long? sourceId = null)
+    private void Removed(long objectId, DateTime at, string? origin, long? sourceId = null, bool record = true)
     {
+        if (!record) { ForgetMembership(objectId); return; }
         if (inventory is { } main && membership.GetValueOrDefault(objectId) == main) membership.Remove(objectId);
         var item = ItemSnapshot(objectId, at);
         var candidate = candidates.SingleOrDefault(x => x.ObjectId == objectId && !x.Confirmed);
@@ -367,6 +379,13 @@ internal sealed class ActivityLootCollector : IDisposable
         else if (sourceId is { } explicitSource && sources.ContainsKey(explicitSource))
             AmbiguousRemoval(explicitSource, item.Id, item.Quantity, at, origin, objectId, item);
         // Inventory deletion alone cannot distinguish moving, splitting, destroying or consuming.
+    }
+
+    private void ForgetMembership(long objectId)
+    {
+        if (!membership.Remove(objectId, out var containerId) || !containers.TryGetValue(containerId, out var container)) return;
+        for (var index = 0; index < container.Slots.Length; index++)
+            if (container.Slots[index] == objectId) container.Slots[index] = 0;
     }
 
     private void ConfirmUniqueGains(DateTime at)
@@ -604,7 +623,8 @@ internal sealed class ActivityLootCollector : IDisposable
         if (matches.Length != 1) return null;
         var match = matches[0];
         match.Consumed = true;
-        resourceClaims.Add(new ResourceClaim(itemId, quantity, match.At));
+        // The exact gain is consumed once. A distinct next catch may have the
+        // same item/count and must not be suppressed by a temporal signature.
         return new ActivityAcquisitionEvidence(match.ObjectId, match.Item.Quality, match.Item.UniqueName, match.Item.Name,
             match.At, match.Context.OriginKey);
     }
@@ -625,6 +645,7 @@ internal sealed class ActivityLootCollector : IDisposable
     }
 
     public void ResetCandidates() { candidates.Clear(); gains.Clear(); localIntroductions.Clear(); resourceClaims.Clear(); }
+    public void ResetRecordingCorrelations() { ResetCandidates(); recent.Clear(); }
     internal void DisruptLocalAcquisition(DateTime at)
     {
         if (nonLootMoveUntil < at.AddSeconds(10)) nonLootMoveUntil = at.AddSeconds(10);

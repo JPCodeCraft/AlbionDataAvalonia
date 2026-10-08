@@ -14,7 +14,7 @@ namespace AlbionDataAvalonia.Activity;
 
 public sealed partial class ActivityPersistence
 {
-    private static async Task RestoreKnownFameAwardsAsync(LocalContext context, CancellationToken cancellationToken)
+    private static async Task RestoreKnownFameAwardsAsync(LocalContext context, CommittedChanges changes, CancellationToken cancellationToken)
     {
         // Early Activity captures retained valid components but suppressed every nonzero bonus award.
         // Repair only those observations, using the corrected shared decoder and the normal contribution calculator.
@@ -36,6 +36,7 @@ public sealed partial class ActivityPersistence
                 await ApplyContributionAsync(context, replacement, 1, sessions, encounters, cancellationToken);
                 context.Entry(observation).CurrentValues.SetValues(replacement);
             }
+            changes.Include(context);
             await context.SaveChangesAsync(cancellationToken);
             context.ChangeTracker.Clear();
         }

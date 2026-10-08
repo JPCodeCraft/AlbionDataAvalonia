@@ -392,6 +392,16 @@ public partial class App : Application
         }
     }
 
+    internal static async Task ShowUpdateInstallationFailureAsync(string version)
+    {
+        var dialogTask = await Dispatcher.UIThread.InvokeAsync<Task>(() =>
+        {
+            var owner = (Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
+            return UpdateInstallationFailedWindow.ShowAsync(owner, version);
+        });
+        await dialogTask.ConfigureAwait(false);
+    }
+
     private static void TryWriteStartupCrashLog(Exception exception)
     {
         try
