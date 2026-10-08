@@ -1,7 +1,6 @@
 using Albion.Network;
 using AlbionDataAvalonia.Items.Services;
 using AlbionDataAvalonia.Legendary;
-using AlbionDataAvalonia.Loot;
 using AlbionDataAvalonia.Network.Events;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Shared;
@@ -14,18 +13,15 @@ namespace AlbionDataAvalonia.Network.Handlers;
 public class NewEquipmentItemEventHandler : EventPacketHandler<NewEquipmentItemEvent>
 {
     private readonly ItemEstimatedMarketValueService itemEstimatedMarketValues;
-    private readonly LootTrackerService lootTracker;
     private readonly PlayerState playerState;
     private readonly LegendaryItemTrackerService legendaryTracker;
 
     public NewEquipmentItemEventHandler(
         ItemEstimatedMarketValueService itemEstimatedMarketValues,
-        LootTrackerService lootTracker,
         PlayerState playerState,
         LegendaryItemTrackerService legendaryTracker) : base((int)EventCodes.NewEquipmentItem)
     {
         this.itemEstimatedMarketValues = itemEstimatedMarketValues;
-        this.lootTracker = lootTracker;
         this.playerState = playerState;
         this.legendaryTracker = legendaryTracker;
     }
@@ -53,7 +49,6 @@ public class NewEquipmentItemEventHandler : EventPacketHandler<NewEquipmentItemE
 
             }
 
-            lootTracker.DiscoverItem(value.Item);
             if (value.Item.IsAwakened)
             {
                 await legendaryTracker.ObserveItemAsync(value.Item);

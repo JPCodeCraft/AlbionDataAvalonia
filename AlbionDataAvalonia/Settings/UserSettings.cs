@@ -1,4 +1,4 @@
-﻿namespace AlbionDataAvalonia.Settings;
+namespace AlbionDataAvalonia.Settings;
 
 using Serilog;
 using Serilog.Events;
@@ -14,10 +14,6 @@ public enum StartupWindowMode
 
 public class UserSettings : INotifyPropertyChanged
 {
-    public const int MinCombatEncounterRetentionLimit = 50;
-    public const int MaxCombatEncounterRetentionLimit = 10000;
-    public const int DefaultCombatEncounterRetentionLimit = 1000;
-
     public event PropertyChangedEventHandler? PropertyChanged;
 
     private bool _startHidden = true;
@@ -265,21 +261,18 @@ public class UserSettings : INotifyPropertyChanged
         }
     }
 
-    private bool disableCombatTracker = false;
-    public bool DisableCombatTracker
+    private bool activityRecordingEnabled = true;
+    public bool ActivityRecordingEnabled
     {
-        get => disableCombatTracker;
+        get => activityRecordingEnabled;
         set
         {
-            if (disableCombatTracker != value)
-            {
-                disableCombatTracker = value;
-                OnPropertyChanged(nameof(DisableCombatTracker));
-                Log.Information("Disable combat tracker set to {DisableCombatTracker}", disableCombatTracker);
-            }
+            if (activityRecordingEnabled == value) return;
+            activityRecordingEnabled = value;
+            OnPropertyChanged(nameof(ActivityRecordingEnabled));
+            Log.Information("Activity recording enabled set to {ActivityRecordingEnabled}", activityRecordingEnabled);
         }
     }
-
     private bool disableGatheringTracker = false;
     public bool DisableGatheringTracker
     {
@@ -291,21 +284,6 @@ public class UserSettings : INotifyPropertyChanged
                 disableGatheringTracker = value;
                 OnPropertyChanged(nameof(DisableGatheringTracker));
                 Log.Information("Disable gathering tracker set to {DisableGatheringTracker}", disableGatheringTracker);
-            }
-        }
-    }
-
-    private bool disableLootTracker = false;
-    public bool DisableLootTracker
-    {
-        get => disableLootTracker;
-        set
-        {
-            if (disableLootTracker != value)
-            {
-                disableLootTracker = value;
-                OnPropertyChanged(nameof(DisableLootTracker));
-                Log.Information("Disable loot tracker set to {DisableLootTracker}", disableLootTracker);
             }
         }
     }
@@ -323,22 +301,6 @@ public class UserSettings : INotifyPropertyChanged
                 Log.Information(
                     "Disable awakening items tracker set to {DisableAwakeningItemsTracker}",
                     disableAwakeningItemsTracker);
-            }
-        }
-    }
-
-    private int combatEncounterRetentionLimit = DefaultCombatEncounterRetentionLimit;
-    public int CombatEncounterRetentionLimit
-    {
-        get => combatEncounterRetentionLimit;
-        set
-        {
-            var clamped = Math.Clamp(value, MinCombatEncounterRetentionLimit, MaxCombatEncounterRetentionLimit);
-            if (combatEncounterRetentionLimit != clamped)
-            {
-                combatEncounterRetentionLimit = clamped;
-                OnPropertyChanged(nameof(CombatEncounterRetentionLimit));
-                Log.Information("Combat encounter retention limit set to {CombatEncounterRetentionLimit}", combatEncounterRetentionLimit);
             }
         }
     }
@@ -391,4 +353,3 @@ public class UserSettings : INotifyPropertyChanged
         }
     }
 }
-

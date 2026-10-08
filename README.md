@@ -31,8 +31,7 @@ An alternative client for [The Albion Online Data Project](https://www.albion-on
 | Market Data Collection | Captures in-game market data and uploads to AODP servers                       |
 | Market Mail Tracking   | Collects and displays your market mail data for price tracking                 |
 | Trade History          | Stores instant buy/sell trades for later reference                             |
-| Damage Tracker         | Tracks combat encounters with damage, DPS, healing, fame, and party/player summaries |
-| Loot Tracker         | Tracks loots from the player and others, includes estimated market value |
+| Activity Tracker       | Saves sessions containing encounters, combat, participated mob deaths, silver, observed fame, and loot |
 | Enhanced Capture       | Captures data from loadout's quick buy screen, market screens, and gold screen |
 | Specs Capture          | Uploads character specs for use with AFM website                               |
 | Farming Tracker        | Privately records island plots, farming inputs/outputs, focus usage, and observed EMV for your AFM account |
@@ -167,19 +166,25 @@ rm -rf "$HOME/Library/Application Support/AFMDataClient"
 
 ## 📊 Features Showcase
 
-### Damage Tracker
+### Activity Tracker
 
-The Combat tab includes a passive combat tracker for reviewing combat while the client is running. It detects the local player, party members, other players, and mobs from captured packets, then groups health changes and fame gains into combat encounters.
+Activity combines **Current**, **History**, and **Loot**. Sessions contain encounters and activity between fights; session totals include every assigned event directly. Personal and Party filters use membership saved when each event occurred. Party includes your character. Loot also supports All observed.
 
-The tracker shows:
+Current includes a rolling **Last five minutes** timeline with damage/healing areas, grouped outcome and reward markers, and encounter combat spans. **Dealt / Received** changes the health series. Hover or **Pause timeline** holds the display while recording continues; **Resume live** returns to the latest activity. Markers open details, and encounter spans open history. The graph shows health per second in each short window, including idle zeros; headline DPS/HPS uses combat time. Capture gaps are shown separately from downtime.
 
-- Damage dealt, damage received, healing done, healing received, and fame gained
-- Total values, per-second combat rates, and fame-per-hour for the full session or the selected chart window
-- Encounter history with duration, status, fame, DPS, damage taken, HPS, and healing received
-- Player, party, and mob summaries with filters for all entities, party only, players only, or mobs only
-- A time chart with configurable aggregation, total/rate/fame metrics, and 1m, 5m, 10m, 30m, 1h, or unlimited windows
+Relevant damage or attributable healing opens an encounter and refreshes its seven-second inactivity deadline. Loot, silver, fame and outcome signals never extend combat. Encounter DPS/HPS uses the first-to-last combat span with a one-second minimum. Encounter earnings mean **observed during the encounter**, without claiming the fight produced them.
 
-Use the Combat tab's **Pause** button to stop counting health changes without losing tracked entities, or **Reset** to clear the current tracker data. If you do not want combat data tracked, enable **Disable Combat Tracker** in Settings.
+Successful instance entry becomes a session only when relevant activity is observed. Supported dungeon floors can continue one run. Known-instance reentry within two minutes can resume a run when no intervening relevant activity or local lethal death prevents it. Roaming survives ordinary zone changes and ends on hub return, instance entry, Finish, character/server change or 30 minutes without relevant activity. Session DPS/HPS uses the combined combat spans of encounters with activity in the selected scope, excluding time between fights and the closing delay. Earnings per hour use observed session time, including travel and downtime but excluding explicit capture gaps and dungeon-exit intervals.
+
+Mob counts require prior personal/party damage in the same lifetime. Explicit zero health confirms terminal evidence; omitted resulting health is labelled inferred. Visibility departure does not imply death. Cash silver stays separate from estimated loot value. Only canonical silver pickups contribute cash; overlapping broadcasts remain supplemental. Reported healing is preserved without claiming effective healing. Fame comes from packet evidence; PvE/PvP categories and awards with unverified components remain unavailable.
+
+Inventory requests only create short-lived candidates. Server-confirmed exact transfers or unique source-decrement/destination-gain pairs establish actual loot quantities. Banks, rearrangements, failed requests and ambiguous removals do not contribute personal/party earnings. Known estimates are frozen; missing prices may be filled later. History remains until explicitly deleted. Disable **Activity recording** to close current recording while keeping history readable; **Finish** permanently ends that session.
+
+The journal batches writes every second or 250 changes. Database failures retain accepted work and visibly suspend recording if needed. Capture restart waits for fresh identity/map confirmation; traffic silence is not logout. Process restart marks unfinished activity Interrupted. Shutdown drains recording before disposing capture/core services. Existing SQLite backups include Activity tables.
+
+Debug builds log raw Activity packet probes when **Logs → Log verbosity** is **Debug** or **Verbose**. Probes include combat, earnings, party, map/Join, chest, inventory, and move responses with capture time and transport identity. Information or higher stops packet probes.
+
+The Activity schema is provided by the EF-generated `20261007145317_AddActivityJournal` migration. Existing startup database initialization applies pending migrations when the application is launched. Do not hand-edit migration files; generate future schema changes with EF Core commands.
 
 ### Gathering and Fishing Tracker
 
@@ -310,7 +315,7 @@ dotnet test PowBench.Tests
 
 After switching branches or pulling a change to the submodule pointer, run `git submodule update --init --recursive` again. Shared changes are committed and pushed in AFMDataClientCore first; each client then updates its pinned commit independently. A standalone development checkout can live beside the clients at `Repos/AFMDataClientCore`, while builds always reference the pinned submodule.
 
-`DesktopClientCore` explicitly enables market orders (including loadouts), market history, specs, EMV, islands, gold, and world events. It adapts desktop settings, account credentials, and upload statistics to the shared runtime. Combat, party, gathering/fishing, loot, awakened items, market mail, and trade history remain desktop services and subscribe after shared packet processing. Capture drivers, database schemas, installers, and UI stay in the desktop repository.
+`DesktopClientCore` explicitly enables market orders (including loadouts), market history, specs, EMV, islands, gold, and world events. It adapts desktop settings, account credentials, and upload statistics to the shared runtime. Activity, party, gathering/fishing, awakened items, market mail, and trade history remain desktop services and subscribe after shared packet processing. Capture drivers, database schemas, installers, and UI stay in the desktop repository.
 
 Shared-library integration validation includes building the desktop solution and running the PoW correctness tests. Manual checks cover ordinary and loadout market routing, gold and bandit uploads during Private Mode, authenticated specs/EMV/world events, local tracker updates, account/server changes, and island collection, failed actions, offline retry, and restart recovery. Cross-platform capture and UI checks require the corresponding operating systems; builds alone do not validate live game traffic.
 

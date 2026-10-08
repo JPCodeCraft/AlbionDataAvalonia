@@ -1,5 +1,5 @@
 using AlbionDataAvalonia.Auth.Services;
-using AlbionDataAvalonia.Combat;
+using AlbionDataAvalonia.Activity;
 using AlbionDataAvalonia.DB;
 using AlbionDataAvalonia.Gathering;
 using AlbionDataAvalonia.Legendary;
@@ -7,7 +7,6 @@ using AlbionDataAvalonia.Items;
 using AlbionDataAvalonia.Items.Services;
 using AlbionDataAvalonia.Locations;
 using AlbionDataAvalonia.Logging;
-using AlbionDataAvalonia.Loot;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Party;
 using AlbionDataAvalonia.Players;
@@ -42,6 +41,10 @@ public partial class App : Application
     private DatabaseBackupService? _databaseBackupService;
     private NetworkListenerService? _networkListenerService;
     private DesktopClientCore? _clientCore;
+    private ActivityTrackerService? _activityTracker;
+    private ActivityPersistence? _activityPersistence;
+    private readonly object _shutdownLock = new();
+    private Task? _shutdownTask;
     private readonly HashSet<string> _shownManualUpdateDialogs = new();
     private readonly object _shownManualUpdateDialogsLock = new();
     private bool _showMainWindowWhenReady;
@@ -158,6 +161,9 @@ public partial class App : Application
         var mobsService = services.GetRequiredService<MobsService>();
         var authService = services.GetRequiredService<AuthService>();
         var gatheringTracker = services.GetRequiredService<GatheringTrackerService>();
+        _activityPersistence = services.GetRequiredService<ActivityPersistence>();
+        await _activityPersistence.RecoverInterruptedAsync();
+        _activityTracker = services.GetRequiredService<ActivityTrackerService>();
 
         //CONFIGURE AUTHENTICATED BACKENDS BEFORE VIEWMODELS SUBSCRIBE TO LOGIN CHANGES
         emvBackendLoader.Initialize();
@@ -171,9 +177,7 @@ public partial class App : Application
             desktop.ShutdownMode = ShutdownMode.OnExplicitShutdown;
             desktop.Exit += (_, _) =>
             {
-                DisposeNetworkListener();
-                _clientCore?.Dispose();
-                _databaseBackupService?.Dispose();
+                ShutdownAsync().GetAwaiter().GetResult();
             };
 
             if (desktop.MainWindow == null)
@@ -417,6 +421,31 @@ public partial class App : Application
         }
     }
 
+    public static Task ShutdownAsync()
+    {
+        if (Current is not App app) return Task.CompletedTask;
+        lock (app._shutdownLock) return app._shutdownTask ??= app.StopServicesAsync();
+    }
+
+    public static bool IsShuttingDown => Current is App { _shutdownTask: not null };
+
+    private async Task StopServicesAsync()
+    {
+        _updateTimer?.Stop();
+        // Ingress stops before the activity journal is finalized and drained.
+        DisposeNetworkListener();
+        using var deadline = new CancellationTokenSource(TimeSpan.FromSeconds(20));
+        try
+        {
+            if (_activityTracker is not null) await _activityTracker.StopAsync(deadline.Token).ConfigureAwait(false);
+        }
+        catch (Exception error) { Log.Error(error, "Activity journal could not fully drain during shutdown; recovery will mark unfinished activity Interrupted."); }
+        _activityTracker?.Dispose();
+        if (_activityPersistence is not null) await _activityPersistence.DisposeAsync().ConfigureAwait(false);
+        _clientCore?.Dispose();
+        _databaseBackupService?.Dispose();
+    }
+
     private static void ShutdownApplication()
     {
         if (Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
@@ -487,10 +516,10 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<CsvExportService>();
         collection.AddSingleton<PartyTrackerService>();
         collection.AddSingleton<PlayerIdentityService>();
-        collection.AddSingleton<CombatTrackerService>();
+        collection.AddSingleton<ActivityPersistence>();
+        collection.AddSingleton<ActivityTrackerService>();
         collection.AddSingleton<GatheringSessionPersistenceService>();
         collection.AddSingleton<GatheringTrackerService>();
-        collection.AddSingleton<LootTrackerService>();
         collection.AddSingleton<LegendaryDefinitionsService>();
         collection.AddSingleton<LegendaryItemTrackerService>();
         collection.AddSingleton<LegendarySaleService>();
@@ -502,9 +531,8 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<LogsViewModel>();
         collection.AddSingleton<MailsViewModel>();
         collection.AddSingleton<TradesViewModel>();
-        collection.AddSingleton<CombatViewModel>();
+        collection.AddSingleton<ActivityViewModel>();
         collection.AddSingleton<GatheringViewModel>();
-        collection.AddSingleton<LootViewModel>();
         collection.AddSingleton<LegendaryViewModel>();
     }
 }

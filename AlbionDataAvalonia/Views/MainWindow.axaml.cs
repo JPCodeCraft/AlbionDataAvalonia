@@ -51,14 +51,20 @@ public partial class MainWindow : Window
         Dispatcher.UIThread.Post(HideMinimizedWindowToTray);
     }
 
-    private void OnClosing(object? sender, CancelEventArgs e)
+    private async void OnClosing(object? sender, CancelEventArgs e)
     {
+        if (App.IsShuttingDown)
+        {
+            _isShuttingDown = true;
+            return;
+        }
         if (_settingsManager.UserSettings.ShutDownOnClose)
         {
             if (!_isShuttingDown && Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
                 _isShuttingDown = true;
                 e.Cancel = true;
+                await App.ShutdownAsync();
                 desktop.Shutdown();
             }
 

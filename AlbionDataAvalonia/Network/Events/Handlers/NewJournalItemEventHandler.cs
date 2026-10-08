@@ -1,6 +1,5 @@
 using Albion.Network;
 using AlbionDataAvalonia.Items.Services;
-using AlbionDataAvalonia.Loot;
 using AlbionDataAvalonia.Network.Events;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Shared;
@@ -13,16 +12,13 @@ namespace AlbionDataAvalonia.Network.Handlers;
 public class NewJournalItemEventHandler : EventPacketHandler<NewJournalItemEvent>
 {
     private readonly ItemEstimatedMarketValueService itemEstimatedMarketValues;
-    private readonly LootTrackerService lootTracker;
     private readonly PlayerState playerState;
 
     public NewJournalItemEventHandler(
         ItemEstimatedMarketValueService itemEstimatedMarketValues,
-        LootTrackerService lootTracker,
         PlayerState playerState) : base((int)EventCodes.NewJournalItem)
     {
         this.itemEstimatedMarketValues = itemEstimatedMarketValues;
-        this.lootTracker = lootTracker;
         this.playerState = playerState;
     }
 
@@ -49,7 +45,6 @@ public class NewJournalItemEventHandler : EventPacketHandler<NewJournalItemEvent
 
             }
 
-            lootTracker.DiscoverItem(value.Item);
         }
 
         return Task.CompletedTask;

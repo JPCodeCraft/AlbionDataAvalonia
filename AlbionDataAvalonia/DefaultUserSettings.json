@@ -14,10 +14,8 @@
   "ShareWithFriends": false,
   "UploadSpecsToAfm": true,
   "AfmIslandTrackerEnabled": true,
-  "DisableCombatTracker": false,
+  "ActivityRecordingEnabled": true,
   "DisableGatheringTracker": false,
-  "DisableLootTracker": false,
   "DisableAwakeningItemsTracker": false,
-  "CombatEncounterRetentionLimit": 1000,
   "LogLevel": 2
 }

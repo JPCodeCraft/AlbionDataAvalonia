@@ -30,9 +30,8 @@ public partial class MainViewModel : ViewModelBase
     private enum MainPage
     {
         Dashboard,
-        Combat,
+        Activity,
         Gathering,
-        Loot,
         Legendary,
         Trades,
         Mails,
@@ -48,9 +47,8 @@ public partial class MainViewModel : ViewModelBase
     private readonly LogsViewModel _logsViewModel;
     private readonly MailsViewModel _mailsViewModel;
     private readonly TradesViewModel _tradesViewModel;
-    private readonly CombatViewModel _combatViewModel;
+    private readonly ActivityViewModel _activityViewModel;
     private readonly GatheringViewModel _gatheringViewModel;
-    private readonly LootViewModel _lootViewModel;
     private readonly LegendaryViewModel _legendaryViewModel;
     private readonly Uploader _uploader;
     private readonly AuthService _authService;
@@ -265,7 +263,7 @@ public partial class MainViewModel : ViewModelBase
         SidebarStatusItems.Add(SidebarStatusItem.Ok("Ready", "Capture state looks ready."));
     }
 
-    public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, PlayerIdentityService playerIdentityService, SettingsManager settingsManager, SettingsViewModel settingsViewModel, LogsViewModel logsViewModel, MailsViewModel mailsViewModel, TradesViewModel tradesViewModel, CombatViewModel combatViewModel, GatheringViewModel gatheringViewModel, LootViewModel lootViewModel, LegendaryViewModel legendaryViewModel, Uploader uploader, AuthService authService)
+    public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, PlayerIdentityService playerIdentityService, SettingsManager settingsManager, SettingsViewModel settingsViewModel, LogsViewModel logsViewModel, MailsViewModel mailsViewModel, TradesViewModel tradesViewModel, ActivityViewModel activityViewModel, GatheringViewModel gatheringViewModel, LegendaryViewModel legendaryViewModel, Uploader uploader, AuthService authService)
     {
         _playerState = playerState;
         _playerIdentityService = playerIdentityService;
@@ -275,9 +273,8 @@ public partial class MainViewModel : ViewModelBase
         _logsViewModel = logsViewModel;
         _mailsViewModel = mailsViewModel;
         _tradesViewModel = tradesViewModel;
-        _combatViewModel = combatViewModel;
+        _activityViewModel = activityViewModel;
         _gatheringViewModel = gatheringViewModel;
-        _lootViewModel = lootViewModel;
         _legendaryViewModel = legendaryViewModel;
         _uploader = uploader;
         _authService = authService;
@@ -333,9 +330,8 @@ public partial class MainViewModel : ViewModelBase
     }
 
     public bool IsDashboardSelected => _selectedPage == MainPage.Dashboard;
-    public bool IsCombatSelected => _selectedPage == MainPage.Combat;
+    public bool IsActivitySelected => _selectedPage == MainPage.Activity;
     public bool IsGatheringSelected => _selectedPage == MainPage.Gathering;
-    public bool IsLootSelected => _selectedPage == MainPage.Loot;
     public bool IsLegendarySelected => _selectedPage == MainPage.Legendary;
     public bool IsTradesSelected => _selectedPage == MainPage.Trades;
     public bool IsMailsSelected => _selectedPage == MainPage.Mails;
@@ -348,9 +344,8 @@ public partial class MainViewModel : ViewModelBase
         {
             _selectedPage = page;
             OnPropertyChanged(nameof(IsDashboardSelected));
-            OnPropertyChanged(nameof(IsCombatSelected));
+            OnPropertyChanged(nameof(IsActivitySelected));
             OnPropertyChanged(nameof(IsGatheringSelected));
-            OnPropertyChanged(nameof(IsLootSelected));
             OnPropertyChanged(nameof(IsLegendarySelected));
             OnPropertyChanged(nameof(IsTradesSelected));
             OnPropertyChanged(nameof(IsMailsSelected));
@@ -361,9 +356,8 @@ public partial class MainViewModel : ViewModelBase
         CurrentView = page switch
         {
             MainPage.Dashboard => NpCapInstallationChecker.IsNpCapInstalled() ? new DashboardView() : new PCapView(),
-            MainPage.Combat => new CombatView(_combatViewModel),
+            MainPage.Activity => new ActivityView(_activityViewModel),
             MainPage.Gathering => new GatheringView(_gatheringViewModel),
-            MainPage.Loot => new LootView(_lootViewModel),
             MainPage.Legendary => new LegendaryView(_legendaryViewModel),
             MainPage.Trades => new TradesView(_tradesViewModel),
             MainPage.Mails => new MailsView(_mailsViewModel),
@@ -651,14 +645,14 @@ public partial class MainViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void Exit()
+    private async Task ExitAsync()
     {
         Log.Information("Exiting application");
+        await App.ShutdownAsync();
         if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
         {
             desktop.Shutdown();
         }
-        ;
     }
     [RelayCommand]
     public void ShowMainWindow()
@@ -692,21 +686,15 @@ public partial class MainViewModel : ViewModelBase
     }
 
     [RelayCommand]
-    private void ShowCombat()
+    private void ShowActivity()
     {
-        NavigateTo(MainPage.Combat);
+        NavigateTo(MainPage.Activity);
     }
 
     [RelayCommand]
     private void ShowGathering()
     {
         NavigateTo(MainPage.Gathering);
-    }
-
-    [RelayCommand]
-    private void ShowLoot()
-    {
-        NavigateTo(MainPage.Loot);
     }
 
     [RelayCommand]
@@ -791,7 +779,7 @@ public partial class MainViewModel : ViewModelBase
             if (installed)
             {
                 Log.Information("Restarting AFM Data Client after macOS packet capture permission setup.");
-                if (TryRestartApplication())
+                if (await TryRestartApplicationAsync())
                 {
                     return;
                 }
@@ -809,7 +797,7 @@ public partial class MainViewModel : ViewModelBase
         }
     }
 
-    private static bool TryRestartApplication()
+    private static async Task<bool> TryRestartApplicationAsync()
     {
         if (!RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
         {
@@ -834,6 +822,7 @@ public partial class MainViewModel : ViewModelBase
             startInfo.ArgumentList.Add("-c");
             startInfo.ArgumentList.Add("sleep 1; open -n " + QuoteForPosixShell(appBundlePath));
 
+            await App.ShutdownAsync();
             Process.Start(startInfo);
 
             if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)

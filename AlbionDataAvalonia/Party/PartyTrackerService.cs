@@ -33,6 +33,11 @@ public sealed class PartyTrackerService
         PartyTrackerSnapshot snapshot;
         lock (sync)
         {
+            if (localUserGuid is not null && localUserGuid != userGuid)
+            {
+                partyMembers.Clear();
+                knownPlayers.Clear();
+            }
             localObjectId = objectId > 0 ? objectId : null;
             localUserGuid = userGuid is { } guid && guid != Guid.Empty ? guid : null;
             localPlayerName = name?.Trim() ?? string.Empty;
@@ -44,6 +49,29 @@ public sealed class PartyTrackerService
             snapshot = BuildSnapshot();
         }
 
+        SnapshotChanged?.Invoke(snapshot);
+    }
+
+    public void ResetObjectBindings(bool clearRoster)
+    {
+        PartyTrackerSnapshot snapshot;
+        lock (sync)
+        {
+            localObjectId = null;
+            if (clearRoster)
+            {
+                partyMembers.Clear();
+                knownPlayers.Clear();
+            }
+            else
+            {
+                foreach (var id in knownPlayers.Keys.ToArray())
+                    knownPlayers[id] = knownPlayers[id] with { ObjectId = null };
+                foreach (var id in partyMembers.Keys.ToArray())
+                    partyMembers[id] = partyMembers[id] with { ObjectId = null };
+            }
+            snapshot = BuildSnapshot();
+        }
         SnapshotChanged?.Invoke(snapshot);
     }
 

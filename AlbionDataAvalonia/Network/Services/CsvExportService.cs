@@ -3,7 +3,8 @@ using AlbionDataAvalonia.Gathering.Models;
 using AlbionDataAvalonia.Items;
 using AlbionDataAvalonia.Items.Services;
 using AlbionDataAvalonia.Locations;
-using AlbionDataAvalonia.Loot.Models;
+using AlbionDataAvalonia.Activity;
+using AlbionDataAvalonia.Activity.Models;
 using AlbionDataAvalonia.Network.Models;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
@@ -186,11 +187,12 @@ public class CsvExportService
 
     public async Task ExportLootToCsvAsync(
         Stream stream,
-        IReadOnlyList<LootRecord> records,
+        IReadOnlyList<ActivityEvent> records,
         CsvExportOptions? options = null,
         IProgress<int>? progress = null,
         CancellationToken cancellationToken = default)
     {
+        records = records.Where(record => record.Kind == ActivityEventKind.Loot && !record.IsRetracted).ToArray();
         options ??= CsvExportOptions.FromCurrentCulture();
         var culture = options.CreateFormattingCulture();
         var delimiter = options.Delimiter;
@@ -217,31 +219,29 @@ public class CsvExportService
             var record = records[i];
             var line = string.Join(delimiter, new[]
             {
-                Escape(record.PickedUpAtUtc.ToString("O", CultureInfo.InvariantCulture), delimiter),
-                Escape(record.ServerId is { } serverId
-                    ? AlbionServers.Get(serverId)?.Name ?? string.Empty
-                    : string.Empty, delimiter),
-                Escape(record.PlayerName, delimiter),
-                Escape(record.PlayerAllianceName, delimiter),
-                Escape(record.PlayerGuildName, delimiter),
-                record.WasPartyMemberAtPickup switch
+                Escape(record.CapturedAtUtc.ToString("O", CultureInfo.InvariantCulture), delimiter),
+                Escape(record.Server, delimiter),
+                Escape(record.SourceName, delimiter),
+                Escape(record.SourceAlliance, delimiter),
+                Escape(record.SourceGuild, delimiter),
+                record.SourceRelationship switch
                 {
-                    true => "true",
-                    false => "false",
+                    ActorRelationship.Self or ActorRelationship.Party => "true",
+                    ActorRelationship.Other => "false",
                     _ => "Unknown"
                 },
-                Escape(record.SourceKind.ToString(), delimiter),
-                Escape(record.SourceName, delimiter),
-                Escape(record.SourceAllianceName, delimiter),
-                Escape(record.SourceGuildName, delimiter),
+                Escape(record.LootSourceKind, delimiter),
+                Escape(record.LootSourceName, delimiter),
+                Escape(record.TargetAlliance, delimiter),
+                Escape(record.TargetGuild, delimiter),
                 Escape(record.LocationName, delimiter),
-                Escape(record.LocationId, delimiter),
+                Escape(record.RawMapId, delimiter),
                 Escape(record.ItemUniqueName, delimiter),
                 Escape(record.ItemName, delimiter),
                 Escape(ItemQuality.Format(record.Quality), delimiter),
-                record.Amount.ToString(culture),
-                record.EstimatedMarketValue?.ToString(culture) ?? string.Empty,
-                record.TotalEstimatedMarketValue?.ToString(culture) ?? string.Empty
+                record.Quantity > 0 ? record.Quantity.ToString(culture) : string.Empty,
+                record.EstimatedUnitValue?.ToString(culture) ?? string.Empty,
+                record.Quantity > 0 ? ActivityProjection.GetLootValue(record)?.ToString(culture) ?? string.Empty : string.Empty
             });
 
             await writer.WriteLineAsync(line);

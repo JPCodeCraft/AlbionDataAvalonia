@@ -216,63 +216,17 @@
             </ScrollViewer>
         </TabItem>
 
-        <TabItem Header="Combat">
+        <TabItem Header="Activity">
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <Grid RowDefinitions="Auto,Auto,Auto,*" Margin="0,14,0,0" RowSpacing="14">
-                    <WrapPanel Orientation="Horizontal">
-                        <CheckBox Content="Disable Combat Tracker"
-                                  IsChecked="{Binding UserSettings.DisableCombatTracker}"
-                                  Margin="0,0,28,8" />
-                    </WrapPanel>
-
-                    <Grid Grid.Row="1" ColumnDefinitions="*,Auto" VerticalAlignment="Center">
-                        <TextBlock Text="Retained encounters" />
-                        <TextBlock Grid.Column="1" Text="{Binding PendingCombatEncounterRetentionLimit, Mode=OneWay, StringFormat={}{0:N0}}" />
-                    </Grid>
-
-                    <Slider Grid.Row="2"
-                            Minimum="50"
-                            Maximum="10000"
-                            Value="{Binding PendingCombatEncounterRetentionLimit}"
-                            TickFrequency="50"
-                            IsSnapToTickEnabled="True" />
-
-                    <Border Grid.Row="3"
-                            Background="{DynamicResource ThemeBackgroundBrush}"
-                            CornerRadius="4"
-                            Padding="12"
-                            BorderBrush="{DynamicResource ThemeBorderMidBrush}"
-                            BorderThickness="1"
-                            VerticalAlignment="Top">
-                        <StackPanel Spacing="8">
-                            <TextBlock Text="Combat tracker statistics" FontWeight="Bold" />
-                            <UniformGrid Columns="2" Rows="3" Margin="0,4,0,0">
-                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
-                                <TextBlock Text="Encounters:" FontWeight="SemiBold" />
-                                <TextBlock Text="{Binding CombatRetainedEncounterCount, Mode=OneWay, StringFormat={}{0:N0}}" />
-                                <TextBlock Text="/" />
-                                <TextBlock Text="{Binding CombatRetentionLimit, Mode=OneWay, StringFormat={}{0:N0}}" />
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="16,0,0,6">
-                                <TextBlock Text="Known entities:" FontWeight="SemiBold" />
-                                <TextBlock Text="{Binding CombatKnownEntityCount, Mode=OneWay, StringFormat={}{0:N0}}" />
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
-                                <TextBlock Text="Time buckets:" FontWeight="SemiBold" />
-                                <TextBlock Text="{Binding CombatTimeBucketCount, Mode=OneWay, StringFormat={}{0:N0}}" />
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="16,0,0,6">
-                                <TextBlock Text="Participant rows:" FontWeight="SemiBold" />
-                                <TextBlock Text="{Binding CombatParticipantTotalCount, Mode=OneWay, StringFormat={}{0:N0}}" />
-                            </StackPanel>
-                            <StackPanel Grid.ColumnSpan="2" Orientation="Horizontal" Spacing="6">
-                                <TextBlock Text="Estimated combat history memory:" FontWeight="SemiBold" />
-                                <TextBlock Text="{Binding EstimatedCombatHistoryMemoryText, Mode=OneWay}" />
-                            </StackPanel>
-                            </UniformGrid>
-                        </StackPanel>
-                    </Border>
-                </Grid>
+                <StackPanel Margin="0,14,20,0" Spacing="12">
+                    <CheckBox Content="Record combat, fame, silver, and loot"
+                              IsChecked="{Binding UserSettings.ActivityRecordingEnabled}" />
+                    <TextBlock Text="{Binding ActivityRecordingStatus}" TextWrapping="Wrap" />
+                    <TextBlock Text="Sessions and encounters are saved locally. Turning recording off finishes the current session and keeps your history. Records remain until you delete them in Activity."
+                               TextWrapping="Wrap" Opacity="0.65" />
+                    <TextBlock Text="Party filters change what is shown. All observed loot pickups are recorded while recording is enabled."
+                               TextWrapping="Wrap" Opacity="0.65" />
+                </StackPanel>
             </ScrollViewer>
         </TabItem>
 
@@ -286,15 +240,6 @@
             </ScrollViewer>
         </TabItem>
 
-        <TabItem Header="Loot">
-            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <WrapPanel Orientation="Horizontal" Margin="0,14,0,0">
-                    <CheckBox Content="Disable Loot Tracker"
-                              IsChecked="{Binding UserSettings.DisableLootTracker}"
-                              Margin="0,0,28,8" />
-                </WrapPanel>
-            </ScrollViewer>
-        </TabItem>
 
         <TabItem Header="Awakened">
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">

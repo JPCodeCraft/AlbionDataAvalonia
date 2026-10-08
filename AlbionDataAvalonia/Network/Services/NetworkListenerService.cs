@@ -1,9 +1,8 @@
 using AFMDataClient.Core;
 using Albion.Network;
-using AlbionDataAvalonia.Combat;
+using AlbionDataAvalonia.Activity;
 using AlbionDataAvalonia.Gathering;
 using AlbionDataAvalonia.Items.Services;
-using AlbionDataAvalonia.Loot;
 using AlbionDataAvalonia.Legendary;
 using AlbionDataAvalonia.Network.Handlers;
 using AlbionDataAvalonia.Network.Models;
@@ -48,12 +47,10 @@ namespace AlbionDataAvalonia.Network.Services
         private readonly MailService _mailService;
         private readonly TradeService _tradeService;
         private readonly ItemEstimatedMarketValueService _itemEstimatedMarketValues;
-        private readonly CombatTrackerService _combatTracker;
+        private readonly ActivityTrackerService _activityTracker;
         private readonly GatheringTrackerService _gatheringTracker;
         private readonly PartyTrackerService _partyTracker;
         private readonly PlayerIdentityService _playerIdentityService;
-        private readonly LootTrackerService _lootTracker;
-        private readonly MobsService _mobsService;
         private readonly LegendaryItemTrackerService _legendaryTracker;
         private readonly DesktopClientCore _clientCore;
 
@@ -70,18 +67,16 @@ namespace AlbionDataAvalonia.Network.Services
         public bool IsMacOSCapturePermissionSetupRequired { get; private set; }
         public bool IsMacOSCapturePermissionSetupOutdated { get; private set; }
 
-        public NetworkListenerService(PlayerState playerState, SettingsManager settingsManager, MailService mailService, TradeService tradeService, ItemEstimatedMarketValueService itemEstimatedMarketValues, CombatTrackerService combatTracker, GatheringTrackerService gatheringTracker, PartyTrackerService partyTracker, PlayerIdentityService playerIdentityService, LootTrackerService lootTracker, MobsService mobsService, LegendaryItemTrackerService legendaryTracker, DesktopClientCore clientCore)
+        public NetworkListenerService(PlayerState playerState, SettingsManager settingsManager, MailService mailService, TradeService tradeService, ItemEstimatedMarketValueService itemEstimatedMarketValues, ActivityTrackerService activityTracker, GatheringTrackerService gatheringTracker, PartyTrackerService partyTracker, PlayerIdentityService playerIdentityService, LegendaryItemTrackerService legendaryTracker, DesktopClientCore clientCore)
         {
             _playerState = playerState;
             _settingsManager = settingsManager;
             _mailService = mailService;
             _itemEstimatedMarketValues = itemEstimatedMarketValues;
-            _combatTracker = combatTracker;
+            _activityTracker = activityTracker;
             _gatheringTracker = gatheringTracker;
             _partyTracker = partyTracker;
             _playerIdentityService = playerIdentityService;
-            _lootTracker = lootTracker;
-            _mobsService = mobsService;
             _legendaryTracker = legendaryTracker;
             _clientCore = clientCore;
 
@@ -197,67 +192,52 @@ namespace AlbionDataAvalonia.Network.Services
                 ReceiverBuilder builder = ReceiverBuilder.Create();
 
                 _clientCore.Core.ResetCapture();
+                _activityTracker.OnCaptureReset();
                 _clientCore.Core.RegisterHandlers(builder);
 
                 // Desktop-only tracker subscribers run after shared enrichment.
                 // EVENTS
                 builder.AddEventHandler(new NewCharacterEventHandler(
-                    _combatTracker,
                     _partyTracker,
                     _playerIdentityService,
                     _playerState));
-                builder.AddEventHandler(new NewMobEventHandler(_combatTracker, _mobsService));
                 builder.AddEventHandler(new PartyJoinedEventHandler(_partyTracker));
                 builder.AddEventHandler(new PartyPlayerJoinedEventHandler(_partyTracker));
                 builder.AddEventHandler(new PartyPlayerLeftEventHandler(_partyTracker));
                 builder.AddEventHandler(new PartyDisbandedEventHandler(_partyTracker));
                 builder.AddEventHandler(new PartyOnClusterPartyJoinedEventHandler(_partyTracker));
                 builder.AddEventHandler(new PartySetRoleFlagEventHandler(_partyTracker));
-                builder.AddEventHandler(new HealthUpdateEventHandler(_combatTracker));
-                builder.AddEventHandler(new HealthUpdatesEventHandler(_combatTracker));
-                builder.AddEventHandler(new UpdateFameEventHandler(_combatTracker));
-                builder.AddEventHandler(new TakeSilverEventHandler(_combatTracker));
-                builder.AddEventHandler(new InCombatStateUpdateEventHandler(_combatTracker));
-                builder.AddEventHandler(new TimeSyncEventHandler(_combatTracker));
                 builder.AddEventHandler(new EstimatedMarketValueUpdateEventHandler(_itemEstimatedMarketValues, _playerState));
                 builder.AddEventHandler(new HarvestFinishedEventHandler(_gatheringTracker));
                 builder.AddEventHandler(new RewardGrantedEventHandler(_gatheringTracker));
-                builder.AddEventHandler(new NewLootEventHandler(_lootTracker));
-                builder.AddEventHandler(new NewLootChestEventHandler(_lootTracker));
-                builder.AddEventHandler(new UpdateLootChestEventHandler(_lootTracker));
-                builder.AddEventHandler(new LootChestOpenedEventHandler(_lootTracker));
-                builder.AddEventHandler(new AttachItemContainerEventHandler(_lootTracker, _legendaryTracker));
-                builder.AddEventHandler(new DetachItemContainerEventHandler(_lootTracker, _legendaryTracker));
-                builder.AddEventHandler(new InventoryDeleteItemEventHandler(_lootTracker, _legendaryTracker));
+                builder.AddEventHandler(new AttachItemContainerEventHandler(_legendaryTracker));
+                builder.AddEventHandler(new DetachItemContainerEventHandler(_legendaryTracker));
+                builder.AddEventHandler(new InventoryDeleteItemEventHandler(_legendaryTracker));
                 builder.AddEventHandler(new InventoryPutItemEventHandler(_legendaryTracker));
-                builder.AddEventHandler(new OtherGrabbedLootEventHandler(_lootTracker));
-                builder.AddEventHandler(new PartyLootItemsEventHandler(_lootTracker));
-                builder.AddEventHandler(new PartyLootItemsRemovedEventHandler(_lootTracker));
-                builder.AddEventHandler(new PartyLootItemTypesRemovedEventHandler(_lootTracker));
-                builder.AddEventHandler(new NewSimpleItemEventHandler(_itemEstimatedMarketValues, _gatheringTracker, _lootTracker, _playerState));
-                builder.AddEventHandler(new NewJournalItemEventHandler(_itemEstimatedMarketValues, _lootTracker, _playerState));
-                builder.AddEventHandler(new NewLaborerItemEventHandler(_itemEstimatedMarketValues, _lootTracker, _playerState));
-                builder.AddEventHandler(new NewEquipmentItemEventHandler(_itemEstimatedMarketValues, _lootTracker, _playerState, _legendaryTracker));
-                builder.AddEventHandler(new NewFurnitureItemEventHandler(_itemEstimatedMarketValues, _lootTracker, _playerState));
-                builder.AddEventHandler(new NewKillTrophyItemEventHandler(_itemEstimatedMarketValues, _lootTracker, _playerState));
-                builder.AddEventHandler(new NewSiegeBannerItemEventHandler(_itemEstimatedMarketValues, _lootTracker, _playerState));
+                builder.AddEventHandler(new NewSimpleItemEventHandler(_itemEstimatedMarketValues, _gatheringTracker, _playerState));
+                builder.AddEventHandler(new NewJournalItemEventHandler(_itemEstimatedMarketValues, _playerState));
+                builder.AddEventHandler(new NewLaborerItemEventHandler(_itemEstimatedMarketValues, _playerState));
+                builder.AddEventHandler(new NewEquipmentItemEventHandler(_itemEstimatedMarketValues, _playerState, _legendaryTracker));
+                builder.AddEventHandler(new NewFurnitureItemEventHandler(_itemEstimatedMarketValues, _playerState));
+                builder.AddEventHandler(new NewKillTrophyItemEventHandler(_itemEstimatedMarketValues, _playerState));
+                builder.AddEventHandler(new NewSiegeBannerItemEventHandler(_itemEstimatedMarketValues, _playerState));
                 builder.AddEventHandler(new NewEquipmentItemLegendarySoulEventHandler(_legendaryTracker));
                 builder.AddEventHandler(new BankVaultInfoEventHandler(_legendaryTracker));
                 builder.AddEventHandler(new GuildVaultInfoEventHandler(_legendaryTracker));
 #if DEBUG
-                builder.AddEventHandler(new DebugEventProbeEventHandler());
+                builder.AddEventHandler(new DebugEventProbeEventHandler(() => _settingsManager.UserSettings.LogLevel <= Serilog.Events.LogEventLevel.Debug));
 #endif
                 // RESPONSE
                 builder.AddResponseHandler(new AuctionGetOffersResponseHandler(_playerState, _tradeService));
                 builder.AddResponseHandler(new AuctionGetRequestsResponseHandler(_playerState, _tradeService));
-                builder.AddResponseHandler(new JoinResponseHandler(_playerState, _partyTracker, _playerIdentityService, _lootTracker, _legendaryTracker));
+                builder.AddResponseHandler(new JoinResponseHandler(_playerState, _partyTracker, _playerIdentityService, _legendaryTracker));
                 builder.AddResponseHandler(new GetMailInfosResponseHandler(_playerState, _mailService));
                 builder.AddResponseHandler(new ReadMailResponseHandler(_playerState, _mailService));
                 builder.AddResponseHandler(new AuctionBuyOfferResponseHandler(_playerState, _tradeService));
                 builder.AddResponseHandler(new AuctionSellSpecificItemRequestResponseHandler(_playerState, _tradeService));
                 builder.AddResponseHandler(new FishingFinishResponseHandler(_gatheringTracker));
 #if DEBUG
-                builder.AddHandler(new DebugResponseProbeResponseHandler());
+                builder.AddHandler(new DebugResponseProbeResponseHandler(() => _settingsManager.UserSettings.LogLevel <= Serilog.Events.LogEventLevel.Debug));
 #endif
                 // REQUEST
                 builder.AddRequestHandler(new AuctionBuyOfferRequestHandler(_playerState, _tradeService));
@@ -265,13 +245,14 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddRequestHandler(new FishingStartRequestHandler(_gatheringTracker));
                 builder.AddRequestHandler(new FishingFinishRequestHandler(_gatheringTracker));
                 builder.AddRequestHandler(new FishingCancelRequestHandler(_gatheringTracker));
-                builder.AddRequestHandler(new InventoryMoveItemRequestHandler(_lootTracker));
-                builder.AddRequestHandler(new InventoryMoveGivenItemsRequestHandler(_lootTracker));
 #if DEBUG
-                builder.AddHandler(new DebugRequestProbeRequestHandler());
+                builder.AddHandler(new DebugRequestProbeRequestHandler(() => _settingsManager.UserSettings.LogLevel <= Serilog.Events.LogEventLevel.Debug));
 #endif
 
+                ActivityPacketSubscriptions.Register(builder, _activityTracker);
+
                 var localReceiver = builder.Build();
+                localReceiver.ResetTransportContext();
 
                 if (localReceiver == null)
                 {
@@ -1130,6 +1111,9 @@ namespace AlbionDataAvalonia.Network.Services
                 lock (session.ProcessingLock)
                 {
                 }
+
+                if (Volatile.Read(ref _activeSession) is not { } activeSession || ReferenceEquals(activeSession, session))
+                    _activityTracker.OnCaptureSuspended();
 
                 foreach (var registration in session.GetDevicesSnapshot())
                 {

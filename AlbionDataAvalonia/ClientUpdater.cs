@@ -133,6 +133,7 @@ public static class ClientUpdater
                 }
             };
 
+            await App.ShutdownAsync().ConfigureAwait(false);
             process.Start();
             Environment.Exit(0);
         }

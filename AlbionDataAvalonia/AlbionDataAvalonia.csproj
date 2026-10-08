@@ -53,8 +53,8 @@
 		<Compile Update="Views\TradesView.axaml.cs">
 			<DependentUpon>TradesView.axaml</DependentUpon>
 		</Compile>
-		<Compile Update="Views\CombatView.axaml.cs">
-			<DependentUpon>CombatView.axaml</DependentUpon>
+		<Compile Update="Views\ActivityView.axaml.cs">
+			<DependentUpon>ActivityView.axaml</DependentUpon>
 		</Compile>
 		<Compile Update="Views\GatheringView.axaml.cs">
 			<DependentUpon>GatheringView.axaml</DependentUpon>

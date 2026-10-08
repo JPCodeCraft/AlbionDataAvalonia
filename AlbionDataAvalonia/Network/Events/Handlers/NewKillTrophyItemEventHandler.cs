@@ -1,6 +1,5 @@
 using Albion.Network;
 using AlbionDataAvalonia.Items.Services;
-using AlbionDataAvalonia.Loot;
 using AlbionDataAvalonia.Network.Events;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Shared;
@@ -13,16 +12,13 @@ namespace AlbionDataAvalonia.Network.Handlers;
 public class NewKillTrophyItemEventHandler : EventPacketHandler<NewKillTrophyItemEvent>
 {
     private readonly ItemEstimatedMarketValueService itemEstimatedMarketValues;
-    private readonly LootTrackerService lootTracker;
     private readonly PlayerState playerState;
 
     public NewKillTrophyItemEventHandler(
         ItemEstimatedMarketValueService itemEstimatedMarketValues,
-        LootTrackerService lootTracker,
         PlayerState playerState) : base((int)EventCodes.NewKillTrophyItem)
     {
         this.itemEstimatedMarketValues = itemEstimatedMarketValues;
-        this.lootTracker = lootTracker;
         this.playerState = playerState;
     }
 
@@ -49,7 +45,6 @@ public class NewKillTrophyItemEventHandler : EventPacketHandler<NewKillTrophyIte
 
             }
 
-            lootTracker.DiscoverItem(value.Item);
         }
 
         return Task.CompletedTask;

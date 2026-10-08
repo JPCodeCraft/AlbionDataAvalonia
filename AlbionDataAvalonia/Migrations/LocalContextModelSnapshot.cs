@@ -17,6 +17,364 @@ namespace AlbionDataAvalonia.Migrations
 #pragma warning disable 612, 618
             modelBuilder.HasAnnotation("ProductVersion", "10.0.8");
 
+            modelBuilder.Entity("AlbionDataAvalonia.Activity.Models.ActivityEncounter", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("ClosedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("EndReason")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("LastCombatAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("LastObservedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LocationName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Number")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ObservedSummaryJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PartySummaryJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PersonalSummaryJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("RawMapId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("StartedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("State")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("State");
+
+                    b.HasIndex("SessionId", "Number")
+                        .IsUnique();
+
+                    b.ToTable("ActivityEncounters", (string)null);
+                });
+
+            modelBuilder.Entity("AlbionDataAvalonia.Activity.Models.ActivityEvent", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<double>("Amount")
+                        .HasColumnType("REAL");
+
+                    b.Property<long>("CaptureGeneration")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("CaptureOrder")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("CapturedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CharacterId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CharacterName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("DetailsJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("EncounterId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long?>("EstimatedUnitValue")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Evidence")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long?>("GameTimestamp")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("HasKnownNetSilver")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("InstanceId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("IsRetracted")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int?>("ItemId")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("ItemName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ItemUniqueName")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("LocationName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LootSourceKind")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LootSourceName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("MapEpoch")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("MapKind")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("MobIndex")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("MobUniqueName")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("OriginKey")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("ParentMapId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<bool>("ParticipatedParty")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("ParticipatedSelf")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("PayloadVersion")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("PriceObservedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int?>("Quality")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<long>("Quantity")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RawMapId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Server")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid?>("SessionId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<long>("SilverRaw")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("SourceActorId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SourceAlliance")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("SourceGuild")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SourceKind")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("SourceName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("SourceRelationship")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TargetActorId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TargetAlliance")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("TargetGuild")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("TargetKind")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("TargetName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("TargetRelationship")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("OriginKey")
+                        .IsUnique();
+
+                    b.HasIndex("Kind", "CapturedAtUtc");
+
+                    b.HasIndex("EncounterId", "CapturedAtUtc", "CaptureOrder");
+
+                    b.HasIndex("Server", "CharacterId", "CapturedAtUtc");
+
+                    b.HasIndex("SessionId", "CapturedAtUtc", "CaptureOrder");
+
+                    b.HasIndex("SourceActorId", "TargetActorId", "SessionId", "Kind");
+
+                    b.HasIndex("Kind", "Server", "ItemId", "Quality", "EstimatedUnitValue");
+
+                    b.ToTable("ActivityEvents", (string)null);
+                });
+
+            modelBuilder.Entity("AlbionDataAvalonia.Activity.Models.ActivitySession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CharacterId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CharacterName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("ClosedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("EndReason")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("HasInferredGrouping")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("HasLocalDeath")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<bool>("IsPartial")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<int>("Kind")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("KnownInstancesJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("LastObservedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("LastRelevantAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("LocationName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime?>("ObservationStartedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<double>("ObservedDurationSeconds")
+                        .HasColumnType("REAL");
+
+                    b.Property<string>("ObservedSummaryJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PartySummaryJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("PersonalSummaryJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("RootMapId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("Server")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("StartedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("State")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Title")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("VisitsJson")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StartedAtUtc");
+
+                    b.HasIndex("State");
+
+                    b.HasIndex("Server", "CharacterId", "StartedAtUtc");
+
+                    b.ToTable("ActivitySessions", (string)null);
+                });
+
             modelBuilder.Entity("AlbionDataAvalonia.Auth.Models.UserAuth", b =>
                 {
                     b.Property<string>("UserId")
@@ -428,6 +786,28 @@ namespace AlbionDataAvalonia.Migrations
                     b.HasIndex("AlbionServerId", "LocationId", "Deleted", "DateTime");
 
                     b.ToTable("Trades");
+                });
+
+            modelBuilder.Entity("AlbionDataAvalonia.Activity.Models.ActivityEncounter", b =>
+                {
+                    b.HasOne("AlbionDataAvalonia.Activity.Models.ActivitySession", null)
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
+            modelBuilder.Entity("AlbionDataAvalonia.Activity.Models.ActivityEvent", b =>
+                {
+                    b.HasOne("AlbionDataAvalonia.Activity.Models.ActivityEncounter", null)
+                        .WithMany()
+                        .HasForeignKey("EncounterId")
+                        .OnDelete(DeleteBehavior.Cascade);
+
+                    b.HasOne("AlbionDataAvalonia.Activity.Models.ActivitySession", null)
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade);
                 });
 
             modelBuilder.Entity("AlbionDataAvalonia.Gathering.Models.GatheringCompletedSessionItem", b =>

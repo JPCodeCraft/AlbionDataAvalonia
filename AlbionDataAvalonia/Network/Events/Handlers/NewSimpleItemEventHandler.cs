@@ -1,7 +1,6 @@
 using Albion.Network;
 using AlbionDataAvalonia.Gathering;
 using AlbionDataAvalonia.Items.Services;
-using AlbionDataAvalonia.Loot;
 using AlbionDataAvalonia.Network.Events;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Shared;
@@ -15,18 +14,15 @@ public class NewSimpleItemEventHandler : EventPacketHandler<NewSimpleItemEvent>
 {
     private readonly ItemEstimatedMarketValueService itemEstimatedMarketValues;
     private readonly GatheringTrackerService gatheringTracker;
-    private readonly LootTrackerService lootTracker;
     private readonly PlayerState playerState;
 
     public NewSimpleItemEventHandler(
         ItemEstimatedMarketValueService itemEstimatedMarketValues,
         GatheringTrackerService gatheringTracker,
-        LootTrackerService lootTracker,
         PlayerState playerState) : base((int)EventCodes.NewSimpleItem)
     {
         this.itemEstimatedMarketValues = itemEstimatedMarketValues;
         this.gatheringTracker = gatheringTracker;
-        this.lootTracker = lootTracker;
         this.playerState = playerState;
     }
 
@@ -54,7 +50,6 @@ public class NewSimpleItemEventHandler : EventPacketHandler<NewSimpleItemEvent>
             }
 
             gatheringTracker.DiscoverFishingItem(value.Item);
-            lootTracker.DiscoverItem(value.Item);
         }
 
         return Task.CompletedTask;

@@ -9,6 +9,8 @@ using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.Items.Services
 {
+    public sealed record MobDescriptor(int Index, string? UniqueName, string DisplayName);
+
     public class MobsService
     {
         private const string JsonUrl = "https://cdn.albionfreemarket.com/AlbionLocalization/processed_mobs.json";
@@ -64,6 +66,12 @@ namespace AlbionDataAvalonia.Items.Services
             return string.IsNullOrWhiteSpace(mob.UniqueName)
                 ? null
                 : mob.UniqueName;
+        }
+
+        public MobDescriptor? GetMobDescriptor(int? index)
+        {
+            if (index is not { } value || !mobsById.TryGetValue(value, out var mob)) return null;
+            return new MobDescriptor(value, mob.UniqueName, GetMobName(value) ?? $"Mob {value}");
         }
 
         private sealed class MobEntry
