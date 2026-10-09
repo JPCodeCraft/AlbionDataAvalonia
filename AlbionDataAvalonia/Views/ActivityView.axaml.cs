@@ -1,8 +1,12 @@
 using AlbionDataAvalonia.ViewModels;
+using AlbionDataAvalonia.Network.Services;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
+using Avalonia.Platform.Storage;
+using Serilog;
+using System;
 using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.Views;
@@ -11,6 +15,7 @@ public partial class ActivityView : UserControl
 {
     private ActivityViewModel? activeViewModel;
     private bool isAttached;
+    private bool choosingLootExport;
 
     public ActivityView()
     {
@@ -30,6 +35,44 @@ public partial class ActivityView : UserControl
             activeViewModel = DataContext as ActivityViewModel;
         }
         activeViewModel?.SetActive(isAttached);
+    }
+
+    private async void ExportSessionLoot_Click(object? sender, RoutedEventArgs args)
+    {
+        if (choosingLootExport || sender is not MenuItem { Tag: LootExportFormat format }
+            || DataContext is not ActivityViewModel viewModel || TopLevel.GetTopLevel(this) is not Window owner
+            || viewModel.CaptureSessionLootExportQuery() is not { } query) return;
+        choosingLootExport = true;
+        try
+        {
+            CsvExportOptions? options = null;
+            if (format == LootExportFormat.AfmCsv)
+            {
+                options = await CsvExportOptionsWindow.ShowAsync(owner);
+                if (options is null) return;
+            }
+            var viewer = format == LootExportFormat.LootLoggerViewer;
+            var file = await owner.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            {
+                Title = viewer ? "Export Loot Logs for Loot Logger Viewer" : "Export Loot Logs for AFM Loot Logger",
+                SuggestedFileName = viewer ? $"loot-events-{DateTime.Now:yyyy-MM-dd-HH-mm-ss}.txt" : $"afm-loot-log-{DateTime.Now:yyyyMMdd_HHmmss}.csv",
+                FileTypeChoices = [new FilePickerFileType(viewer ? "Loot Logger Files" : "CSV Files") { Patterns = [viewer ? "*.txt" : "*.csv"] }]
+            });
+            if (file is null) return;
+            if (!viewModel.CanStartLootExport)
+            {
+                viewModel.LootExportStatusText = "Loot export canceled.";
+                return;
+            }
+            await using var stream = await file.OpenWriteAsync();
+            await viewModel.ExportSessionLootAsync(stream, query, format, options);
+        }
+        catch (Exception error)
+        {
+            Log.Error(error, "Could not open the session loot export file.");
+            viewModel.LootExportStatusText = "Loot export failed. The selected file may be incomplete.";
+        }
+        finally { choosingLootExport = false; }
     }
 
     private async void FinishSession_Click(object? sender, RoutedEventArgs args)

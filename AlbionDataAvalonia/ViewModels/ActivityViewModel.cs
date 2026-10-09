@@ -1,5 +1,6 @@
 using AlbionDataAvalonia.Activity;
 using AlbionDataAvalonia.Activity.Models;
+using AlbionDataAvalonia.Network.Services;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -138,10 +139,11 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         ChartYAxes = [CreateAmountAxis("Amount")];
     }
 
-    public ActivityViewModel(ActivityTrackerService tracker, ActivityPersistence persistence) : this()
+    public ActivityViewModel(ActivityTrackerService tracker, ActivityPersistence persistence, CsvExportService csvExportService) : this()
     {
         this.tracker = tracker;
         this.persistence = persistence;
+        this.csvExportService = csvExportService;
         tracker.Changed += OnActivityChanged;
         persistence.StatusChanged += OnPersistenceStatusChanged;
         persistence.DataChanged += OnCommittedDataChanged;
@@ -624,6 +626,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(HasSelectedPlayer));
         OnPropertyChanged(nameof(CanDeleteSelectedSession));
         OnPropertyChanged(nameof(DetailTitle));
+        OnPropertyChanged(nameof(CanExportSessionLoot));
         OnPropertyChanged(nameof(DetailDurationText));
         OnPropertyChanged(nameof(DetailScopeText));
         OnPropertyChanged(nameof(DetailEarningsText));
@@ -798,6 +801,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     {
         if (isDisposed) return;
         isDisposed = true;
+        lootExportCancellation?.Cancel();
         ++detailVersion;
         historyQueryCancellation.Cancel(); detailQueryCancellation.Cancel(); itemsQueryCancellation.Cancel();
         historyQueryCancellation.Dispose(); detailQueryCancellation.Dispose(); itemsQueryCancellation.Dispose();

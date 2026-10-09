@@ -102,7 +102,7 @@ public partial class ActivityViewModel
 
     partial void OnSelectedSessionItemSourceChanged(ActivityOption<ActivityItemSources> value)
 
-    { ++detailChangeVersion; ++detailVersion; sessionLootPage = 0; if (isActive && SelectedTabIndex == 1 && SelectedDetailTabIndex == 4) _ = RunSafelyAsync(RefreshDetailsAsync); }
+    { OnPropertyChanged(nameof(CanExportSessionLoot)); ++detailChangeVersion; ++detailVersion; sessionLootPage = 0; if (isActive && SelectedTabIndex == 1 && SelectedDetailTabIndex == 4) _ = RunSafelyAsync(RefreshDetailsAsync); }
 
     partial void OnSessionResourcesChanged(ObservableCollection<ActivityResourceRow> value) => OnPropertyChanged(nameof(HasSessionResources));
 

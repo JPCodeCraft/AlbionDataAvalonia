@@ -1,3 +1,5 @@
+using AlbionDataAvalonia.Activity;
+using AlbionDataAvalonia.Activity.Models;
 using AlbionDataAvalonia.DB;
 using AlbionDataAvalonia.Items;
 using AlbionDataAvalonia.Items.Services;
@@ -180,6 +182,153 @@ public class CsvExportService
         progress?.Report(100);
 
         Log.Information("Exported {Count} mails to CSV", processed);
+    }
+
+    public async Task ExportLootToCsvAsync(
+        Stream stream,
+        IReadOnlyList<ActivityEvent> records,
+        CsvExportOptions? options = null,
+        IProgress<int>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        records = records.Where(record => record.Kind == ActivityEventKind.Loot && !record.IsRetracted).ToArray();
+        options ??= CsvExportOptions.FromCurrentCulture();
+        var culture = options.CreateFormattingCulture();
+        var delimiter = options.Delimiter;
+
+        if (stream.CanSeek)
+        {
+            stream.SetLength(0);
+            stream.Position = 0;
+        }
+
+        using var writer = new StreamWriter(stream, Encoding.UTF8);
+        await writer.WriteLineAsync(string.Join(delimiter, new[]
+        {
+            "Picked Up UTC", "Server", "Player", "Player Alliance", "Player Guild",
+            "Party Member At Pickup", "Source Type", "Source", "Source Alliance", "Source Guild",
+            "Location", "Location ID", "Item Unique Name", "Item", "Quality",
+            "Amount", "Unit EMV", "Total EMV"
+        }));
+
+        for (var index = 0; index < records.Count; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var record = records[index];
+            var serverName = AlbionServers.TryParse(record.Server, out var server) ? server?.Name ?? string.Empty : string.Empty;
+            var line = string.Join(delimiter, new[]
+            {
+                Escape(FormatUtc(record.CapturedAtUtc), delimiter),
+                Escape(serverName, delimiter),
+                Escape(record.SourceName, delimiter),
+                Escape(record.SourceAlliance, delimiter),
+                Escape(record.SourceGuild, delimiter),
+                record.SourceRelationship switch
+                {
+                    ActorRelationship.Self or ActorRelationship.Party => "true",
+                    ActorRelationship.Other => "false",
+                    _ => "Unknown"
+                },
+                Escape(record.LootSourceKind, delimiter),
+                Escape(record.LootSourceName, delimiter),
+                Escape(record.TargetAlliance, delimiter),
+                Escape(record.TargetGuild, delimiter),
+                Escape(record.LocationName, delimiter),
+                Escape(record.RawMapId, delimiter),
+                Escape(record.ItemUniqueName ?? string.Empty, delimiter),
+                Escape(record.ItemName, delimiter),
+                Escape(ItemQuality.Format(record.Quality), delimiter),
+                record.Quantity > 0 ? record.Quantity.ToString(culture) : string.Empty,
+                record.EstimatedUnitValue?.ToString(culture) ?? string.Empty,
+                record.Quantity > 0 ? ActivityProjection.GetLootValue(record)?.ToString(culture) ?? string.Empty : string.Empty
+            });
+
+            await writer.WriteLineAsync(line);
+            progress?.Report((int)((index + 1d) / records.Count * 100));
+        }
+
+        await writer.FlushAsync(cancellationToken);
+        progress?.Report(100);
+        Log.Information("Exported {Count} filtered loot pickups to CSV", records.Count);
+    }
+
+    public async Task ExportLootToViewerAsync(
+        Stream stream,
+        IReadOnlyList<ActivityEvent> records,
+        IProgress<int>? progress = null,
+        CancellationToken cancellationToken = default)
+    {
+        cancellationToken.ThrowIfCancellationRequested();
+        records = records.Where(record => record.Kind == ActivityEventKind.Loot && !record.IsRetracted && record.Quantity > 0).ToArray();
+
+        if (stream.CanSeek)
+        {
+            stream.SetLength(0);
+            stream.Position = 0;
+        }
+
+        using var writer = new StreamWriter(stream, new UTF8Encoding(false));
+        await writer.WriteLineAsync(string.Join(';', new[]
+        {
+            "timestamp_utc",
+            "looted_by__alliance",
+            "looted_by__guild",
+            "looted_by__name",
+            "item_id",
+            "item_name",
+            "quantity",
+            "looted_from__alliance",
+            "looted_from__guild",
+            "looted_from__name"
+        }));
+
+        for (var index = 0; index < records.Count; index++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+            var record = records[index];
+            var line = string.Join(';', new[]
+            {
+                FormatUtc(record.CapturedAtUtc),
+                SanitizeViewerValue(record.SourceAlliance),
+                SanitizeViewerValue(record.SourceGuild),
+                SanitizeViewerValue(record.SourceName),
+                SanitizeViewerValue(record.ItemUniqueName),
+                SanitizeViewerValue(record.ItemName),
+                record.Quantity.ToString(CultureInfo.InvariantCulture),
+                SanitizeViewerValue(record.TargetAlliance),
+                SanitizeViewerValue(record.TargetGuild),
+                SanitizeViewerValue(record.LootSourceName)
+            });
+
+            await writer.WriteLineAsync(line);
+            progress?.Report((int)((index + 1d) / records.Count * 100));
+        }
+
+        await writer.FlushAsync(cancellationToken);
+        progress?.Report(100);
+        Log.Information("Exported {Count} filtered loot pickups for AO Loot Logger Viewer", records.Count);
+    }
+
+    private static string FormatUtc(DateTime value)
+    {
+        var utcValue = value.Kind switch
+        {
+            DateTimeKind.Utc => value,
+            DateTimeKind.Local => value.ToUniversalTime(),
+            _ => DateTime.SpecifyKind(value, DateTimeKind.Utc)
+        };
+
+        return utcValue.ToString("O", CultureInfo.InvariantCulture);
+    }
+
+    private static string SanitizeViewerValue(string? value)
+    {
+        return (value ?? string.Empty)
+            .Replace(';', ' ')
+            .Replace('\r', ' ')
+            .Replace('\n', ' ')
+            .Trim();
     }
 
     private static string Escape(string value, string delimiter)

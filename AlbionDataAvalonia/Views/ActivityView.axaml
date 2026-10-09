@@ -261,7 +261,22 @@
                                             <DataGridTextColumn Header="Status" Binding="{Binding Evidence}" />
                                         </DataGrid.Columns>
                                     </DataGrid>
-                                    <Button Grid.Row="3" Classes="ActivityAction ActivitySecondary" Content="Load more items" Command="{Binding LoadMoreSessionLootCommand}" IsVisible="{Binding HasMoreSessionLoot}" HorizontalAlignment="Left" />
+                                    <Grid Grid.Row="3" RowDefinitions="Auto,Auto" RowSpacing="6">
+                                        <WrapPanel>
+                                            <Button Classes="ActivityAction ActivitySecondary" Content="Load more items" Command="{Binding LoadMoreSessionLootCommand}" IsVisible="{Binding HasMoreSessionLoot}" Margin="0,0,8,0" />
+                                            <Button x:Name="ExportSessionLootButton" Classes="ActivityAction ActivitySecondary" Content="Export loot…" IsEnabled="{Binding CanExportSessionLoot}" ToolTip.Tip="Export matching loot across all pages" Margin="0,0,8,0">
+                                                <Button.Flyout>
+                                                    <MenuFlyout>
+                                                        <MenuItem Header="AFM CSV" Tag="{x:Static vm:LootExportFormat.AfmCsv}" Click="ExportSessionLoot_Click" />
+                                                        <MenuItem Header="Loot Logger Viewer (.txt)" Tag="{x:Static vm:LootExportFormat.LootLoggerViewer}" Click="ExportSessionLoot_Click" />
+                                                    </MenuFlyout>
+                                                </Button.Flyout>
+                                            </Button>
+                                            <Button Classes="ActivityAction ActivitySecondary" Content="Cancel export" Command="{Binding CancelLootExportCommand}" IsVisible="{Binding IsLootExporting}" Margin="0,0,8,0" />
+                                            <ProgressBar Minimum="0" Maximum="100" Value="{Binding LootExportProgress}" IsIndeterminate="{Binding IsPreparingLootExport}" IsVisible="{Binding IsLootExporting}" Width="140" Height="6" VerticalAlignment="Center" />
+                                        </WrapPanel>
+                                        <TextBlock Grid.Row="1" Classes="ActivityLabel" Text="{Binding LootExportStatusText}" IsVisible="{Binding HasLootExportStatus}" TextWrapping="Wrap" />
+                                    </Grid>
                                 </Grid>
                             </TabItem>
                             <TabItem Header="Timeline" IsEnabled="{Binding HasDetailedHistory}">
