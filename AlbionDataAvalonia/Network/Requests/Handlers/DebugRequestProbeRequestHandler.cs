@@ -40,6 +40,8 @@ public class DebugRequestProbeRequestHandler : PacketHandler<RequestPacket>
         (int)OperationCodes.InventoryRecoverAllItems,
         (int)OperationCodes.InventoryDropAll,
         (int)OperationCodes.TakeSilver,
+        (int)OperationCodes.HarvestStart,
+        (int)OperationCodes.HarvestCancel,
         (int)OperationCodes.FishingStart,
         (int)OperationCodes.FishingFinish,
         (int)OperationCodes.FishingCancel,

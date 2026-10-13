@@ -7,19 +7,23 @@ using System.Text.Json;
 
 namespace AlbionDataAvalonia.Activity;
 
-public enum ActivityLiveTimelineMarkerKind { MobKill, PlayerKill, Death, Knockdown, Loot, Fame, Silver, Gathering, Fishing }
+public enum ActivityLiveTimelineMarkerKind { MobKill, PlayerKill, Death, Knockdown, Loot, Fame, Silver, Gathering, Fishing, Overflow }
 
 public sealed record ActivityLiveTimelineSample(DateTime CapturedAtUtc, double DamageDealt,
     double DamageReceived, double HealingDone, double HealingReceived, double GatheringQuantity = 0, double FishingQuantity = 0);
 public sealed record ActivityLiveTimelineMarker(string Id, ActivityLiveTimelineMarkerKind Kind,
-    DateTime CapturedAtUtc, string Label, string Detail, IReadOnlyList<Guid> EventIds, Guid? EncounterId);
+    DateTime CapturedAtUtc, string Label, string Detail, IReadOnlyList<Guid> EventIds, Guid? EncounterId,
+    double Amount = 0, bool HasUnknownAmount = false, string ValueText = "", ActivityLiveTimelineTooltip? Tooltip = null);
+public sealed record ActivityLiveTimelineTooltip(string Title, string TimeText, string ContextText, IReadOnlyList<string> Lines);
 public sealed record ActivityLiveTimelineEncounter(Guid Id, int Number, DateTime StartedAtUtc,
     DateTime LastCombatAtUtc, ActivityEncounterKind Kind, ActivityState State);
 public sealed record ActivityLiveTimelineGap(DateTime StartedAtUtc, DateTime EndedAtUtc, string Reason);
 public sealed record ActivityLiveTimelineSnapshot(Guid? SessionId, ActivityScope Scope, DateTime WindowStartUtc,
     DateTime WindowEndUtc, IReadOnlyList<ActivityLiveTimelineSample> Samples,
     IReadOnlyList<ActivityLiveTimelineMarker> Markers, IReadOnlyList<ActivityLiveTimelineEncounter> Encounters,
-    IReadOnlyList<ActivityLiveTimelineGap> Gaps, bool IsPartial = false, bool IsTruncated = false, ActivityCategories Categories = ActivityCategories.All);
+    IReadOnlyList<ActivityLiveTimelineGap> Gaps, bool IsPartial = false, bool IsTruncated = false,
+    ActivityCategories Categories = ActivityCategories.All, string ContextKey = "", bool HasContext = true,
+    double SampleSeconds = 1);
 
 /// <summary>Presentation-independent, bounded projection of the current five-minute journal window.</summary>
 internal static class ActivityLiveTimeline
@@ -31,16 +35,19 @@ internal static class ActivityLiveTimeline
     internal static bool IsCombat(ActivityEvent value) => value.Kind is ActivityEventKind.Damage or ActivityEventKind.Healing;
 
     internal static ActivityLiveTimelineSnapshot Empty(Guid? sessionId, ActivityScope scope, DateTime endUtc) =>
-        new(sessionId, scope, endUtc.AddSeconds(-WindowSeconds), endUtc, [], [], [], []);
+        new(sessionId, scope, endUtc.AddSeconds(-WindowSeconds), endUtc, [], [], [], [], HasContext: sessionId.HasValue);
 
     internal static IReadOnlyList<ActivityLiveTimelineMarker> Markers(IEnumerable<ActivityEvent> events,
-        ActivityScope scope, out bool truncated)
+        ActivityScope scope, out bool truncated, double windowSeconds = WindowSeconds, string? actorKey = null)
     {
+        var groupingSeconds = Math.Clamp(windowSeconds / 30, 3, 60);
+        Func<ActivityEvent, ActivitySummary> contribution = string.IsNullOrWhiteSpace(actorKey)
+            ? value => ActivityProjection.Contribution(value, scope) : ActivityProjection.ContributionExpression(scope, actorKey).Compile();
         var candidates = new List<(ActivityEvent Event, ActivityLiveTimelineMarkerKind Kind)>();
         foreach (var observation in events.OrderBy(x => x.CapturedAtUtc).ThenBy(x => x.CaptureOrder))
         {
             if (!ActivityClassification.IsTemporal(observation.Kind)) continue;
-            var amount = ActivityProjection.Contribution(observation, scope);
+            var amount = contribution(observation);
             if (amount.MobKills > 0) candidates.Add((observation, ActivityLiveTimelineMarkerKind.MobKill));
             if (amount.PlayerKills > 0) candidates.Add((observation, ActivityLiveTimelineMarkerKind.PlayerKill));
             if (amount.Deaths > 0) candidates.Add((observation, ActivityLiveTimelineMarkerKind.Death));
@@ -51,19 +58,20 @@ internal static class ActivityLiveTimeline
             if (amount.GatheringItems > 0) candidates.Add((observation, ActivityLiveTimelineMarkerKind.Gathering));
             if (amount.FishingItems > 0) candidates.Add((observation, ActivityLiveTimelineMarkerKind.Fishing));
         }
-        // Nearby awards share a marker only when their recipient and originating encounter agree.
+        // Nearby awards share a marker only when their recipient, fame category and originating encounter agree.
         // A chest burst also requires the same loot source. Critical outcomes remain individually visible.
         var groups = new List<List<(ActivityEvent Event, ActivityLiveTimelineMarkerKind Kind)>>();
-        var recent = new Dictionary<(ActivityLiveTimelineMarkerKind Kind, Guid? EncounterId, long CaptureGeneration, long MapEpoch, string Recipient, string Source), int>();
+        var recent = new Dictionary<(ActivityLiveTimelineMarkerKind Kind, Guid? SessionId, Guid? EncounterId, long CaptureGeneration, long MapEpoch, string Recipient, string Source, ActivityFameCategory FameCategory), int>();
         foreach (var candidate in candidates)
         {
             var value = candidate.Event;
             var critical = candidate.Kind is ActivityLiveTimelineMarkerKind.PlayerKill or ActivityLiveTimelineMarkerKind.Death or ActivityLiveTimelineMarkerKind.Knockdown;
-            var key = (candidate.Kind, value.EncounterId, value.CaptureGeneration, value.MapEpoch,
+            var key = (candidate.Kind, value.SessionId, value.EncounterId, value.CaptureGeneration, value.MapEpoch,
                 candidate.Kind == ActivityLiveTimelineMarkerKind.MobKill ? "" : value.SourceActorId ?? value.SourceName,
-                candidate.Kind == ActivityLiveTimelineMarkerKind.Loot ? LootSourceKey(value) : "");
+                candidate.Kind == ActivityLiveTimelineMarkerKind.Loot ? LootSourceKey(value) : "",
+                candidate.Kind == ActivityLiveTimelineMarkerKind.Fame ? ActivityClassification.GetFameCategory(value) : ActivityFameCategory.Unknown);
             if (!critical && recent.TryGetValue(key, out var index) &&
-                value.CapturedAtUtc - groups[index][0].Event.CapturedAtUtc <= TimeSpan.FromSeconds(3))
+                value.CapturedAtUtc - groups[index][0].Event.CapturedAtUtc <= TimeSpan.FromSeconds(groupingSeconds))
                 groups[index].Add(candidate);
             else
             {
@@ -71,72 +79,103 @@ internal static class ActivityLiveTimeline
                 groups.Add([candidate]);
             }
         }
-        var result = groups.Select(group => MakeMarker(group, scope)).ToArray();
+        var result = groups.Select(group => MakeMarker(group, contribution)).ToArray();
         truncated = result.Length > MaximumMarkers;
         // If an extreme burst exceeds the display bound, outcomes take priority over earnings.
         return result.OrderByDescending(x => x.Kind is ActivityLiveTimelineMarkerKind.Death or ActivityLiveTimelineMarkerKind.PlayerKill or ActivityLiveTimelineMarkerKind.Knockdown)
             .ThenByDescending(x => x.CapturedAtUtc).Take(MaximumMarkers).OrderBy(x => x.CapturedAtUtc).ThenBy(x => x.Id).ToArray();
     }
 
-    private static ActivityLiveTimelineMarker MakeMarker(List<(ActivityEvent Event, ActivityLiveTimelineMarkerKind Kind)> group, ActivityScope scope)
+    private static ActivityLiveTimelineMarker MakeMarker(List<(ActivityEvent Event, ActivityLiveTimelineMarkerKind Kind)> group, Func<ActivityEvent, ActivitySummary> contribution)
     {
         var first = group[0].Event;
         var kind = group[0].Kind;
         var events = group.Select(x => x.Event).ToArray();
-        var summary = events.Aggregate(new ActivitySummary(), (sum, value) => ActivityProjection.Add(sum, ActivityProjection.Contribution(value, scope)));
+        var summary = events.Aggregate(new ActivitySummary(), (sum, value) => ActivityProjection.Add(sum, contribution(value)));
         var label = kind switch
         {
-            ActivityLiveTimelineMarkerKind.MobKill => summary.MobKills == 1 ? "Mob killed" : $"{summary.MobKills:N0} mobs",
+            ActivityLiveTimelineMarkerKind.MobKill => "Mobs killed",
             ActivityLiveTimelineMarkerKind.PlayerKill => "Player kill",
             ActivityLiveTimelineMarkerKind.Death => "Death",
             ActivityLiveTimelineMarkerKind.Knockdown => "Knockdown",
-            ActivityLiveTimelineMarkerKind.Loot => $"{summary.LootItems:N0} {(summary.LootItems == 1 ? "item" : "items")}",
-            ActivityLiveTimelineMarkerKind.Fame => $"+{summary.Fame:N0} fame",
-            ActivityLiveTimelineMarkerKind.Gathering => $"+{summary.GatheringItems:N0} gathered",
-            ActivityLiveTimelineMarkerKind.Fishing => $"+{summary.FishingItems:N0} fishing",
-            _ => summary.UnknownSilverEvents > 0 && summary.SilverRaw == 0 ? "Silver: unknown" : $"+{summary.Silver:N0} silver"
+            ActivityLiveTimelineMarkerKind.Loot => "Loot picked up",
+            ActivityLiveTimelineMarkerKind.Fame => FameLabel(ActivityClassification.GetFameCategory(first)),
+            ActivityLiveTimelineMarkerKind.Gathering => "Harvested",
+            ActivityLiveTimelineMarkerKind.Fishing => "Caught",
+            _ => "Silver picked up"
         };
-        string detail;
+        var amount = kind switch
+        {
+            ActivityLiveTimelineMarkerKind.MobKill => summary.MobKills,
+            ActivityLiveTimelineMarkerKind.PlayerKill => summary.PlayerKills,
+            ActivityLiveTimelineMarkerKind.Death => summary.Deaths,
+            ActivityLiveTimelineMarkerKind.Knockdown => summary.Knockdowns,
+            ActivityLiveTimelineMarkerKind.Loot => summary.LootItems,
+            ActivityLiveTimelineMarkerKind.Fame => summary.Fame,
+            ActivityLiveTimelineMarkerKind.Gathering => summary.GatheringItems,
+            ActivityLiveTimelineMarkerKind.Fishing => summary.FishingItems,
+            _ => summary.Silver
+        };
+        var unknown = kind == ActivityLiveTimelineMarkerKind.Silver && summary.UnknownSilverEvents > 0;
+        var valueText = unknown && summary.SilverRaw == 0 ? "?" :
+            kind is ActivityLiveTimelineMarkerKind.Fame or ActivityLiveTimelineMarkerKind.Silver ? CompactAmount(amount) : amount.ToString("N0", CultureInfo.CurrentCulture);
+        if (unknown && summary.SilverRaw > 0) valueText += " ?";
+        var lines = new List<string>();
+        var context = first.LocationName;
         if (kind is ActivityLiveTimelineMarkerKind.Loot or ActivityLiveTimelineMarkerKind.Gathering or ActivityLiveTimelineMarkerKind.Fishing)
         {
-            var items = events.GroupBy(x => x.ItemUniqueName ?? x.ItemName).Take(20)
-                .Select(g => $"{(string.IsNullOrWhiteSpace(g.First().ItemName) ? g.Key : g.First().ItemName)} × {g.Sum(x => x.Quantity):N0}");
-            var itemCount = kind == ActivityLiveTimelineMarkerKind.Loot ? summary.LootItems : summary.ResourceItems;
+            var items = events.GroupBy(x => (x.ItemUniqueName ?? x.ItemName, x.Quality)).ToArray();
+            lines.AddRange(items.Take(4).Select(g => $"{DisplayName(g.First().ItemName, g.First().ItemUniqueName, "Unknown item")} × {g.Sum(x => x.Quantity):N0}"));
+            if (items.Length > 4) lines.Add($"+{items.Length - 4:N0} more item types");
+            var itemCount = kind == ActivityLiveTimelineMarkerKind.Loot ? summary.LootItems :
+                kind == ActivityLiveTimelineMarkerKind.Gathering ? summary.GatheringItems : summary.FishingItems;
             var missing = kind == ActivityLiveTimelineMarkerKind.Loot ? summary.MissingPriceItems : summary.MissingResourcePriceItems;
-            var value = kind == ActivityLiveTimelineMarkerKind.Loot ? summary.LootValue : summary.ResourceValue;
-            var estimate = missing == itemCount ? "Estimated value: Unavailable" :
-                missing > 0 ? $"Known estimate: {value:N0} silver" : $"Estimated value: {value:N0} silver";
-            var method = kind == ActivityLiveTimelineMarkerKind.Loot ? $"Source: {Actor(first.LootSourceName)}" :
-                kind == ActivityLiveTimelineMarkerKind.Fishing ? "Method: Fishing" : "Method: Gathering";
-            detail = string.Join("\n", items) + $"\nRecipient: {Actor(first.SourceName)}\n{method}\n{estimate}";
-            if (missing > 0) detail += $"\n{missing:N0} items without prices";
-            if (events.Select(x => x.ItemUniqueName ?? x.ItemName).Distinct().Count() > 20) detail += "\nMore items available in the session item list.";
+            var value = kind == ActivityLiveTimelineMarkerKind.Loot ? summary.LootValue :
+                kind == ActivityLiveTimelineMarkerKind.Gathering ? summary.GatheringValue : summary.FishingValue;
+            var estimate = missing == itemCount ? "Estimated value unavailable" : $"Estimated value: {value:N0} silver";
+            context = WithPlayer(context, first.SourceName);
+            lines.Add(estimate);
+            if (missing > 0 && missing != itemCount) lines.Add($"{missing:N0} items have no price");
         }
         else if (kind == ActivityLiveTimelineMarkerKind.MobKill)
         {
-            detail = string.Join("\n", events.GroupBy(x => x.TargetName).Take(20).Select(g => $"{Actor(g.Key)} × {g.Count():N0}"));
-            var inferred = events.Count(x => x.Evidence == ActivityEvidence.Inferred);
-            if (inferred > 0) detail += $"\n{inferred:N0} inferred mob deaths";
-            detail += "\nParticipated kills; reward credit is not inferred.";
+            var mobs = events.GroupBy(x => string.IsNullOrWhiteSpace(x.TargetName) ? x.MobUniqueName ?? "" : x.TargetName).ToArray();
+            lines.AddRange(mobs.Take(4).Select(g => $"{DisplayName(g.First().TargetName, g.First().MobUniqueName, "Unknown mob")} × {g.Count():N0}"));
+            if (mobs.Length > 4) lines.Add($"+{mobs.Length - 4:N0} more mob types");
         }
         else if (kind == ActivityLiveTimelineMarkerKind.Fame)
-            detail = $"Your observed fame: {summary.Fame:N0}\nPvE / PvP category unavailable.";
+        {
+            lines.Add($"{summary.Fame:N0} fame");
+            context = WithPlayer(context, first.SourceName);
+        }
         else if (kind == ActivityLiveTimelineMarkerKind.Silver)
         {
-            detail = $"Cash silver: {summary.Silver:N2}\nRecipient: {Actor(first.SourceName)}";
-            if (summary.UnknownSilverEvents > 0) detail += $"\n{summary.UnknownSilverEvents:N0} unknown net amounts";
+            if (summary.SilverRaw > 0 || !unknown) lines.Add($"{summary.Silver:N0} silver");
+            if (unknown) lines.Add($"Amount unavailable for {summary.UnknownSilverEvents:N0} pickups");
+            context = WithPlayer(context, first.SourceName);
         }
-        else detail = $"{label}\nSource: {Actor(first.SourceName)}\nTarget: {Actor(first.TargetName)}";
+        else lines.Add($"{Actor(first.SourceName)} → {Actor(first.TargetName)}");
         var time = first.CapturedAtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture);
         if (events.Length > 1 && events[^1].CapturedAtUtc > first.CapturedAtUtc)
             time += " – " + events[^1].CapturedAtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture);
-        detail = time + $"\nLocation: {Actor(first.LocationName)}\n" + detail;
-        if (first.EncounterId is not null && kind is ActivityLiveTimelineMarkerKind.Loot or ActivityLiveTimelineMarkerKind.Fame or
-            ActivityLiveTimelineMarkerKind.Silver or ActivityLiveTimelineMarkerKind.Gathering or ActivityLiveTimelineMarkerKind.Fishing)
-            detail += "\nObserved during the encounter.";
+        var tooltipTitle = kind is ActivityLiveTimelineMarkerKind.Fame or ActivityLiveTimelineMarkerKind.Silver ? label : $"{label} · {amount:N0}";
+        var tooltip = new ActivityLiveTimelineTooltip(tooltipTitle, time, context, lines);
+        var detail = time + "\n" + context + "\n" + string.Join("\n", lines);
         return new($"{kind}:{first.Id:N}", kind, first.CapturedAtUtc, label, detail,
-            events.Select(x => x.Id).Distinct().Take(250).ToArray(), first.EncounterId);
+            events.Select(x => x.Id).Distinct().Take(250).ToArray(), first.EncounterId, amount, unknown, valueText, tooltip);
     }
+
+    private static string CompactAmount(double value) => value >= 1000000 ? (value / 1000000).ToString("0.#", CultureInfo.CurrentCulture) + "m" :
+        value >= 1000 ? (value / 1000).ToString("0.#", CultureInfo.CurrentCulture) + "k" : value.ToString("N0", CultureInfo.CurrentCulture);
+
+    private static string FameLabel(ActivityFameCategory category) => category switch
+    {
+        ActivityFameCategory.Pve => "Combat fame",
+        ActivityFameCategory.Pvp => "PvP fame",
+        ActivityFameCategory.Gathering => "Gathering fame",
+        ActivityFameCategory.Fishing => "Fishing fame",
+        _ => "Fame gained"
+    };
 
     internal static IReadOnlyList<ActivityLiveTimelineGap> Gaps(ActivitySession session, DateTime fromUtc, DateTime toUtc,
         IReadOnlyCollection<ActivityEvent> captureGaps)
@@ -163,7 +202,18 @@ internal static class ActivityLiveTimeline
         return gaps;
     }
 
-    private static string Actor(string name) => string.IsNullOrWhiteSpace(name) ? "Unknown" : name;
+    private static string Actor(string name) => string.IsNullOrWhiteSpace(name) || IsTechnicalName(name) ? "Unknown" : name;
+
+    private static string DisplayName(string name, string? uniqueName, string fallback) =>
+        string.IsNullOrWhiteSpace(name) || IsTechnicalName(name) || string.Equals(name, uniqueName, StringComparison.Ordinal) ? fallback : name;
+
+    private static bool IsTechnicalName(string name) => Guid.TryParse(name, out _) || name.StartsWith('@') ||
+        name.StartsWith("MOB_", StringComparison.OrdinalIgnoreCase) ||
+        (name.Length > 2 && name[0] == 'T' && char.IsDigit(name[1]) && name[2] == '_') ||
+        (name.Contains('_') && name.All(character => !char.IsLetter(character) || char.IsUpper(character)));
+
+    private static string WithPlayer(string location, string player) => string.IsNullOrWhiteSpace(player) || IsTechnicalName(player) ? location :
+        string.IsNullOrWhiteSpace(location) ? player : location + " · " + player;
 
     private static string LootSourceKey(ActivityEvent value)
     {

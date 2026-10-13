@@ -21,6 +21,7 @@ internal static class ActivityPacketSubscriptions
         Event<HealthUpdateEvent>(builder, EventCodes.HealthUpdate, activity);
         Event<HealthUpdatesEvent>(builder, EventCodes.HealthUpdates, activity);
         Event<UpdateFameEvent>(builder, EventCodes.UpdateFame, activity);
+        Event<AchievementProgressInfoEvent>(builder, EventCodes.AchievementProgressInfo, activity);
         Event<TakeSilverEvent>(builder, EventCodes.TakeSilver, activity);
         Event<HarvestFinishedEvent>(builder, EventCodes.HarvestFinished, activity);
         Event<RewardGrantedEvent>(builder, EventCodes.RewardGranted, activity);

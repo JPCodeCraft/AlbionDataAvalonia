@@ -50,7 +50,7 @@ public partial class ActivityViewModel
         IsLootExporting = true;
         IsPreparingLootExport = true;
         LootExportProgress = 0;
-        LootExportStatusText = "Reading session loot…";
+        LootExportStatusText = "Preparing export…";
         try
         {
             var records = await persistence.GetLootExportSnapshotAsync(query, cancellation.Token);
@@ -70,17 +70,17 @@ public partial class ActivityViewModel
             }, cancellation.Token);
             cancellation.Token.ThrowIfCancellationRequested();
             LootExportProgress = 100;
-            LootExportStatusText = $"{records.Count - omitted:N0} loot records exported."
-                + (omitted > 0 ? $" {omitted:N0} records with unknown quantities were omitted from the Loot Logger file." : "");
+            LootExportStatusText = $"Exported {records.Count - omitted:N0} pickups."
+                + (omitted > 0 ? $" {omitted:N0} pickups with unknown quantities were skipped." : "");
         }
         catch (OperationCanceledException)
         {
-            LootExportStatusText = "Loot export canceled. The selected file may be incomplete.";
+            LootExportStatusText = "Export canceled. The file may be incomplete.";
         }
         catch (Exception error)
         {
             Log.Error(error, "Failed to export session loot.");
-            LootExportStatusText = "Loot export failed. The selected file may be incomplete.";
+            LootExportStatusText = "Export failed. The file may be incomplete.";
         }
         finally
         {

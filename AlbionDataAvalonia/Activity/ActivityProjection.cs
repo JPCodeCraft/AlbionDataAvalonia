@@ -92,6 +92,16 @@ public static class ActivityProjection
         var bindings = ((MemberInitExpression)original.Body).Bindings.Cast<MemberAssignment>().ToList();
         foreach (var binding in ((MemberInitExpression)resources.Body).Bindings.Cast<MemberAssignment>())
             bindings.Add(Expression.Bind(binding.Member, new ParameterSubstitution(resources.Parameters[0], parameter).Visit(binding.Expression)!));
+        AddFame(nameof(ActivitySummary.PveFame), ActivityFameCategory.Pve);
+        AddFame(nameof(ActivitySummary.GatheringFame), ActivityFameCategory.Gathering);
+        AddFame(nameof(ActivitySummary.FishingFame), ActivityFameCategory.Fishing);
+        AddFame(nameof(ActivitySummary.PvpFame), ActivityFameCategory.Pvp);
+        Expression<Func<ActivityEvent, bool>> unknownFame = e => ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.FameCategory") == null ||
+            ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.FameCategory") < (long)ActivityFameCategory.Pve ||
+            ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.FameCategory") > (long)ActivityFameCategory.Pvp;
+        bindings.Add(Expression.Bind(typeof(ActivitySummary).GetProperty(nameof(ActivitySummary.UnknownFameAmount))!, Expression.Convert(
+            Expression.Condition(new ParameterSubstitution(unknownFame.Parameters[0], parameter).Visit(unknownFame.Body)!,
+                bindings.Single(x => x.Member.Name == nameof(ActivitySummary.Fame)).Expression, Expression.Constant(0d)), typeof(double?))));
         AddCount(nameof(ActivitySummary.GatheringEvents), ActivityClassification.GatheringExpression(scope, actorKey));
         AddCount(nameof(ActivitySummary.PveEvents), ActivityClassification.PveExpression(scope, actorKey));
         AddCount(nameof(ActivitySummary.PvpEvents), ActivityClassification.PvpExpression(scope, actorKey));
@@ -102,6 +112,13 @@ public static class ActivityProjection
 
         void AddCount(string property, Expression<Func<ActivityEvent, bool>> predicate) => bindings.Add(Expression.Bind(typeof(ActivitySummary).GetProperty(property)!,
             Expression.Condition(new ParameterSubstitution(predicate.Parameters[0], parameter).Visit(predicate.Body)!, Expression.Constant(1L), Expression.Constant(0L))));
+        void AddFame(string property, ActivityFameCategory category)
+        {
+            Expression<Func<ActivityEvent, bool>> matches = e => ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.FameCategory") == (long)category;
+            var predicate = new ParameterSubstitution(matches.Parameters[0], parameter).Visit(matches.Body)!;
+            var fame = bindings.Single(x => x.Member.Name == nameof(ActivitySummary.Fame)).Expression;
+            bindings.Add(Expression.Bind(typeof(ActivitySummary).GetProperty(property)!, Expression.Condition(predicate, fame, Expression.Constant(0d))));
+        }
         void AddValue(string property, string quantityProperty)
         {
             var eligible = Expression.GreaterThan(bindings.Single(x => x.Member.Name == quantityProperty).Expression, Expression.Constant(0L));
@@ -125,10 +142,17 @@ public static class ActivityProjection
                 x.Member.Name == (metric == ActivityChartMetric.ResourceItems ? nameof(ActivitySummary.FishingItems) : nameof(ActivitySummary.FishingValue)) ||
                 x.Member.Name == (metric == ActivityChartMetric.ResourceItems ? nameof(ActivitySummary.UnclassifiedResourceItems) : nameof(ActivitySummary.UnclassifiedResourceValue)))
                 .Select(x => x.Expression).Aggregate((a, b) => Expression.Add(a, b))
+            : metric == ActivityChartMetric.CombatFame ? Sum(nameof(ActivitySummary.PveFame), nameof(ActivitySummary.PvpFame))
+            : metric == ActivityChartMetric.ResourceFame ? Sum(nameof(ActivitySummary.GatheringFame), nameof(ActivitySummary.FishingFame))
+            : metric == ActivityChartMetric.UnclassifiedFame ? Expression.Coalesce(
+                bindings.Single(x => x.Member.Name == nameof(ActivitySummary.UnknownFameAmount)).Expression, Expression.Constant(0d))
             : bindings.Single(x => x.Member.Name == property).Expression;
         Expression value = metricValue.Type == typeof(double) ? metricValue : Expression.Convert(metricValue, typeof(double));
         if (metric == ActivityChartMetric.Silver) value = Expression.Divide(value, Expression.Constant(10000d));
         return Expression.Lambda<Func<ActivityEvent, double>>(value, contribution.Parameters);
+
+        Expression Sum(params string[] properties) => bindings.Where(x => properties.Contains(x.Member.Name))
+            .Select(x => x.Expression).Aggregate(Expression.Add);
     }
     internal static Expression<Func<ActivityEvent, long>> CountExpression(ActivityScope scope, string property, string? actorKey = null)
     {
@@ -159,6 +183,11 @@ public static class ActivityProjection
         HealingDone = a.HealingDone + sign * b.HealingDone,
         HealingReceived = a.HealingReceived + sign * b.HealingReceived,
         Fame = a.Fame + sign * b.Fame,
+        PveFame = a.PveFame + sign * b.PveFame,
+        GatheringFame = a.GatheringFame + sign * b.GatheringFame,
+        FishingFame = a.FishingFame + sign * b.FishingFame,
+        PvpFame = a.PvpFame + sign * b.PvpFame,
+        UnknownFameAmount = a.UnclassifiedFame + sign * b.UnclassifiedFame,
         SilverRaw = a.SilverRaw + sign * b.SilverRaw,
         UnknownSilverEvents = a.UnknownSilverEvents + sign * b.UnknownSilverEvents,
         LootValue = a.LootValue + sign * b.LootValue,
@@ -193,6 +222,7 @@ public static class ActivityProjection
     public static ActivityRates GetRates(ActivitySummary summary, ActivitySession session, double combatDurationSeconds, DateTime? nowUtc = null) =>
         GetRates(summary, GetDurationSeconds(session, nowUtc), combatDurationSeconds);
     public static ActivityRates GetRates(ActivitySummary summary, ActivityEncounter encounter) => GetRates(summary, encounter.CombatDurationSeconds);
+    public static double GetFameRate(double amount, ActivityRates rates) => amount * 3600 / Math.Max(1, rates.DurationSeconds);
     public static ActivityRates GetRates(ActivitySummary summary, double durationSeconds, double? combatDurationSeconds = null)
     {
         var denominator = Math.Max(1, durationSeconds);

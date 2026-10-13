@@ -7,6 +7,7 @@ public enum ActivityScope { Personal, Party, AllObserved }
 public enum ActorRelationship { Unknown, Self, Party, Other }
 public enum ActivityActorKind { Unknown, Player, Mob, Environment }
 public enum ActivityEvidence { Confirmed, Inferred, Supplemental }
+public enum ActivityFameCategory { Unknown = 0, Pve = 1, Gathering = 2, Fishing = 3, Pvp = 4 }
 public enum ActivityEventKind
 {
     Damage, Healing, Fame, Silver, Loot, MobKilled, PlayerKilled, Death,
@@ -166,6 +167,11 @@ public sealed record ActivitySummary
     public double HealingDone { get; init; }
     public double HealingReceived { get; init; }
     public double Fame { get; init; }
+    public double PveFame { get; init; }
+    public double GatheringFame { get; init; }
+    public double FishingFame { get; init; }
+    public double PvpFame { get; init; }
+    public double? UnknownFameAmount { get; init; }
     public long SilverRaw { get; init; }
     public long UnknownSilverEvents { get; init; }
     public long LootValue { get; init; }
@@ -176,7 +182,8 @@ public sealed record ActivitySummary
     public long Deaths { get; init; }
     public long Knockdowns { get; init; }
     public double Silver => SilverRaw / 10000d;
-    public double UnclassifiedFame => Fame;
+    public double CombatFame => PveFame + PvpFame;
+    public double UnclassifiedFame => Math.Max(0, UnknownFameAmount ?? Fame - PveFame - GatheringFame - FishingFame - PvpFame);
     public long MissingLootPriceCount => MissingPriceItems;
     public long UnknownSilverCount => UnknownSilverEvents;
     public long ResourceItems => GatheringItems + FishingItems + UnclassifiedResourceItems;
@@ -196,6 +203,7 @@ public sealed record ActivityQuery
     public string? Server { get; init; }
     public string? CharacterId { get; init; }
     public string? CharacterName { get; init; }
+    public bool MatchCharacterNameExactly { get; init; }
     public string? ActorKey { get; init; }
     public string? Location { get; init; }
     public ActivitySessionKind? SessionKind { get; init; }
@@ -209,7 +217,12 @@ public sealed record ActivityQuery
 }
 
 public sealed record ActivityPage<T>(IReadOnlyList<T> Items, bool HasMore);
-public enum ActivityChartMetric { DamageDealt, DamageReceived, HealingDone, HealingReceived, Fame, Silver, LootValue, GatheringItems, FishingItems, ResourceItems, ResourceValue }
+public enum ActivityChartMetric
+{
+    DamageDealt, DamageReceived, HealingDone, HealingReceived, Fame, Silver, LootValue,
+    GatheringItems, FishingItems, ResourceItems, ResourceValue,
+    CombatFame, PveFame, GatheringFame, FishingFame, PvpFame, ResourceFame, UnclassifiedFame
+}
 public sealed record ActivityChartPoint(DateTime CapturedAtUtc, double Value);
 public sealed record ActivityActorTotal(string ActorId, string Name, ActorRelationship Relationship,
     double DamageDealt, double DamageReceived, double HealingDone, double HealingReceived);

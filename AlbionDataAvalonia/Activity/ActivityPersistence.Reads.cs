@@ -19,6 +19,8 @@ public sealed partial class ActivityPersistence
     private readonly SemaphoreSlim readGate = new(1, 1);
     private readonly CancellationTokenSource readShutdown = new();
     private long dataVersion;
+    private long readVersion;
+    public long CurrentReadVersion => Interlocked.Read(ref readVersion);
     private bool readsClosed;
     public event Action<ActivityDataChange>? DataChanged;
 
@@ -55,6 +57,13 @@ public sealed partial class ActivityPersistence
         ReadAsync(ct => GetEventCoreAsync(id, ct), cancellationToken);
     public Task<ActivityPage<ActivitySession>> GetSessionsAsync(ActivityQuery filter, int page = 0, CancellationToken cancellationToken = default) =>
         ReadAsync(ct => GetSessionsCoreAsync(filter, page, ct), cancellationToken);
+    internal Task<IReadOnlyList<ActivitySession>> GetSessionsByIdsAsync(ActivityQuery filter, IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default)
+    {
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(ids.Count, 1000);
+        var requested = ids.Distinct().ToArray();
+        return requested.Length == 0 ? Task.FromResult<IReadOnlyList<ActivitySession>>([]) :
+            ReadAsync(ct => GetSessionsByIdsCoreAsync(filter, requested, ct), cancellationToken);
+    }
     public Task<ActivityPage<ActivityEncounter>> GetEncountersAsync(Guid sessionId, int page = 0, CancellationToken cancellationToken = default) =>
         ReadAsync(ct => GetEncountersCoreAsync(sessionId, page, ct), cancellationToken);
     public Task<ActivityPage<ActivityEvent>> GetEventsAsync(ActivityQuery filter, int page = 0, CancellationToken cancellationToken = default) =>
@@ -63,6 +72,18 @@ public sealed partial class ActivityPersistence
         ReadAsync(ct => GetSummaryCoreAsync(filter, ct), cancellationToken);
     public Task<IReadOnlyList<ActivityChartPoint>> GetChartsAsync(ActivityQuery filter, ActivityChartMetric metric, CancellationToken cancellationToken = default) =>
         ReadAsync(ct => GetChartsCoreAsync(filter, metric, ct), cancellationToken);
+    public Task<ActivityLiveTimelineSnapshot> GetTimelineAsync(ActivityQuery query, DateTime fromUtc, DateTime toUtc,
+        CancellationToken cancellationToken = default)
+    {
+        fromUtc = ActivityLiveTimeline.WindowEnd(fromUtc);
+        var lastTick = toUtc.ToUniversalTime().Ticks;
+        toUtc = new DateTime(Math.Min(DateTime.MaxValue.Ticks,
+            (lastTick / TimeSpan.TicksPerSecond + 1) * TimeSpan.TicksPerSecond), DateTimeKind.Utc);
+        if (toUtc <= fromUtc) toUtc = new DateTime(Math.Min(DateTime.MaxValue.Ticks,
+            fromUtc.Ticks + TimeSpan.TicksPerSecond), DateTimeKind.Utc);
+        return ReadAsync(ct => GetLiveTimelineCoreAsync(query with { FromUtc = fromUtc, ToUtc = toUtc },
+            toUtc, null, null, ct, (toUtc - fromUtc).TotalSeconds), cancellationToken);
+    }
     public Task<IReadOnlyList<ActivityActorTotal>> GetPlayersAsync(ActivityQuery filter, CancellationToken cancellationToken = default) =>
         ReadAsync(ct => GetPlayersCoreAsync(filter, ct), cancellationToken);
     public Task<IReadOnlyList<ActivityResourceTotal>> GetResourceTotalsAsync(ActivityQuery filter, CancellationToken cancellationToken = default) =>
@@ -97,6 +118,7 @@ public sealed partial class ActivityPersistence
     private void NotifyCommitted(CommittedChanges changes)
     {
         if (changes.Sessions.Count == 0 && !changes.Items) return;
+        Interlocked.Increment(ref readVersion);
         var change = new ActivityDataChange(Interlocked.Increment(ref dataVersion), changes.Sessions.ToArray(), changes.Items);
         try { DataChanged?.Invoke(change); }
         catch { /* A presentation subscriber cannot interrupt committed journal writes. */ }

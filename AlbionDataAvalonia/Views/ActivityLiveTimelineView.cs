@@ -1,57 +1,124 @@
 using System;
+using System.Collections.Generic;
 using System.Diagnostics;
-using System.Globalization;
+using System.Linq;
 using System.Windows.Input;
 using AlbionDataAvalonia.Activity;
+using AlbionDataAvalonia.Activity.Models;
+using AlbionDataAvalonia.ViewModels;
 using Avalonia;
 using Avalonia.Controls;
-using Avalonia.Controls.Primitives;
+using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
 using Avalonia.Threading;
 
 namespace AlbionDataAvalonia.Views;
 
-/// <summary>A presentation-only rolling view. Pausing this view never pauses capture.</summary>
+public sealed record ActivityTimelineReplayRequest(string ContextKey, DateTime WindowStartUtc, DateTime WindowEndUtc);
+
+/// <summary>A presentation-only rolling view. Hovering holds the view without pausing capture.</summary>
 public sealed class ActivityLiveTimelineView : UserControl
 {
     public static readonly StyledProperty<ActivityLiveTimelineSnapshot?> SnapshotProperty =
         AvaloniaProperty.Register<ActivityLiveTimelineView, ActivityLiveTimelineSnapshot?>(nameof(Snapshot));
     public static readonly StyledProperty<ICommand?> OpenEncounterCommandProperty =
         AvaloniaProperty.Register<ActivityLiveTimelineView, ICommand?>(nameof(OpenEncounterCommand));
-
     public static readonly StyledProperty<bool> IsGatheringModeProperty =
         AvaloniaProperty.Register<ActivityLiveTimelineView, bool>(nameof(IsGatheringMode));
+    public static readonly StyledProperty<int> WindowMinutesProperty =
+        AvaloniaProperty.Register<ActivityLiveTimelineView, int>(nameof(WindowMinutes), 5);
+    public static readonly StyledProperty<bool> IsRollingProperty =
+        AvaloniaProperty.Register<ActivityLiveTimelineView, bool>(nameof(IsRolling), true);
+    public static readonly StyledProperty<bool> ShowWindowSelectorProperty =
+        AvaloniaProperty.Register<ActivityLiveTimelineView, bool>(nameof(ShowWindowSelector), true);
+    public static readonly StyledProperty<string> TitleProperty =
+        AvaloniaProperty.Register<ActivityLiveTimelineView, string>(nameof(Title), "");
+    public static readonly StyledProperty<bool> ShowReplayControlsProperty =
+        AvaloniaProperty.Register<ActivityLiveTimelineView, bool>(nameof(ShowReplayControls));
+    public static readonly StyledProperty<ActivityLiveTimelineSnapshot?> ReplaySnapshotProperty =
+        AvaloniaProperty.Register<ActivityLiveTimelineView, ActivityLiveTimelineSnapshot?>(nameof(ReplaySnapshot));
+    public static readonly StyledProperty<ICommand?> ReplayWindowCommandProperty =
+        AvaloniaProperty.Register<ActivityLiveTimelineView, ICommand?>(nameof(ReplayWindowCommand));
     private readonly ActivityLiveTimelineCanvas canvas = new();
-    private readonly ComboBox mode = TimelineSelector(new[] { "Combat", "Gathering" }, 135);
-    private readonly ComboBox direction = TimelineSelector(new[] { "Dealt", "Received" }, 116);
-    private readonly Button pauseButton = SecondaryButton("Pause timeline");
-    private readonly TextBlock stateText = new() { FontSize = 12, Opacity = 0.8, VerticalAlignment = VerticalAlignment.Center };
-    private readonly TextBlock inspectionText = new()
+    private readonly Canvas tooltipLayer = new() { IsHitTestVisible = false, ClipToBounds = false };
+    private readonly Border tooltipPanel = new()
+    {
+        IsVisible = false,
+        IsHitTestVisible = false,
+        Padding = new Thickness(10, 8),
+        CornerRadius = new CornerRadius(4),
+        Background = new SolidColorBrush(Color.Parse("#262626")),
+        BorderBrush = new SolidColorBrush(Color.Parse("#626262")),
+        BorderThickness = new Thickness(1)
+    };
+    private readonly ActivitySegmentedSelector mode = new()
+    {
+        ItemsSource = new[] { new ActivityOption<bool>(false, "Combat"), new ActivityOption<bool>(true, "Gathering") },
+        SelectedIndex = 0
+    };
+    private readonly ActivitySegmentedSelector direction = new()
+    {
+        ItemsSource = new[] { new ActivityOption<bool>(false, "Dealt"), new ActivityOption<bool>(true, "Received") },
+        SelectedIndex = 0
+    };
+    private readonly ActivitySegmentedSelector window = new()
+    {
+        ItemsSource = new[] { new ActivityOption<int>(5, "5 min"), new ActivityOption<int>(10, "10 min"), new ActivityOption<int>(15, "15 min") },
+        SelectedIndex = 0
+    };
+    private readonly TextBlock titleText = new() { FontSize = 18, FontWeight = FontWeight.DemiBold };
+    private readonly TextBlock stateText = new()
     {
         FontSize = 12,
-        Opacity = 0.85,
-        TextWrapping = TextWrapping.Wrap,
-        MaxLines = 2,
-        Height = 34,
+        Opacity = 0.8,
+        VerticalAlignment = VerticalAlignment.Center,
+        MaxWidth = 200,
         TextTrimming = TextTrimming.CharacterEllipsis
     };
-    private readonly TextBlock detailTitle = new() { FontSize = 14, FontWeight = FontWeight.DemiBold };
-    private readonly TextBlock detailText = new() { FontSize = 13, TextWrapping = TextWrapping.Wrap };
-    private readonly Border detailPanel;
     private readonly TextBlock damageLegend = Legend("Damage dealt", ActivityLiveTimelineCanvas.DamageColor);
     private readonly TextBlock healingLegend = Legend("Healing done", ActivityLiveTimelineCanvas.HealingColor);
     private readonly DispatcherTimer renderTimer = new() { Interval = TimeSpan.FromMilliseconds(100) };
     private readonly Stopwatch sinceSnapshot = new();
+    private readonly Stopwatch replayClock = new();
+    private readonly Stopwatch sinceReplayRequest = new();
+    private readonly Button playReplay = ReplayButton("Replay", "ActivityReplayPlay");
+    private readonly Button overviewReplay = ReplayButton("Overview", "ActivityReplayOverview");
+    private readonly Button restartReplay = ReplayButton("Restart", "ActivityReplayRestart");
+    private readonly ComboBox replaySpeedSelector = new()
+    {
+        Name = "ActivityReplaySpeed",
+        ItemsSource = new[] { new ActivityOption<double>(1, "1×"), new ActivityOption<double>(2, "2×"), new ActivityOption<double>(4, "4×"), new ActivityOption<double>(8, "8×") },
+        SelectedIndex = 0,
+        Width = 74,
+        Height = 32,
+        Margin = new Thickness(6, 0, 0, 0)
+    };
+    private readonly Slider replaySeek = new() { Name = "ActivityReplaySeek", Minimum = 0, Maximum = 1, IsEnabled = false, MinWidth = 120 };
+    private readonly TextBlock replayPosition = new() { FontSize = 12, VerticalAlignment = VerticalAlignment.Center, MinWidth = 105, TextAlignment = TextAlignment.Right };
+    private readonly Grid replaySeekRow = new() { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 10 };
+    private readonly StackPanel replayControls = new() { Spacing = 5, IsVisible = false };
     private ActivityLiveTimelineSnapshot? latest;
-    private ActivityLiveTimelineSnapshot? displayed;
-    private DateTime heldEndUtc;
+    private ActivityLiveTimelineSnapshot? replayFrame;
+    private ActivityTimelineReplayRequest? lastReplayRequest;
+    private DateTime replayCursorUtc;
+    private double replaySpeed = 1;
+    private bool replayMode;
+    private bool replayPlaying;
+    private bool replayScrubbing;
+    private bool updatingReplayPosition;
     private bool pointerHolding;
-    private bool manuallyPaused;
 
     public ActivityLiveTimelineSnapshot? Snapshot { get => GetValue(SnapshotProperty); set => SetValue(SnapshotProperty, value); }
     public ICommand? OpenEncounterCommand { get => GetValue(OpenEncounterCommandProperty); set => SetValue(OpenEncounterCommandProperty, value); }
     public bool IsGatheringMode { get => GetValue(IsGatheringModeProperty); set => SetValue(IsGatheringModeProperty, value); }
+    public int WindowMinutes { get => GetValue(WindowMinutesProperty); set => SetValue(WindowMinutesProperty, value); }
+    public bool IsRolling { get => GetValue(IsRollingProperty); set => SetValue(IsRollingProperty, value); }
+    public bool ShowWindowSelector { get => GetValue(ShowWindowSelectorProperty); set => SetValue(ShowWindowSelectorProperty, value); }
+    public string Title { get => GetValue(TitleProperty); set => SetValue(TitleProperty, value); }
+    public bool ShowReplayControls { get => GetValue(ShowReplayControlsProperty); set => SetValue(ShowReplayControlsProperty, value); }
+    public ActivityLiveTimelineSnapshot? ReplaySnapshot { get => GetValue(ReplaySnapshotProperty); set => SetValue(ReplaySnapshotProperty, value); }
+    public ICommand? ReplayWindowCommand { get => GetValue(ReplayWindowCommandProperty); set => SetValue(ReplayWindowCommandProperty, value); }
 
     public ActivityLiveTimelineView()
     {
@@ -60,92 +127,172 @@ public sealed class ActivityLiveTimelineView : UserControl
         {
             canvas.ShowReceived = direction.SelectedIndex == 1;
             UpdateMode();
-            canvas.InvalidateVisual();
         };
-        pauseButton.Click += (_, _) =>
+        window.SelectionChanged += (_, _) =>
         {
-            if (manuallyPaused || pointerHolding) ResumeLive();
-            else { Hold(); manuallyPaused = true; UpdateState(); }
+            if (window.SelectedItem is ActivityOption<int> option) SetCurrentValue(WindowMinutesProperty, option.Value);
         };
-        var heading = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 16 };
+        playReplay.Click += (_, _) => ToggleReplay();
+        overviewReplay.Click += (_, _) => ResetReplay();
+        restartReplay.Click += (_, _) => StartReplay();
+        replaySpeedSelector.SelectionChanged += (_, _) =>
+        {
+            HoldReplayCursor();
+            replaySpeed = (replaySpeedSelector.SelectedItem as ActivityOption<double>)?.Value ?? 1;
+            UpdateReplayClock();
+        };
+        ToolTip.SetTip(replaySpeedSelector, "Playback speed");
+        replaySeek.PropertyChanged += (_, change) =>
+        {
+            if (change.Property != Slider.ValueProperty || updatingReplayPosition || !replayMode || latest == null) return;
+            SetReplayCursor(latest.WindowStartUtc.AddSeconds(replaySeek.Value));
+            RequestReplayWindow(false);
+            DrawLatest();
+            UpdateState();
+        };
+        replaySeek.AddHandler(PointerPressedEvent, (_, _) =>
+        {
+            HoldReplayCursor();
+            replayScrubbing = true;
+            UpdateReplayClock();
+        }, RoutingStrategies.Tunnel, handledEventsToo: true);
+        replaySeek.AddHandler(PointerReleasedEvent, (_, _) => FinishSeeking(), RoutingStrategies.Bubble, handledEventsToo: true);
+        replaySeek.PointerCaptureLost += (_, _) => FinishSeeking();
+        replaySeek.KeyUp += (_, _) => RequestReplayWindow(true);
+        var replayActions = new WrapPanel { Orientation = Orientation.Horizontal };
+        replayActions.Children.Add(playReplay);
+        replayActions.Children.Add(overviewReplay);
+        replayActions.Children.Add(restartReplay);
+        replayActions.Children.Add(replaySpeedSelector);
+        replaySeekRow.Children.Add(replaySeek);
+        replaySeekRow.Children.Add(replayPosition);
+        Grid.SetColumn(replayPosition, 1);
+        replayControls.Children.Add(replayActions);
+        replayControls.Children.Add(replaySeekRow);
+        var heading = new WrapPanel { Orientation = Orientation.Horizontal };
         heading.Children.Add(new StackPanel
         {
             Spacing = 3,
-            Children = { new TextBlock { Text = "Last five minutes", FontSize = 18, FontWeight = FontWeight.DemiBold }, stateText }
+            Margin = new Thickness(0, 0, 24, 8),
+            Width = 160,
+            Children = { titleText, stateText }
         });
-        var actions = new StackPanel { Orientation = Orientation.Horizontal, Spacing = 8, VerticalAlignment = VerticalAlignment.Center, Children = { mode, direction, pauseButton } };
-        Grid.SetColumn(actions, 1);
+        var actions = new WrapPanel { Orientation = Orientation.Horizontal, VerticalAlignment = VerticalAlignment.Center };
+        mode.Margin = new Thickness(0, 0, 8, 8);
+        direction.Margin = new Thickness(0, 0, 12, 8);
+        window.Margin = new Thickness(0, 0, 0, 8);
+        actions.Children.Add(mode);
+        actions.Children.Add(direction);
+        actions.Children.Add(window);
         heading.Children.Add(actions);
 
         var legends = new WrapPanel();
-        foreach (var legend in new[]
-        {
-            damageLegend, healingLegend, Legend("Kills", Color.Parse("#64CBDD")), Legend("Deaths / knockdowns", Color.Parse("#F47D7D")),
-            Legend("Loot", Color.Parse("#BF91F0")), Legend("Harvest", ActivityLiveTimelineCanvas.GatheringColor), Legend("Fishing", ActivityLiveTimelineCanvas.FishingColor), Legend("Your fame", Color.Parse("#86D1A2")), Legend("Silver", Color.Parse("#E7BD64"))
-        }) legends.Children.Add(legend);
+        legends.Children.Add(damageLegend);
+        legends.Children.Add(healingLegend);
 
-        var closeDetails = SecondaryButton("Close");
-        var detailHeader = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 12 };
-        detailHeader.Children.Add(detailTitle);
-        Grid.SetColumn(closeDetails, 1);
-        detailHeader.Children.Add(closeDetails);
-        detailPanel = new Border
-        {
-            IsVisible = false,
-            CornerRadius = new CornerRadius(4),
-            Padding = new Thickness(12),
-            Background = new SolidColorBrush(Color.Parse("#424242")),
-            BorderBrush = new SolidColorBrush(Color.Parse("#555555")),
-            BorderThickness = new Thickness(1),
-            Child = new StackPanel
-            {
-                Spacing = 8,
-                Children = { detailHeader, new ScrollViewer { MaxHeight = 170, Content = detailText, HorizontalScrollBarVisibility = ScrollBarVisibility.Disabled } }
-            }
-        };
-        closeDetails.Click += (_, _) => detailPanel.IsVisible = false;
+        // The tooltip shares the chart's host rather than its clipped drawing surface. Keeping
+        // the entire overlay out of hit testing lets pointer movement continue through it.
+        tooltipLayer.Children.Add(tooltipPanel);
+        var chartHost = new Grid { ClipToBounds = false, Children = { canvas, tooltipLayer } };
         Content = new Border
         {
             Background = new SolidColorBrush(Color.Parse("#383838")),
             CornerRadius = new CornerRadius(6),
             Padding = new Thickness(12),
-            Child = new StackPanel { Spacing = 9, Children = { heading, legends, canvas, inspectionText, detailPanel } }
+            Child = new StackPanel { Spacing = 6, Children = { heading, replayControls, legends, chartHost } }
         };
-        canvas.HoverStarted += () => { if (!pointerHolding) { Hold(); pointerHolding = true; UpdateState(); } };
-        canvas.HoverEnded += () => { pointerHolding = false; if (!manuallyPaused) ResumeLive(); else UpdateState(); };
-        canvas.InspectionChanged += text => inspectionText.Text = text ?? DefaultInspection();
-        canvas.MarkerSelected += marker =>
+        canvas.HoverStarted += () =>
         {
-            Hold(); manuallyPaused = true;
-            detailTitle.Text = marker.Label + " · " + marker.CapturedAtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture);
-            detailText.Text = marker.Detail;
-            detailPanel.IsVisible = true;
+            if (pointerHolding) return;
+            HoldReplayCursor();
+            DrawLatest();
+            pointerHolding = true;
+            UpdateReplayClock();
+            RequestReplayWindow(true);
             UpdateState();
         };
+        canvas.HoverEnded += ResumeLive;
+        canvas.InspectionChanged += ShowTooltip;
         canvas.EncounterSelected += id => { if (OpenEncounterCommand?.CanExecute(id) == true) OpenEncounterCommand.Execute(id); };
-        renderTimer.Tick += (_, _) => { if (IsEffectivelyVisible && !pointerHolding && !manuallyPaused) DrawLatest(); };
-        AttachedToVisualTree += (_, _) => renderTimer.Start();
-        DetachedFromVisualTree += (_, _) => renderTimer.Stop();
+        renderTimer.Tick += (_, _) => RenderTick();
+        AttachedToVisualTree += (_, _) => { renderTimer.Start(); UpdateReplayClock(); };
+        DetachedFromVisualTree += (_, _) =>
+        {
+            HoldReplayCursor();
+            replayClock.Stop();
+            renderTimer.Stop();
+            pointerHolding = false;
+            canvas.ClearInspection();
+        };
+        DrawLatest();
         UpdateState();
+    }
+
+    private void RenderTick()
+    {
+        UpdateReplayClock();
+        if (!IsEffectivelyVisible) return;
+        if (replayMode)
+        {
+            if (replayPlaying && ReplayCursorUtc() >= latest!.WindowEndUtc)
+            {
+                HoldReplayCursor();
+                replayPlaying = false;
+                UpdateReplayClock();
+                RequestReplayWindow(true);
+            }
+            else RequestReplayWindow(false);
+            if (!pointerHolding) DrawLatest();
+            UpdateState();
+        }
+        else if (IsRolling && !pointerHolding) DrawLatest();
     }
 
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
         if (change.Property == IsGatheringModeProperty) { UpdateMode(); return; }
+        if (change.Property == ReplaySnapshotProperty)
+        {
+            var value = ReplaySnapshot;
+            if (!replayMode || value == null || lastReplayRequest == null ||
+                value.ContextKey != lastReplayRequest.ContextKey || value.WindowStartUtc != lastReplayRequest.WindowStartUtc ||
+                value.WindowEndUtc != lastReplayRequest.WindowEndUtc || value.WindowEndUtc > ReplayCursorUtc()) return;
+            replayFrame = value;
+            DrawLatest();
+            return;
+        }
+        if (change.Property == ReplayWindowCommandProperty) { RequestReplayWindow(true); UpdateState(); return; }
+        if (change.Property == ShowReplayControlsProperty)
+        {
+            if (!ShowReplayControls) ResetReplay();
+            UpdateState();
+            return;
+        }
+        if (change.Property == WindowMinutesProperty || change.Property == IsRollingProperty ||
+            change.Property == ShowWindowSelectorProperty || change.Property == TitleProperty)
+        {
+            HoldReplayCursor();
+            window.SelectedIndex = WindowMinutes switch { 10 => 1, 15 => 2, _ => 0 };
+            if (IsRolling && replayMode) ResetReplay();
+            ResumeLive();
+            if (change.Property == WindowMinutesProperty) RequestReplayWindow(true);
+            return;
+        }
         if (change.Property != SnapshotProperty) return;
         var snapshot = Snapshot;
-        var contextChanged = snapshot?.SessionId != latest?.SessionId || snapshot?.Scope != latest?.Scope || snapshot?.Categories != latest?.Categories;
+        var contextChanged = snapshot?.ContextKey != latest?.ContextKey || snapshot?.HasContext != latest?.HasContext ||
+            snapshot?.SessionId != latest?.SessionId || snapshot?.Scope != latest?.Scope || snapshot?.Categories != latest?.Categories;
         latest = snapshot;
         sinceSnapshot.Restart();
         if (contextChanged)
         {
             pointerHolding = false;
-            manuallyPaused = false;
-            detailPanel.IsVisible = false;
             canvas.ClearInspection();
+            ResetReplay();
         }
-        if (!pointerHolding && !manuallyPaused) DrawLatest();
+        else if (replayMode) SetReplayCursor(ReplayCursorUtc());
+        if (!pointerHolding) DrawLatest();
         UpdateState();
     }
 
@@ -154,65 +301,245 @@ public sealed class ActivityLiveTimelineView : UserControl
         canvas.IsGatheringMode = IsGatheringMode;
         mode.SelectedIndex = IsGatheringMode ? 1 : 0;
         direction.IsVisible = !IsGatheringMode;
-        damageLegend.Text = IsGatheringMode ? "●  Harvested / sec" : canvas.ShowReceived ? "●  Damage received" : "●  Damage dealt";
-        healingLegend.Text = IsGatheringMode ? "●  Fishing rewards / sec" : canvas.ShowReceived ? "●  Healing received" : "●  Healing done";
+        damageLegend.Text = IsGatheringMode ? "●  Gathering / sec" : canvas.ShowReceived ? "●  Damage received" : "●  Damage dealt";
+        healingLegend.Text = IsGatheringMode ? "●  Fishing / sec" : canvas.ShowReceived ? "●  Healing received" : "●  Healing done";
         damageLegend.Foreground = new SolidColorBrush(IsGatheringMode ? ActivityLiveTimelineCanvas.GatheringColor : ActivityLiveTimelineCanvas.DamageColor);
         healingLegend.Foreground = new SolidColorBrush(IsGatheringMode ? ActivityLiveTimelineCanvas.FishingColor : ActivityLiveTimelineCanvas.HealingColor);
-        canvas.ClearInspection();
-        canvas.InvalidateVisual();
-    }
-
-    private static ComboBox TimelineSelector(string[] items, double width) => new()
-    {
-        ItemsSource = items,
-        SelectedIndex = 0,
-        Width = width,
-        Height = 32,
-        Background = new SolidColorBrush(Color.Parse("#424242")),
-        BorderBrush = new SolidColorBrush(Color.Parse("#555555")),
-        VerticalContentAlignment = VerticalAlignment.Center
-    };
-
-    private void Hold()
-    {
-        if (pointerHolding || manuallyPaused) return;
-        displayed = latest;
-        heldEndUtc = LiveEndUtc();
-        canvas.SetSnapshot(displayed, heldEndUtc);
+        ResumeLive();
     }
 
     private void ResumeLive()
     {
         pointerHolding = false;
-        manuallyPaused = false;
-        detailPanel.IsVisible = false;
+        canvas.ClearInspection();
+        UpdateReplayClock();
+        DrawLatest();
+        UpdateState();
+    }
+
+    private bool CanReplay => ShowReplayControls && !IsRolling && latest?.HasContext == true &&
+        latest.WindowEndUtc > latest.WindowStartUtc && ReplayWindowCommand != null &&
+        (latest.Markers.Count > 0 || latest.Encounters.Count > 0 || latest.Samples.Any(sample =>
+            sample.DamageDealt > 0 || sample.DamageReceived > 0 || sample.HealingDone > 0 || sample.HealingReceived > 0 ||
+            sample.GatheringQuantity > 0 || sample.FishingQuantity > 0));
+
+    private void ToggleReplay()
+    {
+        if (!CanReplay) return;
+        if (!replayMode || ReplayCursorUtc() >= latest!.WindowEndUtc) { StartReplay(); return; }
+        HoldReplayCursor();
+        replayPlaying = !replayPlaying;
+        UpdateReplayClock();
+        RequestReplayWindow(true);
+        DrawLatest();
+        UpdateState();
+    }
+
+    private void StartReplay()
+    {
+        if (!CanReplay) return;
+        replayClock.Reset();
+        replayMode = true;
+        replayPlaying = true;
+        replayScrubbing = false;
+        pointerHolding = false;
+        replayCursorUtc = latest!.WindowStartUtc;
+        replayFrame = null;
+        lastReplayRequest = null;
+        sinceReplayRequest.Reset();
+        canvas.ClearInspection();
+        UpdateReplayClock();
+        RequestReplayWindow(true);
+        DrawLatest();
+        UpdateState();
+    }
+
+    private void ResetReplay()
+    {
+        replayClock.Reset();
+        replayMode = false;
+        replayPlaying = false;
+        replayScrubbing = false;
+        replayFrame = null;
+        lastReplayRequest = null;
+        sinceReplayRequest.Reset();
+        replayCursorUtc = latest?.WindowStartUtc ?? default;
+        pointerHolding = false;
         canvas.ClearInspection();
         DrawLatest();
         UpdateState();
     }
 
-    private DateTime LiveEndUtc() => latest?.WindowEndUtc.Add(sinceSnapshot.Elapsed) ?? DateTime.UtcNow;
+    private DateTime ReplayCursorUtc()
+    {
+        if (latest == null) return replayCursorUtc;
+        var remaining = Math.Max(0, latest.WindowEndUtc.Ticks - replayCursorUtc.Ticks);
+        var elapsed = Math.Min(remaining, replayClock.Elapsed.Ticks * replaySpeed);
+        return new DateTime(Math.Clamp(replayCursorUtc.Ticks + (long)elapsed,
+            latest.WindowStartUtc.Ticks, latest.WindowEndUtc.Ticks), DateTimeKind.Utc);
+    }
+
+    private void HoldReplayCursor()
+    {
+        if (!replayMode) return;
+        replayCursorUtc = ReplayCursorUtc();
+        replayClock.Reset();
+    }
+
+    private void SetReplayCursor(DateTime value)
+    {
+        if (latest == null) return;
+        replayClock.Reset();
+        replayCursorUtc = new DateTime(Math.Clamp(value.Ticks, latest.WindowStartUtc.Ticks, latest.WindowEndUtc.Ticks), DateTimeKind.Utc);
+        // A grouped marker can include several later rewards. A backwards seek must wait for
+        // evidence bounded to the new cursor rather than display amounts from that future group.
+        if (replayFrame?.WindowEndUtc > replayCursorUtc) replayFrame = null;
+        UpdateReplayClock();
+    }
+
+    private void UpdateReplayClock()
+    {
+        var shouldRun = replayMode && replayPlaying && !pointerHolding && !replayScrubbing &&
+            IsEffectivelyVisible && renderTimer.IsEnabled;
+        if (shouldRun && !replayClock.IsRunning) replayClock.Start();
+        else if (!shouldRun && replayClock.IsRunning) HoldReplayCursor();
+    }
+
+    private void RequestReplayWindow(bool force)
+    {
+        if (!replayMode || latest == null || !CanReplay || (!force && sinceReplayRequest.IsRunning && sinceReplayRequest.Elapsed.TotalSeconds < 1)) return;
+        var end = new DateTime(ReplayCursorUtc().Ticks / TimeSpan.TicksPerSecond * TimeSpan.TicksPerSecond, DateTimeKind.Utc);
+        var start = new DateTime(Math.Max(DateTime.MinValue.Ticks, end.Ticks - ReplayWindowMinutes * TimeSpan.TicksPerMinute), DateTimeKind.Utc);
+        var request = new ActivityTimelineReplayRequest(latest.ContextKey, start, end);
+        if (!force && request == lastReplayRequest) return;
+        if (ReplayWindowCommand?.CanExecute(request) != true) return;
+        lastReplayRequest = request;
+        sinceReplayRequest.Restart();
+        ReplayWindowCommand.Execute(request);
+    }
+
+    private int ReplayWindowMinutes => WindowMinutes is 10 or 15 ? WindowMinutes : 5;
+
+    private void FinishSeeking()
+    {
+        if (!replayScrubbing) return;
+        replayScrubbing = false;
+        UpdateReplayClock();
+        RequestReplayWindow(true);
+    }
+
+    private ActivityLiveTimelineSnapshot? ReplayDisplay()
+    {
+        if (latest == null) return null;
+        var cursor = ReplayCursorUtc();
+        var start = new DateTime(Math.Max(DateTime.MinValue.Ticks, cursor.Ticks - ReplayWindowMinutes * TimeSpan.TicksPerMinute), DateTimeKind.Utc);
+        return replayFrame is { } frame ? frame with
+        {
+            WindowStartUtc = start,
+            WindowEndUtc = cursor,
+            Encounters = frame.Encounters.Where(encounter => encounter.StartedAtUtc < frame.WindowEndUtc)
+                .Select(encounter => encounter.LastCombatAtUtc <= frame.WindowEndUtc ? encounter :
+                    encounter with { LastCombatAtUtc = frame.WindowEndUtc, State = ActivityState.Open }).ToArray()
+        } :
+            latest with { WindowStartUtc = start, WindowEndUtc = cursor, Samples = [], Markers = [], Encounters = [], Gaps = [] };
+    }
+
+    private DateTime LiveEndUtc()
+    {
+        if (latest is null) return DateTime.UtcNow;
+        if (!IsRolling) return latest.WindowEndUtc;
+        return new DateTime(Math.Min(DateTime.MaxValue.Ticks,
+            latest.WindowEndUtc.Ticks + sinceSnapshot.Elapsed.Ticks), DateTimeKind.Utc);
+    }
+
+    private void ShowTooltip(ActivityLiveTimelineTooltip? tooltip, Point pointer)
+    {
+        if (tooltip is null)
+        {
+            tooltipPanel.IsVisible = false;
+            return;
+        }
+        var availableWidth = Math.Max(1, canvas.Bounds.Width - 16);
+        tooltipPanel.MaxWidth = Math.Min(384, availableWidth);
+        var header = new WrapPanel { Orientation = Orientation.Horizontal };
+        header.Children.Add(new TextBlock
+        {
+            Text = tooltip.Title,
+            FontSize = 13,
+            FontWeight = FontWeight.DemiBold,
+            Margin = new Thickness(0, 0, 12, 0),
+            TextWrapping = TextWrapping.Wrap
+        });
+        if (!string.IsNullOrEmpty(tooltip.TimeText)) header.Children.Add(new TextBlock { Text = tooltip.TimeText, FontSize = 12, Opacity = 0.75 });
+        var content = new StackPanel { Spacing = 4, IsHitTestVisible = false };
+        content.Children.Add(header);
+        if (!string.IsNullOrEmpty(tooltip.ContextText)) content.Children.Add(TooltipLine(tooltip.ContextText, true));
+        foreach (var line in tooltip.Lines) content.Children.Add(TooltipLine(line));
+        tooltipPanel.Child = content;
+        tooltipPanel.IsVisible = true;
+        tooltipPanel.Measure(new Size(availableWidth, double.PositiveInfinity));
+        var size = tooltipPanel.DesiredSize;
+        var left = Math.Clamp(pointer.X + 12, 8, Math.Max(8, canvas.Bounds.Width - size.Width - 8));
+        var top = pointer.Y + 16;
+        if (top + size.Height > canvas.Bounds.Height - 4) top = Math.Max(4, pointer.Y - size.Height - 12);
+        Canvas.SetLeft(tooltipPanel, left);
+        Canvas.SetTop(tooltipPanel, top);
+    }
+
+    private static TextBlock TooltipLine(string text, bool muted = false) => new()
+    {
+        Text = text,
+        FontSize = 12,
+        Opacity = muted ? 0.75 : 1,
+        TextWrapping = TextWrapping.Wrap
+    };
 
     private void DrawLatest()
     {
-        displayed = latest;
-        canvas.SetSnapshot(displayed, LiveEndUtc());
+        var display = replayMode ? ReplayDisplay() : latest;
+        canvas.SetSnapshot(display, replayMode ? display?.WindowEndUtc ?? DateTime.UtcNow : LiveEndUtc());
     }
 
     private void UpdateState()
     {
-        canvas.IsLive = !pointerHolding && !manuallyPaused;
+        canvas.IsLive = IsRolling && !pointerHolding;
+        canvas.IsReplay = replayMode;
         canvas.InvalidateVisual();
-        pauseButton.Content = pointerHolding || manuallyPaused ? "Resume live" : "Pause timeline";
-        pauseButton.IsEnabled = latest?.SessionId != null;
-        stateText.Text = latest?.SessionId == null ? "Waiting for session activity" :
-            (manuallyPaused ? "Timeline paused" : pointerHolding ? "Hovering · view held" : "Live") + " · " + latest.Scope;
-        if (latest?.IsPartial == true) stateText.Text += " · Partial capture";
-        if (latest?.IsTruncated == true) stateText.Text += " · Busy window summarized";
-        if (!canvas.HasInspection) inspectionText.Text = DefaultInspection();
+        window.IsVisible = IsRolling && ShowWindowSelector || replayMode && ShowReplayControls;
+        replayControls.IsVisible = ShowReplayControls && !IsRolling;
+        playReplay.IsEnabled = CanReplay;
+        overviewReplay.IsVisible = replayMode;
+        overviewReplay.IsEnabled = replayMode;
+        restartReplay.IsVisible = replayMode;
+        restartReplay.IsEnabled = replayMode && CanReplay;
+        replaySeekRow.IsVisible = replayMode;
+        replaySpeedSelector.IsEnabled = CanReplay;
+        replaySeek.IsEnabled = replayMode && CanReplay;
+        var cursor = replayMode ? ReplayCursorUtc() : latest?.WindowStartUtc ?? default;
+        var finished = replayMode && cursor >= latest!.WindowEndUtc;
+        playReplay.Content = !replayMode || finished ? "Replay" : replayPlaying ? "Pause" : "Play";
+        updatingReplayPosition = true;
+        try
+        {
+            var total = latest == null ? 0 : Math.Max(0, (latest.WindowEndUtc - latest.WindowStartUtc).TotalSeconds);
+            var elapsed = latest == null ? 0 : Math.Max(0, (cursor - latest.WindowStartUtc).TotalSeconds);
+            replaySeek.Maximum = Math.Max(1, total);
+            replaySeek.Value = Math.Min(total, elapsed);
+            replayPosition.Text = Duration(elapsed) + " / " + Duration(total);
+        }
+        finally { updatingReplayPosition = false; }
+        titleText.Text = replayMode ? "Session replay" : string.IsNullOrWhiteSpace(Title) ? IsRolling ? $"Last {WindowMinutes} minutes" : "Activity over time" : Title;
+        stateText.Text = latest?.HasContext != true ? "Waiting for activity" : IsRolling
+            ? pointerHolding ? "Paused while hovering" : "Live"
+            : replayMode ? $"{cursor.ToLocalTime():HH:mm:ss} · " + (finished ? "Finished" : pointerHolding ? "Paused while hovering" : replayPlaying ? "Playing" : "Paused")
+            : $"{latest.WindowStartUtc.ToLocalTime():HH:mm:ss} – {latest.WindowEndUtc.ToLocalTime():HH:mm:ss}";
+        if (latest?.IsPartial == true && !pointerHolding && IsRolling) stateText.Text += " · Some activity missing";
+        var warnings = new List<string>();
+        if (latest?.IsPartial == true) warnings.Add("Some activity may be missing.");
+        if (latest?.IsTruncated == true) warnings.Add("Some events are hidden when the chart is busy.");
+        ToolTip.SetTip(stateText, warnings.Count > 0 ? string.Join("\n", warnings) : null);
     }
 
-    private static string DefaultInspection() => "Hover to inspect · Select an event or encounter for details";
     private static TextBlock Legend(string text, Color color) => new()
     {
         Text = "●  " + text,
@@ -220,15 +547,19 @@ public sealed class ActivityLiveTimelineView : UserControl
         FontSize = 12,
         Margin = new Thickness(0, 0, 18, 2)
     };
-    private static Button SecondaryButton(string text) => new()
+
+    private static Button ReplayButton(string label, string name) => new()
     {
-        Content = text,
+        Name = name,
+        Content = label,
         Height = 32,
-        Padding = new Thickness(10, 4),
-        VerticalContentAlignment = VerticalAlignment.Center,
-        Background = new SolidColorBrush(Color.Parse("#383838")),
-        BorderBrush = new SolidColorBrush(Color.Parse("#555555")),
-        BorderThickness = new Thickness(1),
+        Margin = new Thickness(0, 0, 6, 0),
         Classes = { "ActivityAction", "ActivitySecondary" }
     };
+
+    private static string Duration(double seconds)
+    {
+        var value = TimeSpan.FromSeconds(seconds);
+        return value.TotalHours >= 1 ? $"{(long)value.TotalHours}:{value.Minutes:00}:{value.Seconds:00}" : $"{(long)value.TotalMinutes}:{value.Seconds:00}";
+    }
 }

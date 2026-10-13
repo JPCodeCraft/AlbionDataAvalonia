@@ -17,6 +17,7 @@ namespace AlbionDataAvalonia.Activity;
 /// <summary>Bounded correlations for loot sources and the captured character's inventory.</summary>
 internal sealed class ActivityLootCollector : IDisposable
 {
+    private static readonly TimeSpan MetadataLifetime = TimeSpan.FromMinutes(10);
     private readonly ActivityTrackerService tracker;
     private readonly ItemEstimatedMarketValueService values;
     private readonly ItemsIdsService itemNames;
@@ -32,6 +33,7 @@ internal sealed class ActivityLootCollector : IDisposable
     private readonly List<RecentPickup> recent = new();
     private DateTime nonLootMoveUntil;
     private Guid? inventory;
+    private DateTime lastCacheSweep;
 
     public ActivityLootCollector(ActivityTrackerService tracker, ItemEstimatedMarketValueService values, ItemsIdsService itemNames)
     {
@@ -98,17 +100,17 @@ internal sealed class ActivityLootCollector : IDisposable
         switch (packet)
         {
             case InventoryMoveItemRequest move when move.DestinationContainerId == destination:
-                if (containers.TryGetValue(move.SourceContainerId, out var container)
+                if (TryContainer(move.SourceContainerId, at, out var container)
                     && move.SourceSlot >= 0 && move.SourceSlot < container.Slots.Length)
                 {
-                    if (!sources.ContainsKey(container.SourceId)) nonLootMoveUntil = at.AddSeconds(10);
+                    if (!TrySource(container.SourceId, at, out _)) nonLootMoveUntil = at.AddSeconds(10);
                     if (record) Intent(container.Slots[move.SourceSlot], container, null, at);
                 }
                 else nonLootMoveUntil = at.AddSeconds(10);
                 break;
             case InventoryMoveGivenItemsRequest move when move.DestinationContainerId == destination:
-                if (!containers.TryGetValue(move.SourceContainerId, out var source)
-                    || !sources.ContainsKey(source.SourceId)) { nonLootMoveUntil = at.AddSeconds(10); return; }
+                if (!TryContainer(move.SourceContainerId, at, out var source)
+                    || !TrySource(source.SourceId, at, out _)) { nonLootMoveUntil = at.AddSeconds(10); return; }
                 for (var index = 0; record && index < move.ItemObjectIds.Count && candidates.Count < 256; index++)
                     Intent(move.ItemObjectIds[index], source,
                         move.Quantities is { } amounts && index < amounts.Count ? amounts[index] : null, at);
@@ -138,7 +140,7 @@ internal sealed class ActivityLootCollector : IDisposable
                 break;
             case DetachItemContainerEvent detach:
                 // Detachment is visibility evidence, never a pickup or an emptied chest.
-                if (containers.TryGetValue(detach.ContainerId, out var detached)) detached.LastSeen = at;
+                if (TryContainer(detach.ContainerId, at, out var detached)) detached.LastSeen = at;
                 break;
             case InventoryStateEvent state when state.ContainerId is { } id:
                 var observedItems = state.ItemObjectIds.Where(x => x > 0).ToHashSet();
@@ -163,8 +165,8 @@ internal sealed class ActivityLootCollector : IDisposable
                     var objectId = party.ItemObjectIds[index];
                     var quality = index < party.Qualities.Count && party.Qualities[index] > 0 ? party.Qualities[index] : (int?)null;
                     Metadata(objectId, party.ItemIds[index], quality, party.Amounts[index], null, null, at, record: record);
-                    if (sources.ContainsKey(party.SourceObjectId))
-                        foreach (var container in containers.Values.Where(x => x.SourceId == party.SourceObjectId))
+                    if (TrySource(party.SourceObjectId, at, out _))
+                        foreach (var container in containers.Values.Where(x => x.SourceId == party.SourceObjectId && at - x.LastSeen <= MetadataLifetime))
                             membership[objectId] = container.Id;
                 }
                 // Allocation names do not establish who actually picked up an item.
@@ -199,7 +201,7 @@ internal sealed class ActivityLootCollector : IDisposable
     private void IdentifySource(long objectId, string? name, string kind, DateTime at)
     {
         if (objectId <= 0) return;
-        var previous = sources.GetValueOrDefault(objectId);
+        var previous = TrySource(objectId, at, out var known) ? known : null;
         sources[objectId] = new Source(objectId,
             string.IsNullOrWhiteSpace(name) ? previous?.Name ?? (kind == "Chest" ? "Chest" : "Unknown") : name,
             kind == "Unknown" || string.IsNullOrWhiteSpace(name) && previous?.Kind is "Mob" or "Player"
@@ -229,17 +231,32 @@ internal sealed class ActivityLootCollector : IDisposable
 
     private void Intent(long objectId, Container container, long? quantity, DateTime at)
     {
-        if (objectId <= 0 || inventory == container.Id || !sources.TryGetValue(container.SourceId, out var source)
+        if (objectId <= 0 || inventory == container.Id || !TrySource(container.SourceId, at, out var source)
             || candidates.Count >= 256) return;
-        if (!container.Slots.Contains(objectId) && !(membership.TryGetValue(objectId, out var bound)
-            && containers.TryGetValue(bound, out var known) && known.SourceId == container.SourceId)) return;
+        if (!container.Slots.Contains(objectId) && !(TryContainer(Membership(objectId, at), at, out var known)
+            && known.SourceId == container.SourceId)) return;
         candidates.RemoveAll(x => x.ObjectId == objectId);
         candidates.Add(new Candidate(objectId, container.Id, source, ItemSnapshot(objectId, at), quantity, at, tracker.LocalActor,
             hasMoveIntent: true));
     }
 
-    private Item ItemSnapshot(long objectId, DateTime at) => items.GetValueOrDefault(objectId)
+    private Item ItemSnapshot(long objectId, DateTime at) => GetItem(objectId, at)
         ?? new Item(objectId, 0, null, 0, null, null, at, DateTime.MinValue);
+
+    // Lookups enforce the original TTL even between broad maintenance sweeps.
+    private Item? GetItem(long objectId, DateTime at) => items.TryGetValue(objectId, out var item)
+        && at - item.LastSeen <= MetadataLifetime ? item : null;
+    private bool TryContainer(Guid id, DateTime at, out Container container) => containers.TryGetValue(id, out container!)
+        && at - container.LastSeen <= MetadataLifetime;
+    private bool TrySource(long id, DateTime at, out Source source) => sources.TryGetValue(id, out source!)
+        && at - source.LastSeen <= MetadataLifetime;
+    private Guid Membership(long objectId, DateTime at)
+    {
+        var bound = membership.GetValueOrDefault(objectId);
+        if (bound != inventory && !TryContainer(bound, at, out _))
+        { membership.Remove(objectId); return Guid.Empty; }
+        return bound;
+    }
 
     private void NewItem(NewItem? item, DateTime at, bool? validatedSimple = null, bool record = true)
     {
@@ -253,17 +270,17 @@ internal sealed class ActivityLootCollector : IDisposable
     private void Metadata(long objectId, int itemId, int? quality, long? quantity, string? uniqueName, string? name, DateTime at,
         bool validatedSimple = false, bool record = true)
     {
-        var old = items.GetValueOrDefault(objectId);
+        var old = GetItem(objectId, at);
         var next = new Item(objectId, itemId, quality ?? old?.Quality, quantity ?? old?.Quantity ?? 0,
             uniqueName ?? old?.UniqueName, name ?? old?.Name, at,
             quantity is > 0 ? at : old?.QuantitySeenAt ?? DateTime.MinValue,
             quantity is > 0 ? validatedSimple : old?.ValidAcquisitionQuantity ?? false);
         items[objectId] = next;
         if (!record) return;
-        if (membership.GetValueOrDefault(objectId) == inventory && quantity is > 0 && validatedSimple && at > nonLootMoveUntil
+        if (Membership(objectId, at) == inventory && quantity is > 0 && validatedSimple && at > nonLootMoveUntil
             && localIntroductions.Remove(objectId, out var introduction) && at - introduction.At <= TimeSpan.FromSeconds(2))
             AddGain(new Gain(objectId, quantity.Value, next, at, introduction.Context, true));
-        else if (membership.GetValueOrDefault(objectId) == inventory && old is not null
+        else if (Membership(objectId, at) == inventory && old is not null
             && old.Id == itemId && next.Quantity > old.Quantity && at > nonLootMoveUntil)
             AddGain(new Gain(objectId, next.Quantity - old.Quantity, next, at, tracker.Stamp(ActivityEventKind.Loot, at, null),
                 next.ValidAcquisitionQuantity && old.ValidAcquisitionQuantity));
@@ -285,7 +302,8 @@ internal sealed class ActivityLootCollector : IDisposable
                 }
             }
         }
-        foreach (var pickup in recent.Where(x => x.ObjectId == objectId && x.Event.ItemId == itemId).ToArray())
+        foreach (var pickup in recent.Where(x => x.ObjectId == objectId && x.Event.ItemId == itemId
+            && at - x.At <= TimeSpan.FromMinutes(2)).ToArray())
         {
             var amended = Enrich(pickup.Event, next);
             if (amended != pickup.Event)
@@ -299,19 +317,19 @@ internal sealed class ActivityLootCollector : IDisposable
 
     private void Put(long objectId, Guid destination, DateTime at, string? origin, bool record = true)
     {
-        var previous = membership.GetValueOrDefault(objectId);
+        var previous = Membership(objectId, at);
         if (previous != destination) ForgetMembership(objectId);
         if (!record) { membership[objectId] = destination; return; }
         if (destination != inventory)
             candidates.RemoveAll(x => x.ObjectId == objectId &&
-                (!containers.TryGetValue(destination, out var next) || next.SourceId != x.Source.Id));
+                (!TryContainer(destination, at, out var next) || next.SourceId != x.Source.Id));
         if (destination == inventory)
         {
             if (previous != inventory && previous == Guid.Empty && at > nonLootMoveUntil && localIntroductions.Count < 256)
                 localIntroductions[objectId] = new LocalIntroduction(at, tracker.Stamp(ActivityEventKind.Loot, at, origin));
             var matches = candidates.Where(x => x.ObjectId == objectId && !x.Confirmed && at - x.CreatedAt <= TimeSpan.FromSeconds(10)).ToArray();
             if (matches.Length == 0 && previous != inventory && candidates.Count < 256
-                && containers.TryGetValue(previous, out var sourceContainer) && sources.TryGetValue(sourceContainer.SourceId, out var source))
+                && TryContainer(previous, at, out var sourceContainer) && TrySource(sourceContainer.SourceId, at, out var source))
             {
                 // Server membership can prove the transfer even when its request was not captured.
                 var candidate = new Candidate(objectId, previous, source, ItemSnapshot(objectId, at), null, at, tracker.LocalActor);
@@ -319,7 +337,7 @@ internal sealed class ActivityLootCollector : IDisposable
                 matches = [candidate];
             }
             if (matches.Length == 1 && previous != inventory && (previous == matches[0].ContainerId
-                    || containers.TryGetValue(previous, out var sameSource) && sameSource.SourceId == matches[0].Source.Id
+                    || TryContainer(previous, at, out var sameSource) && sameSource.SourceId == matches[0].Source.Id
                     || matches[0].Removed))
             {
                 // The transfer is confirmed, but an old source quantity cannot establish the received stack amount.
@@ -343,8 +361,8 @@ internal sealed class ActivityLootCollector : IDisposable
                     Confirm(candidate, item, item.Quantity, at, origin, "ExactObjectTransfer");
             }
             else if (previous != destination && at > nonLootMoveUntil
-                && (previous == Guid.Empty || containers.TryGetValue(previous, out var from) && sources.ContainsKey(from.SourceId))
-                && items.TryGetValue(objectId, out var newItem))
+                && (previous == Guid.Empty || TryContainer(previous, at, out var from) && TrySource(from.SourceId, at, out _))
+                && GetItem(objectId, at) is { } newItem)
             {
                 AddGain(new Gain(objectId, newItem.Quantity, newItem, at, tracker.Stamp(ActivityEventKind.Loot, at, origin),
                     newItem.ValidAcquisitionQuantity && at - newItem.QuantitySeenAt <= TimeSpan.FromSeconds(2)));
@@ -357,15 +375,16 @@ internal sealed class ActivityLootCollector : IDisposable
     private void Removed(long objectId, DateTime at, string? origin, long? sourceId = null, bool record = true)
     {
         if (!record) { ForgetMembership(objectId); return; }
-        if (inventory is { } main && membership.GetValueOrDefault(objectId) == main) membership.Remove(objectId);
+        var bound = Membership(objectId, at);
+        if (inventory is { } main && bound == main) membership.Remove(objectId);
         var item = ItemSnapshot(objectId, at);
         var candidate = candidates.SingleOrDefault(x => x.ObjectId == objectId && !x.Confirmed);
-        if (candidate is null && candidates.Count < 256 && membership.TryGetValue(objectId, out var sourceContainerId)
-            && containers.TryGetValue(sourceContainerId, out var sourceContainer)
-            && sources.TryGetValue(sourceContainer.SourceId, out var source)
+        if (candidate is null && candidates.Count < 256 && bound != inventory
+            && TryContainer(bound, at, out var sourceContainer)
+            && TrySource(sourceContainer.SourceId, at, out var source)
             && (sourceId is null || sourceId == source.Id))
         {
-            candidate = new Candidate(objectId, sourceContainerId, source, item, null, at, tracker.LocalActor);
+            candidate = new Candidate(objectId, bound, source, item, null, at, tracker.LocalActor);
             candidates.Add(candidate);
         }
         if (candidate is not null)
@@ -376,7 +395,7 @@ internal sealed class ActivityLootCollector : IDisposable
             candidate.RemovedAt = at;
             candidate.Removal = tracker.Stamp(ActivityEventKind.Loot, at, origin);
         }
-        else if (sourceId is { } explicitSource && sources.ContainsKey(explicitSource))
+        else if (sourceId is { } explicitSource && TrySource(explicitSource, at, out _))
             AmbiguousRemoval(explicitSource, item.Id, item.Quantity, at, origin, objectId, item);
         // Inventory deletion alone cannot distinguish moving, splitting, destroying or consuming.
     }
@@ -526,7 +545,7 @@ internal sealed class ActivityLootCollector : IDisposable
     private void AmbiguousRemoval(long sourceId, int itemId, long quantity, DateTime at, string? origin,
         long? objectId = null, Item? item = null, ActivityEvent? original = null)
     {
-        if (quantity <= 0 || itemId <= 0 || !sources.TryGetValue(sourceId, out var source)) return;
+        if (quantity <= 0 || itemId <= 0 || !TrySource(sourceId, at, out var source)) return;
         if (recent.Any(x => x.ObjectId == objectId && objectId is not null && x.Event.ItemId == itemId
             && Math.Abs((at - x.At).TotalSeconds) <= 3)) return;
         var observation = (original ?? tracker.Stamp(ActivityEventKind.Loot, at, origin)) with
@@ -552,18 +571,23 @@ internal sealed class ActivityLootCollector : IDisposable
 
     private ActivityEvent Enrich(ActivityEvent observation, Item item)
     {
-        var price = observation.EstimatedUnitValue;
-        if (price is null && item.Quality is > 0 && int.TryParse(observation.Server, out var server))
-            price = values.Get(server, item.Id, item.Quality.Value)?.NormalEmv;
-        return observation with
+        var quality = observation.Quality ?? item.Quality;
+        var changedBasis = observation.Quality is null && quality is > 1;
+        var price = changedBasis ? null : observation.EstimatedUnitValue;
+        var priceObservedAt = changedBasis ? null : observation.PriceObservedAtUtc;
+        if (price is null && quality is > 0 && int.TryParse(observation.Server, out var server))
+            price = values.Get(server, item.Id, quality.Value)?.NormalEmv;
+        var enriched = observation with
         {
             ItemId = item.Id,
             ItemUniqueName = observation.ItemUniqueName ?? item.UniqueName,
             ItemName = item.Name ?? observation.ItemName,
-            Quality = observation.Quality ?? item.Quality,
+            Quality = quality,
             EstimatedUnitValue = price,
-            PriceObservedAtUtc = observation.PriceObservedAtUtc ?? (price is > 0 ? DateTime.UtcNow : null)
+            PriceObservedAtUtc = priceObservedAt ?? (price is > 0 ? DateTime.UtcNow : null)
         };
+        return price is > 0 ? ActivityItemValuationService.WithPrice(enriched, price.Value,
+            enriched.PriceObservedAtUtc!.Value, quality ?? 1) : enriched;
     }
 
     private void PricesChanged(IReadOnlyCollection<ItemEstimatedMarketValueKey> keys)
@@ -586,8 +610,6 @@ internal sealed class ActivityLootCollector : IDisposable
         foreach (var key in localIntroductions.Where(x => at - x.Value.At > TimeSpan.FromSeconds(2)).Select(x => x.Key).ToArray())
             localIntroductions.Remove(key);
         resourceClaims.RemoveAll(x => at - x.At > TimeSpan.FromSeconds(5));
-        foreach (var key in pendingInventoryMetadata.Where(x => at - x.Value.LastSeen > TimeSpan.FromSeconds(10))
-            .Select(x => x.Key).ToArray()) pendingInventoryMetadata.Remove(key);
         foreach (var candidate in candidates.Where(x => !x.Confirmed && x.Removed
             && at - (x.RemovedAt ?? x.CreatedAt) > TimeSpan.FromSeconds(3)).ToArray())
         {
@@ -597,13 +619,19 @@ internal sealed class ActivityLootCollector : IDisposable
         }
         candidates.RemoveAll(x => at - x.CreatedAt > TimeSpan.FromSeconds(10));
         gains.RemoveAll(x => x.Consumed || at - x.At > TimeSpan.FromSeconds(5));
+        if (recent.Count > 4096) recent.RemoveRange(0, recent.Count - 4096);
+        // Short-lived acquisition proofs above expire before every observation;
+        // metadata lookups enforce their TTL without repeatedly sweeping caches.
+        if (at - lastCacheSweep < TimeSpan.FromSeconds(1)) return;
+        lastCacheSweep = at;
+        foreach (var key in pendingInventoryMetadata.Where(x => at - x.Value.LastSeen > TimeSpan.FromSeconds(10))
+            .Select(x => x.Key).ToArray()) pendingInventoryMetadata.Remove(key);
         recent.RemoveAll(x => at - x.At > TimeSpan.FromMinutes(2));
-        foreach (var key in items.Where(x => at - x.Value.LastSeen > TimeSpan.FromMinutes(10)).Select(x => x.Key).ToArray()) items.Remove(key);
-        foreach (var key in containers.Where(x => at - x.Value.LastSeen > TimeSpan.FromMinutes(10)).Select(x => x.Key).ToArray()) containers.Remove(key);
-        foreach (var key in sources.Where(x => at - x.Value.LastSeen > TimeSpan.FromMinutes(10)).Select(x => x.Key).ToArray()) sources.Remove(key);
+        foreach (var key in items.Where(x => at - x.Value.LastSeen > MetadataLifetime).Select(x => x.Key).ToArray()) items.Remove(key);
+        foreach (var key in containers.Where(x => at - x.Value.LastSeen > MetadataLifetime).Select(x => x.Key).ToArray()) containers.Remove(key);
+        foreach (var key in sources.Where(x => at - x.Value.LastSeen > MetadataLifetime).Select(x => x.Key).ToArray()) sources.Remove(key);
         foreach (var key in membership.Where(x => x.Value != inventory && !containers.ContainsKey(x.Value))
             .Select(x => x.Key).ToArray()) membership.Remove(key);
-        if (recent.Count > 4096) recent.RemoveRange(0, recent.Count - 4096);
     }
 
     // Only the local inventory proofs used by loot are exposed. Requests, source
@@ -654,7 +682,7 @@ internal sealed class ActivityLootCollector : IDisposable
             localIntroductions.Remove(key);
     }
     public void Reset()
-    { ResetCandidates(); items.Clear(); pendingInventoryMetadata.Clear(); sources.Clear(); containers.Clear(); membership.Clear(); recent.Clear(); inventory = null; nonLootMoveUntil = default; }
+    { ResetCandidates(); items.Clear(); pendingInventoryMetadata.Clear(); sources.Clear(); containers.Clear(); membership.Clear(); recent.Clear(); inventory = null; nonLootMoveUntil = default; lastCacheSweep = default; }
     public void ForgetSession(Guid id) { recent.RemoveAll(x => x.Event.SessionId == id); ResetCandidates(); }
     public void ForgetUnassigned()
     { recent.RemoveAll(x => x.Event.SessionId is null); ResetCandidates(); }

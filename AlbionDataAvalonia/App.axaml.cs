@@ -521,6 +521,7 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton(provider => new PortfolioUploadService(provider.GetRequiredService<DesktopClientCore>().Core));
         collection.AddSingleton<MobsService>();
         collection.AddSingleton(provider => provider.GetRequiredService<DesktopClientCore>().Core.Items);
+        collection.AddSingleton(provider => provider.GetRequiredService<DesktopClientCore>().Core.Achievements);
         collection.AddSingleton<ItemImageService>();
         collection.AddSingleton<ItemEstimatedMarketValueService>();
         collection.AddSingleton<ItemEstimatedMarketValueBackendLoader>();
@@ -529,6 +530,7 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<PartyTrackerService>();
         collection.AddSingleton<PlayerIdentityService>();
         collection.AddSingleton<ActivityPersistence>();
+        collection.AddSingleton<ActivityItemValuationService>();
         collection.AddSingleton<ActivityTrackerService>();
         collection.AddSingleton<LegendaryDefinitionsService>();
         collection.AddSingleton<LegendaryItemTrackerService>();

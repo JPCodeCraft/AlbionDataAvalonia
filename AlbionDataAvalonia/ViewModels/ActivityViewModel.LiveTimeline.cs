@@ -10,20 +10,31 @@ namespace AlbionDataAvalonia.ViewModels;
 
 public partial class ActivityViewModel
 {
-    private const string LiveTimelineReadError = "Could not refresh the live timeline. Recording continues; the view will retry.";
+    private const string LiveTimelineReadError = "Could not update the chart. Retrying…";
     private CancellationTokenSource liveTimelineCancellation = new();
     private bool liveTimelineRefreshing;
     private bool liveTimelineReadFailed;
 
     [ObservableProperty] private ActivityLiveTimelineSnapshot? currentLiveTimeline;
+    [ObservableProperty] private ActivityLiveTimelineSnapshot? historyLiveTimeline;
+    [ObservableProperty] private int liveTimelineMinutes = 5;
+
+    partial void OnLiveTimelineMinutesChanged(int value)
+    {
+        if (value is not (5 or 10 or 15)) { LiveTimelineMinutes = 5; return; }
+        liveTimelineCancellation.Cancel();
+        CurrentLiveTimeline = null;
+        if (isActive && SelectedTabIndex == 0) _ = RefreshLiveTimelineSafelyAsync();
+    }
 
     private async Task RefreshLiveTimelineSafelyAsync()
     {
         if (tracker is null || !isActive || SelectedTabIndex != 0 || liveTimelineRefreshing || isDisposed) return;
-        var sessionId = tracker.CurrentSessionId;
-        var scope = SelectedScope.Value;
+        var key = GetCurrentPeriodKey();
         var categories = VisibleCategories;
-        if (sessionId is null)
+        var windowMinutes = LiveTimelineMinutes;
+        var query = CurrentPeriodQuery(DateTime.UtcNow, true);
+        if (key is null || query is null)
         {
             CurrentLiveTimeline = null;
             return;
@@ -33,10 +44,10 @@ public partial class ActivityViewModel
         var cancellationToken = BeginRead(ref liveTimelineCancellation);
         try
         {
-            var snapshot = await tracker.GetLiveTimelineAsync(sessionId, scope, DateTime.UtcNow, cancellationToken, categories);
+            var snapshot = await tracker.GetLiveTimelineAsync(query, DateTime.UtcNow, cancellationToken, windowMinutes * 60);
             cancellationToken.ThrowIfCancellationRequested();
-            if (isDisposed || SelectedTabIndex != 0 || tracker.CurrentSessionId != sessionId || SelectedScope.Value != scope || VisibleCategories != categories) return;
-            CurrentLiveTimeline = snapshot;
+            if (isDisposed || !isActive || SelectedTabIndex != 0 || GetCurrentPeriodKey() != key || VisibleCategories != categories || LiveTimelineMinutes != windowMinutes) return;
+            CurrentLiveTimeline = snapshot with { ContextKey = $"{snapshot.ContextKey}|{key.Mode}|{key.Hours}|{windowMinutes}" };
             if (liveTimelineReadFailed && ErrorText == LiveTimelineReadError) ErrorText = "";
             liveTimelineReadFailed = false;
         }

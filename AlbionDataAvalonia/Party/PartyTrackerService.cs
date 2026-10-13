@@ -7,9 +7,12 @@ namespace AlbionDataAvalonia.Party;
 
 public sealed class PartyTrackerService
 {
+    private const int MaximumKnownNonPartyPlayers = 2048;
     private readonly object sync = new();
     private readonly Dictionary<Guid, PartyMemberState> partyMembers = new();
     private readonly Dictionary<Guid, PartyMemberState> knownPlayers = new();
+    private readonly LinkedList<Guid> nonPartyRecency = new();
+    private readonly Dictionary<Guid, LinkedListNode<Guid>> nonPartyNodes = new();
 
     private long? localObjectId;
     private Guid? localUserGuid;
@@ -36,14 +39,14 @@ public sealed class PartyTrackerService
             if (localUserGuid is not null && localUserGuid != userGuid)
             {
                 partyMembers.Clear();
-                knownPlayers.Clear();
+                ClearKnownPlayers();
             }
             localObjectId = objectId > 0 ? objectId : null;
             localUserGuid = userGuid is { } guid && guid != Guid.Empty ? guid : null;
             localPlayerName = name?.Trim() ?? string.Empty;
             if (localUserGuid is { } localGuid)
             {
-                knownPlayers[localGuid] = new PartyMemberState(localObjectId, localPlayerName);
+                RememberKnownPlayer(localGuid, new PartyMemberState(localObjectId, localPlayerName));
             }
 
             snapshot = BuildSnapshot();
@@ -61,12 +64,13 @@ public sealed class PartyTrackerService
             if (clearRoster)
             {
                 partyMembers.Clear();
-                knownPlayers.Clear();
+                ClearKnownPlayers();
             }
             else
             {
                 foreach (var id in knownPlayers.Keys.ToArray())
-                    knownPlayers[id] = knownPlayers[id] with { ObjectId = null };
+                    if (id != localUserGuid && !partyMembers.ContainsKey(id)) ForgetKnownPlayer(id);
+                    else knownPlayers[id] = knownPlayers[id] with { ObjectId = null };
                 foreach (var id in partyMembers.Keys.ToArray())
                     partyMembers[id] = partyMembers[id] with { ObjectId = null };
             }
@@ -90,8 +94,9 @@ public sealed class PartyTrackerService
 
                 var state = GetKnownPlayerState(guid) with { Name = name.Trim() };
                 partyMembers[guid] = state;
-                knownPlayers[guid] = state;
+                RememberKnownPlayer(guid, state);
             }
+            ReconcileKnownPlayers();
 
             snapshot = BuildSnapshot();
         }
@@ -111,7 +116,7 @@ public sealed class PartyTrackerService
         {
             var state = GetKnownPlayerState(userGuid) with { Name = name.Trim() };
             partyMembers[userGuid] = state;
-            knownPlayers[userGuid] = state;
+            RememberKnownPlayer(userGuid, state);
             snapshot = BuildSnapshot();
         }
 
@@ -134,6 +139,7 @@ public sealed class PartyTrackerService
             }
 
             partyMembers[userGuid] = GetKnownPlayerState(userGuid);
+            RememberKnownPlayer(userGuid, partyMembers[userGuid]);
             snapshot = BuildSnapshot();
         }
 
@@ -155,6 +161,7 @@ public sealed class PartyTrackerService
                 }
 
                 partyMembers[userGuid] = GetKnownPlayerState(userGuid);
+                RememberKnownPlayer(userGuid, partyMembers[userGuid]);
                 snapshot = BuildSnapshot();
             }
         }
@@ -191,7 +198,7 @@ public sealed class PartyTrackerService
                     ? knownState.Name
                     : normalizedName
             };
-            knownPlayers[guid] = updatedKnownState;
+            RememberKnownPlayer(guid, updatedKnownState);
 
             if (localUserGuid == guid)
             {
@@ -246,6 +253,7 @@ public sealed class PartyTrackerService
             {
                 partyMembers.Remove(guid);
             }
+            ReconcileKnownPlayers();
 
             snapshot = BuildSnapshot();
         }
@@ -259,6 +267,7 @@ public sealed class PartyTrackerService
         lock (sync)
         {
             partyMembers.Clear();
+            ReconcileKnownPlayers();
             snapshot = BuildSnapshot();
         }
 
@@ -339,6 +348,46 @@ public sealed class PartyTrackerService
         return knownPlayers.TryGetValue(userGuid, out var state)
             ? state
             : new PartyMemberState(null, string.Empty);
+    }
+
+    // The roster and local identity are retained; nearby non-party names are a
+    // bounded lookup cache, not an application-long history of players seen.
+    private void RememberKnownPlayer(Guid guid, PartyMemberState state)
+    {
+        knownPlayers[guid] = state;
+        if (nonPartyNodes.Remove(guid, out var existing)) nonPartyRecency.Remove(existing);
+        if (guid == localUserGuid || partyMembers.ContainsKey(guid)) return;
+        nonPartyNodes[guid] = nonPartyRecency.AddLast(guid);
+        while (nonPartyRecency.Count > MaximumKnownNonPartyPlayers)
+            ForgetKnownPlayer(nonPartyRecency.First!.Value);
+    }
+
+    private void ReconcileKnownPlayers()
+    {
+        foreach (var guid in knownPlayers.Keys.ToArray())
+        {
+            if (guid == localUserGuid || partyMembers.ContainsKey(guid))
+            {
+                if (nonPartyNodes.Remove(guid, out var node)) nonPartyRecency.Remove(node);
+            }
+            else if (!nonPartyNodes.ContainsKey(guid))
+                nonPartyNodes[guid] = nonPartyRecency.AddLast(guid);
+        }
+        while (nonPartyRecency.Count > MaximumKnownNonPartyPlayers)
+            ForgetKnownPlayer(nonPartyRecency.First!.Value);
+    }
+
+    private void ForgetKnownPlayer(Guid guid)
+    {
+        knownPlayers.Remove(guid);
+        if (nonPartyNodes.Remove(guid, out var node)) nonPartyRecency.Remove(node);
+    }
+
+    private void ClearKnownPlayers()
+    {
+        knownPlayers.Clear();
+        nonPartyRecency.Clear();
+        nonPartyNodes.Clear();
     }
 
     private sealed record PartyMemberState(long? ObjectId, string Name);

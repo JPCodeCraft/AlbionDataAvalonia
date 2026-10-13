@@ -2,9 +2,13 @@ using AlbionDataAvalonia.ViewModels;
 using AlbionDataAvalonia.Network.Services;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Data.Converters;
+using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Platform.Storage;
+using Avalonia.VisualTree;
 using Serilog;
 using System;
 using System.Threading.Tasks;
@@ -13,6 +17,10 @@ namespace AlbionDataAvalonia.Views;
 
 public partial class ActivityView : UserControl
 {
+    // DataGrid caps its initial rows when measured with unlimited height.
+    public static readonly FuncValueConverter<int, double> HistoryTableHeightConverter = new(count => 52 + Math.Max(0, count) * 32d);
+    public static readonly FuncValueConverter<int, double> HistoryLootTableHeightConverter = new(count => 52 + Math.Max(0, count) * 56d);
+
     private ActivityViewModel? activeViewModel;
     private bool isAttached;
     private bool choosingLootExport;
@@ -20,12 +28,25 @@ public partial class ActivityView : UserControl
     public ActivityView()
     {
         InitializeComponent();
+        HistorySessionDetailScroll.AddHandler(PointerWheelChangedEvent, HistoryTable_PointerWheelChanged, RoutingStrategies.Tunnel);
         AttachedToVisualTree += (_, _) => { isAttached = true; SynchronizeViewModel(); };
         DetachedFromVisualTree += (_, _) => { isAttached = false; activeViewModel?.SetActive(false); };
         DataContextChanged += (_, _) => SynchronizeViewModel();
     }
 
     public ActivityView(ActivityViewModel viewModel) : this() => DataContext = viewModel;
+
+    private void HistoryTable_PointerWheelChanged(object? sender, PointerWheelEventArgs args)
+    {
+        if (sender is not ScrollViewer scroll || args.Delta.Y == 0 || args.KeyModifiers.HasFlag(KeyModifiers.Shift)
+            || args.Source is not Visual source
+            || (source as DataGrid ?? source.FindAncestorOfType<DataGrid>()) is not { VerticalScrollBarVisibility: ScrollBarVisibility.Disabled }) return;
+
+        // DataGrid consumes wheel input even when it cannot scroll vertically.
+        var offset = Math.Clamp(scroll.Offset.Y - args.Delta.Y * 50, 0, Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height));
+        scroll.Offset = new Vector(scroll.Offset.X, offset);
+        args.Handled = true;
+    }
 
     private void SynchronizeViewModel()
     {
@@ -54,14 +75,14 @@ public partial class ActivityView : UserControl
             var viewer = format == LootExportFormat.LootLoggerViewer;
             var file = await owner.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
             {
-                Title = viewer ? "Export Loot Logs for Loot Logger Viewer" : "Export Loot Logs for AFM Loot Logger",
+                Title = viewer ? "Export loot for Loot Logger Viewer" : "Export loot for AFM Loot Logger",
                 SuggestedFileName = viewer ? $"loot-events-{DateTime.Now:yyyy-MM-dd-HH-mm-ss}.txt" : $"afm-loot-log-{DateTime.Now:yyyyMMdd_HHmmss}.csv",
                 FileTypeChoices = [new FilePickerFileType(viewer ? "Loot Logger Files" : "CSV Files") { Patterns = [viewer ? "*.txt" : "*.csv"] }]
             });
             if (file is null) return;
             if (!viewModel.CanStartLootExport)
             {
-                viewModel.LootExportStatusText = "Loot export canceled.";
+                viewModel.LootExportStatusText = "Export canceled.";
                 return;
             }
             await using var stream = await file.OpenWriteAsync();
@@ -70,7 +91,7 @@ public partial class ActivityView : UserControl
         catch (Exception error)
         {
             Log.Error(error, "Could not open the session loot export file.");
-            viewModel.LootExportStatusText = "Loot export failed. The selected file may be incomplete.";
+            viewModel.LootExportStatusText = "Export failed. The file may be incomplete.";
         }
         finally { choosingLootExport = false; }
     }
@@ -79,7 +100,7 @@ public partial class ActivityView : UserControl
     {
         if (DataContext is not ActivityViewModel viewModel || !viewModel.HasCurrentSession || TopLevel.GetTopLevel(this) is not Window owner) return;
         var id = viewModel.CurrentSessionId;
-        if (await ConfirmAsync(owner, "Finish session?", "Your recorded activity is retained. Further activity will start a new session.", "Finish session")
+        if (await ConfirmAsync(owner, "Finish session?", "New activity will start a new session. This session stays in History.", "Finish session")
             && viewModel.CurrentSessionId == id)
             viewModel.FinishCurrentSession(id);
     }
@@ -88,7 +109,7 @@ public partial class ActivityView : UserControl
     {
         if (DataContext is not ActivityViewModel viewModel || !viewModel.CanDeleteSelectedSession || TopLevel.GetTopLevel(this) is not Window owner) return;
         var id = viewModel.SelectedSession?.Id;
-        if (await ConfirmAsync(owner, "Delete session?", $"Permanently delete “{viewModel.SelectedSession?.Title}” and all its encounters and recorded events?", "Delete session")
+        if (await ConfirmAsync(owner, "Delete session?", $"Delete “{viewModel.SelectedSession?.Title}” and all activity in it? This cannot be undone.", "Delete session")
             && viewModel.SelectedSession?.Id == id)
             await viewModel.DeleteSelectedSessionAsync();
     }
@@ -96,8 +117,24 @@ public partial class ActivityView : UserControl
     private async void DeleteUnassignedLoot_Click(object? sender, RoutedEventArgs args)
     {
         if (DataContext is not ActivityViewModel viewModel || TopLevel.GetTopLevel(this) is not Window owner) return;
-        if (await ConfirmAsync(owner, "Delete unassigned loot?", "Permanently delete all pickups that do not belong to a session, across every character and server? Session loot is retained. This applies to all unassigned pickups, regardless of the displayed filters.", "Delete unassigned loot"))
+        if (await ConfirmAsync(owner, "Delete loot outside sessions?", "Permanently delete pickups outside sessions for all characters and servers? This ignores the current filters. Session loot is kept.", "Delete loot"))
             await viewModel.DeleteUnassignedLootAsync();
+    }
+
+    private async void CleanupActivity_Click(object? sender, RoutedEventArgs args)
+    {
+        if (DataContext is not ActivityViewModel viewModel || !viewModel.CanApplyCleanup ||
+            viewModel.CleanupPreview is not { } preview || TopLevel.GetTopLevel(this) is not Window owner) return;
+        try
+        {
+            if (await ConfirmAsync(owner, "Delete activity?", ActivityViewModel.CleanupConfirmationText(preview), "Delete data"))
+                await viewModel.ApplyCleanupAsync(preview);
+        }
+        catch (Exception error)
+        {
+            Log.Warning(error, "Could not clean up activity.");
+            viewModel.CleanupStatusText = "Cleanup failed. Refresh and try again.";
+        }
     }
 
     private static Task<bool> ConfirmAsync(Window owner, string title, string message, string action)

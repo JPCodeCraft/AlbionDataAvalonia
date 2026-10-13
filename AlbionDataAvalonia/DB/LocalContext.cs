@@ -6,6 +6,8 @@ using AlbionDataAvalonia.Legendary.Models;
 using AlbionDataAvalonia.Network.Models;
 using Microsoft.Data.Sqlite;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
+using System;
 using System.IO;
 
 namespace AlbionDataAvalonia.DB
@@ -62,6 +64,19 @@ namespace AlbionDataAvalonia.DB
                 entity.HasIndex(x => new { x.Kind, x.Server, x.ItemId, x.Quality, x.EstimatedUnitValue });
                 entity.HasIndex(x => new { x.SourceActorId, x.TargetActorId, x.SessionId, x.Kind });
             });
+
+            // SQLite preserves the UTC ticks but drops DateTime.Kind. Restore it on reads
+            // so historical chart ranges and event times are not shifted a second time.
+            var utcDateTime = new ValueConverter<DateTime, DateTime>(
+                value => value, value => DateTime.SpecifyKind(value, DateTimeKind.Utc));
+            foreach (var activityType in new[] { typeof(ActivitySession), typeof(ActivityEncounter), typeof(ActivityEvent) })
+            {
+                foreach (var property in modelBuilder.Entity(activityType).Metadata.GetProperties())
+                {
+                    if (property.ClrType == typeof(DateTime) || property.ClrType == typeof(DateTime?))
+                        property.SetValueConverter(utcDateTime);
+                }
+            }
         }
 
         protected override void OnConfiguring(DbContextOptionsBuilder optionsBuilder)

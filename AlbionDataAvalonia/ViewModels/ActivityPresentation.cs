@@ -34,36 +34,70 @@ public sealed class ActivitySummaryPresentation
     public string HealingDone => Summary.IsLegacyAggregate ? "Unavailable" : ActivityDisplay.Number(Summary.HealingDone);
     public string HealingReceived => Summary.IsLegacyAggregate ? "Unavailable" : ActivityDisplay.Number(Summary.HealingReceived);
     public string Fame => Summary.IsLegacyAggregate ? "Unavailable" : ActivityDisplay.Number(Summary.Fame);
-    public string Silver => Summary.IsLegacyAggregate ? "Unavailable" : Summary.Silver.ToString("N2", CultureInfo.CurrentCulture);
+    public string CombatFame => Summary.IsLegacyAggregate ? "Unavailable" : ActivityDisplay.Number(Summary.CombatFame);
+    public string GatheringFame => Summary.IsLegacyAggregate ? "Unavailable" : ActivityDisplay.Number(Summary.GatheringFame + Summary.FishingFame);
+    public string UnknownFame => ActivityDisplay.Number(Summary.UnclassifiedFame);
+    public bool HasUnknownFame => Summary.UnclassifiedFame > 0 && !Summary.IsLegacyAggregate;
+    public bool HasPvpFame => Summary.PvpFame > 0;
+    public string TotalSilver => ActivityDisplay.Number(Summary.Silver + Summary.LootValue + Summary.ResourceValue);
+    public string TotalSilverPerHour => ActivityDisplay.Number(Rates.SilverPerHour + Rates.LootValuePerHour + Rates.ResourceValuePerHour);
+    public string TotalSilverDetailsText => (IsImported
+        ? "Imported gathering and fishing value; silver pickups and loot were not recorded."
+        : "Silver picked up + estimated loot, gathering and fishing value.")
+        + (HasMissingItemPrices || HasUnknownSilver ? "\nItems without prices and silver pickups with unknown amounts are excluded." : "");
+    public string Silver => Summary.IsLegacyAggregate ? "Unavailable" : ActivityDisplay.Number(Summary.Silver);
     public string LootValue => Summary.LootValue == 0 && Summary.MissingLootPriceCount > 0 ? "Unavailable" : ActivityDisplay.Number(Summary.LootValue);
     public string LootItemsText => $"{Summary.LootItems:N0} items picked up";
     public string MobKills => Summary.IsLegacyAggregate ? "Unavailable" : ActivityDisplay.Number(Summary.MobKills);
     public string DamageRate => Summary.IsLegacyAggregate ? "Not recorded" : $"{Rates.DamagePerSecond:N1} DPS";
-    public string DamageReceivedRate => Summary.IsLegacyAggregate ? "Not recorded" : $"{Rates.DamageReceivedPerSecond:N1} / combat second";
+    public string DamageReceivedRate => Summary.IsLegacyAggregate ? "Not recorded" : $"{Rates.DamageReceivedPerSecond:N1} DPS";
     public string HealingRate => Summary.IsLegacyAggregate ? "Not recorded" : $"{Rates.HealingPerSecond:N1} HPS";
-    public string HealingReceivedRate => Summary.IsLegacyAggregate ? "Not recorded" : $"{Rates.HealingReceivedPerSecond:N1} / combat second";
+    public string HealingReceivedRate => Summary.IsLegacyAggregate ? "Not recorded" : $"{Rates.HealingReceivedPerSecond:N1} HPS";
     public string FameRate => Summary.IsLegacyAggregate ? "Not recorded" : $"{Rates.FamePerHour:N0} / hour";
+    public string CombatFameRate => FameRateText(Summary.CombatFame);
+    public string GatheringFameRate => FameRateText(Summary.GatheringFame + Summary.FishingFame);
+    public string CombatFameDetailsText => HasPvpFame ? $"PvE {ActivityDisplay.Number(Summary.PveFame)} · PvP {ActivityDisplay.Number(Summary.PvpFame)}" : "Your combat fame";
+    public string GatheringFameDetailsText => Summary.FishingFame > 0 ? $"Gathering {ActivityDisplay.Number(Summary.GatheringFame)} · Fishing {ActivityDisplay.Number(Summary.FishingFame)}" : "Your gathering fame";
+    public string CombatFameFooterText => (IsSessionAverage ? CombatFameRate : "")
+        + (HasPvpFame ? $"{(IsSessionAverage ? " · " : "")}PvP {ActivityDisplay.Number(Summary.PvpFame)}" : "");
+    public string UnknownFameText => $"Unknown fame {UnknownFame}";
     public string SilverRate => Summary.IsLegacyAggregate ? "Not recorded" : $"{Rates.SilverPerHour:N0} / hour";
     public string LootValueRate => ValueRateText(Summary.LootValue, Summary.MissingPriceItems, Rates.LootValuePerHour);
     public bool HasUnknownSilver => Summary.UnknownSilverCount > 0;
     public bool HasMissingLootPrices => Summary.MissingLootPriceCount > 0;
-    public string UnknownSilver => $"{Summary.UnknownSilverCount:N0} unknown net amounts";
+    public string UnknownSilver => $"{Summary.UnknownSilverCount:N0} pickups with an unknown amount";
+    public string SilverFooterText => (IsSessionAverage ? SilverRate : "")
+        + (HasUnknownSilver ? $"{(IsSessionAverage ? " · " : "")}{Summary.UnknownSilverCount:N0} unknown" : "");
+    public string SilverDetailsText => "Silver received after taxes and penalties"
+        + (HasUnknownSilver ? $"\n{UnknownSilver}" : "");
     public string MissingLootPrices => $"{Summary.MissingLootPriceCount:N0} items without prices";
-    public string PlayerOutcomes => Summary.IsLegacyAggregate ? "Combat outcomes not recorded" : $"{Summary.PlayerKills:N0} player kills · {Summary.Deaths:N0} deaths · {Summary.Knockdowns:N0} knockdowns";
+    public string PlayerOutcomes => Summary.IsLegacyAggregate ? "" : string.Join(" · ", new[]
+    {
+        Summary.PlayerKills > 0 ? $"{Summary.PlayerKills:N0} player kills" : null,
+        Summary.Deaths > 0 ? $"{Summary.Deaths:N0} deaths" : null,
+        Summary.Knockdowns > 0 ? $"{Summary.Knockdowns:N0} knockdowns" : null
+    }.Where(value => value is not null));
     public bool HasResources => Summary.ResourceItems > 0;
-    public string ItemsValue => Summary.LootValue + Summary.ResourceValue == 0 && HasMissingItemPrices ? "Unavailable" : ActivityDisplay.Number(Summary.LootValue + Summary.ResourceValue);
+    public string ItemsValue => LootValue;
     public bool HasMissingItemPrices => Summary.MissingPriceItems + Summary.MissingResourcePriceItems > 0;
     public string MissingItemPrices => $"{Summary.MissingPriceItems + Summary.MissingResourcePriceItems:N0} items without prices";
     public string ResourceItemsText => $"{Summary.ResourceItems:N0} items gathered";
-    public string ResourceBreakdownText => $"Harvested {Summary.GatheringItems:N0} · Fishing {Summary.FishingItems:N0}" + (Summary.UnclassifiedResourceItems > 0 ? $" · Mixed/unknown {Summary.UnclassifiedResourceItems:N0}" : "");
+    public string ResourceQuantityText => ActivityDisplay.Number(Summary.ResourceItems);
+    public string ResourceBreakdownText => $"Gathering {Summary.GatheringItems:N0} · Fishing {Summary.FishingItems:N0}" + (Summary.UnclassifiedResourceItems > 0 ? $" · Other {Summary.UnclassifiedResourceItems:N0}" : "");
     public string ResourceValueText => Summary.ResourceValue == 0 && Summary.MissingResourcePriceItems > 0 ? "Unavailable" : ActivityDisplay.Number(Summary.ResourceValue);
     public string ResourceRateText => $"{Rates.ResourceItemsPerHour:N0} items / hour · {ValueRateText(Summary.ResourceValue, Summary.MissingResourcePriceItems, Rates.ResourceValuePerHour)}";
     public string ItemsValueRate => ValueRateText(Summary.LootValue + Summary.ResourceValue, Summary.MissingPriceItems + Summary.MissingResourcePriceItems, Rates.LootValuePerHour + Rates.ResourceValuePerHour);
     public string ItemsCountText => $"{Summary.LootItems + Summary.ResourceItems:N0} items acquired";
-    public string ItemsBreakdownText => Summary.IsLegacyAggregate ? "Imported gathering estimates" : $"Loot {LootValue} · Gathering {ResourceValueText}";
-    public string ItemsEstimateText => HasMissingItemPrices ? "Known item estimate" : "Estimated item value";
+    public string ItemsBreakdownText => Summary.IsLegacyAggregate ? "Imported gathering" : $"Loot {LootValue} · Gathering {ResourceValueText}";
+    public string ItemsEstimateText => "Loot value";
+    public string ItemsFooterText => $"{Summary.LootItems:N0} items"
+        + (IsSessionAverage && (Summary.LootValue > 0 || !HasMissingLootPrices) ? $" · {Rates.LootValuePerHour:N0} / h" : "")
+        + (HasMissingLootPrices ? " *" : "");
+    public string ItemsDetailsText => "Estimated value of loot only" + (HasMissingLootPrices ? $"\n{MissingLootPrices}" : "");
+    public string ResourceValueDetailsText => ResourceRateText + (Summary.MissingResourcePriceItems > 0 ? $"\n{Summary.MissingResourcePriceItems:N0} items without prices" : "");
     private static string ValueRateText(long knownValue, long missingItems, double rate) => missingItems > 0 && knownValue == 0
-        ? "Estimated value / hour unavailable" : $"{rate:N0} {(missingItems > 0 ? "known estimate" : "estimated silver")} / hour";
+        ? "Value / hour unavailable" : $"{rate:N0} estimated silver / hour";
+    private string FameRateText(double amount) => Summary.IsLegacyAggregate ? "Not recorded" : $"{ActivityProjection.GetFameRate(amount, Rates):N0} / hour";
 
 }
 
@@ -77,14 +111,17 @@ public sealed class ActivitySessionRow : ObservableObject
 
     public void Update(ActivitySession source, ActivityScope scope)
     {
+        if (summary is not null && Source == source && this.scope == scope) return;
         Source = source;
         this.scope = scope;
-        var summary = ActivityProjection.GetSummary(source, scope);
+        summary = ActivityProjection.GetSummary(source, scope);
         FameText = ActivityDisplay.Number(summary.Fame);
-        SilverText = summary.Silver.ToString("N2", CultureInfo.CurrentCulture);
+        SilverText = ActivityDisplay.Number(summary.Silver);
         LootValueText = ActivityDisplay.Number(summary.LootValue);
         OnPropertyChanged(string.Empty);
     }
+
+    public void RefreshDuration() => OnPropertyChanged(nameof(DurationText));
 
     public ActivitySession Source { get; private set; }
     public Guid Id => Source.Id;
@@ -97,20 +134,21 @@ public sealed class ActivitySessionRow : ObservableObject
     public string SilverText { get; private set; } = "0";
     public string LootValueText { get; private set; } = "0";
     public string MetadataText => $"{StartedText} · {Character} · {Server}";
-    public string TagsText => ActivityDisplay.Tags(ActivityProjection.GetSummary(Source, scope).Tags);
+    public string TagsText => ActivityDisplay.Tags(summary?.Tags ?? ActivityTags.None);
     private ActivityScope scope;
-    public bool IsImported => ActivityProjection.GetSummary(Source, scope).IsLegacyAggregate;
+    private ActivitySummary? summary;
+    public bool IsImported => summary?.IsLegacyAggregate == true;
     public string EarningsText
     {
         get
         {
-            var summary = ActivityProjection.GetSummary(Source, scope);
-            var amounts = new ActivitySummaryPresentation(summary, ActivityProjection.GetRates(summary, 0));
-            return IsImported ? $"Imported summary · {summary.ResourceItems:N0} items · value {amounts.ResourceValueText}"
-                : $"Fame {FameText} · silver {SilverText} · {amounts.ItemsEstimateText.ToLowerInvariant()} {amounts.ItemsValue}";
+            var value = summary ?? new ActivitySummary();
+            var amounts = new ActivitySummaryPresentation(value, ActivityProjection.GetRates(value, 0));
+            return IsImported ? $"{value.ResourceItems:N0} items · estimated value {amounts.ResourceValueText}"
+                : $"Fame {FameText} · silver {SilverText} · item value {amounts.ItemsValue}{(amounts.HasMissingItemPrices ? " *" : "")}";
         }
     }
-    public string StateText => $"{(Source.IsPartial ? "Partial · " : "")}{ActivityDisplay.State(Source.State, Source.EndReason)}{(Source.HasInferredGrouping ? " · inferred grouping" : "")}";
+    public string StateText => $"{ActivityDisplay.State(Source.State, Source.EndReason)}{(Source.IsPartial && Source.State != ActivityState.Interrupted ? " · incomplete" : "")}{(IsImported ? " · imported" : "")}";
 }
 
 public sealed class ActivityEncounterRow : ObservableObject
@@ -123,7 +161,10 @@ public sealed class ActivityEncounterRow : ObservableObject
 
     public void Update(ActivityEncounter source, ActivityScope scope)
     {
+        if (hasSummary && Source == source && this.scope == scope) return;
         Source = source;
+        this.scope = scope;
+        hasSummary = true;
         var summary = ActivityProjection.GetSummary(source, scope);
         var rates = ActivityProjection.GetRates(summary, source);
         DamageText = ActivityDisplay.Number(summary.DamageDealt);
@@ -132,6 +173,9 @@ public sealed class ActivityEncounterRow : ObservableObject
         HealingRateText = rates.HealingPerSecond.ToString("N1", CultureInfo.CurrentCulture);
         OnPropertyChanged(string.Empty);
     }
+
+    private ActivityScope scope;
+    private bool hasSummary;
 
     public ActivityEncounter Source { get; private set; }
     public Guid Id => Source.Id;
@@ -151,7 +195,7 @@ public sealed class ActivityPlayerRow(ActivityActorTotal source)
 {
     public ActivityActorTotal Source { get; } = source;
     public string ActorId => Source.ActorId;
-    public string Name => Source.Name;
+    public string Name => ActivityDisplay.ActorName(Source.Name);
     public string Relationship => ActivityDisplay.Relationship(Source.Relationship);
     public string DamageDealt => ActivityDisplay.Number(Source.DamageDealt);
     public string DamageReceived => ActivityDisplay.Number(Source.DamageReceived);
@@ -161,7 +205,7 @@ public sealed class ActivityPlayerRow(ActivityActorTotal source)
 
 public sealed class ActivityMobRow(ActivityMobTotal source)
 {
-    public string Name => source.Name;
+    public string Name => ActivityDisplay.MobName(source.Name);
     public string Count => ActivityDisplay.Number(source.Kills);
     public string InferredCount => ActivityDisplay.Number(source.InferredKills);
 }
@@ -173,12 +217,12 @@ public sealed class ActivityLootRow(ActivityEvent source)
     public bool IsImported => source.Kind == ActivityEventKind.LegacyGatheringAggregate;
     public string TimeText => IsImported ? "Session total" : ActivityDisplay.LocalTime(source.CapturedAtUtc);
     public string DateTimeText => ActivityDisplay.LocalDate(source.CapturedAtUtc) + (IsImported ? " · session total" : "");
-    public string Recipient => string.IsNullOrWhiteSpace(source.SourceName) ? "Unknown" : source.SourceName;
+    public string Recipient => ActivityDisplay.ActorName(source.SourceName, source.SourceKind);
     public string Guild => source.SourceGuild;
     public string Alliance => source.SourceAlliance;
     public string Relationship => ActivityDisplay.Relationship(source.SourceRelationship);
     public string ItemUniqueName => source.ItemUniqueName ?? "";
-    public string ItemName => string.IsNullOrWhiteSpace(source.ItemName) ? source.ItemUniqueName ?? "Unknown item" : source.ItemName;
+    public string ItemName => ActivityDisplay.ItemName(source.ItemName);
     public int ImageQuality => source.Quality ?? 1;
     public string Quality => ItemQuality.Format(source.Quality);
     public string AmountText => source.Quantity > 0 ? ActivityDisplay.Number(source.Quantity) : source.Evidence == ActivityEvidence.Supplemental ? "Pending" : "Unknown";
@@ -187,15 +231,18 @@ public sealed class ActivityLootRow(ActivityEvent source)
     public string Source => source.Kind switch
     {
         ActivityEventKind.Gathered => "Gathering",
-        ActivityEventKind.FishingReward => "Fishing reward",
-        ActivityEventKind.LegacyGatheringAggregate => string.IsNullOrWhiteSpace(source.LootSourceKind) ? "Imported gathering" : source.LootSourceKind,
-        _ => string.IsNullOrWhiteSpace(source.LootSourceName) ? source.LootSourceKind : source.LootSourceName
+        ActivityEventKind.FishingReward => "Fishing",
+        ActivityEventKind.LegacyGatheringAggregate => "Gathering",
+        _ => ActivityDisplay.LootSource(source.LootSourceName, source.LootSourceKind)
     };
     public string Location => string.IsNullOrWhiteSpace(source.LocationName) ? "Unavailable" : source.LocationName;
     public string Evidence => IsImported ? "Imported summary" : source.Evidence == ActivityEvidence.Supplemental ? "Pending" : source.Evidence.ToString();
-    public string ItemDetails => $"{ItemName}\n{Quality} quality\nUnit estimate: {UnitValueText} silver";
+    public string ItemDetails => $"{ItemName} · {Quality}\n" + (source.EstimatedUnitValue is null
+        ? "Price unavailable" : $"Estimated value each: {UnitValueText} silver")
+        + (source.EstimatedUnitValue is not null && source.Quality is null ? "\nNormal-quality estimate" : "")
+        + (source.Evidence != ActivityEvidence.Confirmed ? "\nNot included in totals" : "");
     public string RecipientDetails => $"{Recipient} · {Relationship}{(string.IsNullOrWhiteSpace(Guild) ? "" : $"\nGuild: {Guild}")}{(string.IsNullOrWhiteSpace(Alliance) ? "" : $"\nAlliance: {Alliance}")}";
-    public string ContextDetails => $"{Location}\n{(source.SessionId is null ? "Outside a recorded session" : "Session items")}";
+    public string ContextDetails => Location;
 }
 
 public sealed class ActivityEventRow(ActivityEvent source)
@@ -206,28 +253,33 @@ public sealed class ActivityEventRow(ActivityEvent source)
     public string Kind => source.Kind switch
     {
         ActivityEventKind.MobKilled => "Mob killed",
+        ActivityEventKind.Fame => ActivityDisplay.FameKind(ActivityClassification.GetFameCategory(source)),
         ActivityEventKind.PlayerKilled => "Player killed",
-        ActivityEventKind.CaptureGap => "Capture gap",
-        ActivityEventKind.OutcomeEvidence => "Outcome evidence",
+        ActivityEventKind.CaptureGap => "Recording paused",
+        ActivityEventKind.OutcomeEvidence => "Other activity",
         ActivityEventKind.Gathered => "Gathered",
-        ActivityEventKind.FishingReward => "Fishing reward",
+        ActivityEventKind.FishingReward => "Fishing",
         ActivityEventKind.LegacyGatheringAggregate => "Imported gathering total",
+        ActivityEventKind.Silver => "Silver picked up",
+        ActivityEventKind.Loot => "Loot picked up",
+        ActivityEventKind.Knockdown => "Knocked down",
+        ActivityEventKind.Location => "Location changed",
+        ActivityEventKind.LegacyImportMarker => "Imported gathering",
         _ => source.Kind.ToString()
     };
-    public string Source => source.SourceName;
-    public string Target => source.TargetName;
+    public string Source => string.IsNullOrWhiteSpace(source.SourceName) && source.Kind is not (ActivityEventKind.Damage or ActivityEventKind.Healing or ActivityEventKind.PlayerKilled or ActivityEventKind.Death or ActivityEventKind.Knockdown)
+        ? "" : ActivityDisplay.ActorName(source.SourceName, source.SourceKind);
+    public string Target => source.Kind is ActivityEventKind.Damage or ActivityEventKind.Healing or ActivityEventKind.MobKilled or ActivityEventKind.PlayerKilled or ActivityEventKind.Death or ActivityEventKind.Knockdown
+        ? ActivityDisplay.ActorName(source.TargetName, source.TargetKind) : "";
     public string Location => source.LocationName;
     public string Evidence => source.Evidence == ActivityEvidence.Supplemental ? source.Kind == ActivityEventKind.Loot ? "Pending" : "Unverified" : source.Evidence.ToString();
     public string Description => source.Kind switch
     {
-        ActivityEventKind.Fame when source.Evidence == ActivityEvidence.Supplemental => "Award unknown",
+        ActivityEventKind.Fame when source.Evidence == ActivityEvidence.Supplemental => "Amount unknown",
         ActivityEventKind.Damage or ActivityEventKind.Healing or ActivityEventKind.Fame => ActivityDisplay.Number(source.Amount),
-        ActivityEventKind.Silver => source.HasKnownNetSilver ? $"{source.SilverRaw / 10000d:N2} silver" : "Net amount unknown",
-        ActivityEventKind.Loot or ActivityEventKind.Gathered or ActivityEventKind.FishingReward or ActivityEventKind.LegacyGatheringAggregate => source.Quantity > 0 ? $"{source.Quantity:N0} × {source.ItemName}" : $"Quantity unknown · {source.ItemName}",
-        ActivityEventKind.MobKilled => string.IsNullOrWhiteSpace(source.TargetName) ? source.MobUniqueName ?? $"Mob {source.MobIndex}" : source.TargetName,
-        ActivityEventKind.CaptureGap => "Recording interrupted",
-        ActivityEventKind.Location => source.LocationName,
-        _ => $"{ActivityDisplay.Relationship(source.SourceRelationship)} → {ActivityDisplay.Relationship(source.TargetRelationship)}"
+        ActivityEventKind.Silver => source.HasKnownNetSilver ? $"{source.SilverRaw / 10000d:N0} silver" : "Amount unknown",
+        ActivityEventKind.Loot or ActivityEventKind.Gathered or ActivityEventKind.FishingReward or ActivityEventKind.LegacyGatheringAggregate => source.Quantity > 0 ? $"{source.Quantity:N0} × {ActivityDisplay.ItemName(source.ItemName)}" : $"Quantity unknown · {ActivityDisplay.ItemName(source.ItemName)}",
+        _ => ""
     };
 }
 
@@ -236,6 +288,14 @@ internal static class ActivityDisplay
     public static string Server(string value) => string.IsNullOrWhiteSpace(value) ? "Unknown server" : int.TryParse(value, out var id) ? AlbionServers.Get(id)?.Name ?? value : value;
     public static string EncounterKind(ActivityEncounterKind value) => value switch
     { ActivityEncounterKind.Pve => "PvE", ActivityEncounterKind.Pvp => "PvP", _ => value.ToString() };
+    public static string FameKind(ActivityFameCategory value) => value switch
+    {
+        ActivityFameCategory.Pve => "Combat fame",
+        ActivityFameCategory.Pvp => "PvP fame",
+        ActivityFameCategory.Gathering => "Gathering fame",
+        ActivityFameCategory.Fishing => "Fishing fame",
+        _ => "Fame"
+    };
     public static string SessionTitle(ActivitySession value)
     {
         if (ActivityProjection.GetSummary(value, ActivityScope.Personal).IsLegacyAggregate) return string.IsNullOrWhiteSpace(value.Title) ? "Gathering · Imported summary" : value.Title;
@@ -246,6 +306,8 @@ internal static class ActivityDisplay
     }
     public static string SessionKind(ActivitySessionKind value) => value switch
     {
+        ActivitySessionKind.Roaming => "Open world",
+        ActivitySessionKind.Corrupted => "Corrupted dungeon",
         ActivitySessionKind.MistsDungeon => "Mists dungeon",
         ActivitySessionKind.AbyssalDepths => "Abyssal Depths",
         ActivitySessionKind.DragonArea => "Dragon area",
@@ -259,6 +321,27 @@ internal static class ActivityDisplay
         tags.HasFlag(ActivityTags.Pvp) ? "PvP" : null
     }.Where(value => value is not null));
     public static string Number(double value) => value.ToString("N0", CultureInfo.CurrentCulture);
+    public static string ItemName(string? value) => string.IsNullOrWhiteSpace(value) || value == "Unset" || value.StartsWith('@') || value.Contains('_') ? "Unknown item" : value;
+    public static string ActorName(string? value, ActivityActorKind kind = ActivityActorKind.Unknown)
+        => kind == ActivityActorKind.Mob ? MobName(value) : string.IsNullOrWhiteSpace(value) || Guid.TryParse(value, out _) ? "Unknown" : value;
+    public static string MobName(string? value)
+    {
+        if (string.IsNullOrWhiteSpace(value) || value == "Unknown" || value.StartsWith('@') || value.Contains('_')
+            || value.StartsWith("Mob ", StringComparison.Ordinal) && (value[4..] == "?" || int.TryParse(value[4..], out _))) return "Unknown mob";
+        return value;
+    }
+    public static string LootSource(string? name, string? kind)
+    {
+        if (string.Equals(kind, "Player", StringComparison.OrdinalIgnoreCase)) return ActorName(name);
+        if (string.Equals(kind, "Chest", StringComparison.OrdinalIgnoreCase)
+            || name?.Contains("CHEST", StringComparison.OrdinalIgnoreCase) == true
+            || name?.Contains("TREASURE", StringComparison.OrdinalIgnoreCase) == true) return "Chest";
+        if (string.Equals(kind, "Mob", StringComparison.OrdinalIgnoreCase) || name?.StartsWith("@MOB", StringComparison.OrdinalIgnoreCase) == true)
+            return string.IsNullOrWhiteSpace(name) || name.StartsWith('@') || name.Contains('_') ? "Mob" : name;
+        if (string.IsNullOrWhiteSpace(name) || string.Equals(name, "Unknown", StringComparison.OrdinalIgnoreCase))
+            return string.Equals(kind, "Player", StringComparison.OrdinalIgnoreCase) ? "Player" : "Unknown";
+        return name.StartsWith('@') || Guid.TryParse(name, out _) ? "Unknown" : name;
+    }
     public static string LocalDate(DateTime value) => DateTime.SpecifyKind(value, DateTimeKind.Utc).ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
     public static string LocalTime(DateTime value) => DateTime.SpecifyKind(value, DateTimeKind.Utc).ToLocalTime().ToString("T", CultureInfo.CurrentCulture);
     public static string Duration(double seconds)
@@ -274,10 +357,14 @@ internal static class ActivityDisplay
 public sealed class ActivityResourceRow(ActivityResourceTotal source)
 {
     public string ItemUniqueName => source.UniqueName ?? "";
-    public string ItemName => string.IsNullOrWhiteSpace(source.Name) ? source.UniqueName ?? $"Item {source.ItemId}" : source.Name;
+    public string ItemName => ActivityDisplay.ItemName(source.Name);
     public int ImageQuality => source.Quality ?? 1;
-    public string Method => source.Source switch { ActivityResourceMethod.Gathering => "Gathering", ActivityResourceMethod.Fishing => "Fishing", ActivityResourceMethod.Mixed => "Mixed source", _ => "Unknown source" };
+    public string Method => source.Source switch { ActivityResourceMethod.Gathering => "Gathering", ActivityResourceMethod.Fishing => "Fishing", _ => "Gathered resources" };
     public string QuantityText => ActivityDisplay.Number(source.Quantity);
     public string ValueText => source.KnownValue == 0 && source.MissingPriceItems > 0 ? "Unavailable" : ActivityDisplay.Number(source.KnownValue);
+    public bool HasMissingPrices => source.MissingPriceItems > 0;
+    public string ValueLabel => "Total EMV";
     public string MissingPricesText => source.MissingPriceItems > 0 ? $"{source.MissingPriceItems:N0} without prices" : "";
+    public string Details => $"{ItemName} · {ItemQuality.Format(source.Quality)}\n{QuantityText} items · estimated value {ValueText} silver" +
+        (HasMissingPrices ? $"\n{MissingPricesText}" : "");
 }

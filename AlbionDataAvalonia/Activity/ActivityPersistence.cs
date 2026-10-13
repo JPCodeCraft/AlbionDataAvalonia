@@ -63,14 +63,16 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                     {
                         await using var context = contextFactory();
                         return await context.ActivityEvents.AsNoTracking().Where(x => (x.Kind == ActivityEventKind.Loot || x.Kind == ActivityEventKind.Gathered || x.Kind == ActivityEventKind.FishingReward) && !x.IsRetracted &&
-                                x.Server == price.Server && x.ItemId == price.ItemId && x.Quality == price.Quality && x.EstimatedUnitValue == null &&
+                                x.Server == price.Server && x.ItemId == price.ItemId &&
+                                (x.Quality == price.Quality || x.Quality == null && price.Quality == 1) && x.EstimatedUnitValue == null &&
                                 (x.Quantity == 0 || x.Quantity <= long.MaxValue / price.UnitValue))
                             .OrderBy(x => x.CapturedAtUtc).ThenBy(x => x.Id).Take(250).ToArrayAsync(readCancellation);
                     }, cancellationToken).ConfigureAwait(false);
                     if (missing.Length == 0) break;
                     foreach (var observation in missing)
                     {
-                        var patch = new EventCommand(observation with { EstimatedUnitValue = price.UnitValue, PriceObservedAtUtc = price.ObservedAtUtc }, true, true);
+                        var patch = new EventCommand(ActivityItemValuationService.WithPrice(observation, price.UnitValue,
+                            price.ObservedAtUtc, price.Quality), true, true);
                         while (!Enqueue(patch)) await FlushAsync(cancellationToken).ConfigureAwait(false);
                     }
                     // Let normal ingress interleave between bounded historical chunks.
@@ -95,6 +97,7 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
             if (commands.Writer.TryWrite(command))
             {
                 acceptedWrites.Add(command);
+                Interlocked.Increment(ref readVersion);
                 return true;
             }
         }
@@ -147,7 +150,10 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                         if (batch.Count > 0) await PersistAsync(batch, shutdown.Token);
                         if (control is not null) await ExecuteControlAsync(control, shutdown.Token);
                         lock (acceptedSync)
+                        {
                             foreach (var accepted in batch) acceptedWrites.Remove(accepted);
+                            if (batch.Count > 0) Interlocked.Increment(ref readVersion);
+                        }
                         Interlocked.Add(ref pending, -(batch.Count + (control is null ? 0 : 1)));
                         PublishStatus(false, null);
                         control?.Completion.TrySetResult();
@@ -229,6 +235,7 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                     break;
                 case EventCommand mutation:
                     var observation = mutation.Value;
+                    if (deletedEvents.Contains(observation.Id)) break;
                     if (observation.SessionId is { } deleted && deletedSessions.Contains(deleted)) break;
                     Validate(observation);
                     var previous = await context.ActivityEvents.FindAsync([observation.Id], cancellationToken);
@@ -236,13 +243,18 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                     if (!mutation.IsAmendment && previous is not null) break;
                     if (mutation.IsPriceOnly)
                     {
-                        if (previous is null || previous.EstimatedUnitValue is not null || observation.EstimatedUnitValue is null) break;
+                        if (previous is null || previous.IsRetracted || previous.EstimatedUnitValue is not null || observation.EstimatedUnitValue is null ||
+                            previous.Server != observation.Server || previous.ItemId != observation.ItemId ||
+                            previous.ItemUniqueName != observation.ItemUniqueName || previous.Quality != observation.Quality) break;
                         if (previous.Quantity > 0 && observation.EstimatedUnitValue > long.MaxValue / previous.Quantity) break;
-                        observation = previous with { EstimatedUnitValue = observation.EstimatedUnitValue, PriceObservedAtUtc = observation.PriceObservedAtUtc };
+                        observation = ActivityItemValuationService.WithPrice(previous, observation.EstimatedUnitValue.Value,
+                            observation.PriceObservedAtUtc ?? DateTime.UtcNow, previous.Quality ?? 1);
                     }
                     else if (previous is not null && previous.Revision >= observation.Revision) break;
                     if (previous is not null)
                     {
+                        var frozenPrice = previous.EstimatedUnitValue is not null && previous.ItemId == observation.ItemId &&
+                            previous.ItemUniqueName == observation.ItemUniqueName && previous.Quality == observation.Quality;
                         // Correlation completes the original observation; it never adopts a later session/fight.
                         observation = observation with
                         {
@@ -253,11 +265,13 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                             OriginKey = previous.OriginKey,
                             MapEpoch = previous.MapEpoch,
                             CaptureGeneration = previous.CaptureGeneration,
-                            EstimatedUnitValue = previous.EstimatedUnitValue is not null && previous.ItemId == observation.ItemId && previous.ItemUniqueName == observation.ItemUniqueName && previous.Quality == observation.Quality
-                                ? previous.EstimatedUnitValue : observation.EstimatedUnitValue,
-                            PriceObservedAtUtc = previous.EstimatedUnitValue is not null && previous.ItemId == observation.ItemId && previous.ItemUniqueName == observation.ItemUniqueName && previous.Quality == observation.Quality
-                                ? previous.PriceObservedAtUtc : observation.PriceObservedAtUtc
+                            EstimatedUnitValue = frozenPrice ? previous.EstimatedUnitValue : observation.EstimatedUnitValue,
+                            PriceObservedAtUtc = frozenPrice ? previous.PriceObservedAtUtc : observation.PriceObservedAtUtc
                         };
+                        if (frozenPrice)
+                            observation = ActivityItemValuationService.WithPrice(observation, previous.EstimatedUnitValue!.Value,
+                                previous.PriceObservedAtUtc ?? DateTime.UtcNow, previous.Quality ?? 1) with
+                            { PriceObservedAtUtc = previous.PriceObservedAtUtc };
                     }
                     else if (observation.OriginKey is { } origin &&
                         (!origins.Add(origin) || await context.ActivityEvents.AnyAsync(e => e.OriginKey == origin, cancellationToken))) break;
@@ -339,6 +353,7 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
         if (command is FlushCommand) return;
         if (command is ImportLegacyCommand import) { import.Result = await ImportLegacyRunsAsync(cancellationToken); return; }
         if (command is RebuildTagsCommand) { await RebuildTagsAsync(cancellationToken); return; }
+        if (command is CleanupCommand cleanup) { await ExecuteCleanupAsync(cleanup, cancellationToken); return; }
         await using var context = contextFactory();
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
         var changes = new CommittedChanges();
@@ -396,7 +411,11 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
         NotifyCommitted(changes);
         if (command is DeleteSessionCommand deleted)
         {
-            lock (acceptedSync) deletedSessions.Add(deleted.Id);
+            lock (acceptedSync)
+            {
+                deletedSessions.Add(deleted.Id);
+                Interlocked.Increment(ref readVersion);
+            }
             try { SessionDeleted?.Invoke(deleted.Id); } catch { }
         }
         if (command is DeleteLootCommand) { try { UnassignedLootDeleted?.Invoke(); } catch { } }

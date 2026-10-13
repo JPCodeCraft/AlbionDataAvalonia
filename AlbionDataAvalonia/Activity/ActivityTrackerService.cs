@@ -21,7 +21,7 @@ using System.Text.Json;
 namespace AlbionDataAvalonia.Activity;
 
 /// <summary>One capture-time policy for the journal, sessions and their encounters.</summary>
-public sealed class ActivityTrackerService : IDisposable
+public sealed partial class ActivityTrackerService : IDisposable
 {
     private static readonly TimeSpan EncounterIdle = TimeSpan.FromSeconds(7);
     private static readonly TimeSpan SessionIdle = TimeSpan.FromMinutes(30);
@@ -33,10 +33,13 @@ public sealed class ActivityTrackerService : IDisposable
     private readonly ActivityActorContext actors;
     private readonly ActivityLootCollector loot;
     private readonly ActivityGatheringCollector gathering;
+    private readonly ActivityFameCollector fameCollector;
+    private readonly ActivityItemValuationService valuations;
     private readonly Timer timer;
     private readonly Dictionary<string, DateTime> origins = new(StringComparer.Ordinal);
     private readonly Queue<string> originOrder = new();
     private readonly Dictionary<long, MobParticipation> mobParticipation = new();
+    private DateTime lastCacheSweep;
     private readonly List<PendingTerminal> pendingTerminals = new();
     private readonly Dictionary<Guid, ActivitySession> deferredSessions = new();
     private readonly Dictionary<Guid, ActivityEncounter> deferredEncounters = new();
@@ -65,20 +68,24 @@ public sealed class ActivityTrackerService : IDisposable
     private DateTime lastHeaderSave;
 
     public ActivityTrackerService(PlayerState player, PartyTrackerService party, MobsService mobs,
-        ItemEstimatedMarketValueService values, ItemsIdsService items, SettingsManager settings, ActivityPersistence persistence)
+        ItemEstimatedMarketValueService values, ItemsIdsService items, SettingsManager settings, ActivityPersistence persistence,
+        AchievementsService achievements, ActivityItemValuationService valuations)
     {
         this.player = player;
         this.settings = settings;
         this.persistence = persistence;
+        this.valuations = valuations;
         enabled = settings.UserSettings.ActivityRecordingEnabled;
         actors = new ActivityActorContext(party, mobs);
         loot = new ActivityLootCollector(this, values, items);
         gathering = new ActivityGatheringCollector(this, loot, values, items);
+        fameCollector = new ActivityFameCollector(achievements);
         timer = new Timer(_ => Tick(), null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
         settings.UserSettings.PropertyChanged += SettingsChanged;
         persistence.StatusChanged += StorageChanged;
         persistence.SessionDeleted += SessionDeleted;
         persistence.UnassignedLootDeleted += UnassignedLootDeleted;
+        player.OnPlayerStateChanged += PeriodOwnerChanged;
     }
 
     public event EventHandler? Changed;
@@ -126,6 +133,7 @@ public sealed class ActivityTrackerService : IDisposable
             if (!value) CloseSession(DateTime.UtcNow, ActivityEndReason.Disabled);
             loot.ResetRecordingCorrelations();
             gathering.Reset();
+            fameCollector.Reset();
             mobParticipation.Clear();
             pendingTerminals.Clear();
             SaveHeaders();
@@ -142,6 +150,7 @@ public sealed class ActivityTrackerService : IDisposable
             resumable = null;
             loot.ResetCandidates();
             gathering.Reset();
+            fameCollector.Reset();
             mobParticipation.Clear();
             pendingTerminals.Clear();
             mapEnteredAt = DateTime.UtcNow;
@@ -190,6 +199,7 @@ public sealed class ActivityTrackerService : IDisposable
         map = null;
         loot.Reset();
         gathering.Reset();
+        fameCollector.Reset();
         mobParticipation.Clear();
         pendingTerminals.Clear();
     }
@@ -204,7 +214,7 @@ public sealed class ActivityTrackerService : IDisposable
             // Join confirms their connection and inventory membership before use.
             loot.ObservePendingInventoryMetadata(packet, at);
             if (!awaitingContext && (at < mapEnteredAt || !SameConnection(packet.ConnectionId, packet.MessageIdentity)))
-            { gathering.Reset(); return; }
+            { gathering.Reset(); fameCollector.Reset(); return; }
             Expire(at);
             switch (packet)
             {
@@ -228,29 +238,11 @@ public sealed class ActivityTrackerService : IDisposable
                             entry.NewHealthState, entry.ResultingHealth, entry.SpellIndex,
                             entry.GameTimeMilliseconds, at, Origin(packet, "Health", entry.EntryIndex));
                     break;
-                case UpdateFameEvent fame when CanRecord && (fame.ObservedAward is > 0 || fame.RawFixedPointComponents.GetValueOrDefault((byte)2) is > 0):
-                    EnsureSession(at);
-                    TouchRelevant(at);
-                    Persist(WithSource(Stamp(ActivityEventKind.Fame, at, Origin(packet, "Fame")), actors.Local) with
-                    {
-                        Amount = fame.ObservedAward ?? 0,
-                        Evidence = fame.ObservedAward is null ? ActivityEvidence.Supplemental : ActivityEvidence.Confirmed,
-                        DetailsJson = JsonSerializer.Serialize(new
-                        {
-                            Category = "Unknown",
-                            fame.TotalPlayerFame,
-                            fame.FameWithZoneMultiplier,
-                            fame.ZoneFame,
-                            fame.Multiplier,
-                            fame.PremiumFame,
-                            fame.SatchelFame,
-                            fame.BonusFactor,
-                            fame.ComponentStates,
-                            fame.RawFixedPointComponents,
-                            fame.ReportedBonusIncrement,
-                            Award = fame.ObservedAward
-                        })
-                    });
+                case AchievementProgressInfoEvent progress when CanRecord:
+                    if (Tracked(actors.Resolve(progress.ActorObjectId))) fameCollector.Observe(progress, at);
+                    break;
+                case UpdateFameEvent fame when CanRecord:
+                    RecordFame(fame, at);
                     break;
                 case TakeSilverEvent silver when CanRecord: Silver(silver, at); break;
                 case DiedEvent death when CanRecord: Death(death, at); break;
@@ -291,7 +283,7 @@ public sealed class ActivityTrackerService : IDisposable
             if (disposed || !Accept(packet.MessageIdentity?.OriginKey, packet.GetType().Name, packet.CapturedAt)) return;
             var at = Utc(packet.CapturedAt);
             if (packet is not JoinResponse && !awaitingContext && (at < mapEnteredAt || !SameConnection(packet.ConnectionId, packet.MessageIdentity)))
-            { gathering.Reset(); return; }
+            { gathering.Reset(); fameCollector.Reset(); return; }
             Expire(at);
             if (packet is JoinResponse join && join.ReturnCode == 0
                 && join.userObjectId > 0 && !string.IsNullOrWhiteSpace(join.RawLocationId)) Join(join, at);
@@ -338,6 +330,8 @@ public sealed class ActivityTrackerService : IDisposable
         connectionId = packet.ConnectionId;
         connectionIdentity = packet.MessageIdentity;
         actors.Join(packet, nextServer, mapEpoch);
+        confirmedOwner = actors.HasIdentity ? new ActivityOwner(actors.ServerId!.Value.ToString(CultureInfo.InvariantCulture),
+            actors.CharacterId, actors.CharacterName) : null;
         map = next;
         mapEnteredAt = at;
         partialEntry = !enabled;
@@ -349,6 +343,7 @@ public sealed class ActivityTrackerService : IDisposable
             && JsonSerializer.Deserialize<string[]>(old.KnownInstancesJson)?.Contains(InstanceKey(next)) == true;
         loot.Join(packet, at);
         gathering.Reset();
+        fameCollector.Reset();
         mobParticipation.Clear();
         pendingTerminals.Clear();
 
@@ -528,18 +523,20 @@ public sealed class ActivityTrackerService : IDisposable
         };
         if (!relevant && mobParticipation.TryGetValue(targetId, out var prior)) observation = observation with { EncounterId = prior.EncounterId };
         Persist(observation);
-        if (delta < 0 && Tracked(source) && target.Kind is ActivityActorKind.Mob or ActivityActorKind.Unknown)
+        if (delta < 0 && Tracked(source) && !actors.IsTerminal(targetId)
+            && target.Kind is ActivityActorKind.Mob or ActivityActorKind.Unknown)
         {
             if (!mobParticipation.TryGetValue(targetId, out var participation)
                 || target.LifetimeId != Guid.Empty && participation.LifetimeId != Guid.Empty && participation.LifetimeId != target.LifetimeId)
-                participation = new MobParticipation(target.LifetimeId, session?.Id, encounter?.Id, false, false, false, new());
+                participation = new MobParticipation(target.LifetimeId, session?.Id, encounter?.Id, false, false, false, new(), at);
             participation.Participants[source.Id] = source;
             mobParticipation[targetId] = participation with
             {
                 LifetimeId = target.LifetimeId,
                 EncounterId = encounter?.Id ?? participation.EncounterId,
                 Self = participation.Self || source.Relationship == ActorRelationship.Self,
-                Party = true
+                Party = true,
+                LastObservedAtUtc = Max(participation.LastObservedAtUtc, at)
             };
         }
         if (terminal && mobParticipation.TryGetValue(targetId, out var eligible) && !eligible.Terminal)
@@ -588,8 +585,9 @@ public sealed class ActivityTrackerService : IDisposable
     {
         if (participation.Terminal || health.SessionId != participation.SessionId || participation.SessionId is null
             || participation.LifetimeId != Guid.Empty && participation.LifetimeId != mob.LifetimeId) return;
-        mobParticipation[objectId] = participation with { Terminal = true, LifetimeId = mob.LifetimeId };
-        actors.MarkTerminal(objectId);
+        mobParticipation[objectId] = participation with
+        { Terminal = true, LifetimeId = mob.LifetimeId, LastObservedAtUtc = Max(participation.LastObservedAtUtc, health.CapturedAtUtc) };
+        actors.MarkTerminal(objectId, health.CapturedAtUtc);
         Persist(WithTarget(health with
         {
             Id = Guid.NewGuid(),
@@ -681,7 +679,7 @@ public sealed class ActivityTrackerService : IDisposable
         });
         if (value.IsLethal == true && victim.Relationship == ActorRelationship.Self && session is not null)
         { session = session with { Revision = session.Revision + 1, HasLocalDeath = true }; headersDirty = true; }
-        if (value.IsLethal == true && value.VictimObjectId is { } objectId) actors.MarkTerminal(objectId);
+        if (value.IsLethal == true && value.VictimObjectId is { } objectId) actors.MarkTerminal(objectId, at);
     }
 
     private void Knockdown(KnockedDownEvent value, DateTime at)
@@ -701,6 +699,48 @@ public sealed class ActivityTrackerService : IDisposable
         if (!Tracked(source) && !Tracked(target)) return;
         Persist(WithTarget(WithSource(Stamp(ActivityEventKind.OutcomeEvidence, at, Origin(packet, signal)), source), target) with
         { Evidence = ActivityEvidence.Supplemental, DetailsJson = JsonSerializer.Serialize(new { Signal = signal }) });
+    }
+
+    private void RecordFame(UpdateFameEvent packet, DateTime at)
+    {
+        if (packet.ActorObjectIdState == PacketFieldState.Invalid) { fameCollector.Reset(); return; }
+        var actor = packet.ActorObjectId is { } actorId ? actors.Resolve(actorId) : actors.Local;
+        var match = fameCollector.Match(packet, packet.ActorObjectId, at);
+        var award = match.Award ?? packet.ObservedAward;
+        if (!Tracked(actor) || !(award is > 0 || packet.RawFixedPointComponents.GetValueOrDefault((byte)2) is > 0)) return;
+        EnsureSession(at);
+        TouchRelevant(at);
+        Persist(WithSource(Stamp(ActivityEventKind.Fame, at, Origin(packet, "Fame")), actor) with
+        {
+            Amount = award ?? 0,
+            Evidence = award is null ? ActivityEvidence.Supplemental : ActivityEvidence.Confirmed,
+            PayloadVersion = 4,
+            DetailsJson = JsonSerializer.Serialize(new
+            {
+                FameCategory = match.Category,
+                Category = match.Category.ToString(),
+                ClassificationSource = match.Category == ActivityFameCategory.Unknown ? null : "AchievementProgress",
+                match.AchievementIndexes,
+                packet.ActorObjectId,
+                packet.ActorObjectIdState,
+                packet.TotalPlayerFame,
+                packet.FameWithZoneMultiplier,
+                packet.ZoneFame,
+                packet.Multiplier,
+                packet.PremiumFame,
+                packet.SatchelFame,
+                packet.BonusFactor,
+                packet.ComponentStates,
+                packet.RawFixedPointComponents,
+                packet.ReportedBonusIncrement,
+                packet.ProgressionDetailToken,
+                packet.ProgressionDetailTokenState,
+                match.UsesEnhancedAward,
+                OrdinaryAward = packet.ObservedAward,
+                CalculationVersion = 4,
+                Award = award
+            })
+        });
     }
 
     internal ActivityEvent Stamp(ActivityEventKind kind, DateTime at, string? origin) => new()
@@ -741,6 +781,7 @@ public sealed class ActivityTrackerService : IDisposable
     internal long MapEpoch => mapEpoch;
     internal ActivityEvent RecordLoot(ActivityEvent value, bool hasConfirmedPickupEvidence = false, bool preserveEncounterAssociation = false)
     {
+        value = valuations.Observe(value);
         if (Tracked(value.SourceRelationship) && CanRecord &&
             (value.SessionId is null || value.SessionId == session?.Id) &&
             (value.Evidence == ActivityEvidence.Confirmed || hasConfirmedPickupEvidence))
@@ -756,11 +797,12 @@ public sealed class ActivityTrackerService : IDisposable
         Persist(value);
         return value;
     }
-    internal void AmendLoot(ActivityEvent value) => persistence.Amend(value);
+    internal void AmendLoot(ActivityEvent value) => persistence.Amend(valuations.Observe(value));
     internal void RecordResource(ActivityEvent value)
     {
         if (!CanRecord || value.Evidence != ActivityEvidence.Confirmed || !Tracked(value.SourceRelationship)
             || value.MapEpoch != mapEpoch || value.SessionId is { } originalSession && originalSession != session?.Id) return;
+        value = valuations.Observe(value);
         EnsureSession(value.CapturedAtUtc);
         // Fishing confirmation can trail a later first combat event. The
         // first confirmed roaming observation still determines session entry.
@@ -817,7 +859,7 @@ public sealed class ActivityTrackerService : IDisposable
 
     private void Persist(ActivityEvent value)
     {
-        if (!persistence.Create(value)) { storageSuspended = true; gathering.Reset(); }
+        if (!persistence.Create(value)) { storageSuspended = true; gathering.Reset(); fameCollector.Reset(); }
         if (session is not null && value.SessionId == session.Id)
         {
             session = session with
@@ -845,6 +887,7 @@ public sealed class ActivityTrackerService : IDisposable
     {
         CloseEncounter(at, reason);
         gathering.Reset();
+        fameCollector.Reset();
         if (session is null) return null;
         CloseObservation(at);
         var ended = session with
@@ -873,9 +916,16 @@ public sealed class ActivityTrackerService : IDisposable
             CloseSession(session.LastRelevantAtUtc + SessionIdle, ActivityEndReason.Inactivity);
         if (!reentryConfirmed && resumable?.ClosedAtUtc is { } exited && at - exited > ReentryGrace) resumable = null;
         pendingTerminals.RemoveAll(x => x.ExpiresAt < at);
-        actors.Expire(at);
         gathering.Expire(at);
         loot.Expire(at);
+        // Combat/fishing deadlines stay exact; broad map-cache maintenance does
+        // not need to scan every entity again for each incoming packet.
+        if (at - lastCacheSweep < TimeSpan.FromSeconds(1)) return;
+        lastCacheSweep = at;
+        actors.Expire(at);
+        foreach (var key in mobParticipation.Where(x => at - x.Value.LastObservedAtUtc > ActivityActorContext.BindingGrace
+            && (x.Value.Terminal || !actors.HasLifetime(x.Key, x.Value.LifetimeId))).Select(x => x.Key).ToArray())
+            mobParticipation.Remove(key);
     }
 
     private void Tick()
@@ -987,12 +1037,13 @@ public sealed class ActivityTrackerService : IDisposable
         lock (sync)
         {
             loot.ForgetSession(id);
-            gathering.Reset();
             deferredSessions.Remove(id);
             foreach (var key in deferredEncounters.Where(x => x.Value.SessionId == id).Select(x => x.Key).ToArray()) deferredEncounters.Remove(key);
             if (deferredGap?.SessionId == id) deferredGap = null;
             if (resumable?.Id == id) resumable = null;
             if (session?.Id != id) return;
+            gathering.Reset();
+            fameCollector.Reset();
             session = null; encounter = null; headersDirty = false;
             mapEnteredAt = DateTime.UtcNow;
             mobParticipation.Clear(); pendingTerminals.Clear();
@@ -1016,10 +1067,11 @@ public sealed class ActivityTrackerService : IDisposable
         persistence.StatusChanged -= StorageChanged;
         persistence.SessionDeleted -= SessionDeleted;
         persistence.UnassignedLootDeleted -= UnassignedLootDeleted;
+        player.OnPlayerStateChanged -= PeriodOwnerChanged;
     }
 
     private sealed record MobParticipation(Guid LifetimeId, Guid? SessionId, Guid? EncounterId,
-        bool Self, bool Party, bool Terminal, Dictionary<string, ActivityActor> Participants);
+        bool Self, bool Party, bool Terminal, Dictionary<string, ActivityActor> Participants, DateTime LastObservedAtUtc);
     private sealed record PendingTerminal(long ObjectId, ActivityEvent Health, MobParticipation Participation,
         PacketFieldState HealthState, DateTime ExpiresAt);
 }

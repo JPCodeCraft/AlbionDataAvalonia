@@ -36,7 +36,7 @@ public sealed record ActivityResourceIdentity(string? Family, int? Tier, int? En
 
 public static class ActivityClassification
 {
-    public const int TagVersion = 1;
+    public const int TagVersion = 3;
     public static bool IsResource(ActivityEventKind kind) => kind is ActivityEventKind.Gathered or ActivityEventKind.FishingReward or ActivityEventKind.LegacyGatheringAggregate;
     public static bool IsItem(ActivityEventKind kind) => kind == ActivityEventKind.Loot || IsResource(kind);
     public static bool IsTemporal(ActivityEventKind kind) => kind is not (ActivityEventKind.LegacyGatheringAggregate or ActivityEventKind.LegacyImportMarker);
@@ -52,6 +52,13 @@ public static class ActivityClassification
         e.EstimatedUnitValue == null ? null : e.EstimatedUnitValue.Value * e.Quantity;
     private static readonly Func<ActivityEvent, long?> ItemValue = ItemValueExpression.Compile();
     public static long? GetItemValue(ActivityEvent value) => ItemValue(value);
+    public static ActivityFameCategory GetFameCategory(ActivityEvent value)
+    {
+        if (value.Kind != ActivityEventKind.Fame) return ActivityFameCategory.Unknown;
+        var category = ActivityDatabaseFunctions.JsonLong(value.DetailsJson, "$.FameCategory");
+        return category is >= (long)ActivityFameCategory.Pve and <= (long)ActivityFameCategory.Pvp
+            ? (ActivityFameCategory)category.Value : ActivityFameCategory.Unknown;
+    }
 
     internal static Expression<Func<ActivityEvent, bool>> GatheringExpression(ActivityScope scope, string? actorKey = null)
     {
@@ -98,11 +105,17 @@ public static class ActivityClassification
     internal static IQueryable<ActivityEvent> FilterCategories(IQueryable<ActivityEvent> query, IQueryable<ActivityEvent> allEvents, ActivityQuery filter)
     {
         if (filter.ShowCategories == ActivityCategories.All) return query;
-        var pve = allEvents.Where(PveExpression(filter.Scope, filter.ActorKey));
-        var pvp = allEvents.Where(PvpExpression(filter.Scope, filter.ActorKey));
+        if (filter.SessionId is { } sessionId) allEvents = allEvents.Where(e => e.SessionId == sessionId);
+        if (filter.EncounterId is { } encounterId) allEvents = allEvents.Where(e => e.EncounterId == encounterId);
+        // Encounter IDs are globally unique, and the writer enforces their session ownership.
+        // Distinct sets avoid scanning an encounter's evidence again for every filtered event.
+        var pve = allEvents.Where(PveExpression(filter.Scope, filter.ActorKey)).Where(e => e.EncounterId != null)
+            .Select(e => e.EncounterId!.Value).Distinct();
+        var pvp = allEvents.Where(PvpExpression(filter.Scope, filter.ActorKey)).Where(e => e.EncounterId != null)
+            .Select(e => e.EncounterId!.Value).Distinct();
         return query.Where(CategoryExpression(filter.ShowCategories,
-            e => e.EncounterId != null && pve.Any(x => x.EncounterId == e.EncounterId && x.SessionId == e.SessionId),
-            e => e.EncounterId != null && pvp.Any(x => x.EncounterId == e.EncounterId && x.SessionId == e.SessionId)));
+            e => e.EncounterId != null && pve.Contains(e.EncounterId.Value),
+            e => e.EncounterId != null && pvp.Contains(e.EncounterId.Value)));
     }
 
     internal static Expression<Func<ActivityEvent, bool>> CategoryExpression(ActivityCategories show,
@@ -125,14 +138,23 @@ public static class ActivityClassification
         var outcomes = (show & ActivityCategories.Outcomes) != 0;
         var combat = (show & ActivityCategories.Combat) != 0;
         Expression<Func<ActivityEvent, bool, bool, bool>> predicate = (e, isPve, isPvp) =>
-            gathering && (e.Kind == ActivityEventKind.Gathered || e.Kind == ActivityEventKind.FishingReward || e.Kind == ActivityEventKind.LegacyGatheringAggregate) ||
+            gathering && (e.Kind == ActivityEventKind.Gathered || e.Kind == ActivityEventKind.FishingReward || e.Kind == ActivityEventKind.LegacyGatheringAggregate ||
+                e.Kind == ActivityEventKind.Fame && (ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.FameCategory") == (long)ActivityFameCategory.Gathering ||
+                    ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.FameCategory") == (long)ActivityFameCategory.Fishing)) ||
             fishing && (e.Kind == ActivityEventKind.FishingReward || e.Kind == ActivityEventKind.LegacyGatheringAggregate &&
-                ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.Method") == (long)ActivityResourceMethod.Fishing) ||
+                ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.Method") == (long)ActivityResourceMethod.Fishing ||
+                e.Kind == ActivityEventKind.Fame && ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.FameCategory") == (long)ActivityFameCategory.Fishing) ||
             loot && e.Kind == ActivityEventKind.Loot || fame && e.Kind == ActivityEventKind.Fame || silver && e.Kind == ActivityEventKind.Silver ||
             outcomes && (e.Kind == ActivityEventKind.Death || e.Kind == ActivityEventKind.PlayerKilled || e.Kind == ActivityEventKind.MobKilled || e.Kind == ActivityEventKind.Knockdown) ||
             combat && (e.Kind == ActivityEventKind.Damage || e.Kind == ActivityEventKind.Healing) ||
+            e.Kind == ActivityEventKind.Fame &&
+                ((showPve || combat) && ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.FameCategory") == (long)ActivityFameCategory.Pve ||
+                    (showPvp || combat) && ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.FameCategory") == (long)ActivityFameCategory.Pvp ||
+                    other && (ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.FameCategory") == null ||
+                        ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.FameCategory") < (long)ActivityFameCategory.Pve ||
+                        ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.FameCategory") > (long)ActivityFameCategory.Pvp)) ||
             (e.Kind == ActivityEventKind.Damage || e.Kind == ActivityEventKind.Healing || e.Kind == ActivityEventKind.Loot ||
-                e.Kind == ActivityEventKind.Fame || e.Kind == ActivityEventKind.Silver || e.Kind == ActivityEventKind.MobKilled ||
+                e.Kind == ActivityEventKind.Silver || e.Kind == ActivityEventKind.MobKilled ||
                 e.Kind == ActivityEventKind.Death || e.Kind == ActivityEventKind.Knockdown || e.Kind == ActivityEventKind.PlayerKilled || e.Kind == ActivityEventKind.OutcomeEvidence) &&
                 (showPve && isPve || showPvp && isPvp || other && !isPve && !isPvp) ||
             other && (e.Kind == ActivityEventKind.Location || e.Kind == ActivityEventKind.CaptureGap);

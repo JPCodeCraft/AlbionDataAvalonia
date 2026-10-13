@@ -3,13 +3,17 @@
              xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
              xmlns:items="clr-namespace:AlbionDataAvalonia.Items"
              xmlns:views="clr-namespace:AlbionDataAvalonia.Views"
-             xmlns:lvc="using:LiveChartsCore.SkiaSharpView.Avalonia"
+             xmlns:converters="using:Avalonia.Data.Converters"
              x:Class="AlbionDataAvalonia.Views.ActivityView"
              x:DataType="vm:ActivityViewModel">
     <UserControl.Resources>
         <SolidColorBrush x:Key="ActivitySurfaceBrush" Color="#383838" />
         <SolidColorBrush x:Key="ActivityInputBrush" Color="#424242" />
         <SolidColorBrush x:Key="ActivityBorderBrush" Color="#555555" />
+        <SolidColorBrush x:Key="TextControlBackground" Color="#424242" />
+        <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#424242" />
+        <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#424242" />
+        <SolidColorBrush x:Key="TextControlBackgroundDisabled" Color="#383838" />
         <!-- Fluent paints header interaction states inside the toggle template. -->
         <SolidColorBrush x:Key="ExpanderHeaderBackground" Color="#383838" />
         <SolidColorBrush x:Key="ExpanderHeaderBackgroundPointerOver" Color="#424242" />
@@ -21,39 +25,45 @@
         <SolidColorBrush x:Key="ExpanderHeaderBorderBrushDisabled" Color="#555555" />
         <DataTemplate x:Key="SummaryTemplate" x:DataType="vm:ActivitySummaryPresentation">
             <StackPanel>
-            <Grid IsVisible="{Binding !IsImported}" ColumnDefinitions="*,*,*,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="10" RowSpacing="10">
-                <Border Classes="ActivityCard"><StackPanel><TextBlock Classes="ActivityLabel" Text="Damage dealt" /><TextBlock Classes="ActivityValue" Text="{Binding DamageDealt}" /><TextBlock Classes="ActivityLabel" Text="{Binding DamageRate}" /></StackPanel></Border>
-                <Border Grid.Column="1" Classes="ActivityCard"><StackPanel><TextBlock Classes="ActivityLabel" Text="Damage received" /><TextBlock Classes="ActivityValue" Text="{Binding DamageReceived}" /><TextBlock Classes="ActivityLabel" Text="{Binding DamageReceivedRate}" /></StackPanel></Border>
-                <Border Grid.Column="2" Classes="ActivityCard"><StackPanel><TextBlock Classes="ActivityLabel" Text="Healing done" /><TextBlock Classes="ActivityValue" Text="{Binding HealingDone}" /><TextBlock Classes="ActivityLabel" Text="{Binding HealingRate}" /></StackPanel></Border>
-                <Border Grid.Column="3" Classes="ActivityCard"><StackPanel><TextBlock Classes="ActivityLabel" Text="Healing received" /><TextBlock Classes="ActivityValue" Text="{Binding HealingReceived}" /><TextBlock Classes="ActivityLabel" Text="{Binding HealingReceivedRate}" /></StackPanel></Border>
-                <Border Grid.Row="1" Classes="ActivityCard"><StackPanel><TextBlock Classes="ActivityLabel" Text="Your fame" /><TextBlock Classes="ActivityValue" Text="{Binding Fame}" /><TextBlock Classes="ActivityLabel" Text="{Binding FameRate}" IsVisible="{Binding IsSessionAverage}" /></StackPanel></Border>
-                <Border Grid.Row="1" Grid.Column="1" Classes="ActivityCard"><StackPanel><TextBlock Classes="ActivityLabel" Text="Silver earned" /><TextBlock Classes="ActivityValue" Text="{Binding Silver}" /><TextBlock Classes="ActivityLabel" Text="{Binding SilverRate}" IsVisible="{Binding IsSessionAverage}" /><TextBlock Classes="ActivityLabel" Text="{Binding UnknownSilver}" IsVisible="{Binding HasUnknownSilver}" /></StackPanel></Border>
-                <Border Grid.Row="1" Grid.Column="2" Classes="ActivityCard"><StackPanel><TextBlock Classes="ActivityLabel" Text="{Binding ItemsEstimateText}" /><TextBlock Classes="ActivityValue" Text="{Binding ItemsValue}" /><TextBlock Classes="ActivityLabel" Text="{Binding ItemsBreakdownText}" /><TextBlock Classes="ActivityLabel" Text="{Binding ItemsCountText}" /><TextBlock Classes="ActivityLabel" Text="{Binding ItemsValueRate}" IsVisible="{Binding IsSessionAverage}" /><TextBlock Classes="ActivityLabel" Text="{Binding MissingItemPrices}" IsVisible="{Binding HasMissingItemPrices}" /></StackPanel></Border>
-                <Border Grid.Row="1" Grid.Column="3" Classes="ActivityCard"><StackPanel><TextBlock Classes="ActivityLabel" Text="Mob kills" /><TextBlock Classes="ActivityValue" Text="{Binding MobKills}" /><TextBlock Classes="ActivityLabel" Text="{Binding PlayerOutcomes}" /></StackPanel></Border>
-                <Border Grid.Row="2" Grid.ColumnSpan="4" Classes="ActivityCard" IsVisible="{Binding HasResources}">
+            <Grid ColumnDefinitions="*,*" ColumnSpacing="6" Margin="0,0,0,6" ToolTip.Tip="{Binding TotalSilverDetailsText}">
+                <Border Classes="ActivityCard ActivityIncomeCard"><StackPanel><TextBlock Classes="ActivityLabel" Text="Total Silver" /><TextBlock Classes="ActivityIncomeValue" Text="{Binding TotalSilver}" /></StackPanel></Border>
+                <Border Grid.Column="1" Classes="ActivityCard ActivityIncomeCard"><StackPanel><TextBlock Classes="ActivityLabel" Text="Total Silver / Hour" /><TextBlock Classes="ActivityIncomeValue" Text="{Binding TotalSilverPerHour}" /></StackPanel></Border>
+            </Grid>
+            <Grid IsVisible="{Binding !IsImported}" ColumnDefinitions="*,*,*,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="6" RowSpacing="6">
+                <Border Classes="ActivityCard ActivityMetricCard"><StackPanel><TextBlock Classes="ActivityLabel" Text="Damage dealt" /><TextBlock Classes="ActivityValue" Text="{Binding DamageDealt}" /><TextBlock Classes="ActivityLabel" Text="{Binding DamageRate}" /></StackPanel></Border>
+                <Border Grid.Column="1" Classes="ActivityCard ActivityMetricCard"><StackPanel><TextBlock Classes="ActivityLabel" Text="Damage received" /><TextBlock Classes="ActivityValue" Text="{Binding DamageReceived}" /><TextBlock Classes="ActivityLabel" Text="{Binding DamageReceivedRate}" /></StackPanel></Border>
+                <Border Grid.Column="2" Classes="ActivityCard ActivityMetricCard"><StackPanel><TextBlock Classes="ActivityLabel" Text="Healing done" /><TextBlock Classes="ActivityValue" Text="{Binding HealingDone}" /><TextBlock Classes="ActivityLabel" Text="{Binding HealingRate}" /></StackPanel></Border>
+                <Border Grid.Column="3" Classes="ActivityCard ActivityMetricCard"><StackPanel><TextBlock Classes="ActivityLabel" Text="Healing received" /><TextBlock Classes="ActivityValue" Text="{Binding HealingReceived}" /><TextBlock Classes="ActivityLabel" Text="{Binding HealingReceivedRate}" /></StackPanel></Border>
+                <Border Grid.Row="1" Classes="ActivityCard ActivityMetricCard" ToolTip.Tip="{Binding CombatFameDetailsText}"><StackPanel><TextBlock Classes="ActivityLabel" Text="Combat Fame" /><TextBlock Classes="ActivityValue" Text="{Binding CombatFame}" /><TextBlock Classes="ActivityLabel" Text="{Binding CombatFameFooterText}" /></StackPanel></Border>
+                <Border Grid.Row="1" Grid.Column="1" Classes="ActivityCard ActivityMetricCard" ToolTip.Tip="{Binding SilverDetailsText}"><StackPanel><TextBlock Classes="ActivityLabel" Text="Silver picked up" /><TextBlock Classes="ActivityValue" Text="{Binding Silver}" /><TextBlock Classes="ActivityLabel" Text="{Binding SilverFooterText}" /></StackPanel></Border>
+                <Border Grid.Row="1" Grid.Column="2" Classes="ActivityCard ActivityMetricCard" ToolTip.Tip="{Binding ItemsDetailsText}"><StackPanel><TextBlock Classes="ActivityLabel" Text="Loot value" /><TextBlock Classes="ActivityValue" Text="{Binding LootValue}" /><TextBlock Classes="ActivityLabel" Text="{Binding ItemsFooterText}" /></StackPanel></Border>
+                <Border Grid.Row="1" Grid.Column="3" Classes="ActivityCard ActivityMetricCard"><StackPanel><TextBlock Classes="ActivityLabel" Text="Mob kills" /><TextBlock Classes="ActivityValue" Text="{Binding MobKills}" /><TextBlock Classes="ActivityLabel" Text="{Binding PlayerOutcomes}" /></StackPanel></Border>
+                <Border Grid.Row="2" Grid.ColumnSpan="4" Classes="ActivityCard" ToolTip.Tip="{Binding ResourceValueDetailsText}">
                     <WrapPanel>
-                        <StackPanel Margin="0,0,28,0"><TextBlock Classes="ActivityValue" Text="{Binding ResourceItemsText}" /><TextBlock Classes="ActivityLabel" Text="{Binding ResourceBreakdownText}" /></StackPanel>
-                        <StackPanel><TextBlock Classes="ActivityLabel" Text="Estimated gathering value" /><TextBlock Classes="ActivityValue" Text="{Binding ResourceValueText}" /><TextBlock Classes="ActivityLabel" Text="{Binding ResourceRateText}" /></StackPanel>
+                        <StackPanel Margin="0,0,20,0"><TextBlock FontSize="16" FontWeight="DemiBold" Text="{Binding ResourceItemsText}" /><TextBlock Classes="ActivityLabel" Text="{Binding ResourceBreakdownText}" /></StackPanel>
+                        <StackPanel Margin="0,0,20,0"><StackPanel Orientation="Horizontal" Spacing="6"><TextBlock Classes="ActivityLabel" Text="Gathering EMV" VerticalAlignment="Center" /><TextBlock FontSize="16" FontWeight="DemiBold" Text="{Binding ResourceValueText}" /></StackPanel><TextBlock Classes="ActivityLabel" Text="{Binding ResourceRateText}" /></StackPanel>
+                        <StackPanel Margin="0,0,20,0" ToolTip.Tip="{Binding GatheringFameDetailsText}"><StackPanel Orientation="Horizontal" Spacing="6"><TextBlock Classes="ActivityLabel" Text="Gathering Fame" VerticalAlignment="Center" /><TextBlock FontSize="16" FontWeight="DemiBold" Text="{Binding GatheringFame}" /></StackPanel><TextBlock Classes="ActivityLabel" Text="{Binding GatheringFameRate}" IsVisible="{Binding IsSessionAverage}" /></StackPanel>
                     </WrapPanel>
                 </Border>
             </Grid>
-            <Grid IsVisible="{Binding IsImported}" ColumnDefinitions="*,*" ColumnSpacing="10">
-                <Border Classes="ActivityCard"><StackPanel><TextBlock Classes="ActivityValue" Text="{Binding ResourceItemsText}" /><TextBlock Classes="ActivityLabel" Text="{Binding ResourceBreakdownText}" /></StackPanel></Border>
-                <Border Grid.Column="1" Classes="ActivityCard"><StackPanel><TextBlock Classes="ActivityLabel" Text="Estimated gathering value" /><TextBlock Classes="ActivityValue" Text="{Binding ResourceValueText}" /><TextBlock Classes="ActivityLabel" Text="{Binding ResourceRateText}" /><TextBlock Classes="ActivityLabel" Text="{Binding MissingItemPrices}" IsVisible="{Binding HasMissingItemPrices}" /></StackPanel></Border>
+            <TextBlock Classes="ActivityLabel" Text="{Binding UnknownFameText}" IsVisible="{Binding HasUnknownFame}" Margin="0,6,0,0" ToolTip.Tip="Fame without a known activity" />
+            <Grid IsVisible="{Binding IsImported}" ColumnDefinitions="*,*" ColumnSpacing="6">
+                <Border Classes="ActivityCard ActivityMetricCard" ToolTip.Tip="{Binding ResourceBreakdownText}"><StackPanel><TextBlock Classes="ActivityLabel" Text="Items gathered" /><TextBlock Classes="ActivityValue" Text="{Binding ResourceQuantityText}" /><TextBlock Classes="ActivityLabel" Text="{Binding ResourceBreakdownText}" /></StackPanel></Border>
+                <Border Grid.Column="1" Classes="ActivityCard ActivityMetricCard" ToolTip.Tip="{Binding ResourceValueDetailsText}"><StackPanel><TextBlock Classes="ActivityLabel" Text="Estimated gathering value" /><TextBlock Classes="ActivityValue" Text="{Binding ResourceValueText}" /><TextBlock Classes="ActivityLabel" Text="{Binding ResourceRateText}" /></StackPanel></Border>
             </Grid>
             </StackPanel>
         </DataTemplate>
         <DataTemplate x:Key="EncounterSummaryTemplate" x:DataType="vm:ActivitySummaryPresentation">
-            <Border Classes="ActivityCard">
-                <Grid ColumnDefinitions="*,*,*,*,*,*,*,*" ColumnSpacing="14">
-                    <StackPanel><TextBlock Classes="ActivityLabel" Text="Damage dealt" /><TextBlock Text="{Binding DamageDealt}" FontSize="20" FontWeight="DemiBold" Margin="0,5,0,4" /><TextBlock Classes="ActivityLabel" Text="{Binding DamageRate}" /></StackPanel>
-                    <StackPanel Grid.Column="1"><TextBlock Classes="ActivityLabel" Text="Damage received" /><TextBlock Text="{Binding DamageReceived}" FontSize="20" FontWeight="DemiBold" Margin="0,5,0,4" /></StackPanel>
-                    <StackPanel Grid.Column="2"><TextBlock Classes="ActivityLabel" Text="Healing done" /><TextBlock Text="{Binding HealingDone}" FontSize="20" FontWeight="DemiBold" Margin="0,5,0,4" /><TextBlock Classes="ActivityLabel" Text="{Binding HealingRate}" /></StackPanel>
-                    <StackPanel Grid.Column="3"><TextBlock Classes="ActivityLabel" Text="Healing received" /><TextBlock Text="{Binding HealingReceived}" FontSize="20" FontWeight="DemiBold" Margin="0,5,0,4" /></StackPanel>
-                    <StackPanel Grid.Column="4"><TextBlock Classes="ActivityLabel" Text="Your fame" /><TextBlock Text="{Binding Fame}" FontSize="20" FontWeight="DemiBold" Margin="0,5,0,4" /></StackPanel>
-                    <StackPanel Grid.Column="5"><TextBlock Classes="ActivityLabel" Text="Silver earned" /><TextBlock Text="{Binding Silver}" FontSize="20" FontWeight="DemiBold" Margin="0,5,0,4" /></StackPanel>
-                    <StackPanel Grid.Column="6"><TextBlock Classes="ActivityLabel" Text="Estimated loot" /><TextBlock Text="{Binding LootValue}" FontSize="20" FontWeight="DemiBold" Margin="0,5,0,4" /><TextBlock Classes="ActivityLabel" Text="{Binding LootItemsText}" /></StackPanel>
-                    <StackPanel Grid.Column="7"><TextBlock Classes="ActivityLabel" Text="Mob kills" /><TextBlock Text="{Binding MobKills}" FontSize="20" FontWeight="DemiBold" Margin="0,5,0,4" /></StackPanel>
+            <Border Classes="ActivityCard ActivityEncounterCard">
+                <Grid ColumnDefinitions="*,*,*,*,*,*,*,*" ColumnSpacing="8">
+                    <StackPanel><TextBlock Classes="ActivityLabel" Text="Damage dealt" /><TextBlock Classes="ActivityValue" Text="{Binding DamageDealt}" /><TextBlock Classes="ActivityLabel" Text="{Binding DamageRate}" /></StackPanel>
+                    <StackPanel Grid.Column="1"><TextBlock Classes="ActivityLabel" Text="Damage received" /><TextBlock Classes="ActivityValue" Text="{Binding DamageReceived}" /></StackPanel>
+                    <StackPanel Grid.Column="2"><TextBlock Classes="ActivityLabel" Text="Healing done" /><TextBlock Classes="ActivityValue" Text="{Binding HealingDone}" /><TextBlock Classes="ActivityLabel" Text="{Binding HealingRate}" /></StackPanel>
+                    <StackPanel Grid.Column="3"><TextBlock Classes="ActivityLabel" Text="Healing received" /><TextBlock Classes="ActivityValue" Text="{Binding HealingReceived}" /></StackPanel>
+                    <StackPanel Grid.Column="4" ToolTip.Tip="{Binding CombatFameDetailsText}"><TextBlock Classes="ActivityLabel" Text="Combat Fame" /><TextBlock Classes="ActivityValue" Text="{Binding CombatFame}" /><TextBlock Classes="ActivityLabel" Text="{Binding CombatFameFooterText}" /></StackPanel>
+                    <StackPanel Grid.Column="5" ToolTip.Tip="Net silver pickups after taxes and penalties"><TextBlock Classes="ActivityLabel" Text="Silver picked up" /><TextBlock Classes="ActivityValue" Text="{Binding Silver}" /></StackPanel>
+                    <StackPanel Grid.Column="6"><TextBlock Classes="ActivityLabel" Text="Loot value" /><TextBlock Classes="ActivityValue" Text="{Binding LootValue}" /><TextBlock Classes="ActivityLabel" Text="{Binding LootItemsText}" /></StackPanel>
+                    <StackPanel Grid.Column="7"><TextBlock Classes="ActivityLabel" Text="Mob kills" /><TextBlock Classes="ActivityValue" Text="{Binding MobKills}" /></StackPanel>
                 </Grid>
             </Border>
         </DataTemplate>
@@ -77,160 +87,203 @@
                 <CheckBox Content="Other" IsChecked="{Binding ShowOther, Mode=TwoWay}" Margin="0,0,18,6" />
             </WrapPanel>
         </DataTemplate>
-        <DataTemplate x:Key="ResourceItemTemplate" x:DataType="vm:ActivityResourceRow">
-            <StackPanel Orientation="Horizontal" Spacing="8"><Image Width="28" Height="28" items:LazyItemImage.ItemUniqueName="{Binding ItemUniqueName}" items:LazyItemImage.Quality="{Binding ImageQuality}" /><TextBlock Text="{Binding ItemName}" VerticalAlignment="Center" /></StackPanel>
+        <DataTemplate x:Key="ActivityResourceTileTemplate" x:DataType="vm:ActivityResourceRow">
+            <Border Width="230" Padding="8" Margin="0,0,6,6" CornerRadius="4" Background="{DynamicResource ActivityInputBrush}" ToolTip.Tip="{Binding Details}">
+                <Grid ColumnDefinitions="32,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="3">
+                    <Image Grid.RowSpan="2" Width="32" Height="32" Stretch="Uniform" items:LazyItemImage.ItemUniqueName="{Binding ItemUniqueName}" items:LazyItemImage.Quality="{Binding ImageQuality}" />
+                    <Grid Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                        <TextBlock Text="{Binding ItemName}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="3"><TextBlock Text="×" FontSize="12" /><TextBlock Text="{Binding QuantityText}" FontSize="13" FontWeight="DemiBold" /></StackPanel>
+                    </Grid>
+                    <Grid Grid.Row="1" Grid.Column="1" ColumnDefinitions="Auto,*,Auto" ColumnSpacing="5">
+                        <TextBlock Text="{Binding ValueLabel}" FontSize="11" Opacity="0.75" VerticalAlignment="Center" />
+                        <TextBlock Grid.Column="1" Text="{Binding ValueText}" FontSize="13" FontWeight="DemiBold" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Grid.Column="2" Text="*" Foreground="#FFB74D" IsVisible="{Binding HasMissingPrices}" VerticalAlignment="Center" />
+                    </Grid>
+                </Grid>
+            </Border>
         </DataTemplate>
     </UserControl.Resources>
     <UserControl.Styles>
-        <Style Selector="TextBlock.ActivityLabel"><Setter Property="FontSize" Value="13" /><Setter Property="Opacity" Value="0.8" /><Setter Property="TextWrapping" Value="Wrap" /></Style>
-        <Style Selector="TextBlock.ActivityValue"><Setter Property="FontSize" Value="24" /><Setter Property="FontWeight" Value="DemiBold" /><Setter Property="Margin" Value="0,5,0,4" /></Style>
-        <Style Selector="Border.ActivityCard"><Setter Property="Padding" Value="12" /><Setter Property="CornerRadius" Value="6" /><Setter Property="Background" Value="{DynamicResource ActivitySurfaceBrush}" /></Style>
+        <Style Selector="TextBlock.ActivityLabel"><Setter Property="FontSize" Value="12" /><Setter Property="Opacity" Value="0.8" /><Setter Property="TextWrapping" Value="Wrap" /></Style>
+        <Style Selector="TextBlock.ActivityValue"><Setter Property="FontSize" Value="18" /><Setter Property="FontWeight" Value="DemiBold" /><Setter Property="Margin" Value="0,2,0,2" /></Style>
+        <Style Selector="Border.ActivityCard"><Setter Property="Padding" Value="8" /><Setter Property="CornerRadius" Value="5" /><Setter Property="Background" Value="{DynamicResource ActivitySurfaceBrush}" /></Style>
+        <Style Selector="Border.ActivityIncomeCard"><Setter Property="Height" Value="64" /><Setter Property="BorderBrush" Value="{DynamicResource ActivityBorderBrush}" /><Setter Property="BorderThickness" Value="1" /></Style>
+        <Style Selector="Border.ActivityIncomeCard TextBlock"><Setter Property="TextWrapping" Value="NoWrap" /><Setter Property="TextTrimming" Value="CharacterEllipsis" /><Setter Property="MaxLines" Value="1" /></Style>
+        <Style Selector="TextBlock.ActivityIncomeValue"><Setter Property="FontSize" Value="22" /><Setter Property="LineHeight" Value="28" /><Setter Property="FontWeight" Value="DemiBold" /><Setter Property="Foreground" Value="{DynamicResource AFMOrange}" /><Setter Property="Margin" Value="0,2,0,0" /></Style>
+        <Style Selector="Border.ActivityMetricCard, Border.ActivityEncounterCard"><Setter Property="Height" Value="76" /></Style>
+        <Style Selector="Border.ActivityMetricCard TextBlock, Border.ActivityEncounterCard TextBlock"><Setter Property="TextWrapping" Value="NoWrap" /><Setter Property="TextTrimming" Value="CharacterEllipsis" /><Setter Property="MaxLines" Value="1" /></Style>
+        <Style Selector="Border.ActivityMetricCard TextBlock.ActivityLabel, Border.ActivityEncounterCard TextBlock.ActivityLabel"><Setter Property="LineHeight" Value="16" /></Style>
+        <Style Selector="Border.ActivityMetricCard TextBlock.ActivityValue, Border.ActivityEncounterCard TextBlock.ActivityValue"><Setter Property="LineHeight" Value="24" /></Style>
         <Style Selector="Button.ActivityAction"><Setter Property="Height" Value="36" /><Setter Property="Padding" Value="12,6" /><Setter Property="VerticalContentAlignment" Value="Center" /><Setter Property="HorizontalContentAlignment" Value="Center" /></Style>
         <Style Selector="Button.ActivitySecondary"><Setter Property="Background" Value="{DynamicResource ActivitySurfaceBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource ActivityBorderBrush}" /><Setter Property="BorderThickness" Value="1" /></Style>
         <Style Selector="Button.ActivitySecondary:pointerover"><Setter Property="Background" Value="{DynamicResource ActivityInputBrush}" /></Style>
         <Style Selector="ComboBox, TextBox, DatePicker"><Setter Property="Background" Value="{DynamicResource ActivityInputBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource ActivityBorderBrush}" /><Setter Property="Height" Value="36" /></Style>
         <Style Selector="ComboBox:pointerover, TextBox:pointerover, DatePicker:pointerover"><Setter Property="Background" Value="{DynamicResource ActivityInputBrush}" /></Style>
+        <Style Selector="NumericUpDown /template/ TextBox"><Setter Property="Background" Value="{DynamicResource ActivityInputBrush}" /><Setter Property="BorderThickness" Value="0" /><Setter Property="Height" Value="32" /></Style>
+        <Style Selector="NumericUpDown /template/ TextBox /template/ Border#PART_BorderElement"><Setter Property="Background" Value="{DynamicResource ActivityInputBrush}" /></Style>
+        <Style Selector="NumericUpDown /template/ RepeatButton"><Setter Property="Background" Value="{DynamicResource ActivityInputBrush}" /></Style>
         <Style Selector="Expander"><Setter Property="Background" Value="{DynamicResource ActivitySurfaceBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource ActivityBorderBrush}" /><Setter Property="BorderThickness" Value="1" /><Setter Property="CornerRadius" Value="6" /></Style>
         <Style Selector="Expander /template/ ToggleButton"><Setter Property="Background" Value="{DynamicResource ActivitySurfaceBrush}" /><Setter Property="MinHeight" Value="40" /></Style>
-        <Style Selector="ListBox"><Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" /></Style>
-        <Style Selector="ListBoxItem"><Setter Property="Background" Value="Transparent" /><Setter Property="Padding" Value="12" /><Setter Property="HorizontalContentAlignment" Value="Stretch" /></Style>
-        <Style Selector="ListBoxItem:pointerover"><Setter Property="Background" Value="{DynamicResource ActivityInputBrush}" /></Style>
-        <Style Selector="ListBoxItem:selected"><Setter Property="Background" Value="{DynamicResource AFMBrown}" /><Setter Property="BorderBrush" Value="{DynamicResource AFMOrange}" /><Setter Property="BorderThickness" Value="3,0,0,0" /></Style>
+        <Style Selector="ListBox.ActivitySessionList"><Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" /></Style>
+        <Style Selector="ListBox.ActivitySessionList ListBoxItem"><Setter Property="Background" Value="Transparent" /><Setter Property="Padding" Value="12" /><Setter Property="HorizontalContentAlignment" Value="Stretch" /></Style>
+        <Style Selector="ListBox.ActivitySessionList ListBoxItem:pointerover"><Setter Property="Background" Value="{DynamicResource ActivityInputBrush}" /></Style>
+        <Style Selector="ListBox.ActivitySessionList ListBoxItem:selected"><Setter Property="Background" Value="{DynamicResource AFMBrown}" /><Setter Property="BorderBrush" Value="{DynamicResource AFMOrange}" /><Setter Property="BorderThickness" Value="3,0,0,0" /></Style>
         <Style Selector="ScrollBar"><Setter Property="Background" Value="Transparent" /></Style>
         <Style Selector="GridSplitter"><Setter Property="Background" Value="{DynamicResource ActivityBorderBrush}" /></Style>
         <Style Selector="DataGrid"><Setter Property="AutoGenerateColumns" Value="False" /><Setter Property="IsReadOnly" Value="True" /><Setter Property="GridLinesVisibility" Value="None" /><Setter Property="Background" Value="{DynamicResource ActivitySurfaceBrush}" /><Setter Property="BorderThickness" Value="0" /></Style>
         <Style Selector="DataGridColumnHeader /template/ Grid#PART_ColumnHeaderRoot"><Setter Property="Background" Value="{DynamicResource ActivityInputBrush}" /></Style>
+        <Style Selector="TabControl.ActivityDetails TabItem /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="FontSize" Value="16" /></Style>
+        <Style Selector="TabControl.ActivityDetails DataGrid"><Setter Property="VerticalScrollBarVisibility" Value="Disabled" /><Setter Property="RowHeight" Value="32" /><Setter Property="ColumnHeaderHeight" Value="32" /></Style>
     </UserControl.Styles>
 
     <Grid RowDefinitions="Auto,Auto,*" Margin="0,8,0,0" RowSpacing="8">
-        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-            <StackPanel Spacing="2">
+        <WrapPanel>
+            <StackPanel Spacing="2" MinWidth="180" Margin="0,0,24,4">
                 <TextBlock Text="Activity" FontSize="23" FontWeight="DemiBold" />
                 <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" Opacity="0.75" />
             </StackPanel>
-            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center">
-                <TextBlock Classes="ActivityLabel" Text="Scope" VerticalAlignment="Center" />
-                <ComboBox ItemsSource="{Binding ScopeOptions}" SelectedItem="{Binding SelectedScope, Mode=TwoWay}" Width="120" VerticalContentAlignment="Center" />
-                <Button Classes="ActivityAction ActivitySecondary" Content="{Binding RecordingButtonText}" Command="{Binding ToggleRecordingCommand}" />
-                <Button Classes="ActivityAction" Content="Finish session" Click="FinishSession_Click" IsEnabled="{Binding HasCurrentSession}" />
-            </StackPanel>
-        </Grid>
+            <WrapPanel VerticalAlignment="Center">
+                <views:ActivitySegmentedSelector ItemsSource="{Binding ScopeOptions}" SelectedItem="{Binding SelectedScope, Mode=TwoWay}" AutomationProperties.Name="Activity scope" Margin="0,0,12,0" />
+                <Button Classes="ActivityAction ActivitySecondary" Content="{Binding RecordingButtonText}" Command="{Binding ToggleRecordingCommand}" Margin="0,0,10,4" />
+                <Button Classes="ActivityAction" Content="Finish session" Click="FinishSession_Click" IsEnabled="{Binding HasCurrentSession}" Margin="0,0,0,4" />
+            </WrapPanel>
+        </WrapPanel>
         <StackPanel Grid.Row="1" Spacing="4">
             <TextBlock Text="{Binding LegacyImportWarningText}" IsVisible="{Binding HasLegacyImportWarning}" Foreground="#FFB74D" TextWrapping="Wrap" />
             <TextBlock Text="{Binding ErrorText}" IsVisible="{Binding HasError}" Foreground="#FFB74D" TextWrapping="Wrap" />
-            <TextBlock Text="Recording is disabled. Your saved activity remains available." IsVisible="{Binding !IsRecordingEnabled}" Foreground="#FFB74D" />
-            <Border Height="2"><ProgressBar IsIndeterminate="True" Height="2" IsVisible="{Binding IsLoading}" /></Border>
         </StackPanel>
         <TabControl Grid.Row="2" SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}">
             <TabItem Header="Current">
-                <ScrollViewer>
-                    <StackPanel Spacing="12" Margin="0,12,12,12">
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Spacing="8" Margin="0,8,12,8">
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                             <StackPanel Spacing="4">
                                 <TextBlock Text="{Binding CurrentTitle}" FontSize="20" FontWeight="DemiBold" />
-                                <TextBlock Text="{Binding CurrentDescription}" TextWrapping="Wrap" Opacity="0.75" />
-                                <StackPanel Orientation="Horizontal" Spacing="18"><TextBlock Text="{Binding CurrentDurationText}" /><TextBlock Text="{Binding CurrentCombatDurationText}" /></StackPanel>
+                                <TextBlock Text="{Binding CurrentDescription}" IsVisible="{Binding CurrentDescription, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" TextWrapping="Wrap" Opacity="0.75" />
                             </StackPanel>
                             <Button Grid.Column="1" Classes="ActivityAction ActivitySecondary" Content="View session" Command="{Binding OpenCurrentSessionCommand}" IsEnabled="{Binding HasCurrentSession}" VerticalAlignment="Center" />
                         </Grid>
-                        <TextBlock Text="{Binding CurrentTagsText}" Foreground="#A0D477" />
-                        <TextBlock Text="Whole-session totals" Classes="ActivityLabel" />
+                        <WrapPanel>
+                            <views:ActivitySegmentedSelector ItemsSource="{Binding PeriodOptions}" SelectedItem="{Binding SelectedPeriod, Mode=TwoWay}" AutomationProperties.Name="Current totals period" Margin="0,0,8,0" />
+                            <StackPanel Orientation="Horizontal" Spacing="6" IsVisible="{Binding IsLastHoursPeriod}" Margin="0,0,0,4" VerticalAlignment="Center">
+                                <NumericUpDown Value="{Binding LastHours, Mode=TwoWay}" Minimum="1" Maximum="168" Increment="1" FormatString="0" Width="124" Height="32" Background="{DynamicResource ActivityInputBrush}" BorderBrush="{DynamicResource ActivityBorderBrush}" ToolTip.Tip="Show activity from the last 1–168 hours" />
+                                <TextBlock Text="hours" Classes="ActivityLabel" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </WrapPanel>
+                        <StackPanel Spacing="3">
+                            <TextBlock Text="{Binding CurrentPeriodDescription}" MinHeight="16" Classes="ActivityLabel" />
+                            <WrapPanel ToolTip.Tip="{Binding CurrentPeriodWarning}"><TextBlock Text="{Binding CurrentDurationText}" Margin="0,0,18,0" /><TextBlock Text="{Binding CurrentCombatDurationText}" /></WrapPanel>
+                            <TextBlock Text="{Binding CurrentTagsText}" Foreground="#A0D477" TextWrapping="Wrap" />
+                        </StackPanel>
                         <ContentControl Content="{Binding CurrentSummary}" ContentTemplate="{StaticResource SummaryTemplate}" />
+                        <Expander Header="Gathered" IsExpanded="False" HorizontalAlignment="Stretch" Padding="0">
+                            <StackPanel Margin="8,8,8,2"><TextBlock Text="0 items gathered" IsVisible="{Binding !HasCurrentResources}" Classes="ActivityLabel" Margin="4,4,4,8" /><ScrollViewer MaxHeight="144" HorizontalScrollBarVisibility="Disabled"><ItemsControl ItemsSource="{Binding CurrentResources}" ItemTemplate="{StaticResource ActivityResourceTileTemplate}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel></ItemsControl></ScrollViewer></StackPanel>
+                        </Expander>
+                        <Expander x:Name="CurrentLootPanel" Header="Loot" IsExpanded="{Binding IsCurrentLootExpanded, Mode=TwoWay}" HorizontalAlignment="Stretch" Padding="0">
+                            <StackPanel Margin="8,8,8,2" Spacing="8">
+                                <TextBlock Text="0 items looted" IsVisible="{Binding !HasCurrentLoot}" Classes="ActivityLabel" Margin="4,4,4,8" />
+                                <DataGrid ItemsSource="{Binding CurrentLoot}" IsVisible="{Binding HasCurrentLoot}" MaxHeight="220">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Time" Binding="{Binding TimeText}" />
+                                        <DataGridTemplateColumn Header="Item" Width="*" MinWidth="200" CellTemplate="{StaticResource LootTemplate}" />
+                                        <DataGridTextColumn Header="Quantity" Binding="{Binding AmountText}" />
+                                        <DataGridTextColumn Header="Estimated value" Binding="{Binding ValueText}" />
+                                        <DataGridTemplateColumn Header="Recipient" MinWidth="110">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate x:DataType="vm:ActivityLootRow">
+                                                    <TextBlock Text="{Binding Recipient}" ToolTip.Tip="{Binding RecipientDetails}" VerticalAlignment="Center" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                                <WrapPanel Margin="4,0,4,6" IsVisible="{Binding HasCurrentLoot}">
+                                    <TextBlock Text="{Binding CurrentSummary.LootItemsText}" Classes="ActivityLabel" Margin="0,0,14,0" VerticalAlignment="Center" />
+                                    <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,14,0" VerticalAlignment="Center">
+                                        <TextBlock Text="Estimated value" Classes="ActivityLabel" />
+                                        <TextBlock Text="{Binding CurrentSummary.LootValue}" FontWeight="DemiBold" />
+                                        <TextBlock Text="silver" Classes="ActivityLabel" />
+                                    </StackPanel>
+                                    <Button Classes="ActivityAction ActivitySecondary" Content="Load more" Command="{Binding LoadMoreCurrentLootCommand}" IsVisible="{Binding HasMoreCurrentLoot}" />
+                                </WrapPanel>
+                            </StackPanel>
+                        </Expander>
                         <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ActivityVisibilityTemplate}" />
-                        <TextBlock Text="Visibility filters affect the chart and events. Encounter earnings are associated by time." Classes="ActivityLabel" />
-                        <views:ActivityLiveTimelineView IsGatheringMode="{Binding IsGatheringChart, Mode=TwoWay}" Snapshot="{Binding CurrentLiveTimeline}"
+                        <views:ActivityLiveTimelineView IsGatheringMode="{Binding IsGatheringChart, Mode=TwoWay}" Snapshot="{Binding CurrentLiveTimeline}" WindowMinutes="{Binding LiveTimelineMinutes, Mode=TwoWay}"
                                                         OpenEncounterCommand="{Binding OpenTimelineEncounterCommand}" />
-                        <Border Height="1" Background="{DynamicResource ActivityBorderBrush}" />
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <Border Height="1" Background="{DynamicResource ActivityBorderBrush}" IsVisible="{Binding HasDisplayedEncounter}" />
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" IsVisible="{Binding HasDisplayedEncounter}">
                             <StackPanel Spacing="4"><TextBlock Text="{Binding CurrentEncounterHeading}" FontSize="18" FontWeight="DemiBold" /><TextBlock Text="{Binding CurrentEncounterText}" /><TextBlock Text="{Binding CurrentEncounterStateText}" Classes="ActivityLabel" /></StackPanel>
                             <Button Grid.Column="1" Classes="ActivityAction ActivitySecondary" Content="View encounter" Command="{Binding OpenCurrentEncounterCommand}" IsVisible="{Binding HasDisplayedEncounter}" VerticalAlignment="Center" />
                         </Grid>
-                        <ContentControl Content="{Binding CurrentEncounterSummary}" ContentTemplate="{StaticResource EncounterSummaryTemplate}" IsVisible="{Binding HasDisplayedEncounter}" />
-                        <TextBlock Classes="ActivityLabel" Text="Earnings observed during this encounter" IsVisible="{Binding HasDisplayedEncounter}" />
+                        <ContentControl Content="{Binding CurrentEncounterSummary}" ContentTemplate="{StaticResource EncounterSummaryTemplate}" IsVisible="{Binding HasDisplayedEncounter}" ToolTip.Tip="Items, fame and silver picked up while this encounter was open" />
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
             <TabItem Header="History">
-                <Grid RowDefinitions="Auto,*" ColumnDefinitions="320,12,*" RowSpacing="12" Margin="0,10,0,0">
-                    <Expander Grid.ColumnSpan="3" Header="History filters" HorizontalAlignment="Stretch">
-                    <WrapPanel Margin="12">
-                        <StackPanel Margin="0,0,12,6"><TextBlock Classes="ActivityLabel" Text="From" /><DatePicker SelectedDate="{Binding FromDate, Mode=TwoWay}" /></StackPanel>
-                        <StackPanel Margin="0,0,12,6"><TextBlock Classes="ActivityLabel" Text="Through" /><DatePicker SelectedDate="{Binding ThroughDate, Mode=TwoWay}" /></StackPanel>
-                        <StackPanel Margin="0,0,12,6"><TextBlock Classes="ActivityLabel" Text="Server" /><ComboBox ItemsSource="{Binding ServerOptions}" SelectedItem="{Binding SelectedServer, Mode=TwoWay}" Width="120" /></StackPanel>
-                        <StackPanel Margin="0,0,12,6"><TextBlock Classes="ActivityLabel" Text="Character" /><TextBox Text="{Binding CharacterFilter}" Watermark="Any character" Width="140" /></StackPanel>
-                        <StackPanel Margin="0,0,12,6"><TextBlock Classes="ActivityLabel" Text="Location" /><TextBox Text="{Binding LocationFilter}" Watermark="Any location" Width="150" /></StackPanel>
-                        <StackPanel Margin="0,0,12,6"><TextBlock Classes="ActivityLabel" Text="Location type" /><ComboBox ItemsSource="{Binding KindOptions}" SelectedItem="{Binding SelectedKind, Mode=TwoWay}" Width="145" /></StackPanel>
-                        <StackPanel Margin="0,0,18,6"><TextBlock Classes="ActivityLabel" Text="Contains all" /><WrapPanel Margin="0,8,0,0"><CheckBox Content="Gathering" IsChecked="{Binding HistoryGathering, Mode=TwoWay}" Margin="0,0,12,0" /><CheckBox Content="PvE" IsChecked="{Binding HistoryPve, Mode=TwoWay}" Margin="0,0,12,0" /><CheckBox Content="PvP" IsChecked="{Binding HistoryPvp, Mode=TwoWay}" /></WrapPanel></StackPanel>
-                        <Button Classes="ActivityAction" Content="Apply filters" Command="{Binding ApplyFiltersCommand}" Margin="0,17,8,6" />
-                        <Button Classes="ActivityAction ActivitySecondary" Content="Reset filters" Command="{Binding ResetFiltersCommand}" Margin="0,17,8,6" />
-                    </WrapPanel>
-                    </Expander>
-                    <Grid Grid.Row="1" RowDefinitions="Auto,*,Auto" RowSpacing="10">
+                <Grid ColumnDefinitions="320,12,*" Margin="0,10,0,0">
+                    <Grid RowDefinitions="Auto,*,Auto" RowSpacing="10">
                     <TextBlock Text="Sessions" FontSize="16" FontWeight="DemiBold" />
                     <Border Grid.Row="1" Background="{DynamicResource ActivitySurfaceBrush}" CornerRadius="6">
-                        <ListBox x:Name="SessionList" ItemsSource="{Binding Sessions}" SelectedItem="{Binding SelectedSession, Mode=TwoWay}" SelectionMode="Single">
+                        <ListBox x:Name="SessionList" Classes="ActivitySessionList" ItemsSource="{Binding Sessions}" SelectedItem="{Binding SelectedSession, Mode=TwoWay}" SelectionMode="Single">
                             <ListBox.ItemTemplate>
                                 <DataTemplate x:DataType="vm:ActivitySessionRow">
                                     <StackPanel Spacing="6">
                                         <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="DemiBold" TextWrapping="Wrap" />
                                         <TextBlock Text="{Binding MetadataText}" Classes="ActivityLabel" />
-                                        <TextBlock Text="{Binding TagsText}" Foreground="#A0D477" /><TextBlock Text="{Binding EarningsText}" Classes="ActivityLabel" />
-                                        <WrapPanel><TextBlock Text="{Binding DurationText}" Margin="0,0,12,0" /><TextBlock Text="{Binding StateText}" Classes="ActivityLabel" /></WrapPanel>
+                                        <WrapPanel><TextBlock Text="{Binding DurationText}" Margin="0,0,12,0" /><TextBlock Text="{Binding TagsText}" Foreground="#A0D477" Margin="0,0,12,0" /><TextBlock Text="{Binding StateText}" Classes="ActivityLabel" /></WrapPanel>
                                     </StackPanel>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
                     </Border>
                     <StackPanel Grid.Row="2" Spacing="8">
-                        <TextBlock Text="{Binding HistoryCountText}" Classes="ActivityLabel" VerticalAlignment="Center" />
                         <WrapPanel><Button Classes="ActivityAction ActivitySecondary" Content="Load more" Command="{Binding LoadMoreSessionsCommand}" IsVisible="{Binding HasMoreSessions}" Margin="0,0,8,6" /><Button Classes="ActivityAction ActivitySecondary" Content="Delete session…" Click="DeleteSession_Click" IsEnabled="{Binding CanDeleteSelectedSession}" Margin="0,0,0,6" /></WrapPanel>
                     </StackPanel>
                     </Grid>
-                    <GridSplitter Grid.Row="1" Grid.Column="1" Width="1" HorizontalAlignment="Center" />
-                    <TextBlock Grid.Row="1" Grid.Column="2" Text="Choose a session to view its activity" IsVisible="{Binding !HasSelectedSession}" VerticalAlignment="Center" HorizontalAlignment="Center" TextWrapping="Wrap" Opacity="0.7" FontSize="16" Margin="20" />
-                    <Grid Grid.Row="1" Grid.Column="2" RowDefinitions="Auto,Auto,*" RowSpacing="12" IsVisible="{Binding HasSelectedSession}">
+                    <GridSplitter Grid.Column="1" Width="1" HorizontalAlignment="Center" />
+                    <TextBlock Grid.Column="2" Text="Choose a session to view its activity" IsVisible="{Binding !HasSelectedSession}" VerticalAlignment="Center" HorizontalAlignment="Center" TextWrapping="Wrap" Opacity="0.7" FontSize="16" Margin="20" />
+                    <ScrollViewer x:Name="HistorySessionDetailScroll" Grid.Column="2" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding HasSelectedSession}">
+                    <StackPanel Spacing="12">
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                            <StackPanel Spacing="4"><TextBlock Text="{Binding DetailTitle}" FontSize="20" FontWeight="DemiBold" TextWrapping="Wrap" /><TextBlock Text="{Binding DetailDurationText}" /><TextBlock Text="{Binding DetailScopeText}" Classes="ActivityLabel" /><TextBlock Text="{Binding DetailTagsText}" Foreground="#A0D477" /><TextBlock Text="{Binding ImportedDetailText}" IsVisible="{Binding IsImportedDetail}" Classes="ActivityLabel" /></StackPanel>
+                            <StackPanel Spacing="4"><TextBlock Text="{Binding DetailTitle}" FontSize="20" FontWeight="DemiBold" TextWrapping="Wrap" /><TextBlock Text="{Binding DetailDurationText}" /><TextBlock Text="{Binding DetailScopeText}" IsVisible="{Binding DetailScopeText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" Classes="ActivityLabel" /><TextBlock Text="{Binding DetailTagsText}" Foreground="#A0D477" /><TextBlock Text="{Binding ImportedDetailText}" IsVisible="{Binding IsImportedDetail}" Classes="ActivityLabel" ToolTip.Tip="{Binding ImportedDetailTooltipText}" /></StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                 <Button Classes="ActivityAction ActivitySecondary" Content="Whole session" Command="{Binding ClearEncounterCommand}" IsVisible="{Binding HasSelectedEncounter}" />
                                 <Button Classes="ActivityAction ActivitySecondary" Content="All players" Command="{Binding ClearPlayerCommand}" IsVisible="{Binding HasSelectedPlayer}" />
                             </StackPanel>
                         </Grid>
-                        <ScrollViewer Grid.Row="1" MaxHeight="250" HorizontalScrollBarVisibility="Disabled">
-                            <ContentControl Content="{Binding DetailSummary}" ContentTemplate="{StaticResource SummaryTemplate}" />
-                        </ScrollViewer>
-                        <TabControl Grid.Row="2" SelectedIndex="{Binding SelectedDetailTabIndex, Mode=TwoWay}">
+                        <ContentControl Content="{Binding DetailSummary}" ContentTemplate="{StaticResource SummaryTemplate}" />
+                        <TabControl Classes="ActivityDetails" SelectedIndex="{Binding SelectedDetailTabIndex, Mode=TwoWay}">
                             <TabItem Header="Encounters" IsEnabled="{Binding HasDetailedHistory}">
-                                <Grid RowDefinitions="*,Auto" RowSpacing="6">
-                                    <DataGrid ItemsSource="{Binding Encounters}" SelectedItem="{Binding SelectedEncounter, Mode=TwoWay}" SelectionMode="Single">
+                                <Grid RowDefinitions="Auto,Auto" RowSpacing="6">
+                                    <DataGrid ItemsSource="{Binding Encounters}" Height="{Binding Encounters.Count, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}" SelectedItem="{Binding SelectedEncounter, Mode=TwoWay}" SelectionMode="Single">
                                         <DataGrid.Columns>
                                             <DataGridTextColumn Header="#" Binding="{Binding Number}" />
                                             <DataGridTextColumn Header="Started" Binding="{Binding StartedText}" />
                                             <DataGridTextColumn Header="Location" Binding="{Binding Location}" Width="*" />
                                             <DataGridTextColumn Header="Type" Binding="{Binding Classification}" />
-                                            <DataGridTextColumn Header="Combat span" Binding="{Binding DurationText}" />
+                                            <DataGridTextColumn Header="Duration" Binding="{Binding DurationText}" />
                                             <DataGridTextColumn Header="Damage" Binding="{Binding DamageText}" />
                                             <DataGridTextColumn Header="DPS" Binding="{Binding DamageRateText}" />
                                             <DataGridTextColumn Header="Healing" Binding="{Binding HealingText}" />
                                             <DataGridTextColumn Header="HPS" Binding="{Binding HealingRateText}" />
-                                            <DataGridTextColumn Header="State" Binding="{Binding StateText}" />
                                         </DataGrid.Columns>
                                     </DataGrid>
-                                    <WrapPanel Grid.Row="1"><TextBlock Text="Select an encounter to view its activity" Classes="ActivityLabel" Margin="0,10,12,0" /><Button Classes="ActivityAction ActivitySecondary" Content="Load more encounters" Command="{Binding LoadMoreEncountersCommand}" IsVisible="{Binding HasMoreEncounters}" /></WrapPanel>
+                                    <Button Grid.Row="1" Classes="ActivityAction ActivitySecondary" Content="Load more" Command="{Binding LoadMoreEncountersCommand}" IsVisible="{Binding HasMoreEncounters}" HorizontalAlignment="Left" />
                                 </Grid>
                             </TabItem>
                             <TabItem Header="Charts" IsEnabled="{Binding HasDetailedHistory}">
-                                <Grid RowDefinitions="Auto,Auto,*" RowSpacing="8">
-                                    <WrapPanel><ComboBox ItemsSource="{Binding ChartMetricOptions}" SelectedItem="{Binding SelectedChartMetric, Mode=TwoWay}" Width="190" Margin="0,0,12,0" /><TextBlock Text="{Binding ChartDescription}" Classes="ActivityLabel" VerticalAlignment="Center" /></WrapPanel>
-                                    <ContentControl Grid.Row="1" Content="{Binding}" ContentTemplate="{StaticResource ActivityVisibilityTemplate}" />
-                                    <lvc:CartesianChart Grid.Row="2" Background="{DynamicResource ActivitySurfaceBrush}" Series="{Binding ChartSeries}" XAxes="{Binding ChartXAxes}" YAxes="{Binding ChartYAxes}" LegendPosition="Bottom" MinHeight="170" />
-                                </Grid>
+                                <StackPanel Spacing="8">
+                                    <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ActivityVisibilityTemplate}" />
+                                    <views:ActivityLiveTimelineView Snapshot="{Binding HistoryLiveTimeline}" ReplaySnapshot="{Binding HistoryReplayTimeline}" ReplayWindowCommand="{Binding LoadHistoryReplayCommand}" ShowReplayControls="True" IsGatheringMode="{Binding IsGatheringChart, Mode=TwoWay}" IsRolling="False" ShowWindowSelector="False" Title="Activity over time" OpenEncounterCommand="{Binding OpenTimelineEncounterCommand}" />
+                                </StackPanel>
                             </TabItem>
                             <TabItem Header="Players" IsEnabled="{Binding HasDetailedHistory}">
-                                <DataGrid ItemsSource="{Binding Players}" SelectedItem="{Binding SelectedPlayer, Mode=TwoWay}" SelectionMode="Single">
+                                <DataGrid ItemsSource="{Binding Players}" Height="{Binding Players.Count, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}" SelectedItem="{Binding SelectedPlayer, Mode=TwoWay}" SelectionMode="Single">
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="Player" Binding="{Binding Name}" Width="*" />
-                                        <DataGridTextColumn Header="Relationship" Binding="{Binding Relationship}" />
+                                        <DataGridTextColumn Header="Group" Binding="{Binding Relationship}" />
                                         <DataGridTextColumn Header="Damage dealt" Binding="{Binding DamageDealt}" />
                                         <DataGridTextColumn Header="Damage received" Binding="{Binding DamageReceived}" />
                                         <DataGridTextColumn Header="Healing done" Binding="{Binding HealingDone}" />
@@ -239,17 +292,21 @@
                                 </DataGrid>
                             </TabItem>
                             <TabItem Header="Killed mobs" IsEnabled="{Binding HasDetailedHistory}">
-                                <DataGrid ItemsSource="{Binding Mobs}">
-                                    <DataGrid.Columns><DataGridTextColumn Header="Mob" Binding="{Binding Name}" Width="*" /><DataGridTextColumn Header="Kills" Binding="{Binding Count}" /><DataGridTextColumn Header="Inferred" Binding="{Binding InferredCount}" /></DataGrid.Columns>
+                                <DataGrid ItemsSource="{Binding Mobs}" Height="{Binding Mobs.Count, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}">
+                                    <DataGrid.Columns><DataGridTextColumn Header="Mob" Binding="{Binding Name}" Width="*" /><DataGridTextColumn Header="Kills" Binding="{Binding Count}" /></DataGrid.Columns>
                                 </DataGrid>
                             </TabItem>
                             <TabItem Header="Items">
-                                <Grid RowDefinitions="Auto,Auto,*,Auto" RowSpacing="6">
-                                    <Grid ColumnDefinitions="Auto,Auto,*" ColumnSpacing="10"><ComboBox ItemsSource="{Binding LootScopeOptions}" SelectedItem="{Binding SelectedSessionLootScope, Mode=TwoWay}" Width="145" /><ComboBox Grid.Column="1" ItemsSource="{Binding ItemSourceOptions}" SelectedItem="{Binding SelectedSessionItemSource, Mode=TwoWay}" Width="145" /><TextBlock Grid.Column="2" Text="{Binding DetailEarningsText}" Classes="ActivityLabel" TextWrapping="Wrap" VerticalAlignment="Center" /></Grid>
-                                    <Expander Grid.Row="1" Header="Gathered resources" IsVisible="{Binding HasSessionResources}" IsExpanded="False">
-                                        <DataGrid ItemsSource="{Binding SessionResources}" MaxHeight="180"><DataGrid.Columns><DataGridTemplateColumn Header="Resource" Width="*" CellTemplate="{StaticResource ResourceItemTemplate}" /><DataGridTextColumn Header="Source" Binding="{Binding Method}" /><DataGridTextColumn Header="Quantity" Binding="{Binding QuantityText}" /><DataGridTextColumn Header="Estimated value" Binding="{Binding ValueText}" /><DataGridTextColumn Header="Prices" Binding="{Binding MissingPricesText}" /></DataGrid.Columns></DataGrid>
+                                <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="6">
+                                    <StackPanel Spacing="4">
+                                        <views:ActivitySegmentedSelector ItemsSource="{Binding LootScopeOptions}" SelectedItem="{Binding SelectedSessionLootScope, Mode=TwoWay}" AutomationProperties.Name="Session item scope" />
+                                        <views:ActivitySegmentedSelector ItemsSource="{Binding ItemSourceOptions}" SelectedItem="{Binding SelectedSessionItemSource, Mode=TwoWay}" AutomationProperties.Name="Session item source" />
+                                    </StackPanel>
+                                    <Expander Grid.Row="1" Header="Gathered" IsVisible="{Binding HasSessionResources}" IsExpanded="False" Padding="0" HorizontalAlignment="Stretch">
+                                        <ItemsControl ItemsSource="{Binding SessionResources}" ItemTemplate="{StaticResource ActivityResourceTileTemplate}" Margin="8,8,8,2"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel></ItemsControl>
                                     </Expander>
-                                    <DataGrid Grid.Row="2" ItemsSource="{Binding SessionLoot}">
+                                    <Expander Grid.Row="2" Header="Loot" IsVisible="{Binding ShowSessionLootPanel}" IsExpanded="False" Padding="0" HorizontalAlignment="Stretch" ToolTip.Tip="{Binding DetailEarningsText}">
+                                    <DataGrid ItemsSource="{Binding SessionLoot}" RowHeight="56" Height="{Binding SessionLoot.Count, Converter={x:Static views:ActivityView.HistoryLootTableHeightConverter}}">
                                         <DataGrid.Columns>
                                             <DataGridTextColumn Header="Time" Binding="{Binding TimeText}" />
                                             <DataGridTemplateColumn Header="Item" Width="*" MinWidth="200" CellTemplate="{StaticResource LootTemplate}" />
@@ -258,12 +315,12 @@
                                             <DataGridTemplateColumn Header="Recipient" MinWidth="110"><DataGridTemplateColumn.CellTemplate><DataTemplate x:DataType="vm:ActivityLootRow"><TextBlock Text="{Binding Recipient}" ToolTip.Tip="{Binding RecipientDetails}" VerticalAlignment="Center" /></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                                             <DataGridTextColumn Header="Source" Binding="{Binding Source}" />
                                             <DataGridTextColumn Header="Location" Binding="{Binding Location}" />
-                                            <DataGridTextColumn Header="Status" Binding="{Binding Evidence}" />
                                         </DataGrid.Columns>
                                     </DataGrid>
+                                    </Expander>
                                     <Grid Grid.Row="3" RowDefinitions="Auto,Auto" RowSpacing="6">
                                         <WrapPanel>
-                                            <Button Classes="ActivityAction ActivitySecondary" Content="Load more items" Command="{Binding LoadMoreSessionLootCommand}" IsVisible="{Binding HasMoreSessionLoot}" Margin="0,0,8,0" />
+                                            <Button Classes="ActivityAction ActivitySecondary" Content="Load more" Command="{Binding LoadMoreSessionLootCommand}" IsVisible="{Binding HasMoreSessionLoot}" Margin="0,0,8,0" />
                                             <Button x:Name="ExportSessionLootButton" Classes="ActivityAction ActivitySecondary" Content="Export loot…" IsEnabled="{Binding CanExportSessionLoot}" ToolTip.Tip="Export matching loot across all pages" Margin="0,0,8,0">
                                                 <Button.Flyout>
                                                     <MenuFlyout>
@@ -280,26 +337,32 @@
                                 </Grid>
                             </TabItem>
                             <TabItem Header="Timeline" IsEnabled="{Binding HasDetailedHistory}">
-                                <Grid RowDefinitions="Auto,*,Auto" RowSpacing="6">
+                                <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
                                     <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ActivityVisibilityTemplate}" />
-                                    <DataGrid Grid.Row="1" ItemsSource="{Binding Timeline}">
-                                        <DataGrid.Columns><DataGridTextColumn Header="Time" Binding="{Binding TimeText}" /><DataGridTextColumn Header="Event" Binding="{Binding Kind}" /><DataGridTextColumn Header="Source" Binding="{Binding Source}" /><DataGridTextColumn Header="Target" Binding="{Binding Target}" /><DataGridTextColumn Header="Details" Binding="{Binding Description}" Width="*" /><DataGridTextColumn Header="Location" Binding="{Binding Location}" /><DataGridTextColumn Header="Evidence" Binding="{Binding Evidence}" /></DataGrid.Columns>
+                                    <DataGrid Grid.Row="1" ItemsSource="{Binding Timeline}" Height="{Binding Timeline.Count, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}">
+                                        <DataGrid.Columns><DataGridTextColumn Header="Time" Binding="{Binding TimeText}" /><DataGridTextColumn Header="Event" Binding="{Binding Kind}" /><DataGridTextColumn Header="Source" Binding="{Binding Source}" /><DataGridTextColumn Header="Target" Binding="{Binding Target}" /><DataGridTextColumn Header="Details" Binding="{Binding Description}" Width="*" /><DataGridTextColumn Header="Location" Binding="{Binding Location}" /></DataGrid.Columns>
                                     </DataGrid>
-                                    <Button Grid.Row="2" Classes="ActivityAction ActivitySecondary" Content="Load more events" Command="{Binding LoadMoreTimelineCommand}" IsVisible="{Binding HasMoreTimeline}" HorizontalAlignment="Left" />
+                                    <Button Grid.Row="2" Classes="ActivityAction ActivitySecondary" Content="Load more" Command="{Binding LoadMoreTimelineCommand}" IsVisible="{Binding HasMoreTimeline}" HorizontalAlignment="Left" />
                                 </Grid>
                             </TabItem>
                         </TabControl>
-                    </Grid>
+                    </StackPanel>
+                    </ScrollViewer>
                 </Grid>
             </TabItem>
             <TabItem Header="Items">
-                <Grid RowDefinitions="Auto,Auto,Auto,*,Auto" RowSpacing="8" Margin="0,10,0,0">
-                    <WrapPanel>
-                        <TextBlock Margin="0,0,10,6" Classes="ActivityLabel" Text="Show" VerticalAlignment="Center" />
-                        <ComboBox ItemsSource="{Binding LootScopeOptions}" SelectedItem="{Binding SelectedLootScope, Mode=TwoWay}" Width="145" Margin="0,0,10,6" /><ComboBox ItemsSource="{Binding ItemSourceOptions}" SelectedItem="{Binding SelectedItemSource, Mode=TwoWay}" Width="145" Margin="0,0,10,6" />
-                        <TextBox Text="{Binding LootSearch}" Watermark="Search item, player, or source" Width="270" Margin="0,0,10,6" />
-                        <Button Classes="ActivityAction" Content="Search" Command="{Binding ApplyLootFiltersCommand}" />
-                    </WrapPanel>
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="8" Margin="0,10,0,0">
+                    <StackPanel Spacing="4">
+                        <WrapPanel>
+                            <views:ActivitySegmentedSelector ItemsSource="{Binding LootScopeOptions}" SelectedItem="{Binding SelectedLootScope, Mode=TwoWay}" AutomationProperties.Name="Item scope" Margin="0,0,12,0" />
+                            <views:ActivitySegmentedSelector ItemsSource="{Binding ItemSourceOptions}" SelectedItem="{Binding SelectedItemSource, Mode=TwoWay}" AutomationProperties.Name="Item source" />
+                        </WrapPanel>
+                        <WrapPanel>
+                            <TextBox Text="{Binding LootSearch}" Watermark="Search item, player, or source" Width="270" Margin="0,0,10,4" />
+                            <Button Classes="ActivityAction" Content="Search" Command="{Binding ApplyLootFiltersCommand}" Margin="0,0,0,4" />
+                        </WrapPanel>
+                    </StackPanel>
                     <Expander Grid.Row="1" Header="Filters" HorizontalAlignment="Stretch">
                         <WrapPanel Margin="12">
                             <StackPanel Margin="0,0,12,6"><TextBlock Classes="ActivityLabel" Text="From" /><DatePicker SelectedDate="{Binding FromDate, Mode=TwoWay}" /></StackPanel>
@@ -312,10 +375,11 @@
                             <Button Classes="ActivityAction ActivitySecondary" Content="Reset filters" Command="{Binding ResetFiltersCommand}" Margin="0,17,8,6" />
                         </WrapPanel>
                     </Expander>
-                    <Expander Grid.Row="2" Header="Gathered resources" IsVisible="{Binding HasGlobalResources}" IsExpanded="False">
-                                        <DataGrid ItemsSource="{Binding GlobalResources}" MaxHeight="180"><DataGrid.Columns><DataGridTemplateColumn Header="Resource" Width="*" CellTemplate="{StaticResource ResourceItemTemplate}" /><DataGridTextColumn Header="Source" Binding="{Binding Method}" /><DataGridTextColumn Header="Quantity" Binding="{Binding QuantityText}" /><DataGridTextColumn Header="Estimated value" Binding="{Binding ValueText}" /><DataGridTextColumn Header="Prices" Binding="{Binding MissingPricesText}" /></DataGrid.Columns></DataGrid>
+                    <Expander Grid.Row="2" Header="Gathered" IsVisible="{Binding HasGlobalResources}" IsExpanded="False" Padding="0" HorizontalAlignment="Stretch">
+                                        <ScrollViewer MaxHeight="108" HorizontalScrollBarVisibility="Disabled" Margin="8,8,8,2"><ItemsControl ItemsSource="{Binding GlobalResources}" ItemTemplate="{StaticResource ActivityResourceTileTemplate}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel></ItemsControl></ScrollViewer>
                                     </Expander>
-                                    <DataGrid Grid.Row="3" ItemsSource="{Binding GlobalLoot}">
+                    <Expander Grid.Row="3" Header="Loot" IsVisible="{Binding ShowGlobalLootPanel}" IsExpanded="False" Padding="0" HorizontalAlignment="Stretch">
+                    <DataGrid ItemsSource="{Binding GlobalLoot}" MaxHeight="420">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Time" Binding="{Binding DateTimeText}" />
                             <DataGridTemplateColumn Header="Item" Width="*" MinWidth="220" CellTemplate="{StaticResource LootTemplate}" />
@@ -324,14 +388,53 @@
                             <DataGridTemplateColumn Header="Recipient" MinWidth="130"><DataGridTemplateColumn.CellTemplate><DataTemplate x:DataType="vm:ActivityLootRow"><TextBlock Text="{Binding Recipient}" ToolTip.Tip="{Binding RecipientDetails}" VerticalAlignment="Center" /></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                             <DataGridTextColumn Header="Source" Binding="{Binding Source}" />
                             <DataGridTemplateColumn Header="Location" MinWidth="140"><DataGridTemplateColumn.CellTemplate><DataTemplate x:DataType="vm:ActivityLootRow"><TextBlock Text="{Binding Location}" ToolTip.Tip="{Binding ContextDetails}" VerticalAlignment="Center" /></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
-                            <DataGridTextColumn Header="Status" Binding="{Binding Evidence}" />
                         </DataGrid.Columns>
                     </DataGrid>
+                    </Expander>
                     <Grid Grid.Row="4" ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                        <StackPanel VerticalAlignment="Center" Spacing="3"><TextBlock Text="{Binding GlobalLootTotalsText}" FontWeight="DemiBold" /><TextBlock Text="{Binding LootCountText}" Classes="ActivityLabel" /></StackPanel>
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"><Button Classes="ActivityAction ActivitySecondary" Content="Load more items" Command="{Binding LoadMoreGlobalLootCommand}" IsVisible="{Binding HasMoreGlobalLoot}" /><Button Classes="ActivityAction ActivitySecondary" Content="Delete unassigned loot…" Click="DeleteUnassignedLoot_Click" /></StackPanel>
+                        <TextBlock Text="{Binding GlobalLootTotalsText}" FontWeight="DemiBold" VerticalAlignment="Center" TextWrapping="Wrap" ToolTip.Tip="{Binding GlobalLootDetailsText}" />
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"><Button Classes="ActivityAction ActivitySecondary" Content="Load more" Command="{Binding LoadMoreGlobalLootCommand}" IsVisible="{Binding HasMoreGlobalLoot}" /></StackPanel>
                     </Grid>
                 </Grid>
+                </ScrollViewer>
+            </TabItem>
+            <TabItem Header="Cleanup">
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                    <StackPanel Spacing="16" Margin="0,12,12,8" MaxWidth="1000" HorizontalAlignment="Stretch">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <StackPanel Spacing="4"><TextBlock Text="Stored activity" FontSize="20" FontWeight="DemiBold" /><TextBlock Text="All characters and servers" Classes="ActivityLabel" /></StackPanel>
+                            <Button Grid.Column="1" Classes="ActivityAction ActivitySecondary" Content="Refresh" Command="{Binding RefreshCleanupCommand}" IsEnabled="{Binding !IsCleanupBusy}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto" ColumnSpacing="6" RowSpacing="6">
+                            <Border Classes="ActivityCard ActivityMetricCard"><StackPanel><TextBlock Classes="ActivityLabel" Text="Activity storage" /><TextBlock Classes="ActivityValue" Text="{Binding CleanupActivitySizeText}" /><TextBlock Classes="ActivityLabel" Text="Includes history and items" /></StackPanel></Border>
+                            <Border Grid.Column="1" Classes="ActivityCard ActivityMetricCard"><StackPanel><TextBlock Classes="ActivityLabel" Text="Sessions" /><TextBlock Classes="ActivityValue" Text="{Binding CleanupSessionsText}" /></StackPanel></Border>
+                            <Border Grid.Column="2" Classes="ActivityCard ActivityMetricCard"><StackPanel><TextBlock Classes="ActivityLabel" Text="Encounters" /><TextBlock Classes="ActivityValue" Text="{Binding CleanupEncountersText}" /></StackPanel></Border>
+                            <Border Grid.Row="1" Classes="ActivityCard ActivityMetricCard"><StackPanel><TextBlock Classes="ActivityLabel" Text="Whole local database" /><TextBlock Classes="ActivityValue" Text="{Binding CleanupDatabaseSizeText}" /><TextBlock Classes="ActivityLabel" Text="Includes other app data" /></StackPanel></Border>
+                            <Border Grid.Row="1" Grid.Column="1" Classes="ActivityCard ActivityMetricCard"><StackPanel><TextBlock Classes="ActivityLabel" Text="Events" /><TextBlock Classes="ActivityValue" Text="{Binding CleanupEventsText}" /></StackPanel></Border>
+                            <Border Grid.Row="1" Grid.Column="2" Classes="ActivityCard ActivityMetricCard"><StackPanel><TextBlock Classes="ActivityLabel" Text="Item pickups" /><TextBlock Classes="ActivityValue" Text="{Binding CleanupItemsText}" /></StackPanel></Border>
+                        </Grid>
+                        <Border Classes="ActivityCard" Padding="16">
+                            <StackPanel Spacing="12">
+                                <TextBlock Text="Clean up history" FontSize="18" FontWeight="DemiBold" />
+                                <WrapPanel>
+                                    <CheckBox Content="Remove activity older than" IsChecked="{Binding CleanupDeleteOld, Mode=TwoWay}" VerticalAlignment="Center" Margin="0,0,10,0" />
+                                    <NumericUpDown Value="{Binding CleanupOlderThanDays, Mode=TwoWay}" Minimum="1" Maximum="36500" FormatString="0" Width="110" Height="32" Background="{DynamicResource ActivityInputBrush}" IsEnabled="{Binding CleanupDeleteOld}" />
+                                    <TextBlock Text="days" Classes="ActivityLabel" Margin="8,0,0,0" VerticalAlignment="Center" />
+                                </WrapPanel>
+                                <CheckBox Content="Remove loot picked up by others outside your party" IsChecked="{Binding CleanupDeleteOutsidePartyLoot, Mode=TwoWay}" />
+                                <TextBlock Text="Current sessions and original gathering records are kept." Classes="ActivityLabel" />
+                                <WrapPanel>
+                                    <Button Classes="ActivityAction ActivitySecondary" Content="Preview cleanup" Command="{Binding PreviewCleanupCommand}" IsEnabled="{Binding CanPreviewCleanup}" Margin="0,0,8,4" />
+                                    <Button Classes="ActivityAction" Content="Delete matching data…" Click="CleanupActivity_Click" IsEnabled="{Binding CanApplyCleanup}" Margin="0,0,0,4" />
+                                </WrapPanel>
+                                <TextBlock Text="{Binding CleanupPreviewText}" IsVisible="{Binding HasCleanupPreview}" TextWrapping="Wrap" />
+                                <TextBlock Text="{Binding CleanupStatusText}" Classes="ActivityLabel" TextWrapping="Wrap" />
+                            </StackPanel>
+                        </Border>
+                        <WrapPanel><Button Classes="ActivityAction ActivitySecondary" Content="Delete loot outside sessions…" Click="DeleteUnassignedLoot_Click" /></WrapPanel>
+                        <TextBlock Text="Removed data cannot be restored here. Storage is reused for new activity; the database file may stay the same size." Classes="ActivityLabel" TextWrapping="Wrap" />
+                    </StackPanel>
+                </ScrollViewer>
             </TabItem>
         </TabControl>
     </Grid>

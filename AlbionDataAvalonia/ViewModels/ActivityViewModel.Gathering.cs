@@ -6,7 +6,11 @@ using System.Collections.Generic;
 
 using System.Collections.ObjectModel;
 
+using System;
+
 using System.Linq;
+
+using System.Threading;
 
 using System.Threading.Tasks;
 
@@ -21,6 +25,8 @@ public partial class ActivityViewModel
 {
 
     private bool changingVisibility;
+    private ActivityQuery? currentResourcesQuery;
+    private long currentResourcesReadVersion;
 
     public IReadOnlyList<ActivityOption<ActivityItemSources>> ItemSourceOptions { get; } =
 
@@ -31,12 +37,6 @@ public partial class ActivityViewModel
     [ObservableProperty] private ActivityOption<ActivityItemSources> selectedItemSource = new(ActivityItemSources.All, "All items");
 
     [ObservableProperty] private ActivityOption<ActivityItemSources> selectedSessionItemSource = new(ActivityItemSources.All, "All items");
-
-    [ObservableProperty] private bool historyGathering;
-
-    [ObservableProperty] private bool historyPve;
-
-    [ObservableProperty] private bool historyPvp;
 
     [ObservableProperty] private bool showAllActivities = true;
 
@@ -56,12 +56,9 @@ public partial class ActivityViewModel
     [ObservableProperty] private ObservableCollection<ActivityResourceRow> sessionResources = new();
 
     [ObservableProperty] private ObservableCollection<ActivityResourceRow> globalResources = new();
+    [ObservableProperty] private ObservableCollection<ActivityResourceRow> currentResources = new();
 
 
-
-    public ActivityTags HistoryTags => (HistoryGathering ? ActivityTags.Gathering : ActivityTags.None)
-
-        | (HistoryPve ? ActivityTags.Pve : ActivityTags.None) | (HistoryPvp ? ActivityTags.Pvp : ActivityTags.None);
 
     public ActivityCategories VisibleCategories => ShowAllActivities ? ActivityCategories.All :
 
@@ -83,36 +80,36 @@ public partial class ActivityViewModel
 
     public bool HasDetailedHistory => !IsImportedDetail;
 
-    public string ImportedDetailText => IsImportedDetail
+    public string ImportedDetailText => IsImportedDetail ? "Imported gathering totals" : "";
 
-        ? "Imported summary · Individual pickup times, location, combat, fame, and cash silver were not recorded. Party view contains the recorded personal activity only." + (LegacyImportInfo?.HasMismatch == true ? $" Original totals: {LegacyImportInfo.OriginalTotalAmount:N0} items, value {LegacyImportInfo.OriginalTotalValue:N0}. Some item rows differ from these totals; original data was preserved." : "") : "";
+    public string ImportedDetailTooltipText => IsImportedDetail
+
+        ? "Only personal gathering totals are available. Individual pickup times and combat history were not recorded." + (LegacyImportInfo?.HasMismatch == true ? $" Saved totals: {LegacyImportInfo.OriginalTotalAmount:N0} items, value {LegacyImportInfo.OriginalTotalValue:N0}. Item rows differ from these totals." : "") : "";
 
     public bool HasLegacyImportWarning => persistence?.LastLegacyImportResult?.Errors.Count > 0;
-    public string LegacyImportWarningText => "Some gathering history could not be converted. Original records are intact; see Logs for details. Conversion will retry at the next start.";
+    public string LegacyImportWarningText => "Some gathering history could not be imported. Your original records are safe.";
     public bool HasSessionResources => SessionResources.Count > 0;
 
     public bool HasGlobalResources => GlobalResources.Count > 0;
+    public bool HasCurrentResources => CurrentResources.Count > 0;
+    public bool ShowGlobalLootPanel => (SelectedItemSource.Value & ActivityItemSources.Loot) != 0;
+    public bool ShowSessionLootPanel => (SelectedSessionItemSource.Value & ActivityItemSources.Loot) != 0 && !IsImportedDetail;
 
 
 
-    partial void OnLegacyImportInfoChanged(ActivityLegacyImportInfo? value) => OnPropertyChanged(nameof(ImportedDetailText));
+    partial void OnLegacyImportInfoChanged(ActivityLegacyImportInfo? value) => OnPropertyChanged(nameof(ImportedDetailTooltipText));
     partial void OnSelectedItemSourceChanged(ActivityOption<ActivityItemSources> value)
 
-    { ++itemChangeVersion; ++globalLootVersion; globalLootPage = 0; if (isActive && SelectedTabIndex == 2) _ = RunSafelyAsync(() => LoadGlobalLootAsync(false)); }
+    { OnPropertyChanged(nameof(ShowGlobalLootPanel)); ++itemChangeVersion; ++globalLootVersion; globalLootPage = 0; if (isActive && SelectedTabIndex == 2) _ = RunSafelyAsync(() => LoadGlobalLootAsync(false)); }
 
     partial void OnSelectedSessionItemSourceChanged(ActivityOption<ActivityItemSources> value)
 
-    { OnPropertyChanged(nameof(CanExportSessionLoot)); ++detailChangeVersion; ++detailVersion; sessionLootPage = 0; if (isActive && SelectedTabIndex == 1 && SelectedDetailTabIndex == 4) _ = RunSafelyAsync(RefreshDetailsAsync); }
+    { OnPropertyChanged(nameof(CanExportSessionLoot)); OnPropertyChanged(nameof(ShowSessionLootPanel)); ++detailChangeVersion; ++detailVersion; sessionLootPage = 0; if (isActive && SelectedTabIndex == 1 && SelectedDetailTabIndex == 4) _ = RunSafelyAsync(RefreshDetailsAsync); }
 
     partial void OnSessionResourcesChanged(ObservableCollection<ActivityResourceRow> value) => OnPropertyChanged(nameof(HasSessionResources));
 
     partial void OnGlobalResourcesChanged(ObservableCollection<ActivityResourceRow> value) => OnPropertyChanged(nameof(HasGlobalResources));
-
-    partial void OnHistoryGatheringChanged(bool value) => OnPropertyChanged(nameof(HistoryTags));
-
-    partial void OnHistoryPveChanged(bool value) => OnPropertyChanged(nameof(HistoryTags));
-
-    partial void OnHistoryPvpChanged(bool value) => OnPropertyChanged(nameof(HistoryTags));
+    partial void OnCurrentResourcesChanged(ObservableCollection<ActivityResourceRow> value) => OnPropertyChanged(nameof(HasCurrentResources));
 
     partial void OnShowAllActivitiesChanged(bool value) => ChangeVisibility(value, true);
 
@@ -171,6 +168,32 @@ public partial class ActivityViewModel
     }
 
 
+
+    private async Task RefreshCurrentResourcesAsync(Guid? sessionId, ActivityScope scope, CancellationToken cancellationToken)
+    {
+        if (persistence is null) return;
+        if (sessionId is not { } id)
+        {
+            if (CurrentResources.Count > 0) CurrentResources = new();
+            currentResourcesQuery = null;
+            return;
+        }
+
+        var query = new ActivityQuery { SessionId = id, Scope = scope };
+        var dataVersion = itemChangeVersion;
+        if (query == currentResourcesQuery && dataVersion == currentResourcesReadVersion) return;
+        if (query != currentResourcesQuery)
+        {
+            if (CurrentResources.Count > 0) CurrentResources = new();
+            currentResourcesQuery = null;
+        }
+        var rows = await persistence.GetResourceTotalsAsync(query, cancellationToken);
+        cancellationToken.ThrowIfCancellationRequested();
+        if (isDisposed || !isActive || SelectedTabIndex != 0 || tracker?.CurrentSessionId != id || SelectedScope.Value != scope) return;
+        CurrentResources = new(rows.Select(row => new ActivityResourceRow(row)));
+        currentResourcesQuery = query;
+        currentResourcesReadVersion = dataVersion;
+    }
 
     private async Task RefreshSessionResourcesAsync(ActivityQuery query, long version)
 

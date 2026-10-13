@@ -17,7 +17,11 @@ internal sealed record ActivityActor(
 // Object IDs are temporary map bindings. Saved events carry copies, never references here.
 internal sealed class ActivityActorContext(PartyTrackerService party, MobsService mobs)
 {
+    internal static readonly TimeSpan BindingGrace = TimeSpan.FromSeconds(10);
+    private const int MaximumTerminalBindings = 8192;
     private readonly Dictionary<long, Entity> entities = new();
+    private readonly Dictionary<long, TerminalBinding> terminals = new();
+    private readonly Queue<(long ObjectId, Guid Lifetime)> terminalOrder = new();
     private int? serverId;
     private Guid? characterId;
     private long? localObjectId;
@@ -37,6 +41,8 @@ internal sealed class ActivityActorContext(PartyTrackerService party, MobsServic
             || characterId is null && localName.Length > 0 && localName != packet.playerName;
         party.ResetObjectBindings(switched);
         entities.Clear();
+        terminals.Clear();
+        terminalOrder.Clear();
         serverId = server;
         characterId = packet.userGuid;
         localObjectId = packet.userObjectId;
@@ -52,6 +58,8 @@ internal sealed class ActivityActorContext(PartyTrackerService party, MobsServic
     public void Suspend()
     {
         entities.Clear();
+        terminals.Clear();
+        terminalOrder.Clear();
         party.ResetObjectBindings(false);
         localObjectId = null;
     }
@@ -62,6 +70,7 @@ internal sealed class ActivityActorContext(PartyTrackerService party, MobsServic
         var id = packet.ObjectId.Value;
         var lifetime = entities.TryGetValue(id, out var previous) && previous.Kind == ActivityActorKind.Player
             && !previous.Terminal && previous.CharacterId == packet.Guid ? previous.Lifetime : Guid.NewGuid();
+        terminals.Remove(id);
         entities[id] = new Entity(lifetime, packet.Guid, packet.Name,
             packet.GuildName ?? "", packet.AllianceName ?? "", ActivityActorKind.Player);
         party.UpdatePartyMemberName(packet.Guid, packet.Name, id);
@@ -71,20 +80,43 @@ internal sealed class ActivityActorContext(PartyTrackerService party, MobsServic
     {
         if (objectId <= 0) return;
         var descriptor = mobs.GetMobDescriptor(index);
+        var terminal = terminals.GetValueOrDefault(objectId);
         var fresh = !entities.TryGetValue(objectId, out var previous)
             || previous.Kind != ActivityActorKind.Mob || (previous.Terminal && health is > 0);
+        // Metadata without positive health cannot reopen a retired dead lifetime.
+        if (terminal is { Kind: ActivityActorKind.Mob } && health is not > 0)
+        {
+            entities[objectId] = new Entity(terminal.Lifetime,
+                null, descriptor?.DisplayName ?? $"Mob {index?.ToString() ?? "?"}", "", "",
+                ActivityActorKind.Mob, index, descriptor?.UniqueName, true, TerminalAt: terminal.At);
+            return;
+        }
+        terminals.Remove(objectId);
         entities[objectId] = new Entity(fresh ? Guid.NewGuid() : previous!.Lifetime,
             null, descriptor?.DisplayName ?? $"Mob {index?.ToString() ?? "?"}", "", "",
             ActivityActorKind.Mob, index, descriptor?.UniqueName,
-            !fresh && previous!.Terminal);
+            !fresh && previous!.Terminal, TerminalAt: fresh ? null : previous!.TerminalAt);
     }
 
-    public void MarkTerminal(long objectId)
+    public void MarkTerminal(long objectId, DateTime at)
     {
-        if (entities.TryGetValue(objectId, out var value)) entities[objectId] = value with { Terminal = true };
+        if (!entities.TryGetValue(objectId, out var value) || value.Terminal) return;
+        entities[objectId] = value with { Terminal = true, TerminalAt = at };
+        terminals[objectId] = new TerminalBinding(value.Lifetime, value.Kind, at);
+        terminalOrder.Enqueue((objectId, value.Lifetime));
+        while (terminalOrder.Count > MaximumTerminalBindings)
+        {
+            var oldest = terminalOrder.Dequeue();
+            if (terminals.TryGetValue(oldest.ObjectId, out var terminal) && terminal.Lifetime == oldest.Lifetime)
+                terminals.Remove(oldest.ObjectId);
+        }
     }
 
-    public bool IsTerminal(long? objectId) => objectId is { } id && entities.TryGetValue(id, out var entity) && entity.Terminal;
+    public bool IsTerminal(long? objectId) => objectId is { } id &&
+        (terminals.ContainsKey(id) || entities.TryGetValue(id, out var entity) && entity.Terminal);
+
+    public bool HasLifetime(long objectId, Guid lifetime) => entities.TryGetValue(objectId, out var entity)
+        && (lifetime == Guid.Empty || entity.Lifetime == lifetime);
 
     public void Leave(long objectId, DateTime at)
     {
@@ -93,7 +125,9 @@ internal sealed class ActivityActorContext(PartyTrackerService party, MobsServic
 
     public void Expire(DateTime at)
     {
-        foreach (var id in entities.Where(x => x.Key != localObjectId && !x.Value.Terminal && x.Value.LeftAt is { } left && at - left > TimeSpan.FromSeconds(10))
+        foreach (var id in entities.Where(x => x.Key != localObjectId &&
+            (x.Value.LeftAt is { } left && at - left > BindingGrace ||
+             x.Value.TerminalAt is { } terminal && at - terminal > BindingGrace))
             .Select(x => x.Key).ToArray()) entities.Remove(id);
     }
 
@@ -135,5 +169,6 @@ internal sealed class ActivityActorContext(PartyTrackerService party, MobsServic
 
     private sealed record Entity(Guid Lifetime, Guid? CharacterId, string Name, string Guild,
         string Alliance, ActivityActorKind Kind, int? MobIndex = null, string? UniqueName = null,
-        bool Terminal = false, DateTime? LeftAt = null);
+        bool Terminal = false, DateTime? LeftAt = null, DateTime? TerminalAt = null);
+    private sealed record TerminalBinding(Guid Lifetime, ActivityActorKind Kind, DateTime At);
 }

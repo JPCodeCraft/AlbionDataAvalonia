@@ -31,10 +31,14 @@ public sealed partial class ActivityPersistence
     {
         // Recompute only versioned caches; event identity, chronology and ownership stay intact.
         // A bounded transaction keeps a failed/restarted rebuild resumable.
+        Guid? afterSession = null;
         while (true)
         {
             await using var context = contextFactory();
-            var rows = await context.ActivitySessions.Where(x =>
+            var candidates = afterSession is { } sessionId
+                ? context.ActivitySessions.FromSqlInterpolated($"SELECT * FROM \"ActivitySessions\" WHERE \"Id\" > {sessionId}")
+                : context.ActivitySessions;
+            var rows = await candidates.Where(x =>
                     ActivityDatabaseFunctions.JsonLong(x.PersonalSummaryJson, "$.TagVersion") == null ||
                     ActivityDatabaseFunctions.JsonLong(x.PersonalSummaryJson, "$.TagVersion") != ActivityClassification.TagVersion)
                 .OrderBy(x => x.Id).Take(100).ToArrayAsync(cancellationToken);
@@ -53,11 +57,16 @@ public sealed partial class ActivityPersistence
             changes.Include(context);
             await context.SaveChangesAsync(cancellationToken);
             NotifyCommitted(changes);
+            afterSession = rows[^1].Id;
         }
+        Guid? afterEncounter = null;
         while (true)
         {
             await using var context = contextFactory();
-            var rows = await context.ActivityEncounters.Where(x =>
+            var candidates = afterEncounter is { } encounterId
+                ? context.ActivityEncounters.FromSqlInterpolated($"SELECT * FROM \"ActivityEncounters\" WHERE \"Id\" > {encounterId}")
+                : context.ActivityEncounters;
+            var rows = await candidates.Where(x =>
                     ActivityDatabaseFunctions.JsonLong(x.PersonalSummaryJson, "$.TagVersion") == null ||
                     ActivityDatabaseFunctions.JsonLong(x.PersonalSummaryJson, "$.TagVersion") != ActivityClassification.TagVersion)
                 .OrderBy(x => x.Id).Take(100).ToArrayAsync(cancellationToken);
@@ -73,6 +82,7 @@ public sealed partial class ActivityPersistence
             changes.Include(context);
             await context.SaveChangesAsync(cancellationToken);
             NotifyCommitted(changes);
+            afterEncounter = rows[^1].Id;
         }
         async Task<string> SummaryJson(ActivityQuery query) => ActivityProjection.Serialize(
             (await GetSummaryAsync(query, cancellationToken)) with { TagVersion = ActivityClassification.TagVersion });
@@ -91,11 +101,12 @@ public sealed partial class ActivityPersistence
                 rows = await context.GatheringCompletedSessions.AsNoTracking().OrderBy(x => x.EndedAtUtc).ThenBy(x => x.Id)
                     .Skip(page++ * 100).Take(100).ToArrayAsync(cancellationToken);
             if (rows.Length == 0) break;
+            var markers = await GetImportMarkersAsync(rows.Select(x => x.Id), cancellationToken);
             foreach (var row in rows)
             {
                 try
                 {
-                    if (await HasImportMarkerAsync(row.Id, cancellationToken)) { skipped++; continue; }
+                    if (markers.Contains(ImportOrigin(row.Id))) { skipped++; continue; }
                     var items = new List<LegacyItem>();
                     var itemPage = 0;
                     while (true)
@@ -127,13 +138,17 @@ public sealed partial class ActivityPersistence
                 rows = await context.GatheringUnfinishedSessionCheckpoints.AsNoTracking().OrderBy(x => x.UpdatedAtUtc).ThenBy(x => x.Id)
                     .Skip(page++ * 100).Take(100).ToArrayAsync(cancellationToken);
             if (rows.Length == 0) break;
+            var sourceIds = rows.Select(x => x.SessionId).Distinct().ToArray();
+            var markers = await GetImportMarkersAsync(sourceIds, cancellationToken);
+            HashSet<Guid> completedIds;
+            await using (var context = contextFactory())
+                completedIds = (await context.GatheringCompletedSessions.AsNoTracking().Where(x => sourceIds.Contains(x.Id))
+                    .Select(x => x.Id).ToArrayAsync(cancellationToken)).ToHashSet();
             foreach (var row in rows)
             {
                 try
                 {
-                    await using (var context = contextFactory())
-                        if (await context.GatheringCompletedSessions.AnyAsync(x => x.Id == row.SessionId, cancellationToken)) { skipped++; continue; }
-                    if (await HasImportMarkerAsync(row.SessionId, cancellationToken)) { skipped++; continue; }
+                    if (completedIds.Contains(row.SessionId) || markers.Contains(ImportOrigin(row.SessionId))) { skipped++; continue; }
                     var payload = JsonSerializer.Deserialize<GatheringSessionCheckpointPayload>(row.PayloadJson, options)
                         ?? throw new InvalidOperationException("Checkpoint payload is missing.");
                     var start = Utc(row.StartedAtUtc);
@@ -145,6 +160,7 @@ public sealed partial class ActivityPersistence
                     var value = items.Aggregate(0L, (sum, item) => checked(sum + (item.TotalValue ?? 0)));
                     await ImportRunAsync(row.SessionId, row.Id, start, end, end, elapsed, payload.AlbionServerId,
                         payload.PlayerName ?? "", amount, value, elapsed > 0 ? checked((long)Math.Round(value * 3600d / elapsed)) : 0, items, cancellationToken);
+                    markers.Add(ImportOrigin(row.SessionId));
                     imported++;
                 }
                 catch (OperationCanceledException) { throw; }
@@ -159,11 +175,14 @@ public sealed partial class ActivityPersistence
         }
     }
 
-    private async Task<bool> HasImportMarkerAsync(Guid sourceId, CancellationToken cancellationToken)
+    private async Task<HashSet<string>> GetImportMarkersAsync(IEnumerable<Guid> sourceIds, CancellationToken cancellationToken)
     {
+        var origins = sourceIds.Select(ImportOrigin).Distinct().ToArray();
+        if (origins.Length == 0) return [];
         await using var context = contextFactory();
-        var origin = ImportOrigin(sourceId);
-        return await context.ActivityEvents.AnyAsync(x => x.Kind == ActivityEventKind.LegacyImportMarker && x.OriginKey == origin, cancellationToken);
+        var markers = await context.ActivityEvents.AsNoTracking().Where(x => x.Kind == ActivityEventKind.LegacyImportMarker &&
+            x.OriginKey != null && origins.Contains(x.OriginKey)).Select(x => x.OriginKey!).ToArrayAsync(cancellationToken);
+        return markers.ToHashSet(StringComparer.Ordinal);
     }
 
     private async Task ImportRunAsync(Guid sourceId, Guid? checkpointId, DateTime start, DateTime end, DateTime last,
