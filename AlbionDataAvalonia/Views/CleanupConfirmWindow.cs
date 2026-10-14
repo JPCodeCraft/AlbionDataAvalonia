@@ -12,6 +12,7 @@ public sealed class CleanupConfirmWindow : Window
 
     private CleanupConfirmWindow(string itemNamePlural, int count)
     {
+        Classes.Add("AppPage");
         Title = $"Delete {itemNamePlural}?";
         Width = 460;
         SizeToContent = SizeToContent.Height;
@@ -46,11 +47,11 @@ public sealed class CleanupConfirmWindow : Window
             Spacing = 8
         };
 
-        var cancelButton = new Button { Content = "Cancel" };
+        var cancelButton = new Button { Content = "Cancel", IsCancel = true, Classes = { "UiAction", "UiSecondary" } };
         cancelButton.Click += CancelButton_Click;
         buttons.Children.Add(cancelButton);
 
-        var deleteButton = new Button { Content = "Delete" };
+        var deleteButton = new Button { Content = "Delete", Classes = { "UiAction" } };
         deleteButton.Click += DeleteButton_Click;
         buttons.Children.Add(deleteButton);
 

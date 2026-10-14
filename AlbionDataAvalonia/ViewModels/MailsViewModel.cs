@@ -29,6 +29,8 @@ public partial class MailsViewModel : ViewModelBase
     private readonly TimeSpan _loadDebounceInterval = TimeSpan.FromMilliseconds(100);
     private IDisposable? _pendingFilterRefreshRegistration;
     private IDisposable? _pendingLoadMailsRegistration;
+    private readonly SemaphoreSlim _loadGate = new(1, 1);
+    private int _loadVersion;
     private static readonly IReadOnlyList<NumericOption> _mailsToLoadOptions = NumericOptions.MailAndTradeLoadOptions;
 
     [ObservableProperty]
@@ -42,6 +44,12 @@ public partial class MailsViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool hasSelectedRows;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasLoadError))]
+    private string loadError = string.Empty;
+
+    public bool HasLoadError => !string.IsNullOrEmpty(LoadError);
 
     [ObservableProperty]
     private string cleanupStatus = string.Empty;
@@ -74,8 +82,9 @@ public partial class MailsViewModel : ViewModelBase
     {
         try
         {
-            AlbionServers.TryParse(GetSelectedServer(), out AlbionServer? server);
-            var locationIds = await _mailService.GetDistinctLocationIds(server?.Id);
+            var selectedServer = GetSelectedServer();
+            AlbionServers.TryParse(selectedServer, out AlbionServer? server);
+            var locationIds = await Task.Run(() => _mailService.GetDistinctLocationIds(server?.Id));
 
             var locations = locationIds
                 .Select(id => AlbionLocations.ResolveStoredLocation(string.Empty, id))
@@ -92,7 +101,7 @@ public partial class MailsViewModel : ViewModelBase
             // ItemsSource churn that would round-trip the selection.
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (!_locations.SequenceEqual(locations))
+                if (selectedServer == GetSelectedServer() && !_locations.SequenceEqual(locations))
                 {
                     _locations = locations;
                     OnPropertyChanged(nameof(Locations));
@@ -203,21 +212,47 @@ public partial class MailsViewModel : ViewModelBase
     [RelayCommand]
     public async Task LoadMails()
     {
+        var version = Interlocked.Increment(ref _loadVersion);
+        await _loadGate.WaitAsync();
         try
         {
+            if (version != Volatile.Read(ref _loadVersion))
+            {
+                return;
+            }
             var filter = GetCurrentMailFilter();
+            var count = _settingsManager.UserSettings.MailsPerPage;
 
-            var loadedMails = await _mailService.GetMails(_settingsManager.UserSettings.MailsPerPage, 0, filter.AlbionServerId, false, filter.LocationId, filter.AuctionType);
+            // Microsoft.Data.Sqlite performs its async reads synchronously.
+            var loadedMails = await Task.Run(() => _mailService.GetMails(count, 0, filter.AlbionServerId, false, filter.LocationId, filter.AuctionType));
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
+                if (version != Volatile.Read(ref _loadVersion)
+                    || filter != GetCurrentMailFilter()
+                    || count != _settingsManager.UserSettings.MailsPerPage)
+                {
+                    return;
+                }
                 UnfilteredMails = loadedMails;
                 CancelPendingFilterRefresh();
                 FilterMails();
+                LoadError = string.Empty;
             });
         }
         catch (Exception ex)
         {
             Log.Error(ex, "Failed to load mails");
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (version == Volatile.Read(ref _loadVersion))
+                {
+                    LoadError = "Could not load mails. Your current list is unchanged. Try Reload.";
+                }
+            });
+        }
+        finally
+        {
+            _loadGate.Release();
         }
     }
 

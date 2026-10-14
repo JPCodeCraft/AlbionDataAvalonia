@@ -15,6 +15,7 @@ public sealed class TradeQualitySelectionWindow : Window
 
     private TradeQualitySelectionWindow(int selectedCount)
     {
+        Classes.Add("AppPage");
         Title = "Set trade quality";
         Width = 420;
         SizeToContent = SizeToContent.Height;
@@ -65,11 +66,11 @@ public sealed class TradeQualitySelectionWindow : Window
             Spacing = 8
         };
 
-        var cancelButton = new Button { Content = "Cancel" };
+        var cancelButton = new Button { Content = "Cancel", IsCancel = true, Classes = { "UiAction", "UiSecondary" } };
         cancelButton.Click += CancelButton_Click;
         buttons.Children.Add(cancelButton);
 
-        var saveButton = new Button { Content = "Save" };
+        var saveButton = new Button { Content = "Save", Classes = { "UiAction" } };
         saveButton.Click += SaveButton_Click;
         buttons.Children.Add(saveButton);
 

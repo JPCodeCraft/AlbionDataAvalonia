@@ -26,6 +26,7 @@ public sealed class PortfolioQualitySelectionWindow : Window
     {
         _rows = groups.Select(group => new PortfolioQualitySelectionRow(group)).ToList();
 
+        Classes.Add("AppPage");
         Title = "Select portfolio quality";
         Width = 620;
         MinHeight = 240;
@@ -35,10 +36,11 @@ public sealed class PortfolioQualitySelectionWindow : Window
         ShowInTaskbar = false;
         WindowStartupLocation = WindowStartupLocation.CenterOwner;
 
-        var root = new StackPanel
+        var root = new Grid
         {
             Margin = new Avalonia.Thickness(20),
-            Spacing = 14
+            RowDefinitions = new RowDefinitions("Auto,Auto,*,Auto"),
+            RowSpacing = 14
         };
 
         root.Children.Add(new TextBlock
@@ -48,12 +50,14 @@ public sealed class PortfolioQualitySelectionWindow : Window
             FontWeight = FontWeight.DemiBold
         });
 
-        root.Children.Add(new TextBlock
+        var description = new TextBlock
         {
             Text = "Some selected trades have Unknown quality. Choose the portfolio quality to use for each item group.",
             TextWrapping = TextWrapping.Wrap,
             Opacity = 0.85
-        });
+        };
+        Grid.SetRow(description, 1);
+        root.Children.Add(description);
 
         var rowsPanel = new StackPanel { Spacing = 8 };
         foreach (var row in _rows)
@@ -61,11 +65,14 @@ public sealed class PortfolioQualitySelectionWindow : Window
             rowsPanel.Children.Add(CreateRow(row));
         }
 
-        root.Children.Add(new ScrollViewer
+        var rowsScroll = new ScrollViewer
         {
             Content = rowsPanel,
-            MaxHeight = 420
-        });
+            MaxHeight = 420,
+            HorizontalScrollBarVisibility = Avalonia.Controls.Primitives.ScrollBarVisibility.Disabled
+        };
+        Grid.SetRow(rowsScroll, 2);
+        root.Children.Add(rowsScroll);
 
         var buttons = new StackPanel
         {
@@ -74,14 +81,15 @@ public sealed class PortfolioQualitySelectionWindow : Window
             Spacing = 8
         };
 
-        var cancelButton = new Button { Content = "Cancel" };
+        var cancelButton = new Button { Content = "Cancel", IsCancel = true, Classes = { "UiAction", "UiSecondary" } };
         cancelButton.Click += CancelButton_Click;
         buttons.Children.Add(cancelButton);
 
-        var continueButton = new Button { Content = "Continue" };
+        var continueButton = new Button { Content = "Continue", Classes = { "UiAction" } };
         continueButton.Click += ContinueButton_Click;
         buttons.Children.Add(continueButton);
 
+        Grid.SetRow(buttons, 3);
         root.Children.Add(buttons);
         Content = root;
     }

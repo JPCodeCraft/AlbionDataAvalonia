@@ -2,230 +2,130 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
-             mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-			 xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
-             x:Class="AlbionDataAvalonia.Views.TradesView"
-			 x:DataType="vm:TradesViewModel"
+             xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
+             xmlns:views="clr-namespace:AlbionDataAvalonia.Views"
              xmlns:items="clr-namespace:AlbionDataAvalonia.Items"
-			 xmlns:model="using:AlbionDataAvalonia.Network.Models">
-
-	<UserControl.Styles>
-		<Style Selector="Button.Filter">
-			<Setter Property="Padding" Value="10" />
-			<Setter Property="Margin" Value="10" />
-		</Style>
-		<Style Selector="Button.ActionButton">
-			<Setter Property="Padding" Value="6,4" />
-			<Setter Property="Margin" Value="0,0,10,6" />
-			<Setter Property="HorizontalContentAlignment" Value="Center" />
-			<Setter Property="VerticalContentAlignment" Value="Center" />
-		</Style>
-		<Style Selector="TextBox.Filter">
-			<Setter Property="Padding" Value="10" />
-			<Setter Property="Margin" Value="0,0,10,6" />
-		</Style>
-		<Style Selector="ComboBox.Filter">
-			<Setter Property="Padding" Value="10" />
-			<Setter Property="Margin" Value="0,0,10,6" />
-		</Style>
-        <Style Selector="TextBlock.FilterLabel">
-            <Setter Property="FontSize" Value="12"/>
-            <Setter Property="Foreground" Value="#888"/>
-            <Setter Property="Margin" Value="0,0,0,1"/>
-        </Style>
-        <Style Selector="TextBlock.SelectedSummaryLabel">
-            <Setter Property="FontSize" Value="11"/>
-            <Setter Property="Foreground" Value="#888"/>
-        </Style>
-        <Style Selector="TextBlock.SelectedSummaryValue">
-            <Setter Property="FontSize" Value="11"/>
-        </Style>
-        <Style Selector="TextBlock.PortfolioHelperText">
-            <Setter Property="FontSize" Value="11"/>
-            <Setter Property="Foreground" Value="#d99"/>
-            <Setter Property="TextWrapping" Value="Wrap"/>
-            <Setter Property="Width" Value="170"/>
-        </Style>
-	</UserControl.Styles>
-
-	<Grid ColumnDefinitions="*" RowDefinitions="Auto, Auto, *">
-
-        <WrapPanel VerticalAlignment="Top" Margin="0,8,0,8">
-            <StackPanel Orientation="Vertical" Spacing="0" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
-                <TextBlock Classes="FilterLabel" Text="Data"/>
-                <Button Classes="Filter ActionButton" Width="100" Content="Load" Command="{Binding LoadTradesCommand}" />
-                <Button Classes="Filter ActionButton" Width="100" Content="Export CSV" Name="ExportCsvButton" Click="ExportCsvButton_Click" IsEnabled="{Binding !IsExporting}" />
+             mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="650"
+             x:Class="AlbionDataAvalonia.Views.TradesView"
+             x:DataType="vm:TradesViewModel"
+             Classes="AppPage">
+    <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
+        <WrapPanel Margin="0,8,0,0">
+            <StackPanel Margin="0,0,10,8" Spacing="3">
+                <TextBlock Classes="UiLabel" Text="Search loaded items" />
+                <TextBox Text="{Binding FilterText}" Name="FilterBox" Width="230" Watermark="Item name" />
             </StackPanel>
-
-            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top" IsVisible="{Binding IsExporting}">
-                <ProgressBar Minimum="0" Maximum="100" Value="{Binding ExportProgress}" Width="150" Height="20" />
+            <StackPanel Margin="0,0,10,8" Spacing="3">
+                <TextBlock Classes="UiLabel" Text="Trades to load" />
+                <ComboBox ItemsSource="{Binding TradesToLoadOptions}" SelectedItem="{Binding SelectedTradesToLoad}" Width="120" />
             </StackPanel>
-
-	            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
-	                <TextBlock Classes="FilterLabel" Text="Search an Item..."/>
-	                <TextBox Classes="Filter" Text="{Binding FilterText}" Name="FilterBox" Width="250"/>
-	            </StackPanel>
-
-	            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
-	                <TextBlock Classes="FilterLabel" Text="Trades to load"/>
-	                <ComboBox Classes="Filter" ItemsSource="{Binding TradesToLoadOptions}" SelectedItem="{Binding SelectedTradesToLoad}" Width="120"/>
-	            </StackPanel>
-
-	            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
-	                <TextBlock Classes="FilterLabel" Text="Server"/>
-	                <ComboBox Classes="Filter" ItemsSource="{Binding Servers}" SelectedItem="{Binding SelectedServer}" Width="150">
-                    <ComboBox.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding}"/>
-                        </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
+            <StackPanel Margin="0,0,10,8" Spacing="3">
+                <TextBlock Classes="UiLabel" Text="Server" />
+                <ComboBox ItemsSource="{Binding Servers}" SelectedItem="{Binding SelectedServer}" Width="145" />
             </StackPanel>
-
-            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
-                <TextBlock Classes="FilterLabel" Text="Trade Type"/>
-                <ComboBox Classes="Filter" ItemsSource="{Binding TradeTypes}" SelectedItem="{Binding SelectedTradeType}" Width="100">
-                    <ComboBox.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding}"/>
-                        </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
+            <StackPanel Margin="0,0,10,8" Spacing="3">
+                <TextBlock Classes="UiLabel" Text="Trade type" />
+                <ComboBox ItemsSource="{Binding TradeTypes}" SelectedItem="{Binding SelectedTradeType}" Width="120" />
             </StackPanel>
-
-            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
-                <TextBlock Classes="FilterLabel" Text="Operation"/>
-                <ComboBox Classes="Filter" ItemsSource="{Binding TradeOperations}" SelectedItem="{Binding SelectedOperation}" Width="100">
-                    <ComboBox.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding}"/>
-                        </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
+            <StackPanel Margin="0,0,10,8" Spacing="3">
+                <TextBlock Classes="UiLabel" Text="Operation" />
+                <ComboBox ItemsSource="{Binding TradeOperations}" SelectedItem="{Binding SelectedOperation}" Width="120" />
             </StackPanel>
-
-            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
-                <TextBlock Classes="FilterLabel" Text="Location"/>
-                <ComboBox Classes="Filter" ItemsSource="{Binding Locations}" SelectedItem="{Binding SelectedLocation}" Width="150">
-                    <ComboBox.ItemTemplate>
-                        <DataTemplate>
-                            <TextBlock Text="{Binding}"/>
-                        </DataTemplate>
-                    </ComboBox.ItemTemplate>
-                </ComboBox>
-            </StackPanel>
-
-            <StackPanel Orientation="Vertical" Spacing="0" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
-                <TextBlock Classes="FilterLabel" Text="Quality"/>
-                <Button Classes="Filter ActionButton" Width="110" Content="Set Quality" Name="SetQualityButton" Click="SetQualityButton_Click" IsEnabled="{Binding CanSetSelectedTradeQuality}" />
-            </StackPanel>
-
-            <StackPanel Orientation="Vertical" Spacing="0" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
-                <TextBlock Classes="FilterLabel" Text="Portfolio"/>
-                <Button Classes="Filter ActionButton" Width="130" Content="Add to Portfolio" Name="AddToPortfolioButton" Click="AddToPortfolioButton_Click" IsEnabled="{Binding CanAddSelectedTradesToPortfolio}" />
-                <TextBlock Classes="PortfolioHelperText" Text="{Binding PortfolioPostLimitHelperText}" IsVisible="{Binding IsSelectedPortfolioPostLimitExceeded}" />
-            </StackPanel>
-
-            <StackPanel Orientation="Vertical" Spacing="0" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
-                <TextBlock Classes="FilterLabel" Text="Cleanup"/>
-                <Button Classes="Filter ActionButton" Width="100" Content="Cleanup" Name="CleanupButton" Click="CleanupButton_Click" />
-                <Button Classes="Filter ActionButton" Width="100" Content="Delete" Name="DeleteButton" Click="DeleteButton_Click" IsEnabled="{Binding HasSelectedRows}" />
-            </StackPanel>
-
-            <StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top" IsVisible="{Binding HasSelectedRows}">
-                <TextBlock Classes="FilterLabel" Text="Selected Totals"/>
-                <StackPanel Orientation="Vertical" Spacing="2" VerticalAlignment="Top">
-                    <StackPanel Orientation="Horizontal" Spacing="4">
-                        <TextBlock Classes="SelectedSummaryLabel" Text="Amount:" VerticalAlignment="Center" />
-                        <TextBlock Classes="SelectedSummaryValue" Text="{Binding SelectedAmountTotal, StringFormat='{}{0:N0}'}" Tag="{Binding SelectedAmountTotal}" VerticalAlignment="Center" Cursor="Hand" PointerPressed="CopyValuePointerPressed" ToolTip.Tip="Click to copy" />
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Spacing="4">
-                        <TextBlock Classes="SelectedSummaryLabel" Text="Total Silver:" VerticalAlignment="Center" />
-                        <TextBlock Classes="SelectedSummaryValue" Text="{Binding SelectedTotalSilver, StringFormat='{}{0:N0}'}" Tag="{Binding SelectedTotalSilver}" VerticalAlignment="Center" Cursor="Hand" PointerPressed="CopyValuePointerPressed" ToolTip.Tip="Click to copy" />
-                    </StackPanel>
-                    <StackPanel Orientation="Horizontal" Spacing="4">
-                        <TextBlock Classes="SelectedSummaryLabel" Text="Avg Silver:" VerticalAlignment="Center" />
-                        <TextBlock Classes="SelectedSummaryValue" Text="{Binding SelectedAverageSilver, StringFormat='{}{0:N2}'}" Tag="{Binding SelectedAverageSilver}" VerticalAlignment="Center" Cursor="Hand" PointerPressed="CopyValuePointerPressed" ToolTip.Tip="Click to copy" />
-                    </StackPanel>
-                </StackPanel>
+            <StackPanel Margin="0,0,10,8" Spacing="3">
+                <TextBlock Classes="UiLabel" Text="Location" />
+                <ComboBox ItemsSource="{Binding Locations}" SelectedItem="{Binding SelectedLocation}" Width="170" />
             </StackPanel>
         </WrapPanel>
-
-        <StackPanel Grid.Row="1"
-                    Orientation="Horizontal"
-                    Margin="4,0,0,8"
-                    IsVisible="{Binding HasPortfolioImportStatus}">
-            <TextBlock Text="{Binding PortfolioImportStatus}" TextWrapping="Wrap" FontSize="12" />
+        <WrapPanel Grid.Row="1" Margin="0,0,0,2">
+            <Button Classes="UiAction UiSecondary" Margin="0,0,8,6" Content="Reload" Command="{Binding LoadTradesCommand}" />
+            <Button Classes="UiAction UiSecondary" Margin="0,0,8,6" Content="Export CSV" Name="ExportCsvButton" Click="ExportCsvButton_Click" IsEnabled="{Binding !IsExporting}" />
+            <Button Classes="UiAction UiSecondary" Margin="0,0,8,6" Content="Set quality" Name="SetQualityButton" Click="SetQualityButton_Click" IsEnabled="{Binding CanSetSelectedTradeQuality}" />
+            <Button Classes="UiAction UiSecondary" Margin="0,0,8,6" Content="Add to portfolio" Name="AddToPortfolioButton" Click="AddToPortfolioButton_Click" IsEnabled="{Binding CanAddSelectedTradesToPortfolio}" />
+            <Button Classes="UiAction UiSecondary" Margin="0,0,8,6" Content="Cleanup..." Name="CleanupButton" Click="CleanupButton_Click" />
+            <Button Classes="UiAction UiSecondary" Margin="0,0,8,6" Content="Delete selected..." Name="DeleteButton" Click="DeleteButton_Click" IsEnabled="{Binding HasSelectedRows}" />
+        </WrapPanel>
+        <StackPanel Grid.Row="2" Margin="0,0,0,6" Spacing="4">
+            <TextBlock Text="{Binding LoadError}" IsVisible="{Binding HasLoadError}" TextWrapping="Wrap" Foreground="#FFB4A8" FontSize="12" />
+            <TextBlock Text="{Binding PortfolioImportStatus}" IsVisible="{Binding HasPortfolioImportStatus}" TextWrapping="Wrap" FontSize="12" />
+            <TextBlock Text="{Binding PortfolioPostLimitHelperText}" IsVisible="{Binding IsSelectedPortfolioPostLimitExceeded}" TextWrapping="Wrap" Foreground="#FFB4A8" FontSize="12" />
         </StackPanel>
-
-		<DataGrid Grid.Row="2" Margin="0" ItemsSource="{Binding Trades}"
+        <DataGrid Grid.Row="3" Margin="0" ItemsSource="{Binding Trades}"
                   Name="TradesGrid"
-				  AutoGenerateColumns="False" IsReadOnly="True"
+                  AutoGenerateColumns="False" IsReadOnly="True"
                   SelectionMode="Extended"
                   SelectionChanged="TradesGrid_SelectionChanged"
-				  GridLinesVisibility="None"
-				  BorderThickness="0" BorderBrush="Gray">
+                  GridLinesVisibility="None"
+                  BorderThickness="0" BorderBrush="Gray">
 
-			<DataGrid.Styles>
-				<Style Selector="DataGridColumnHeader /template/ Grid#PART_ColumnHeaderRoot">
-					<Setter Property="Background" Value="rgba(255, 255, 255, 0.2)" />
-				</Style>
-				<Style Selector="DataGridColumnHeader:pointerover /template/ Grid#PART_ColumnHeaderRoot">
-					<Setter Property="Background" Value="rgba(255, 255, 255, 0.4)" />
-				</Style>
-			</DataGrid.Styles>
-
-			<DataGrid.Columns>
-				<DataGridTextColumn Header="Server" Binding="{Binding Server.Name}" />
-				<DataGridTextColumn Header="Player" Binding="{Binding PlayerName}" />
-				<DataGridTextColumn Header="Premium" Binding="{Binding PremiumStatusFormatted}" />
-				<DataGridTextColumn Header="Received" Binding="{Binding DateTimeUtcFormatted}" SortMemberPath="DateTime" />
-				<DataGridTextColumn Header="Type" Binding="{Binding TradeTypeFormatted}" />
-				<DataGridTextColumn Header="Operation" Binding="{Binding TradeOperationFormatted}" />
-				<DataGridTextColumn Header="Quality" Binding="{Binding QualityLevelFormatted}" />
-				<DataGridTextColumn Header="Portfolio" Binding="{Binding UploadedToPortfolioFormatted}" />
-				<DataGridTemplateColumn Header="Item" SortMemberPath="ItemName" CanUserSort="True">
-					<DataGridTemplateColumn.CellTemplate>
-						<DataTemplate>
-							<StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-								<Image Width="30" Height="30" Stretch="Uniform"
+            <DataGrid.Columns>
+                <DataGridTextColumn Header="Server" Binding="{Binding Server.Name}" />
+                <DataGridTextColumn Header="Player" Binding="{Binding PlayerName}" />
+                <DataGridTextColumn Header="Premium" Binding="{Binding PremiumStatusFormatted}" />
+                <DataGridTextColumn Header="Received" Binding="{Binding DateTime, Converter={x:Static views:UiValueConverters.LocalDateTime}}" SortMemberPath="DateTime" />
+                <DataGridTextColumn Header="Type" Binding="{Binding TradeTypeFormatted}" />
+                <DataGridTextColumn Header="Operation" Binding="{Binding TradeOperationFormatted}" />
+                <DataGridTextColumn Header="Quality" Binding="{Binding QualityLevelFormatted}" />
+                <DataGridTextColumn Header="Portfolio" Binding="{Binding UploadedToPortfolioFormatted}" />
+                <DataGridTemplateColumn Header="Item" SortMemberPath="ItemName" CanUserSort="True">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <Image Width="30" Height="30" Stretch="Uniform"
                                        items:LazyItemImage.ItemUniqueName="{Binding ItemId}"
                                        items:LazyItemImage.Quality="{Binding ImageQuality}" />
-								<TextBlock Text="{Binding ItemName}" VerticalAlignment="Center" />
-							</StackPanel>
-						</DataTemplate>
-					</DataGridTemplateColumn.CellTemplate>
-				</DataGridTemplateColumn>
-				<DataGridTextColumn Header="Location" Binding="{Binding Location.FriendlyName}" />
+                                <TextBlock Text="{Binding ItemName}" VerticalAlignment="Center" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
+                <DataGridTextColumn Header="Location" Binding="{Binding Location.FriendlyName}" />
 
-				<DataGridTemplateColumn Header="Amount" CanUserSort="True" SortMemberPath="Amount">
-					<DataGridTemplateColumn.CellTemplate>
-						<DataTemplate>
-							<TextBlock Text="{Binding Amount, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" HorizontalAlignment="Center" />
-						</DataTemplate>
-					</DataGridTemplateColumn.CellTemplate>
-				</DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Amount" CanUserSort="True" SortMemberPath="Amount">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding Amount, Converter={x:Static views:UiValueConverters.WholeNumber}}" Classes="TableNumber" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
 
-				<DataGridTemplateColumn Header="Unit Silver" CanUserSort="True"  SortMemberPath="UnitSilver">
-					<DataGridTemplateColumn.CellTemplate>
-						<DataTemplate>
-							<TextBlock Text="{Binding UnitSilver, StringFormat='{}{0:N2}'}" VerticalAlignment="Center" HorizontalAlignment="Center" />
-						</DataTemplate>
-					</DataGridTemplateColumn.CellTemplate>
-				</DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Unit Silver" CanUserSort="True"  SortMemberPath="UnitSilver">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding UnitSilver, Converter={x:Static views:UiValueConverters.WholeNumber}}" Classes="TableNumber" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
 
-				<DataGridTemplateColumn Header="Total Silver" CanUserSort="True"  SortMemberPath="TotalSilver">
-					<DataGridTemplateColumn.CellTemplate>
-						<DataTemplate>
-							<TextBlock Text="{Binding TotalSilver, StringFormat='{}{0:N0}'}" VerticalAlignment="Center" HorizontalAlignment="Center" />
-						</DataTemplate>
-					</DataGridTemplateColumn.CellTemplate>
-				</DataGridTemplateColumn>
+                <DataGridTemplateColumn Header="Total Silver" CanUserSort="True"  SortMemberPath="TotalSilver">
+                    <DataGridTemplateColumn.CellTemplate>
+                        <DataTemplate>
+                            <TextBlock Text="{Binding TotalSilver, Converter={x:Static views:UiValueConverters.WholeNumber}}" Classes="TableNumber" />
+                        </DataTemplate>
+                    </DataGridTemplateColumn.CellTemplate>
+                </DataGridTemplateColumn>
 
-			</DataGrid.Columns>
-		</DataGrid>
-	</Grid>
-
-
-
+            </DataGrid.Columns>
+        </DataGrid>
+        <Grid Grid.Row="4" ColumnDefinitions="*,150" MinHeight="42" Margin="0,6,0,0" ColumnSpacing="12">
+            <WrapPanel VerticalAlignment="Center">
+                <TextBlock Classes="UiLabel" Text="Selected:" Margin="0,0,8,0" VerticalAlignment="Center" />
+                <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,16,0">
+                    <TextBlock Text="{Binding SelectedAmountTotal, Converter={x:Static views:UiValueConverters.WholeNumber}}" Tag="{Binding SelectedAmountTotal}" Cursor="Hand" PointerPressed="CopyValuePointerPressed" ToolTip.Tip="Click to copy" />
+                    <TextBlock Classes="UiLabel" Text="items" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,16,0">
+                    <TextBlock Text="{Binding SelectedTotalSilver, Converter={x:Static views:UiValueConverters.WholeNumber}}" Tag="{Binding SelectedTotalSilver}" Cursor="Hand" PointerPressed="CopyValuePointerPressed" ToolTip.Tip="Click to copy" />
+                    <TextBlock Classes="UiLabel" Text="silver" />
+                </StackPanel>
+                <StackPanel Orientation="Horizontal" Spacing="4">
+                    <TextBlock Classes="UiLabel" Text="Average:" />
+                    <TextBlock Text="{Binding SelectedAverageSilver, Converter={x:Static views:UiValueConverters.WholeNumber}}" Tag="{Binding SelectedAverageSilver}" Cursor="Hand" PointerPressed="CopyValuePointerPressed" ToolTip.Tip="Click to copy" />
+                </StackPanel>
+            </WrapPanel>
+            <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4" IsVisible="{Binding IsExporting}">
+                <TextBlock Classes="UiLabel" Text="Exporting CSV..." />
+                <ProgressBar Minimum="0" Maximum="100" Value="{Binding ExportProgress}" Height="4" />
+            </StackPanel>
+        </Grid>
+    </Grid>
 </UserControl>

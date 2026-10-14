@@ -33,6 +33,8 @@ public partial class LegendaryViewModel : ViewModelBase
         new Dictionary<(int ServerId, Guid SoulId), LegendarySaleListing>();
     private bool loaded;
     private int refreshQueued;
+    private readonly SemaphoreSlim itemLoadGate = new(1, 1);
+    private int itemLoadVersion;
     private string? currentUserId;
 
     public ObservableCollection<LegendaryItemRowViewModel> Items { get; } = new();
@@ -62,6 +64,17 @@ public partial class LegendaryViewModel : ViewModelBase
 
     [ObservableProperty]
     private bool isAwakeningItemsTrackerDisabled;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasLoadError))]
+    [NotifyPropertyChangedFor(nameof(EmptyStateText))]
+    private string loadError = string.Empty;
+
+    public bool HasLoadError => !string.IsNullOrEmpty(LoadError);
+    public bool HasItems => Items.Count > 0;
+    public string EmptyStateText => HasLoadError
+        ? "Awakened items could not be loaded."
+        : unfilteredItems.Count == 0 ? "No awakened items recorded" : "No matching items";
 
     public bool CanListSelectedItem =>
         SelectedItem?.CanPost == true
@@ -138,8 +151,16 @@ public partial class LegendaryViewModel : ViewModelBase
     [RelayCommand]
     public async Task RefreshAsync()
     {
-        await LoadSaleListingsAsync();
-        await LoadItemsAsync();
+        try
+        {
+            await LoadSaleListingsAsync();
+            await LoadItemsAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to refresh awakened items");
+            LoadError = "Could not refresh awakened items. Try Reload.";
+        }
     }
 
     public async Task<int> DeleteSelectedItemsAsync(
@@ -274,9 +295,16 @@ public partial class LegendaryViewModel : ViewModelBase
 
     private async Task InitializeAsync()
     {
-        await definitions.InitializeAsync();
-        await LoadSaleListingsAsync();
-        await LoadItemsAsync();
+        try
+        {
+            await definitions.InitializeAsync();
+            await RefreshAsync();
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to initialize awakened items");
+            LoadError = "Could not load awakened items. Try Reload.";
+        }
     }
 
     private async Task HandleAuthChangedAsync(string? userId)
@@ -327,9 +355,15 @@ public partial class LegendaryViewModel : ViewModelBase
 
     private async Task LoadItemsAsync()
     {
+        var version = Interlocked.Increment(ref itemLoadVersion);
+        await itemLoadGate.WaitAsync().ConfigureAwait(false);
         try
         {
-            var items = await tracker.GetItemsAsync().ConfigureAwait(false);
+            if (version != Volatile.Read(ref itemLoadVersion))
+            {
+                return;
+            }
+            var items = await Task.Run(() => tracker.GetItemsAsync()).ConfigureAwait(false);
             var listings = saleListings;
             var rows = items.Select(item => new LegendaryItemRowViewModel(
                 item,
@@ -340,15 +374,31 @@ public partial class LegendaryViewModel : ViewModelBase
                     : null)).ToList();
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
+                if (version != Volatile.Read(ref itemLoadVersion))
+                {
+                    return;
+                }
                 var selectedId = SelectedItem?.Source.Id;
                 unfilteredItems = rows;
                 ApplyFilter();
                 SelectedItem = Items.FirstOrDefault(row => row.Source.Id == selectedId) ?? Items.FirstOrDefault();
+                LoadError = string.Empty;
             });
         }
         catch (Exception ex)
         {
             Log.Warning(ex, "Failed to load legendary items");
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (version == Volatile.Read(ref itemLoadVersion))
+                {
+                    LoadError = "Could not load awakened items. Your current list is unchanged. Try Reload.";
+                }
+            });
+        }
+        finally
+        {
+            itemLoadGate.Release();
         }
     }
 
@@ -411,6 +461,8 @@ public partial class LegendaryViewModel : ViewModelBase
         {
             Items.Add(row);
         }
+        OnPropertyChanged(nameof(HasItems));
+        OnPropertyChanged(nameof(EmptyStateText));
     }
 
     private static bool IsDefinedPlayerName(string? playerName)

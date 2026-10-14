@@ -33,66 +33,48 @@ public class MailService
 
     public async Task<List<AlbionMail>> GetMails(int countPerPage, int pageNumber = 0, int? albionServerId = null, bool showDeleted = false, int? locationId = null, AuctionType? auctionType = null)
     {
-        try
+        using var db = new LocalContext();
+        var query = db.AlbionMails.AsQueryable();
+
+        if (albionServerId.HasValue)
         {
-            using (var db = new LocalContext())
-            {
-                var query = db.AlbionMails.AsQueryable();
-
-                if (albionServerId.HasValue)
-                {
-                    query = query.Where(x => x.AlbionServerId == albionServerId);
-                }
-
-                if (locationId.HasValue)
-                {
-                    query = query.Where(x => x.LocationId == locationId);
-                }
-
-                if (auctionType != null)
-                {
-                    query = query.Where(x => x.AuctionType == auctionType);
-                }
-
-                if (!showDeleted)
-                {
-                    query = query.Where(x => !x.Deleted);
-                }
-
-                var result = await query.OrderByDescending(x => x.Received).AsNoTracking().Skip(countPerPage * pageNumber).Take(countPerPage).ToListAsync();
-
-                SetMailProperties(result);
-
-                Log.Debug("Loaded {Count} mails", result.Count);
-
-                return result;
-            }
+            query = query.Where(x => x.AlbionServerId == albionServerId);
         }
-        catch (Exception e)
+
+        if (locationId.HasValue)
         {
-            Log.Error(e, e.Message);
-            return new List<AlbionMail>();
+            query = query.Where(x => x.LocationId == locationId);
         }
+
+        if (auctionType != null)
+        {
+            query = query.Where(x => x.AuctionType == auctionType);
+        }
+
+        if (!showDeleted)
+        {
+            query = query.Where(x => !x.Deleted);
+        }
+
+        var result = await query.OrderByDescending(x => x.Received).AsNoTracking().Skip(countPerPage * pageNumber).Take(countPerPage).ToListAsync();
+
+        SetMailProperties(result);
+
+        Log.Debug("Loaded {Count} mails", result.Count);
+
+        return result;
     }
 
     public async Task<List<int>> GetDistinctLocationIds(int? albionServerId = null)
     {
-        try
+        using var db = new LocalContext();
+        var query = db.AlbionMails.Where(x => !x.Deleted);
+        if (albionServerId.HasValue)
         {
-            using var db = new LocalContext();
-            var query = db.AlbionMails.Where(x => !x.Deleted);
-            if (albionServerId.HasValue)
-            {
-                query = query.Where(x => x.AlbionServerId == albionServerId);
-            }
+            query = query.Where(x => x.AlbionServerId == albionServerId);
+        }
 
-            return await query.Select(x => x.LocationId).Distinct().ToListAsync();
-        }
-        catch (Exception e)
-        {
-            Log.Error(e, e.Message);
-            return new List<int>();
-        }
+        return await query.Select(x => x.LocationId).Distinct().ToListAsync();
     }
 
     public async Task<CleanupPreview> GetCleanupPreviewAsync(CancellationToken cancellationToken = default)

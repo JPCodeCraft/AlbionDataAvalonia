@@ -26,6 +26,7 @@ public sealed class ConfirmPortfolioUploadWindow : Window
             ? distinctPremiumStatuses[0]
             : null;
 
+        Classes.Add("AppPage");
         Title = "Confirm Portfolio upload";
         Width = 500;
         SizeToContent = SizeToContent.Height;
@@ -101,11 +102,11 @@ public sealed class ConfirmPortfolioUploadWindow : Window
             Spacing = 8
         };
 
-        var cancelButton = new Button { Content = "Cancel" };
+        var cancelButton = new Button { Content = "Cancel", IsCancel = true, Classes = { "UiAction", "UiSecondary" } };
         cancelButton.Click += CancelButton_Click;
         buttons.Children.Add(cancelButton);
 
-        var uploadButton = new Button { Content = "Upload" };
+        var uploadButton = new Button { Content = "Upload", Classes = { "UiAction" } };
         uploadButton.Click += UploadButton_Click;
         buttons.Children.Add(uploadButton);
 

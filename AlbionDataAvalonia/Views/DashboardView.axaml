@@ -8,6 +8,7 @@
 	d:DesignHeight="450"
 	d:DesignWidth="800"
 	x:DataType="vm:MainViewModel"
+	Classes="AppPage"
 	mc:Ignorable="d">
 
 	<UserControl.Styles>
@@ -174,18 +175,18 @@
 				Margin="0,10,0,10"
 				ColumnDefinitions="*"
 				IsVisible="{Binding ShowEncrypted}"
-				RowDefinitions="60">
-				<StackPanel
+				RowDefinitions="Auto">
+				<WrapPanel
 					Grid.Row="0"
 					Grid.Column="0"
 					HorizontalAlignment="Center"
 					VerticalAlignment="Center"
-					Orientation="Horizontal"
-					Spacing="4">
+					Orientation="Horizontal">
 					<TextBlock
 						FontWeight="Bold"
 						Foreground="{StaticResource AFMOrange}"
 						Text="Your market orders are encrypted! Go to"
+						Margin="0,0,4,0"
 						TextAlignment="Center"
 						TextWrapping="Wrap" />
 					<TextBlock
@@ -194,6 +195,7 @@
 						Foreground="{StaticResource AFMOrange}"
 						PointerReleased="AFMDiscordLink_PointerReleased"
 						Text="AFM Discord"
+						Margin="0,0,4,0"
 						TextDecorations="Underline" />
 					<TextBlock
 						FontWeight="Bold"
@@ -201,7 +203,7 @@
 						Text="to understand what's going on."
 						TextAlignment="Center"
 						TextWrapping="Wrap" />
-				</StackPanel>
+				</WrapPanel>
 			</Grid>
 
 			<Grid
@@ -310,22 +312,19 @@
 				Margin="0,10,0,10"
 				ColumnDefinitions="*"
 				IsVisible="{Binding ShowGetInGame}"
-				RowDefinitions="60, 30">
+				RowDefinitions="Auto,Auto">
 				<Label
 					Grid.Row="0"
 					HorizontalAlignment="Center"
 					VerticalAlignment="Center"
-					Content="You're good to go. Get ingame."
+					Content="Ready to connect. Enter the game."
 					FontSize="20"
 					FontWeight="Bold" />
 				<Border
 					Grid.Row="1"
+					Classes="UiCard"
 					Margin="0,10,0,0"
-					Padding="10"
-					Background="{DynamicResource ThemeBackgroundBrush}"
-					BorderBrush="{DynamicResource ThemeBorderMidBrush}"
-					BorderThickness="1"
-					CornerRadius="6">
+					Padding="12">
 					<StackPanel
 						HorizontalAlignment="Center"
 						VerticalAlignment="Center"
@@ -347,13 +346,13 @@
 							Text="2. Uninstall Winpcap from Windows Control Panel."
 							TextAlignment="Center"
 							TextWrapping="Wrap" />
-						<StackPanel
+						<WrapPanel
 							HorizontalAlignment="Center"
-							Orientation="Horizontal"
-							Spacing="4">
+							Orientation="Horizontal">
 							<TextBlock
 								FontSize="14"
 								Text="3. Install Npcap from"
+								Margin="0,0,4,0"
 								TextAlignment="Center"
 								TextWrapping="Wrap" />
 							<TextBlock
@@ -363,18 +362,18 @@
 								Foreground="{StaticResource AFMOrange}"
 								PointerReleased="NpcapLink_PointerReleased"
 								Text="https://npcap.com/#download"
+								Margin="0,0,4,0"
 								TextDecorations="Underline" />
 							<TextBlock
 								FontSize="14"
 								Text="and retry."
 								TextAlignment="Center"
 								TextWrapping="Wrap" />
-						</StackPanel>
-						<StackPanel
+						</WrapPanel>
+						<WrapPanel
 							HorizontalAlignment="Center"
-							Orientation="Horizontal"
-							Spacing="4">
-							<TextBlock FontSize="14" Text="Need more help? Join our" />
+							Orientation="Horizontal">
+							<TextBlock FontSize="14" Text="Need more help? Join our" Margin="0,0,4,0" />
 							<TextBlock
 								VerticalAlignment="Center"
 								Cursor="Hand"
@@ -382,9 +381,10 @@
 								Foreground="{StaticResource AFMOrange}"
 								PointerReleased="AFMDiscordLink_PointerReleased"
 								Text="Discord"
+								Margin="0,0,4,0"
 								TextDecorations="Underline" />
 							<TextBlock FontSize="14" Text="for support." />
-						</StackPanel>
+						</WrapPanel>
 					</StackPanel>
 				</Border>
 			</Grid>

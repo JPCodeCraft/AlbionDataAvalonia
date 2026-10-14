@@ -3,7 +3,7 @@
         xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         mc:Ignorable="d"
-        x:Class="AlbionDataAvalonia.Views.CsvExportOptionsWindow"
+        x:Class="AlbionDataAvalonia.Views.CsvExportOptionsWindow" Classes="AppPage"
         Width="420"
         SizeToContent="Height"
         CanResize="False"
@@ -58,8 +58,8 @@
                    TextWrapping="Wrap" />
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-            <Button Content="Cancel" Click="CancelButton_Click" />
-            <Button Content="Continue" Click="ContinueButton_Click" />
+            <Button Classes="UiAction UiSecondary" Content="Cancel" IsCancel="True" Click="CancelButton_Click" />
+            <Button Classes="UiAction" Content="Continue" Click="ContinueButton_Click" />
         </StackPanel>
     </StackPanel>
 </Window>

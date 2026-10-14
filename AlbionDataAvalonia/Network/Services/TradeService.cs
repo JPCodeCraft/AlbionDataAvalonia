@@ -36,71 +36,53 @@ public class TradeService
 
     public async Task<List<Trade>> GetTrades(int countPerPage, int pageNumber = 0, int? albionServerId = null, bool showDeleted = false, int? locationId = null, TradeType? tradeType = null, TradeOperation? tradeOperation = null)
     {
-        try
+        using var db = new LocalContext();
+        var query = db.Trades.AsQueryable();
+
+        if (albionServerId.HasValue)
         {
-            using (var db = new LocalContext())
-            {
-                var query = db.Trades.AsQueryable();
-
-                if (albionServerId.HasValue)
-                {
-                    query = query.Where(x => x.AlbionServerId == albionServerId);
-                }
-
-                if (locationId.HasValue)
-                {
-                    query = query.Where(x => x.LocationId == locationId);
-                }
-
-                if (tradeOperation != null)
-                {
-                    query = query.Where(x => x.Operation == tradeOperation);
-                }
-
-                if (tradeType != null)
-                {
-                    query = query.Where(x => x.Type == tradeType);
-                }
-
-                if (!showDeleted)
-                {
-                    query = query.Where(x => !x.Deleted);
-                }
-
-                var result = await query.OrderByDescending(x => x.DateTime).AsNoTracking().Skip(countPerPage * pageNumber).Take(countPerPage).ToListAsync();
-
-                SetTradeProperties(result);
-
-                Log.Debug("Loaded {Count} trades", result.Count);
-
-                return result;
-            }
+            query = query.Where(x => x.AlbionServerId == albionServerId);
         }
-        catch (Exception e)
+
+        if (locationId.HasValue)
         {
-            Log.Error(e, e.Message);
-            return new List<Trade>();
+            query = query.Where(x => x.LocationId == locationId);
         }
+
+        if (tradeOperation != null)
+        {
+            query = query.Where(x => x.Operation == tradeOperation);
+        }
+
+        if (tradeType != null)
+        {
+            query = query.Where(x => x.Type == tradeType);
+        }
+
+        if (!showDeleted)
+        {
+            query = query.Where(x => !x.Deleted);
+        }
+
+        var result = await query.OrderByDescending(x => x.DateTime).AsNoTracking().Skip(countPerPage * pageNumber).Take(countPerPage).ToListAsync();
+
+        SetTradeProperties(result);
+
+        Log.Debug("Loaded {Count} trades", result.Count);
+
+        return result;
     }
 
     public async Task<List<int>> GetDistinctLocationIds(int? albionServerId = null)
     {
-        try
+        using var db = new LocalContext();
+        var query = db.Trades.Where(x => !x.Deleted);
+        if (albionServerId.HasValue)
         {
-            using var db = new LocalContext();
-            var query = db.Trades.Where(x => !x.Deleted);
-            if (albionServerId.HasValue)
-            {
-                query = query.Where(x => x.AlbionServerId == albionServerId);
-            }
+            query = query.Where(x => x.AlbionServerId == albionServerId);
+        }
 
-            return await query.Select(x => x.LocationId).Distinct().ToListAsync();
-        }
-        catch (Exception e)
-        {
-            Log.Error(e, e.Message);
-            return new List<int>();
-        }
+        return await query.Select(x => x.LocationId).Distinct().ToListAsync();
     }
 
     public async Task<CleanupPreview> GetCleanupPreviewAsync(CancellationToken cancellationToken = default)

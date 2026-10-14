@@ -1,0 +1,99 @@
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+    <Styles.Resources>
+        <SolidColorBrush x:Key="UiSurfaceBrush" Color="#383838" />
+        <SolidColorBrush x:Key="UiInputBrush" Color="#424242" />
+        <SolidColorBrush x:Key="UiBorderBrush" Color="#555555" />
+        <SolidColorBrush x:Key="TextControlBackground" Color="#424242" />
+        <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="#424242" />
+        <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="#424242" />
+        <SolidColorBrush x:Key="TextControlBackgroundDisabled" Color="#383838" />
+        <SolidColorBrush x:Key="ExpanderHeaderBackground" Color="#383838" />
+        <SolidColorBrush x:Key="ExpanderHeaderBackgroundPointerOver" Color="#424242" />
+        <SolidColorBrush x:Key="ExpanderHeaderBackgroundPressed" Color="#343434" />
+        <SolidColorBrush x:Key="ExpanderHeaderBackgroundDisabled" Color="#383838" />
+        <SolidColorBrush x:Key="ExpanderHeaderBorderBrush" Color="#555555" />
+        <SolidColorBrush x:Key="ExpanderHeaderBorderBrushPointerOver" Color="#555555" />
+        <SolidColorBrush x:Key="ExpanderHeaderBorderBrushPressed" Color="#555555" />
+        <SolidColorBrush x:Key="ExpanderHeaderBorderBrushDisabled" Color="#555555" />
+    </Styles.Resources>
+
+    <Style Selector="TextBlock.UiLabel">
+        <Setter Property="FontSize" Value="12" />
+        <Setter Property="Opacity" Value="0.8" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="TextBlock.UiSectionTitle">
+        <Setter Property="FontSize" Value="16" />
+        <Setter Property="FontWeight" Value="DemiBold" />
+    </Style>
+    <Style Selector="TextBlock.TableNumber">
+        <Setter Property="HorizontalAlignment" Value="Right" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.UiCard">
+        <Setter Property="Background" Value="{DynamicResource UiSurfaceBrush}" />
+        <Setter Property="CornerRadius" Value="5" />
+        <Setter Property="Padding" Value="8" />
+    </Style>
+    <Style Selector="Button.UiAction">
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="Padding" Value="12,6" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.UiSecondary">
+        <Setter Property="Background" Value="{DynamicResource UiSurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource UiBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <Style Selector="Button.UiSecondary:pointerover">
+        <Setter Property="Background" Value="{DynamicResource UiInputBrush}" />
+    </Style>
+    <Style Selector=".AppPage ComboBox, .AppPage TextBox, .AppPage DatePicker">
+        <Setter Property="Background" Value="{DynamicResource UiInputBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource UiBorderBrush}" />
+        <Setter Property="MinHeight" Value="36" />
+    </Style>
+    <Style Selector=".AppPage ComboBox:pointerover, .AppPage TextBox:pointerover, .AppPage DatePicker:pointerover">
+        <Setter Property="Background" Value="{DynamicResource UiInputBrush}" />
+    </Style>
+    <Style Selector=".AppPage NumericUpDown /template/ TextBox">
+        <Setter Property="Background" Value="{DynamicResource UiInputBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="MinHeight" Value="32" />
+    </Style>
+    <Style Selector=".AppPage NumericUpDown /template/ TextBox /template/ Border#PART_BorderElement">
+        <Setter Property="Background" Value="{DynamicResource UiInputBrush}" />
+    </Style>
+    <Style Selector=".AppPage NumericUpDown /template/ RepeatButton">
+        <Setter Property="Background" Value="{DynamicResource UiInputBrush}" />
+    </Style>
+    <Style Selector=".AppPage Expander">
+        <Setter Property="Background" Value="{DynamicResource UiSurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource UiBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="6" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector=".AppPage Expander /template/ ToggleButton">
+        <Setter Property="Background" Value="{DynamicResource UiSurfaceBrush}" />
+        <Setter Property="MinHeight" Value="40" />
+    </Style>
+    <Style Selector=".AppPage DataGrid">
+        <Setter Property="Background" Value="{DynamicResource UiSurfaceBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="GridLinesVisibility" Value="None" />
+        <Setter Property="RowHeight" Value="32" />
+        <Setter Property="ColumnHeaderHeight" Value="32" />
+    </Style>
+    <Style Selector=".AppPage DataGridColumnHeader /template/ Grid#PART_ColumnHeaderRoot">
+        <Setter Property="Background" Value="{DynamicResource UiInputBrush}" />
+    </Style>
+    <Style Selector=".AppPage ScrollBar">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector=".AppPage GridSplitter">
+        <Setter Property="Background" Value="{DynamicResource UiBorderBrush}" />
+    </Style>
+</Styles>

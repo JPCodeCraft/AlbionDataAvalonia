@@ -13,6 +13,7 @@ public sealed class ConfirmPortfolioReuploadWindow : Window
         var pluralRecordName = $"{recordName}s";
         var prompt = $"Upload {pluralRecordName} again?";
 
+        Classes.Add("AppPage");
         Title = prompt;
         Width = 440;
         SizeToContent = SizeToContent.Height;
@@ -47,11 +48,11 @@ public sealed class ConfirmPortfolioReuploadWindow : Window
             Spacing = 8
         };
 
-        var cancelButton = new Button { Content = "Cancel" };
+        var cancelButton = new Button { Content = "Cancel", IsCancel = true, Classes = { "UiAction", "UiSecondary" } };
         cancelButton.Click += CancelButton_Click;
         buttons.Children.Add(cancelButton);
 
-        var uploadButton = new Button { Content = "Upload Again" };
+        var uploadButton = new Button { Content = "Upload again", Classes = { "UiAction" } };
         uploadButton.Click += UploadButton_Click;
         buttons.Children.Add(uploadButton);
 

@@ -4,29 +4,24 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
 			 xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
+             xmlns:views="clr-namespace:AlbionDataAvalonia.Views"
              x:Class="AlbionDataAvalonia.Views.LogsView"
+			 Classes="AppPage"
 			 x:DataType="vm:LogsViewModel">
 
 	<UserControl.Styles>
 		<Style Selector="TextBox.Filter">
-			<Setter Property="Padding" Value="10" />
-			<Setter Property="Margin" Value="0,0,10,6" />
+			<Setter Property="Margin" Value="0,0,0,6" />
 		</Style>
 		<Style Selector="ComboBox.Filter">
-			<Setter Property="Padding" Value="10" />
-			<Setter Property="Margin" Value="0,0,10,6" />
-		</Style>
-		<Style Selector="TextBlock.FilterLabel">
-			<Setter Property="FontSize" Value="12" />
-			<Setter Property="Foreground" Value="#888" />
-			<Setter Property="Margin" Value="0,0,0,1" />
+			<Setter Property="Margin" Value="0,0,0,6" />
 		</Style>
 	</UserControl.Styles>
 
 	<Grid RowDefinitions="Auto,*">
 		<WrapPanel Grid.Row="0" VerticalAlignment="Top" Margin="0,8,0,8">
 			<StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
-				<TextBlock Classes="FilterLabel" Text="Search logs..." />
+				<TextBlock Classes="UiLabel" Text="Search logs" />
 				<TextBox Classes="Filter"
 						 Text="{Binding FilterText}"
 						 Name="FilterBox"
@@ -34,45 +29,42 @@
 			</StackPanel>
 
 			<StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
-				<TextBlock Classes="FilterLabel" Text="Amount shown" />
+				<TextBlock Classes="UiLabel" Text="Rows" />
 				<ComboBox Classes="Filter"
 						  ItemsSource="{Binding AmountShownOptions}"
 						  SelectedItem="{Binding SelectedAmountShown}"
-						  Width="180" />
+						  Width="100" />
 			</StackPanel>
 
 			<StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
-				<TextBlock Classes="FilterLabel" Text="Log verbosity" />
+				<TextBlock Classes="UiLabel" Text="Log verbosity" />
 				<ComboBox Classes="Filter"
 						  ItemsSource="{Binding LogVerbosityOptions}"
 						  SelectedItem="{Binding SelectedLogVerbosity}"
-						  Width="180" />
+						  Width="150" />
 			</StackPanel>
 		</WrapPanel>
 
 		<DataGrid Grid.Row="1" Margin="0" ItemsSource="{Binding Events}"
 				  AutoGenerateColumns="False" IsReadOnly="True"
+				  RowHeight="NaN"
 				  GridLinesVisibility="None"
 				  BorderThickness="0" BorderBrush="Gray"
 				  CopyingRowClipboardContent="LogsGrid_CopyingRowClipboardContent">
-			<DataGrid.Styles>
-				<Style Selector="DataGridColumnHeader /template/ Grid#PART_ColumnHeaderRoot">
-					<Setter Property="Background" Value="rgba(255, 255, 255, 0.2)" />
-				</Style>
-				<Style Selector="DataGridColumnHeader:pointerover /template/ Grid#PART_ColumnHeaderRoot">
-					<Setter Property="Background" Value="rgba(255, 255, 255, 0.4)" />
-				</Style>
-			</DataGrid.Styles>
 			<DataGrid.Columns>
-				<DataGridTextColumn Header="Timestamp" Binding="{Binding LogEvent.Timestamp.LocalDateTime}" FontSize="12" />
+				<DataGridTextColumn Header="Time" Binding="{Binding LogEvent.Timestamp.UtcDateTime, Converter={x:Static views:UiValueConverters.LocalTimestamp}}" SortMemberPath="LogEvent.Timestamp" FontSize="12" />
 				<DataGridTextColumn Header="Level" Binding="{Binding LogEvent.Level}" FontSize="12" />
 				<DataGridTemplateColumn Header="Message" Width="*">
 					<DataGridTemplateColumn.CellTemplate>
 						<DataTemplate>
 							<TextBlock Text="{Binding RenderedMessage}" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center"
+									   MaxLines="3" TextTrimming="CharacterEllipsis"
 									   Classes="log-message"
 									   DataContextChanged="LogMessage_DataContextChanged"
 									   PointerReleased="LogMessage_PointerReleased">
+								<ToolTip.Tip>
+									<TextBlock Text="{Binding RenderedMessage}" TextWrapping="Wrap" MaxWidth="720" />
+								</ToolTip.Tip>
 								<TextBlock.Styles>
 									<Style Selector="TextBlock.log-message.link">
 										<Setter Property="Cursor" Value="Hand" />

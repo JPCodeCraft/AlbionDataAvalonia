@@ -4,13 +4,18 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-             x:Class="AlbionDataAvalonia.Views.PCapView">
+             x:Class="AlbionDataAvalonia.Views.PCapView" Classes="AppPage">
 
-	<StackPanel x:DataType="vm:MainViewModel">
-		<StackPanel HorizontalAlignment="Center">
-			<Label Margin="0, 10, 0, 10" HorizontalAlignment="Center" Content="You need to install NpCap for the client to work." FontWeight="Bold" FontSize="20"/>
-			<Button Margin="0, 10, 0, 10" HorizontalAlignment="Center" Content="Go to download page" Command="{Binding InstallNpCapCommand}" />
-			<Button Margin="0, 10, 0, 10" HorizontalAlignment="Center" Content="Check again..." Command="{Binding ShowDashboardCommand}" />
-		</StackPanel>
-	</StackPanel>
+	<ScrollViewer x:DataType="vm:MainViewModel" HorizontalScrollBarVisibility="Disabled">
+		<Border Classes="UiCard" Margin="16" MaxWidth="560" HorizontalAlignment="Center" VerticalAlignment="Top">
+			<StackPanel Spacing="12">
+				<TextBlock Classes="UiSectionTitle" Text="Npcap required" TextWrapping="Wrap" />
+				<TextBlock Text="Install Npcap to let AFM Data Client capture game activity." TextWrapping="Wrap" />
+				<WrapPanel>
+					<Button Classes="UiAction" Margin="0,0,8,4" Content="Download Npcap" Command="{Binding InstallNpCapCommand}" />
+					<Button Classes="UiAction UiSecondary" Margin="0,0,0,4" Content="Check again" Command="{Binding ShowDashboardCommand}" />
+				</WrapPanel>
+			</StackPanel>
+		</Border>
+	</ScrollViewer>
 </UserControl>

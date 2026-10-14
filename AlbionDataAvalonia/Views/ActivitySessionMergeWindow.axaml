@@ -1,16 +1,14 @@
 <Window xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
-        x:Class="AlbionDataAvalonia.Views.ActivitySessionMergeWindow"
+        x:Class="AlbionDataAvalonia.Views.ActivitySessionMergeWindow" Classes="AppPage"
         x:DataType="vm:ActivitySessionMergeViewModel"
         Title="{Binding WindowTitle}" Width="600" Height="560" MinWidth="460" MinHeight="380"
         ShowInTaskbar="False" WindowStartupLocation="CenterOwner" Icon="/Assets/logo.ico">
     <Window.Styles>
-        <Style Selector="Button"><Setter Property="Height" Value="36" /><Setter Property="Padding" Value="12,6" /></Style>
-        <Style Selector="Button.Secondary"><Setter Property="Background" Value="#383838" /><Setter Property="BorderBrush" Value="#555555" /><Setter Property="BorderThickness" Value="1" /></Style>
-        <Style Selector="ListBox"><Setter Property="Background" Value="#383838" /><Setter Property="BorderBrush" Value="#555555" /><Setter Property="BorderThickness" Value="1" /></Style>
+        <Style Selector="ListBox"><Setter Property="Background" Value="{DynamicResource UiSurfaceBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource UiBorderBrush}" /><Setter Property="BorderThickness" Value="1" /></Style>
         <Style Selector="ListBoxItem"><Setter Property="Padding" Value="12,10" /><Setter Property="HorizontalContentAlignment" Value="Stretch" /></Style>
-        <Style Selector="ListBoxItem:pointerover"><Setter Property="Background" Value="#424242" /></Style>
+        <Style Selector="ListBoxItem:pointerover"><Setter Property="Background" Value="{DynamicResource UiInputBrush}" /></Style>
         <Style Selector="ListBoxItem:selected"><Setter Property="Background" Value="{DynamicResource AFMBrown}" /><Setter Property="BorderBrush" Value="{DynamicResource AFMOrange}" /><Setter Property="BorderThickness" Value="3,0,0,0" /></Style>
     </Window.Styles>
     <Grid Margin="20" RowDefinitions="Auto,Auto,*,Auto,Auto" RowSpacing="12">
@@ -37,8 +35,8 @@
         </Grid>
         <TextBlock Grid.Row="3" Text="{Binding ErrorText}" IsVisible="{Binding HasError}" Foreground="#FFB74D" TextWrapping="Wrap" />
         <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-            <Button Classes="Secondary" Content="Cancel" Click="Cancel_Click" IsEnabled="{Binding !IsMerging}" />
-            <Button Content="{Binding MergeButtonText}" Click="Merge_Click" IsEnabled="{Binding CanMerge}" />
+            <Button Classes="UiAction UiSecondary" Content="Cancel" IsCancel="True" Click="Cancel_Click" IsEnabled="{Binding !IsMerging}" />
+            <Button Classes="UiAction" Content="{Binding MergeButtonText}" Click="Merge_Click" IsEnabled="{Binding CanMerge}" />
         </StackPanel>
     </Grid>
 </Window>

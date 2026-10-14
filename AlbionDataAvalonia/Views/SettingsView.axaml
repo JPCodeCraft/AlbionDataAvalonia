@@ -6,6 +6,7 @@
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="AlbionDataAvalonia.Views.SettingsView"
              x:Name="SettingsRoot"
+             Classes="AppPage"
              x:DataType="vm:SettingsViewModel">
 
     <TabControl Margin="0,0,20,20">
@@ -64,17 +65,13 @@
                             TickFrequency="1"
                             IsSnapToTickEnabled="True" />
 
-                    <Border Grid.Row="2"
-                            Background="{DynamicResource ThemeBackgroundBrush}"
-                            CornerRadius="4"
-                            Padding="12"
-                            BorderBrush="{DynamicResource ThemeBorderMidBrush}"
-                            BorderThickness="1"
-                            VerticalAlignment="Top">
-                        <StackPanel Spacing="8">
+                    <Expander Grid.Row="2" Header="Diagnostics" IsExpanded="False"
+                              HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
+                              VerticalAlignment="Top">
+                        <StackPanel Spacing="8" Margin="12">
                             <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
-                                <TextBlock Text="Pow solve performance" FontWeight="Bold" VerticalAlignment="Center" />
-                                <Button Grid.Column="1" Content="Clear" Command="{Binding ClearPowSolveStatsCommand}" HorizontalAlignment="Right" />
+                                <TextBlock Classes="UiSectionTitle" Text="Proof-of-work performance" VerticalAlignment="Center" />
+                                <Button Grid.Column="1" Classes="UiAction UiSecondary" Content="Clear" Command="{Binding ClearPowSolveStatsCommand}" HorizontalAlignment="Right" />
                             </Grid>
                             <TextBlock FontSize="12" Opacity="0.8">
                                 <Run Text="Tracking last " />
@@ -119,7 +116,7 @@
                             </StackPanel>
                             </UniformGrid>
                         </StackPanel>
-                    </Border>
+                    </Expander>
                 </Grid>
             </ScrollViewer>
         </TabItem>
@@ -143,7 +140,7 @@
                                    TextWrapping="Wrap"
                                    VerticalAlignment="Center"
                                    MaxWidth="720" />
-                            <Button Grid.Column="2"
+                            <Button Grid.Column="2" Classes="UiAction UiSecondary"
                                     Content="Copy"
                                     Click="CopyUserIdButton_Click"
                                     Margin="8,0,0,0" />
@@ -161,7 +158,7 @@
                             <TextBox Grid.Column="0"
                                      Text="{Binding FriendInput}"
                                      Watermark="User ID, email or AFM username" />
-                            <Button Grid.Column="1"
+                            <Button Grid.Column="1" Classes="UiAction"
                                     Content="Add"
                                     Command="{Binding AddSharedUserCommand}"
                                     IsEnabled="{Binding CanAddSharedUser}"
@@ -189,11 +186,15 @@
                                                        MaxWidth="280"
                                                        FontSize="12"
                                                        VerticalAlignment="Center" />
-                                            <Button Content="x"
-                                                    FontSize="11"
-                                                    Padding="5,0"
-                                                    MinWidth="0"
-                                                    MinHeight="0"
+                                            <Button Content="×"
+                                                    FontSize="14"
+                                                    Width="24" Height="24"
+                                                    Padding="0"
+                                                    MinWidth="24"
+                                                    MinHeight="24"
+                                                    VerticalAlignment="Center"
+                                                    ToolTip.Tip="Remove from sharing"
+                                                    AutomationProperties.Name="Remove from sharing"
                                                     Tag="{Binding}"
                                                     Click="RemoveSharedUserButton_Click" />
                                         </StackPanel>
@@ -219,7 +220,7 @@
         <TabItem Header="Activity">
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Margin="0,14,20,0" Spacing="12">
-                    <CheckBox Content="Record combat, fame, silver, and loot"
+                    <CheckBox Content="Record activity"
                               IsChecked="{Binding UserSettings.ActivityRecordingEnabled}" />
                     <TextBlock Text="{Binding ActivityRecordingStatus}" TextWrapping="Wrap" />
                     <TextBlock Text="Combat, gathering, fishing, and loot are saved together in local sessions. Turning recording off finishes the current session and keeps your history. Records remain until you delete them in Activity."
@@ -260,16 +261,13 @@
                                        TextWrapping="Wrap"
                                        Opacity="0.8" />
                         </StackPanel>
-                        <Button Grid.Column="1"
+                        <Button Grid.Column="1" Classes="UiAction UiSecondary"
                                 Content="Open backup folder"
                                 Command="{Binding OpenBackupFolderCommand}"
                                 VerticalAlignment="Center" />
                     </Grid>
 
-                    <Border Background="{DynamicResource ThemeBackgroundBrush}"
-                            BorderBrush="{DynamicResource ThemeBorderMidBrush}"
-                            BorderThickness="1"
-                            CornerRadius="4"
+                    <Border Classes="UiCard"
                             Padding="12">
                         <StackPanel Spacing="6">
                             <TextBlock Text="Privacy" FontWeight="Bold" />

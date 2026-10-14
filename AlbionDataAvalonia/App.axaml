@@ -21,6 +21,7 @@
 				<ColorPaletteResources x:Key="Dark" Accent="#fff57c00" AltHigh="Black" AltLow="Black" AltMedium="Black" AltMediumHigh="Black" AltMediumLow="Black" BaseHigh="White" BaseLow="#ff5d4037" BaseMedium="#ffb89e96" BaseMediumHigh="#ffcfb5ae" BaseMediumLow="#ff8b6f67" ChromeAltLow="#ffcfb5ae" ChromeBlackHigh="Black" ChromeBlackLow="#ffcfb5ae" ChromeBlackMedium="Black" ChromeBlackMediumLow="Black" ChromeDisabledHigh="#ff5d4037" ChromeDisabledLow="#ffb89e96" ChromeGray="#ffa1867e" ChromeHigh="#ffa1867e" ChromeLow="#ff3b0f0b" ChromeMedium="#ff431b16" ChromeMediumLow="#ff54342c" ChromeWhite="White" ListLow="#ff431b16" ListMedium="#ff5d4037" RegionColor="#ff303030" />
 			</FluentTheme.Palettes>
 		</FluentTheme>
+		<StyleInclude Source="avares://AlbionDataAvalonia/Themes/SharedControls.axaml" />
 	</Application.Styles>	
 
 	<TrayIcon.Icons>

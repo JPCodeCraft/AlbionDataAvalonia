@@ -18,6 +18,7 @@ public sealed class CleanupSelectionWindow : Window
 
     private CleanupSelectionWindow(string itemNamePlural, CleanupPreview preview)
     {
+        Classes.Add("AppPage");
         Title = $"Cleanup {itemNamePlural}";
         Width = 460;
         SizeToContent = SizeToContent.Height;
@@ -62,11 +63,11 @@ public sealed class CleanupSelectionWindow : Window
             Spacing = 8
         };
 
-        var cancelButton = new Button { Content = "Cancel" };
+        var cancelButton = new Button { Content = "Cancel", IsCancel = true, Classes = { "UiAction", "UiSecondary" } };
         cancelButton.Click += CancelButton_Click;
         buttons.Children.Add(cancelButton);
 
-        _continueButton = new Button { Content = "Continue" };
+        _continueButton = new Button { Content = "Continue", Classes = { "UiAction" } };
         _continueButton.Click += ContinueButton_Click;
         buttons.Children.Add(_continueButton);
 
