@@ -41,7 +41,7 @@ internal sealed class ActivityLootCollector : IDisposable
     // Public chest contents seen before closing; items missing later were taken by someone.
     private readonly Dictionary<long, DetachedChest> detachedChests = new();
     private readonly Dictionary<long, DateTime> emptyChests = new();
-    private readonly Dictionary<long, DateTime> recordedObjects = new();
+    private readonly Dictionary<long, RecordedObject> recordedObjects = new();
     private DateTime nonLootMoveUntil;
     private Guid? inventory;
     private DateTime lastCacheSweep;
@@ -406,6 +406,7 @@ internal sealed class ActivityLootCollector : IDisposable
             var matches = candidates.Where(x => x.ObjectId == objectId && !x.Confirmed && at - x.CreatedAt <= TimeSpan.FromSeconds(10)
                 && (intoInventory || x.Destination == destination)).ToArray();
             if (intoInventory && matches.Length == 0 && previous != inventory && candidates.Count < 256
+                && !WasRecordedAsPickup(objectId, at)
                 && TryContainer(previous, at, out var sourceContainer) && TrySource(sourceContainer.SourceId, at, out var source))
             {
                 // Server membership can prove the transfer even when its request was not captured.
@@ -509,7 +510,31 @@ internal sealed class ActivityLootCollector : IDisposable
 
     private void TypeRemoval(long sourceId, int itemId, long quantity, ActivityActor? recipient, DateTime at, string? origin)
     {
-        if (itemId <= 0 || quantity <= 0) return;
+        if (itemId <= 0 || quantity <= 0 || !TrySource(sourceId, at, out var source)) return;
+        // The removal may describe a pickup already recorded from this chest, by anyone.
+        if (RemovalExplanation(sourceId, source.Name, itemId, quantity, null, at) is { } explained)
+        {
+            explained.RemovalMatched = true;
+            return;
+        }
+        // Our own pending request for this item type is the removal; the transfer or the
+        // request-and-removal proof records it with the local player as recipient.
+        var own = candidates.Where(x => x.HasMoveIntent && !x.Confirmed && !x.TypeRemovalClaimed && x.Source.Id == sourceId
+                && x.Baseline.Id == itemId && at - x.CreatedAt <= TimeSpan.FromSeconds(10))
+            .OrderByDescending(x => x.Baseline.Quantity == quantity).ThenBy(x => x.CreatedAt).FirstOrDefault();
+        if (own is not null)
+        {
+            own.TypeRemovalClaimed = true;
+            if (!own.Removed)
+            {
+                own.Removed = true;
+                own.Decrement = quantity;
+                own.RemovedAt = at;
+                own.RemovalOrigin = origin;
+                own.Removal = tracker.Stamp(ActivityEventKind.Loot, at, origin);
+            }
+            return;
+        }
         var item = SourceItem(sourceId, itemId, quantity, at);
         if (recipient is not null)
             RecordAttributed(recipient, sourceId, itemId, quantity, item, item?.ObjectId, at, origin, "PartyLootTypeRemoval");
@@ -552,7 +577,7 @@ internal sealed class ActivityLootCollector : IDisposable
         }, itemId);
         if (item is not null) observation = Enrich(observation, item);
         observation = tracker.RecordLoot(observation);
-        recent.Add(new RecentPickup(observation, objectId, at, false) { IsAttributed = true });
+        recent.Add(new RecentPickup(observation, objectId, at, false) { IsAttributed = true, SourceId = sourceId });
         MarkRecorded(objectId, at);
     }
 
@@ -627,6 +652,7 @@ internal sealed class ActivityLootCollector : IDisposable
             matching.Event = tracker.AmendLoot(amended);
             matching.ObjectId = item.ObjectId;
             matching.Matched = true;
+            SupersedeInferred(item.ObjectId);
             MarkRecorded(item.ObjectId, at);
             if (candidate.Transfer is { } provisional) tracker.RetractLoot(provisional.Id, provisional.Revision + 1);
             return;
@@ -649,8 +675,17 @@ internal sealed class ActivityLootCollector : IDisposable
         if (candidate.Transfer is not null)
             observation = tracker.AmendLoot(observation with { Revision = observation.Revision + 1 });
         else observation = tracker.RecordLoot(observation, preserveEncounterAssociation: original is not null);
-        recent.Add(new RecentPickup(observation, item.ObjectId, at, false));
+        SupersedeInferred(item.ObjectId);
+        recent.Add(new RecentPickup(observation, item.ObjectId, at, false) { SourceId = candidate.Source.Id });
         MarkRecorded(item.ObjectId, at);
+    }
+
+    // The exact recipient supersedes an earlier unknown-recipient record of the same stack.
+    private void SupersedeInferred(long objectId)
+    {
+        if (recent.FirstOrDefault(x => x.ObjectId == objectId && x.Event.Evidence == ActivityEvidence.Inferred) is not { } inferred) return;
+        tracker.RetractLoot(inferred.Event.Id, inferred.Event.Revision + 1);
+        recent.Remove(inferred);
     }
 
     private void Broadcast(OtherGrabbedLootEvent packet, DateTime at)
@@ -745,6 +780,14 @@ internal sealed class ActivityLootCollector : IDisposable
     {
         if (quantity <= 0 || itemId <= 0 || !TrySource(sourceId, at, out var source)) return;
         if (objectId is { } id && WasRecorded(id, at)) return;
+        // A broadcast or recorded pickup of the same stack already names who took it.
+        if (RemovalExplanation(sourceId, source.Name, itemId, quantity, objectId, at) is { } explained)
+        {
+            explained.RemovalMatched = true;
+            explained.ObjectId ??= objectId;
+            MarkRecorded(objectId, at);
+            return;
+        }
         var observation = Describe((original ?? tracker.Stamp(ActivityEventKind.Loot, at, origin)) with
         {
             Evidence = ActivityEvidence.Inferred,
@@ -761,8 +804,24 @@ internal sealed class ActivityLootCollector : IDisposable
         }, itemId);
         if (item is not null) observation = Enrich(observation, item);
         observation = tracker.RecordLoot(observation);
-        recent.Add(new RecentPickup(observation, objectId, at, false));
-        MarkRecorded(objectId, at);
+        recent.Add(new RecentPickup(observation, objectId, at, false) { SourceId = sourceId });
+        MarkRecorded(objectId, at, inferred: true);
+    }
+
+    // One unmatched pickup of the same item and amount within the window explains a source
+    // removal: an exact or attributed pickup from that source, or a broadcast naming its looter.
+    private RecentPickup? RemovalExplanation(long sourceId, string sourceName, int itemId, long quantity, long? objectId, DateTime at)
+    {
+        var matches = recent.Where(x => !x.RemovalMatched && x.Event.Evidence != ActivityEvidence.Inferred
+            && x.Event.ItemId == itemId && x.Event.Quantity == quantity && Math.Abs((at - x.At).TotalSeconds) <= 3
+            && (x.SourceId == sourceId || x.IsBroadcast && x.SourceId is null)
+            && (objectId is null || x.ObjectId is null || x.ObjectId == objectId)).ToArray();
+        if (matches.Length > 1)
+        {
+            var sameSource = matches.Where(x => x.SourceId == sourceId || x.Event.LootSourceName == sourceName).ToArray();
+            if (sameSource.Length > 0) matches = sameSource;
+        }
+        return matches.OrderBy(x => x.At).FirstOrDefault();
     }
 
     // Reference data supplies names a pickup omits, so every pickup stays readable and priceable.
@@ -840,36 +899,27 @@ internal sealed class ActivityLootCollector : IDisposable
         }
     }
 
-    private void MarkRecorded(long? objectId, DateTime at)
+    private void MarkRecorded(long? objectId, DateTime at, bool inferred = false)
     {
         if (objectId is not > 0) return;
         if (recordedObjects.Count >= 4096 && !recordedObjects.ContainsKey(objectId.Value)) return;
-        recordedObjects[objectId.Value] = at;
+        recordedObjects[objectId.Value] = new RecordedObject(at, inferred);
     }
 
     // An item object is one stack instance, so any pickup recorded for it within the
     // metadata lifetime is the same pickup seen through another packet.
     private bool WasRecorded(long objectId, DateTime at)
-        => recordedObjects.TryGetValue(objectId, out var recordedAt) && at - recordedAt <= MetadataLifetime;
+        => recordedObjects.TryGetValue(objectId, out var recorded) && at - recorded.At <= MetadataLifetime;
+
+    private bool WasRecordedAsPickup(long objectId, DateTime at)
+        => recordedObjects.TryGetValue(objectId, out var recorded) && !recorded.Inferred && at - recorded.At <= MetadataLifetime;
 
     public void Expire(DateTime at)
     {
         foreach (var key in localIntroductions.Where(x => at - x.Value.At > TimeSpan.FromSeconds(2)).Select(x => x.Key).ToArray())
             localIntroductions.Remove(key);
         resourceClaims.RemoveAll(x => at - x.At > TimeSpan.FromSeconds(5));
-        foreach (var candidate in candidates.Where(x => !x.Confirmed && (x.Removed || x.HasMoveIntent && x.Decrement is > 0)
-            && at - (x.RemovedAt ?? x.CreatedAt) > CorrelationWindow).ToArray())
-        {
-            var quantity = candidate.Decrement ?? candidate.Baseline.Quantity;
-            if ((candidate.HasMoveIntent || candidate.RecipientProven) && candidate.Baseline.Id > 0 && quantity > 0)
-                // Our own move request (or the party allocation) names the recipient, and the source lost the item.
-                Confirm(candidate, candidate.Baseline, quantity, candidate.RemovedAt ?? at, candidate.RemovalOrigin,
-                    candidate.RecipientProven ? "PartyLootAllocation" : "MoveRequestAndSourceRemoval", candidate.Removal);
-            else
-                AmbiguousRemoval(candidate.Source.Id, candidate.Baseline.Id, quantity,
-                    candidate.RemovedAt ?? at, candidate.RemovalOrigin, candidate.ObjectId, candidate.Baseline, candidate.Removal);
-            candidate.Confirmed = true;
-        }
+        ResolveCandidates(at, force: false);
         candidates.RemoveAll(x => at - x.CreatedAt > TimeSpan.FromSeconds(10));
         gains.RemoveAll(x => x.Consumed || at - x.At > TimeSpan.FromSeconds(5));
         if (recent.Count > 4096) recent.RemoveRange(0, recent.Count - 4096);
@@ -889,7 +939,27 @@ internal sealed class ActivityLootCollector : IDisposable
         foreach (var key in chestRecipients.Where(x => at - x.Value.At > MetadataLifetime).Select(x => x.Key).ToArray()) chestRecipients.Remove(key);
         foreach (var key in detachedChests.Where(x => at - x.Value.At > MetadataLifetime).Select(x => x.Key).ToArray()) detachedChests.Remove(key);
         foreach (var key in emptyChests.Where(x => at - x.Value > EmptyChestWindow).Select(x => x.Key).ToArray()) emptyChests.Remove(key);
-        foreach (var key in recordedObjects.Where(x => at - x.Value > MetadataLifetime).Select(x => x.Key).ToArray()) recordedObjects.Remove(key);
+        foreach (var key in recordedObjects.Where(x => at - x.Value.At > MetadataLifetime).Select(x => x.Key).ToArray()) recordedObjects.Remove(key);
+    }
+
+    // Leaving a map, finishing or stopping cannot wait for the correlation window.
+    internal void ResolvePending(DateTime at) => ResolveCandidates(at, force: true);
+
+    private void ResolveCandidates(DateTime at, bool force)
+    {
+        foreach (var candidate in candidates.Where(x => !x.Confirmed && (x.Removed || x.HasMoveIntent && x.Decrement is > 0)
+            && (force || at - (x.RemovedAt ?? x.CreatedAt) > CorrelationWindow)).ToArray())
+        {
+            var quantity = candidate.Decrement ?? candidate.Baseline.Quantity;
+            if ((candidate.HasMoveIntent || candidate.RecipientProven) && candidate.Baseline.Id > 0 && quantity > 0)
+                // Our own move request (or the party allocation) names the recipient, and the source lost the item.
+                Confirm(candidate, candidate.Baseline, quantity, candidate.RemovedAt ?? at, candidate.RemovalOrigin,
+                    candidate.RecipientProven ? "PartyLootAllocation" : "MoveRequestAndSourceRemoval", candidate.Removal);
+            else
+                AmbiguousRemoval(candidate.Source.Id, candidate.Baseline.Id, quantity,
+                    candidate.RemovedAt ?? at, candidate.RemovalOrigin, candidate.ObjectId, candidate.Baseline, candidate.Removal);
+            candidate.Confirmed = true;
+        }
     }
 
     // Only the local inventory proofs used by loot are exposed. Requests, source
@@ -974,6 +1044,7 @@ internal sealed class ActivityLootCollector : IDisposable
         public bool HasMoveIntent { get; } = hasMoveIntent;
         public Guid? Destination { get; init; }
         public bool RecipientProven { get; set; }
+        public bool TypeRemovalClaimed { get; set; }
         public bool Removed { get; set; }
         public bool Confirmed { get; set; }
         public long? Decrement { get; set; }
@@ -994,11 +1065,14 @@ internal sealed class ActivityLootCollector : IDisposable
     private sealed record Allocation(long SourceId, string PlayerName, DateTime At);
     private sealed record ChestRecipients(IReadOnlyList<Guid> PlayerGuids, DateTime At);
     private sealed record DetachedChest(IReadOnlyList<long> Items, DateTime At);
+    private readonly record struct RecordedObject(DateTime At, bool Inferred);
     private sealed class RecentPickup(ActivityEvent observation, long? objectId, DateTime at, bool isBroadcast)
     {
         public ActivityEvent Event { get; set; } = observation; public long? ObjectId { get; set; } = objectId; public DateTime At { get; } = at;
         public bool IsBroadcast { get; } = isBroadcast; public bool IsAttributed { get; init; }
         public bool Matched { get; set; }
+        public long? SourceId { get; init; }
+        public bool RemovalMatched { get; set; }
     }
 }
 

@@ -137,6 +137,8 @@ public sealed partial class ActivityTrackerService : IDisposable
         lock (sync)
         {
             if (enabled == value) return;
+            // Pickups already proven before recording stops still belong to the closing session.
+            if (!value) loot.ResolvePending(DateTime.UtcNow);
             enabled = value;
             if (value && map is not null) { mapEnteredAt = DateTime.UtcNow; partialEntry = true; }
             if (!value) CloseSession(DateTime.UtcNow, ActivityEndReason.Disabled);
@@ -157,6 +159,7 @@ public sealed partial class ActivityTrackerService : IDisposable
         lock (sync)
         {
             if (expectedSessionId is { } expected && session?.Id != expected) return;
+            loot.ResolvePending(DateTime.UtcNow);
             CloseSession(DateTime.UtcNow, ActivityEndReason.Finished);
             resumable = null;
             loot.ResetCandidates();
@@ -194,6 +197,7 @@ public sealed partial class ActivityTrackerService : IDisposable
 
     private void Suspend(DateTime at)
     {
+        loot.ResolvePending(at);
         ClearPendingActorMetadata();
         timedOutEncounter = null;
         if (!awaitingContext && enabled && session is not null)
@@ -335,6 +339,8 @@ public sealed partial class ActivityTrackerService : IDisposable
 
     private void Join(JoinResponse packet, DateTime at)
     {
+        // Pickups waiting on their correlation window belong to the map being left.
+        loot.ResolvePending(at);
         var next = packet.ActivityLocation;
         var previous = map;
         var nextServer = player.AlbionServer?.Id;
@@ -806,7 +812,8 @@ public sealed partial class ActivityTrackerService : IDisposable
         {
             Id = $"unbound:{captureGeneration}:{actor.Name}",
             CharacterId = null,
-            Relationship = ActorRelationship.Unknown
+            // Without map confirmation only the party roster can classify a named player.
+            Relationship = actors.RosterRelationship(name)
         };
     }
     internal ActivityActor LocalActor => actors.Local;
@@ -815,6 +822,9 @@ public sealed partial class ActivityTrackerService : IDisposable
     internal long MapEpoch => mapEpoch;
     internal ActivityEvent RecordLoot(ActivityEvent value, bool hasConfirmedPickupEvidence = false, bool preserveEncounterAssociation = false)
     {
+        // Pickups seen before the character is confirmed still need their server for prices and identities.
+        if (value.Server.Length == 0 && player.AlbionServer?.Id is int server and > 0)
+            value = value with { Server = server.ToString(CultureInfo.InvariantCulture) };
         value = valuations.Observe(FillAffiliations(value));
         if (Tracked(value.SourceRelationship) && CanRecord &&
             (value.SessionId is null || value.SessionId == session?.Id) &&
@@ -995,7 +1005,9 @@ public sealed partial class ActivityTrackerService : IDisposable
         if (!reentryConfirmed && resumable?.ClosedAtUtc is { } exited && at - exited > ReentryGrace) resumable = null;
         pendingTerminals.RemoveAll(x => x.ExpiresAt < at);
         gathering.Expire(at);
-        loot.Expire(at);
+        // Loot correlations follow the captured timeline. A wall-clock tick during delayed
+        // processing would resolve a pickup before its later packets are observed.
+        if (!fromTimer) loot.Expire(at);
         // Combat/fishing deadlines stay exact; broad map-cache maintenance does
         // not need to scan every entity again for each incoming packet.
         if (at - lastCacheSweep < TimeSpan.FromSeconds(1)) return;

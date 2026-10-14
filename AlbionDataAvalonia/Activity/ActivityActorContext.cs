@@ -37,7 +37,10 @@ internal sealed class ActivityActorContext(PartyTrackerService party, MobsServic
 
     public void Join(JoinResponse packet, int? server, long mapEpoch)
     {
-        var switched = serverId != server || characterId != packet.userGuid
+        // Only a different known character or server invalidates the party roster. The first
+        // join after startup must keep members learned before it.
+        var switched = serverId is not null && serverId != server
+            || characterId is not null && characterId != packet.userGuid
             || characterId is null && localName.Length > 0 && localName != packet.playerName;
         party.ResetObjectBindings(switched);
         entities.Clear();
@@ -193,6 +196,14 @@ internal sealed class ActivityActorContext(PartyTrackerService party, MobsServic
 
         return new ActivityActor($"unknown:{serverId}:{epoch}:{objectId}", objectId, null, "Unknown",
             observedGuild ?? "", "", ActivityActorKind.Unknown, ActorRelationship.Unknown, Guid.Empty);
+    }
+
+    public ActorRelationship RosterRelationship(string? name)
+    {
+        if (string.IsNullOrWhiteSpace(name) || string.Equals(name, "Unknown", StringComparison.OrdinalIgnoreCase))
+            return ActorRelationship.Unknown;
+        var member = party.CurrentSnapshot.Members.FirstOrDefault(x => string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase));
+        return member is null ? ActorRelationship.Unknown : member.IsLocalPlayer ? ActorRelationship.Self : ActorRelationship.Party;
     }
 
     // Loot chest updates list the players allowed to take restricted items. One
