@@ -186,17 +186,20 @@
                                                        MaxWidth="280"
                                                        FontSize="12"
                                                        VerticalAlignment="Center" />
-                                            <Button Content="×"
-                                                    FontSize="14"
-                                                    Width="24" Height="24"
+                                            <Button Width="24" Height="24"
                                                     Padding="0"
                                                     MinWidth="24"
                                                     MinHeight="24"
                                                     VerticalAlignment="Center"
+                                                    HorizontalContentAlignment="Center"
+                                                    VerticalContentAlignment="Center"
                                                     ToolTip.Tip="Remove from sharing"
                                                     AutomationProperties.Name="Remove from sharing"
                                                     Tag="{Binding}"
-                                                    Click="RemoveSharedUserButton_Click" />
+                                                    Click="RemoveSharedUserButton_Click">
+                                                <PathIcon Width="10" Height="10"
+                                                          Data="M 1,0 L 5,4 L 9,0 L 10,1 L 6,5 L 10,9 L 9,10 L 5,6 L 1,10 L 0,9 L 4,5 L 0,1 Z" />
+                                            </Button>
                                         </StackPanel>
                                     </Border>
                                 </DataTemplate>

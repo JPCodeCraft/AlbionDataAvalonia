@@ -53,7 +53,7 @@
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Server" Binding="{Binding Server.Name}" />
                 <DataGridTextColumn Header="Player" Binding="{Binding PlayerName}" />
-                <DataGridTextColumn Header="Received" Binding="{Binding Received, Converter={x:Static views:UiValueConverters.LocalDateTime}}" SortMemberPath="Received" />
+                <DataGridTextColumn Header="Received" Binding="{Binding Received, Mode=OneWay, Converter={x:Static views:UiValueConverters.LocalDateTime}}" SortMemberPath="Received" />
                 <DataGridTextColumn Header="Type" Binding="{Binding AuctionTypeFormatted}" />
                 <DataGridTemplateColumn Header="Item" SortMemberPath="ItemName" CanUserSort="True">
                     <DataGridTemplateColumn.CellTemplate>

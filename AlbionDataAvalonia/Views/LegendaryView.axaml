@@ -28,7 +28,11 @@
                 <CheckBox Content="Attuned to me"
                           IsChecked="{Binding OnlyAttunedToMe}"
                           IsEnabled="{Binding CanFilterAttunedToMe}"
-                          Padding="0,4" />
+                          ToolTip.Tip="{Binding AttunedToMeHint}"
+                          ToolTip.ShowOnDisabled="True"
+                          MinHeight="36"
+                          VerticalContentAlignment="Center"
+                          Padding="8,0,0,0" />
             </StackPanel>
             <StackPanel Margin="0,0,10,0">
                 <TextBlock Text="Sale status" Classes="UiLabel" />
@@ -106,7 +110,7 @@
                     <DataGridTextColumn Header="Strain" Binding="{Binding Strain}" SortMemberPath="Source.Strain" />
                     <DataGridTextColumn Header="PvP fame" Binding="{Binding PvPFameGained}" SortMemberPath="Source.PvPFameGained" />
                     <DataGridTextColumn Header="Attunement spent" Binding="{Binding AttunementSpent}" SortMemberPath="Source.AttunementSpent" />
-                    <DataGridTextColumn Header="Last seen" Binding="{Binding Source.LastSeenAtUtc, Converter={x:Static views:UiValueConverters.LocalDateTime}}" SortMemberPath="Source.LastSeenAtUtc" />
+                    <DataGridTextColumn Header="Last seen" Binding="{Binding Source.LastSeenAtUtc, Mode=OneWay, Converter={x:Static views:UiValueConverters.LocalDateTime}}" SortMemberPath="Source.LastSeenAtUtc" />
                     <DataGridTextColumn Header="Sale status" Binding="{Binding SaleState}" SortMemberPath="SaleState" />
                 </DataGrid.Columns>
             </DataGrid>

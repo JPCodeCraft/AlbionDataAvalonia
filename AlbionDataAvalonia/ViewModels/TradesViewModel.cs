@@ -34,6 +34,9 @@ public partial class TradesViewModel : ViewModelBase
     private IDisposable? _pendingLoadTradesRegistration;
     private readonly SemaphoreSlim _loadGate = new(1, 1);
     private int _loadVersion;
+    private int _portfolioRefreshVersion;
+    private Task? _backgroundPortfolioRefresh;
+    private bool _isPortfolioStatusLoading;
     private static readonly IReadOnlyList<NumericOption> _tradesToLoadOptions = NumericOptions.MailAndTradeLoadOptions;
 
     [ObservableProperty]
@@ -153,7 +156,7 @@ public partial class TradesViewModel : ViewModelBase
         ? PortfolioUploadService.CreatePostLimitMessage(SelectedPortfolioPostCount)
         : string.Empty;
 
-    public bool CanSetSelectedTradeQuality => HasSelectedQualityEditableRows && !IsSettingQuality;
+    public bool CanSetSelectedTradeQuality => HasSelectedQualityEditableRows && !IsSettingQuality && !_isPortfolioStatusLoading;
 
     public bool CanAddSelectedTradesToPortfolio => HasSelectedRows && !IsAddingToPortfolio && !IsSelectedPortfolioPostLimitExceeded;
 
@@ -274,10 +277,8 @@ public partial class TradesViewModel : ViewModelBase
             var filter = GetCurrentTradeFilter();
             var count = _settingsManager.UserSettings.TradesToShow;
 
-            var uploadedTradeIdsTask = LoadPortfolioUploadedTradeIdsAsync();
             // Microsoft.Data.Sqlite performs its async reads synchronously.
             var loadedTrades = await Task.Run(() => _tradeService.GetTrades(count, 0, filter.AlbionServerId, false, filter.LocationId, filter.TradeType, filter.TradeOperation));
-            var uploadedTradeIdsResult = await uploadedTradeIdsTask;
 
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
@@ -287,11 +288,15 @@ public partial class TradesViewModel : ViewModelBase
                 {
                     return;
                 }
-                SetPortfolioUploadedTradeIds(uploadedTradeIdsResult.Success ? uploadedTradeIdsResult.TradeIds : null);
                 UnfilteredTrades = loadedTrades;
                 CancelPendingFilterRefresh();
                 FilterTrades();
                 LoadError = string.Empty;
+                // Portfolio is remote enrichment; it must not delay local rows or later filter loads.
+                if (_backgroundPortfolioRefresh is null || _backgroundPortfolioRefresh.IsCompleted)
+                {
+                    _backgroundPortfolioRefresh = RefreshPortfolioUploadedTradeIdsAsync();
+                }
             });
         }
         catch (Exception ex)
@@ -355,39 +360,67 @@ public partial class TradesViewModel : ViewModelBase
         bool showStatusOnFailure = false,
         CancellationToken cancellationToken = default)
     {
-        var uploadedTradeIdsResult = await LoadPortfolioUploadedTradeIdsAsync(cancellationToken);
+        var version = Interlocked.Increment(ref _portfolioRefreshVersion);
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            SetPortfolioUploadedTradeIds(uploadedTradeIdsResult.Success ? uploadedTradeIdsResult.TradeIds : null);
+            if (version != Volatile.Read(ref _portfolioRefreshVersion)) return;
+            SetPortfolioStatusLoading(true);
         });
-
-        if (uploadedTradeIdsResult.Success)
+        PortfolioUploadedTradeIdsResult result;
+        try
         {
-            return true;
+            result = await LoadPortfolioUploadedTradeIdsAsync(cancellationToken);
+        }
+        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
+        {
+            await Dispatcher.UIThread.InvokeAsync(() =>
+            {
+                if (version == Volatile.Read(ref _portfolioRefreshVersion)) SetPortfolioStatusLoading(false);
+            });
+            return false;
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "Failed to refresh uploaded Portfolio trade ids");
+            result = PortfolioUploadedTradeIdsResult.Failed("Failed to load portfolio positions.");
         }
 
-        if (showStatusOnFailure)
+        return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            SetPortfolioImportStatus($"Portfolio: {uploadedTradeIdsResult.ErrorMessage ?? "failed to load positions."}");
-        }
-
-        return false;
+            if (version != Volatile.Read(ref _portfolioRefreshVersion)) return false;
+            SetPortfolioUploadedTradeIds(result.Success ? result.TradeIds : null);
+            if (!result.Success && showStatusOnFailure)
+            {
+                SetPortfolioImportStatus($"Portfolio: {result.ErrorMessage ?? "failed to load positions."}");
+            }
+            return result.Success;
+        });
     }
 
     private void SetPortfolioUploadedTradeIds(HashSet<Guid>? uploadedTradeIds)
     {
-        PortfolioUploadedTradeIds = uploadedTradeIds ?? new HashSet<Guid>();
+        if (uploadedTradeIds is not null) PortfolioUploadedTradeIds = uploadedTradeIds;
         ApplyPortfolioUploadedTradeIdsToVisibleRows();
+        SetPortfolioStatusLoading(false);
+    }
+
+    private void SetPortfolioStatusLoading(bool value)
+    {
+        _isPortfolioStatusLoading = value;
+        OnPropertyChanged(nameof(CanSetSelectedTradeQuality));
     }
 
     private void AddPortfolioUploadedTradeIds(IEnumerable<Guid> tradeIds)
     {
+        // A response begun before this upload must not erase its newly confirmed IDs.
+        Interlocked.Increment(ref _portfolioRefreshVersion);
         foreach (var tradeId in tradeIds)
         {
             PortfolioUploadedTradeIds.Add(tradeId);
         }
 
         ApplyPortfolioUploadedTradeIdsToVisibleRows();
+        SetPortfolioStatusLoading(false);
     }
 
     private void ApplyPortfolioUploadedTradeIdsToVisibleRows()
@@ -568,8 +601,8 @@ public partial class TradesViewModel : ViewModelBase
         CancellationToken cancellationToken = default)
     {
         var selectedTrades = selected?.ToList() ?? new List<TradeRowViewModel>();
-        var editableTrades = selectedTrades.Where(row => !row.UploadedToPortfolio).ToList();
-        if (selectedTrades.Count == 0 || editableTrades.Count == 0 || IsSettingQuality)
+        var editableTrades = selectedTrades.Where(row => !PortfolioUploadedTradeIds.Contains(row.Source.Id)).ToList();
+        if (selectedTrades.Count == 0 || editableTrades.Count == 0 || IsSettingQuality || _isPortfolioStatusLoading)
         {
             return;
         }

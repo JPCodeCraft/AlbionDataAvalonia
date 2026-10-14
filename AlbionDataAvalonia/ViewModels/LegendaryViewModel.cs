@@ -35,7 +35,11 @@ public partial class LegendaryViewModel : ViewModelBase
     private int refreshQueued;
     private readonly SemaphoreSlim itemLoadGate = new(1, 1);
     private int itemLoadVersion;
+    private int saleListingsVersion;
+    private Task? definitionsLoadTask;
     private string? currentUserId;
+    private (int ServerId, string PlayerName)? lastKnownPlayer;
+    private (int ServerId, string PlayerName)? filterPlayer;
 
     public ObservableCollection<LegendaryItemRowViewModel> Items { get; } = new();
     public IReadOnlyList<string> Servers { get; } = ["Any", .. AlbionServers.GetAll().Select(server => server.Name)];
@@ -88,7 +92,10 @@ public partial class LegendaryViewModel : ViewModelBase
 
     public bool HasSelectedItem => SelectedItem is not null;
 
-    public bool CanFilterAttunedToMe => IsDefinedPlayerName(playerState?.PlayerName);
+    public bool CanFilterAttunedToMe => filterPlayer.HasValue;
+    public string AttunedToMeHint => filterPlayer is { } player
+        ? $"Attuned to {player.PlayerName} · {AlbionServers.Get(player.ServerId)?.Name}"
+        : "Enter the game to identify your character.";
 
     public bool IsSignedIn => !string.IsNullOrWhiteSpace(authService?.FirebaseUserId);
 
@@ -118,6 +125,7 @@ public partial class LegendaryViewModel : ViewModelBase
         this.settingsManager = settingsManager;
         isAwakeningItemsTrackerDisabled = settingsManager.UserSettings.DisableAwakeningItemsTracker;
         currentUserId = authService.FirebaseUserId;
+        UpdateFilterPlayer();
         tracker.ItemsChanged += HandleItemsChanged;
         settingsManager.UserSettings.PropertyChanged += OnUserSettingsPropertyChanged;
         authService.FirebaseUserChanged += user => Dispatcher.UIThread.Post(async () => await HandleAuthChangedAsync(user?.LocalId));
@@ -125,12 +133,7 @@ public partial class LegendaryViewModel : ViewModelBase
         {
             Dispatcher.UIThread.Post(() =>
             {
-                OnPropertyChanged(nameof(CanFilterAttunedToMe));
-                if (!CanFilterAttunedToMe)
-                {
-                    OnlyAttunedToMe = false;
-                }
-                else if (OnlyAttunedToMe)
+                if (UpdateFilterPlayer() && OnlyAttunedToMe)
                 {
                     ApplyFilter();
                 }
@@ -145,7 +148,7 @@ public partial class LegendaryViewModel : ViewModelBase
             return;
         }
         loaded = true;
-        _ = InitializeAsync();
+        _ = RefreshAsync();
     }
 
     [RelayCommand]
@@ -153,8 +156,11 @@ public partial class LegendaryViewModel : ViewModelBase
     {
         try
         {
-            await LoadSaleListingsAsync();
             await LoadItemsAsync();
+            // Saved items are usable immediately; online data only enriches the list.
+            await Task.WhenAll(
+                definitionsLoadTask ??= LoadDefinitionsAsync(),
+                LoadSaleListingsAsync());
         }
         catch (Exception ex)
         {
@@ -181,8 +187,8 @@ public partial class LegendaryViewModel : ViewModelBase
         return deletedCount;
     }
 
-    public string DefaultInGameName => !string.IsNullOrWhiteSpace(playerState?.PlayerName)
-        ? playerState.PlayerName
+    public string DefaultInGameName => IsDefinedPlayerName(playerState?.PlayerName)
+        ? playerState!.PlayerName
         : SelectedItem?.Source.SeenByPlayerName ?? string.Empty;
 
     public async Task<LegendarySaleOperationResult> CreateSellOrderAsync(string priceSilver, string inGameName)
@@ -293,17 +299,16 @@ public partial class LegendaryViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanCancelSelectedListing));
     }
 
-    private async Task InitializeAsync()
+    private async Task LoadDefinitionsAsync()
     {
         try
         {
-            await definitions.InitializeAsync();
-            await RefreshAsync();
+            await Task.Run(() => definitions.InitializeAsync());
+            await LoadItemsAsync();
         }
         catch (Exception ex)
         {
-            Log.Warning(ex, "Failed to initialize awakened items");
-            LoadError = "Could not load awakened items. Try Reload.";
+            Log.Warning(ex, "Failed to refresh awakened item definitions");
         }
     }
 
@@ -314,21 +319,24 @@ public partial class LegendaryViewModel : ViewModelBase
             return;
         }
         currentUserId = userId;
+        Interlocked.Increment(ref saleListingsVersion);
+        saleListings = new Dictionary<(int ServerId, Guid SoulId), LegendarySaleListing>();
         OnPropertyChanged(nameof(IsSignedIn));
         OnPropertyChanged(nameof(CanListSelectedItem));
         OnPropertyChanged(nameof(CanCancelSelectedListing));
         if (loaded)
         {
-            await LoadSaleListingsAsync();
-            await LoadItemsAsync();
+            await RefreshAsync();
         }
         UpdateSaleStatus();
     }
 
     private async Task LoadSaleListingsAsync()
     {
+        var version = Interlocked.Increment(ref saleListingsVersion);
+        var userId = authService.FirebaseUserId;
         var listings = new Dictionary<(int ServerId, Guid SoulId), LegendarySaleListing>();
-        if (IsSignedIn)
+        if (!string.IsNullOrWhiteSpace(userId))
         {
             foreach (var listing in await saleService.GetListingsAsync())
             {
@@ -338,7 +346,14 @@ public partial class LegendaryViewModel : ViewModelBase
                 }
             }
         }
+        // An older request must not overwrite an account change or a sale just updated here.
+        if (version != Volatile.Read(ref saleListingsVersion)
+            || !string.Equals(userId, authService.FirebaseUserId, StringComparison.Ordinal))
+        {
+            return;
+        }
         saleListings = listings;
+        await LoadItemsAsync();
     }
 
     private void StoreListing(LegendarySaleListing listing)
@@ -347,6 +362,7 @@ public partial class LegendaryViewModel : ViewModelBase
         {
             return;
         }
+        Interlocked.Increment(ref saleListingsVersion);
         saleListings = new Dictionary<(int ServerId, Guid SoulId), LegendarySaleListing>(saleListings)
         {
             [(listing.ServerId, soulId)] = listing
@@ -447,12 +463,14 @@ public partial class LegendaryViewModel : ViewModelBase
             return;
         }
         var filter = FilterText.Trim();
-        var playerName = playerState.PlayerName;
+        UpdateFilterPlayer();
+        var player = filterPlayer;
         var rows = unfilteredItems.Where(row =>
             (SelectedServer == "Any" || string.Equals(row.ServerName, SelectedServer, StringComparison.OrdinalIgnoreCase))
             && (!OnlyAttunedToMe
-                || (IsDefinedPlayerName(playerName)
-                    && string.Equals(row.Source.AttunedToPlayerName, playerName, StringComparison.OrdinalIgnoreCase)))
+                || (player is { } identity
+                    && row.Source.AlbionServerId == identity.ServerId
+                    && string.Equals(row.Source.AttunedToPlayerName, identity.PlayerName, StringComparison.OrdinalIgnoreCase)))
             && MatchesSaleStatus(row, SelectedSaleStatus)
             && (string.IsNullOrWhiteSpace(filter) || row.SearchText.Contains(filter, StringComparison.OrdinalIgnoreCase)))
             .ToList();
@@ -463,6 +481,53 @@ public partial class LegendaryViewModel : ViewModelBase
         }
         OnPropertyChanged(nameof(HasItems));
         OnPropertyChanged(nameof(EmptyStateText));
+    }
+
+    private bool UpdateFilterPlayer()
+    {
+        var liveServerId = playerState?.AlbionServer?.Id;
+        if (liveServerId is >= 1 and <= 3 && IsDefinedPlayerName(playerState?.PlayerName))
+        {
+            lastKnownPlayer = (liveServerId.Value, playerState!.PlayerName.Trim());
+        }
+        else if (liveServerId.HasValue && lastKnownPlayer?.ServerId != liveServerId)
+        {
+            lastKnownPlayer = null;
+        }
+
+        var serverId = SelectedServer == "Any"
+            ? liveServerId
+            : AlbionServers.GetAll().FirstOrDefault(server => server.Name == SelectedServer)?.Id;
+        var next = lastKnownPlayer;
+        if (serverId.HasValue && next?.ServerId != serverId)
+        {
+            next = null;
+        }
+        if (next is null)
+        {
+            // SeenBy is the local observer, whereas AttunedTo can belong to another player.
+            var latest = unfilteredItems.Select(row => row.Source)
+                .Where(item => item.AlbionServerId is >= 1 and <= 3
+                    && (!serverId.HasValue || item.AlbionServerId == serverId)
+                    && IsDefinedPlayerName(item.SeenByPlayerName))
+                .MaxBy(item => item.LastSeenAtUtc);
+            if (latest is not null)
+            {
+                next = (latest.AlbionServerId, latest.SeenByPlayerName.Trim());
+            }
+        }
+        if (filterPlayer == next)
+        {
+            return false;
+        }
+        filterPlayer = next;
+        OnPropertyChanged(nameof(CanFilterAttunedToMe));
+        OnPropertyChanged(nameof(AttunedToMeHint));
+        if (!CanFilterAttunedToMe)
+        {
+            OnlyAttunedToMe = false;
+        }
+        return true;
     }
 
     private static bool IsDefinedPlayerName(string? playerName)

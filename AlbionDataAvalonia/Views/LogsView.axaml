@@ -52,7 +52,7 @@
 				  BorderThickness="0" BorderBrush="Gray"
 				  CopyingRowClipboardContent="LogsGrid_CopyingRowClipboardContent">
 			<DataGrid.Columns>
-				<DataGridTextColumn Header="Time" Binding="{Binding LogEvent.Timestamp.UtcDateTime, Converter={x:Static views:UiValueConverters.LocalTimestamp}}" SortMemberPath="LogEvent.Timestamp" FontSize="12" />
+				<DataGridTextColumn Header="Time" Binding="{Binding LogEvent.Timestamp.UtcDateTime, Mode=OneWay, Converter={x:Static views:UiValueConverters.LocalTimestamp}}" SortMemberPath="LogEvent.Timestamp" FontSize="12" />
 				<DataGridTextColumn Header="Level" Binding="{Binding LogEvent.Level}" FontSize="12" />
 				<DataGridTemplateColumn Header="Message" Width="*">
 					<DataGridTemplateColumn.CellTemplate>
