@@ -99,7 +99,7 @@ internal static class ActivityLiveTimeline
         var label = kind switch
         {
             ActivityLiveTimelineMarkerKind.MobKill => "Mobs killed",
-            ActivityLiveTimelineMarkerKind.PlayerKill => "Player kill",
+            ActivityLiveTimelineMarkerKind.PlayerKill => "PvP kill",
             ActivityLiveTimelineMarkerKind.Death => "Death",
             ActivityLiveTimelineMarkerKind.Knockdown => "Knockdown",
             ActivityLiveTimelineMarkerKind.Loot => "Loot picked up",
@@ -160,7 +160,7 @@ internal static class ActivityLiveTimeline
         var time = first.CapturedAtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture);
         if (events.Length > 1 && events[^1].CapturedAtUtc > first.CapturedAtUtc)
             time += " – " + events[^1].CapturedAtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture);
-        var tooltipTitle = kind is ActivityLiveTimelineMarkerKind.Fame or ActivityLiveTimelineMarkerKind.Silver ? label : $"{label} · {amount:N0}";
+        var tooltipTitle = kind is ActivityLiveTimelineMarkerKind.Fame or ActivityLiveTimelineMarkerKind.Silver or ActivityLiveTimelineMarkerKind.PlayerKill ? label : $"{label} · {amount:N0}";
         var tooltip = new ActivityLiveTimelineTooltip(tooltipTitle, time, context, lines);
         var detail = time + "\n" + context + "\n" + string.Join("\n", lines);
         return new($"{kind}:{first.Id:N}", kind, first.CapturedAtUtc, label, detail,

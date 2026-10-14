@@ -7,6 +7,15 @@
              x:Class="AlbionDataAvalonia.Views.ActivityView"
              x:DataType="vm:ActivityViewModel" Classes="AppPage">
     <UserControl.Resources>
+        <DataTemplate x:Key="KillSummaryTemplate" x:DataType="vm:ActivitySummaryPresentation">
+            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="8" ToolTip.Tip="{Binding OutcomesDetailsText}">
+                <TextBlock Classes="UiLabel" Text="Mob kills" />
+                <TextBlock Grid.Column="1" Classes="UiLabel" Text="PvP kills" />
+                <TextBlock Grid.Row="1" Classes="ActivityValue" Text="{Binding MobKills}" />
+                <TextBlock Grid.Row="1" Grid.Column="1" Classes="ActivityValue" Text="{Binding PlayerKills}" Foreground="#EB9C64" />
+                <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Classes="UiLabel" Text="{Binding DeathsAndKnockdowns}" />
+            </Grid>
+        </DataTemplate>
         <DataTemplate x:Key="SummaryTemplate" x:DataType="vm:ActivitySummaryPresentation">
             <StackPanel>
             <Grid ColumnDefinitions="*,*" ColumnSpacing="6" Margin="0,0,0,6" ToolTip.Tip="{Binding TotalSilverDetailsText}">
@@ -21,7 +30,7 @@
                 <Border Classes="UiCard ActivityMetricCard" Margin="3" ToolTip.Tip="{Binding CombatFameDetailsText}"><StackPanel><TextBlock Classes="UiLabel" Text="Combat Fame" /><TextBlock Classes="ActivityValue" Text="{Binding CombatFame}" /><TextBlock Classes="UiLabel" Text="{Binding CombatFameFooterText}" /></StackPanel></Border>
                 <Border Classes="UiCard ActivityMetricCard" Margin="3" ToolTip.Tip="{Binding SilverDetailsText}"><StackPanel><TextBlock Classes="UiLabel" Text="Silver picked up" /><TextBlock Classes="ActivityValue" Text="{Binding Silver}" /><TextBlock Classes="UiLabel" Text="{Binding SilverFooterText}" /></StackPanel></Border>
                 <Border Classes="UiCard ActivityMetricCard" Margin="3" ToolTip.Tip="{Binding ItemsDetailsText}"><StackPanel><TextBlock Classes="UiLabel" Text="Loot value" /><TextBlock Classes="ActivityValue" Text="{Binding LootValue}" /><TextBlock Classes="UiLabel" Text="{Binding ItemsFooterText}" /></StackPanel></Border>
-                <Border Classes="UiCard ActivityMetricCard" Margin="3"><StackPanel><TextBlock Classes="UiLabel" Text="Mob kills" /><TextBlock Classes="ActivityValue" Text="{Binding MobKills}" /><TextBlock Classes="UiLabel" Text="{Binding PlayerOutcomes}" /></StackPanel></Border>
+                <Border Classes="UiCard ActivityMetricCard" Margin="3"><ContentControl Content="{Binding}" ContentTemplate="{StaticResource KillSummaryTemplate}" /></Border>
                 </views:ResponsiveUniformGrid>
                 <Border IsVisible="{Binding !IsImported}" Margin="0,6,0,0" Classes="UiCard" ToolTip.Tip="{Binding ResourceValueDetailsText}">
                     <WrapPanel>
@@ -47,7 +56,7 @@
                     <StackPanel Height="60" Margin="3" ToolTip.Tip="{Binding CombatFameDetailsText}"><TextBlock Classes="UiLabel" Text="Combat Fame" /><TextBlock Classes="ActivityValue" Text="{Binding CombatFame}" /><TextBlock Classes="UiLabel" Text="{Binding CombatFameFooterText}" /></StackPanel>
                     <StackPanel Height="60" Margin="3" ToolTip.Tip="Net silver pickups after taxes and penalties"><TextBlock Classes="UiLabel" Text="Silver picked up" /><TextBlock Classes="ActivityValue" Text="{Binding Silver}" /></StackPanel>
                     <StackPanel Height="60" Margin="3"><TextBlock Classes="UiLabel" Text="Loot value" /><TextBlock Classes="ActivityValue" Text="{Binding LootValue}" /><TextBlock Classes="UiLabel" Text="{Binding LootItemsText}" /></StackPanel>
-                    <StackPanel Height="60" Margin="3"><TextBlock Classes="UiLabel" Text="Mob kills" /><TextBlock Classes="ActivityValue" Text="{Binding MobKills}" /></StackPanel>
+                    <ContentControl Height="60" Margin="3" Content="{Binding}" ContentTemplate="{StaticResource KillSummaryTemplate}" />
                 </views:ResponsiveUniformGrid>
             </Border>
         </DataTemplate>

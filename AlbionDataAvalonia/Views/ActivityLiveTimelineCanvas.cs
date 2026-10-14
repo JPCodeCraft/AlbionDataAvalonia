@@ -544,8 +544,16 @@ internal sealed class ActivityLiveTimelineCanvas : Control
                 context.DrawEllipse(null, pen, center, 5, 6);
                 context.DrawLine(pen, center + new Vector(0, -3), center + new Vector(0, 3));
                 break;
-            case ActivityLiveTimelineMarkerKind.Fame:
             case ActivityLiveTimelineMarkerKind.PlayerKill:
+                context.DrawEllipse(null, pen, center + new Vector(0, -2), 4.5, 4);
+                context.DrawLine(pen, center + new Vector(-3, 1), center + new Vector(-3, 5));
+                context.DrawLine(pen, center + new Vector(-3, 5), center + new Vector(3, 5));
+                context.DrawLine(pen, center + new Vector(3, 5), center + new Vector(3, 1));
+                context.DrawEllipse(brush, null, center + new Vector(-2, -2), 0.8, 0.8);
+                context.DrawEllipse(brush, null, center + new Vector(2, -2), 0.8, 0.8);
+                context.DrawLine(pen, center + new Vector(0, 2), center + new Vector(0, 5));
+                break;
+            case ActivityLiveTimelineMarkerKind.Fame:
                 context.DrawLine(pen, center + new Vector(-5, 0), center + new Vector(5, 0));
                 context.DrawLine(pen, center + new Vector(0, -6), center + new Vector(0, 6));
                 context.DrawLine(pen, center + new Vector(-3, -3), center + new Vector(3, 3));

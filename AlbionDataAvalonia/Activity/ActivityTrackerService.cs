@@ -136,6 +136,7 @@ public sealed partial class ActivityTrackerService : IDisposable
             if (!value) CloseSession(DateTime.UtcNow, ActivityEndReason.Disabled);
             loot.ResetRecordingCorrelations();
             locations.ClearPending();
+            ClearPendingActorMetadata();
             gathering.Reset();
             fameCollector.Reset();
             mobParticipation.Clear();
@@ -154,6 +155,7 @@ public sealed partial class ActivityTrackerService : IDisposable
             resumable = null;
             loot.ResetCandidates();
             locations.ClearPending();
+            ClearPendingActorMetadata();
             gathering.Reset();
             fameCollector.Reset();
             mobParticipation.Clear();
@@ -186,6 +188,7 @@ public sealed partial class ActivityTrackerService : IDisposable
 
     private void Suspend(DateTime at)
     {
+        ClearPendingActorMetadata();
         timedOutEncounter = null;
         if (!awaitingContext && enabled && session is not null)
         {
@@ -222,6 +225,7 @@ public sealed partial class ActivityTrackerService : IDisposable
             // Item baselines can precede Join on the next connection. Cache only;
             // Join confirms their connection and inventory membership before use.
             loot.ObservePendingInventoryMetadata(packet, at);
+            ObservePendingActorMetadata(packet, at);
             if (!awaitingContext && (at < mapEnteredAt || !SameConnection(packet.ConnectionId, packet.MessageIdentity)))
             { gathering.Reset(); fameCollector.Reset(); return; }
             Expire(at);
@@ -261,7 +265,10 @@ public sealed partial class ActivityTrackerService : IDisposable
                 case DiedEvent death when CanRecord: Death(death, at); break;
                 case KnockedDownEvent knockdown when CanRecord: Knockdown(knockdown, at); break;
                 case KilledPlayerEvent kill when CanRecord:
-                    OutcomeEvidence(packet, kill.KillerObjectId, kill.VictimObjectId, kill.VictimName, at, "KilledPlayer");
+                    RecordKilledPlayerEvidence(kill, at);
+                    if (fameCollector.ObserveKill(kill, at) is { } pvpAward
+                        && !persistence.Amend(pvpAward))
+                    { storageSuspended = true; fameCollector.Reset(); }
                     break;
                 case PartySilverGainedEvent silver when CanRecord:
                     var recipient = actors.Resolve(silver.TargetObjectId);
@@ -295,12 +302,13 @@ public sealed partial class ActivityTrackerService : IDisposable
         {
             if (disposed || !Accept(packet.MessageIdentity?.OriginKey, packet.GetType().Name, packet.CapturedAt)) return;
             var at = Utc(packet.CapturedAt);
+            if (packet is JoinRequest) { BeginActorJoin(at); fameCollector.Reset(); }
             if (packet is not JoinResponse && !awaitingContext && (at < mapEnteredAt || !SameConnection(packet.ConnectionId, packet.MessageIdentity)))
             { gathering.Reset(); fameCollector.Reset(); return; }
             Expire(at);
             if (packet is JoinResponse join && join.ReturnCode == 0
                 && join.userObjectId > 0 && !string.IsNullOrWhiteSpace(join.RawLocationId)) Join(join, at);
-            else if (packet is JoinResponse) locations.ClearPending();
+            else if (packet is JoinResponse) { locations.ClearPending(); ClearPendingActorMetadata(); }
             else if (packet is ChangeClusterResponse transition && HasConfirmedContext)
                 ObserveLocationTransition(transition, at);
             else if (packet is ExitEnterStartRequest entrance && HasConfirmedContext)
@@ -352,6 +360,7 @@ public sealed partial class ActivityTrackerService : IDisposable
         connectionId = packet.ConnectionId;
         connectionIdentity = packet.MessageIdentity;
         actors.Join(packet, nextServer, mapEpoch);
+        ReplayPendingActorMetadata(packet, at);
         confirmedOwner = actors.HasIdentity ? new ActivityOwner(actors.ServerId!.Value.ToString(CultureInfo.InvariantCulture),
             actors.CharacterId, actors.CharacterName) : null;
         map = next;
@@ -687,12 +696,14 @@ public sealed partial class ActivityTrackerService : IDisposable
         EnsureSession(at);
         TouchRelevant(at);
         var lethal = value.IsLethal == true && !actors.IsTerminal(value.VictimObjectId);
-        Persist(WithTarget(WithSource(Stamp(lethal ? ActivityEventKind.Death : ActivityEventKind.OutcomeEvidence,
+        var observation = WithTarget(WithSource(Stamp(lethal ? ActivityEventKind.Death : ActivityEventKind.OutcomeEvidence,
             at, Origin(value, "Died")), killer), victim) with
         {
             Evidence = lethal ? ActivityEvidence.Confirmed : ActivityEvidence.Supplemental,
             DetailsJson = JsonSerializer.Serialize(new { Signal = "Died", value.IsLethal, value.LethalityState })
-        });
+        };
+        Persist(observation);
+        RememberUnidentifiedDeath(value, observation);
         if (value.IsLethal == true && victim.Relationship == ActorRelationship.Self && session is not null)
         { session = session with { Revision = session.Revision + 1, HasLocalDeath = true }; headersDirty = true; }
         if (value.IsLethal == true && value.VictimObjectId is { } objectId) actors.MarkTerminal(objectId, at);
@@ -726,7 +737,7 @@ public sealed partial class ActivityTrackerService : IDisposable
         if (!Tracked(actor) || !(award is > 0 || packet.RawFixedPointComponents.GetValueOrDefault((byte)2) is > 0)) return;
         EnsureSession(at);
         TouchRelevant(at);
-        Persist(WithSource(Stamp(ActivityEventKind.Fame, at, Origin(packet, "Fame")), actor) with
+        var observation = WithSource(Stamp(ActivityEventKind.Fame, at, Origin(packet, "Fame")), actor) with
         {
             Amount = award ?? 0,
             Evidence = award is null ? ActivityEvidence.Supplemental : ActivityEvidence.Confirmed,
@@ -756,7 +767,8 @@ public sealed partial class ActivityTrackerService : IDisposable
                 CalculationVersion = 4,
                 Award = award
             })
-        });
+        };
+        Persist(fameCollector.ObserveAward(packet, observation));
     }
 
     internal ActivityEvent Stamp(ActivityEventKind kind, DateTime at, string? origin) => new()
@@ -905,6 +917,7 @@ public sealed partial class ActivityTrackerService : IDisposable
     private ActivitySession? CloseSession(DateTime at, ActivityEndReason reason)
     {
         CloseEncounter(at, reason);
+        unidentifiedDeaths.Clear();
         gathering.Reset();
         fameCollector.Reset();
         if (session is null) return null;
@@ -1106,6 +1119,7 @@ public sealed partial class ActivityTrackerService : IDisposable
             if (deferredGap?.SessionId == id) deferredGap = null;
             if (resumable?.Id == id) resumable = null;
             if (session?.Id != id) return;
+            ClearPendingActorMetadata();
             gathering.Reset();
             fameCollector.Reset();
             session = null; encounter = null; timedOutEncounter = null; headersDirty = false;

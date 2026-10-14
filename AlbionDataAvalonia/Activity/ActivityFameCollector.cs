@@ -14,8 +14,8 @@ internal sealed record ActivityFameMatch(ActivityFameCategory Category, IReadOnl
     public static ActivityFameMatch Unknown { get; } = new(ActivityFameCategory.Unknown, []);
 }
 
-/// <summary>Matches an award to preceding progression evidence, never to the active encounter.</summary>
-internal sealed class ActivityFameCollector(AchievementsService achievements)
+/// <summary>Matches an award to captured progression or kill evidence, never to the active encounter.</summary>
+internal sealed partial class ActivityFameCollector(AchievementsService achievements)
 {
     private static readonly TimeSpan MatchWindow = TimeSpan.FromMilliseconds(250);
     private const int MaximumSequenceGap = 4;
@@ -89,8 +89,19 @@ internal sealed class ActivityFameCollector(AchievementsService achievements)
         return categories.Length == 1 ? categories[0] : ActivityFameCategory.Unknown;
     }
 
-    public void Expire(DateTime at) => pending.RemoveAll(x => at - x.CapturedAtUtc > MatchWindow);
-    public void Reset() => pending.Clear();
+    public void Expire(DateTime at)
+    {
+        pending.RemoveAll(x => at - x.CapturedAtUtc > MatchWindow);
+        pendingAwards.RemoveAll(x => at - x.Value.CapturedAtUtc > MatchWindow);
+        pendingKills.RemoveAll(x => at - x.CapturedAtUtc > MatchWindow);
+    }
+
+    public void Reset()
+    {
+        pending.Clear();
+        pendingAwards.Clear();
+        pendingKills.Clear();
+    }
 
     private static uint SequenceGap(PhotonMessageIdentity earlier, PhotonMessageIdentity later) =>
         unchecked((uint)later.ReliableSequence - (uint)earlier.ReliableSequence);

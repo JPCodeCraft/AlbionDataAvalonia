@@ -66,6 +66,7 @@ public sealed partial class ActivityTrackerService
             loot.ResetRecordingCorrelations();
             gathering.Reset();
             fameCollector.Reset();
+            ClearPendingActorMetadata();
             mobParticipation.Clear();
             pendingTerminals.Clear();
             deferredSessions.Remove(sessionId);

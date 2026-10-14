@@ -100,7 +100,9 @@ internal sealed class ActivityActorContext(PartyTrackerService party, MobsServic
 
     public void MarkTerminal(long objectId, DateTime at)
     {
-        if (!entities.TryGetValue(objectId, out var value) || value.Terminal) return;
+        if (objectId <= 0 || IsTerminal(objectId)) return;
+        if (!entities.TryGetValue(objectId, out var value))
+            value = new Entity(Guid.NewGuid(), null, "", "", "", ActivityActorKind.Unknown);
         entities[objectId] = value with { Terminal = true, TerminalAt = at };
         terminals[objectId] = new TerminalBinding(value.Lifetime, value.Kind, at);
         terminalOrder.Enqueue((objectId, value.Lifetime));
@@ -110,6 +112,32 @@ internal sealed class ActivityActorContext(PartyTrackerService party, MobsServic
             if (terminals.TryGetValue(oldest.ObjectId, out var terminal) && terminal.Lifetime == oldest.Lifetime)
                 terminals.Remove(oldest.ObjectId);
         }
+    }
+
+    public ActivityActor ConfirmPlayer(long? objectId, string? observedName)
+    {
+        if (objectId is not > 0) return Resolve(objectId, observedName) with { Kind = ActivityActorKind.Player };
+        var id = objectId.Value;
+        if (entities.TryGetValue(id, out var previous) && previous.Kind == ActivityActorKind.Player)
+        {
+            if (string.IsNullOrWhiteSpace(previous.Name) && !string.IsNullOrWhiteSpace(observedName))
+                entities[id] = previous with { Name = observedName };
+            return Resolve(id, observedName);
+        }
+
+        // KilledPlayer proves the victim's type, but does not prove a new lifetime
+        // or another lethal outcome. Preserve an earlier Died tombstone.
+        var terminal = terminals.GetValueOrDefault(id);
+        var sameLifetime = previous?.Kind == ActivityActorKind.Unknown;
+        var keepTerminal = terminal?.Kind is ActivityActorKind.Unknown or ActivityActorKind.Player;
+        var lifetime = sameLifetime ? previous!.Lifetime : keepTerminal ? terminal!.Lifetime : Guid.NewGuid();
+        var member = party.CurrentSnapshot.Members.SingleOrDefault(x =>
+            !string.IsNullOrWhiteSpace(observedName) && string.Equals(x.Name, observedName, StringComparison.OrdinalIgnoreCase));
+        entities[id] = new Entity(lifetime, member?.UserGuid, observedName ?? previous?.Name ?? "", "", "",
+            ActivityActorKind.Player, Terminal: keepTerminal, TerminalAt: keepTerminal ? terminal!.At : null);
+        if (keepTerminal) terminals[id] = terminal! with { Kind = ActivityActorKind.Player };
+        else terminals.Remove(id);
+        return Resolve(id, observedName);
     }
 
     public bool IsTerminal(long? objectId) => objectId is { } id &&

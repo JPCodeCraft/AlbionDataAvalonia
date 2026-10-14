@@ -51,6 +51,7 @@ public sealed class ActivitySummaryPresentation
     public string LootValue => Summary.LootValue == 0 && Summary.MissingLootPriceCount > 0 ? "Unavailable" : ActivityDisplay.Number(Summary.LootValue);
     public string LootItemsText => $"{Summary.LootItems:N0} items picked up";
     public string MobKills => Summary.IsLegacyAggregate ? "Unavailable" : ActivityDisplay.Number(Summary.MobKills);
+    public string PlayerKills => Summary.IsLegacyAggregate ? "Unavailable" : ActivityDisplay.Number(Summary.PlayerKills);
     public string DamageRate => Summary.IsLegacyAggregate ? "Not recorded" : $"{Rates.DamagePerSecond:N1} DPS";
     public string DamageReceivedRate => Summary.IsLegacyAggregate ? "Not recorded" : $"{Rates.DamageReceivedPerSecond:N1} DPS";
     public string HealingRate => Summary.IsLegacyAggregate ? "Not recorded" : $"{Rates.HealingPerSecond:N1} HPS";
@@ -73,12 +74,12 @@ public sealed class ActivitySummaryPresentation
     public string SilverDetailsText => "Silver received after taxes and penalties"
         + (HasUnknownSilver ? $"\n{UnknownSilver}" : "");
     public string MissingLootPrices => $"{Summary.MissingLootPriceCount:N0} items without prices";
-    public string PlayerOutcomes => Summary.IsLegacyAggregate ? "" : string.Join(" · ", new[]
+    public string DeathsAndKnockdowns => Summary.IsLegacyAggregate ? "" : string.Join(" · ", new[]
     {
-        Summary.PlayerKills > 0 ? $"{Summary.PlayerKills:N0} player kills" : null,
-        Summary.Deaths > 0 ? $"{Summary.Deaths:N0} deaths" : null,
-        Summary.Knockdowns > 0 ? $"{Summary.Knockdowns:N0} knockdowns" : null
+        Summary.Deaths > 0 ? $"{Summary.Deaths:N0} {(Summary.Deaths == 1 ? "death" : "deaths")}" : null,
+        Summary.Knockdowns > 0 ? $"{Summary.Knockdowns:N0} {(Summary.Knockdowns == 1 ? "knockdown" : "knockdowns")}" : null
     }.Where(value => value is not null));
+    public string OutcomesDetailsText => $"Mob kills: {MobKills}\nPvP kills: {PlayerKills}\nDeaths: {Summary.Deaths:N0}\nKnockdowns: {Summary.Knockdowns:N0}";
     public bool HasResources => Summary.ResourceItems > 0;
     public string ItemsValue => LootValue;
     public bool HasMissingItemPrices => Summary.MissingPriceItems + Summary.MissingResourcePriceItems > 0;
