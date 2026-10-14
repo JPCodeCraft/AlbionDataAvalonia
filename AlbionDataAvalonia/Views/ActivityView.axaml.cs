@@ -1,3 +1,4 @@
+using AlbionDataAvalonia.Activity.Models;
 using AlbionDataAvalonia.ViewModels;
 using AlbionDataAvalonia.Network.Services;
 using Avalonia;
@@ -68,11 +69,20 @@ public partial class ActivityView : UserControl
         activeViewModel?.SetActive(isAttached);
     }
 
-    private async void ExportSessionLoot_Click(object? sender, RoutedEventArgs args)
+    private void ExportSessionLoot_Click(object? sender, RoutedEventArgs args)
+        => ExportLoot(sender, viewModel => viewModel.CaptureSessionLootExportQuery());
+
+    private void ExportCurrentLoot_Click(object? sender, RoutedEventArgs args)
+        => ExportLoot(sender, viewModel => viewModel.CaptureCurrentLootExportQuery());
+
+    private void ExportGlobalLoot_Click(object? sender, RoutedEventArgs args)
+        => ExportLoot(sender, viewModel => viewModel.CaptureGlobalLootExportQuery());
+
+    private async void ExportLoot(object? sender, Func<ActivityViewModel, ActivityQuery?> captureQuery)
     {
         if (choosingLootExport || sender is not MenuItem { Tag: LootExportFormat format }
             || DataContext is not ActivityViewModel viewModel || TopLevel.GetTopLevel(this) is not Window owner
-            || viewModel.CaptureSessionLootExportQuery() is not { } query) return;
+            || captureQuery(viewModel) is not { } query) return;
         choosingLootExport = true;
         try
         {
@@ -96,11 +106,11 @@ public partial class ActivityView : UserControl
                 return;
             }
             await using var stream = await file.OpenWriteAsync();
-            await viewModel.ExportSessionLootAsync(stream, query, format, options);
+            await viewModel.ExportLootAsync(stream, query, format, options);
         }
         catch (Exception error)
         {
-            Log.Error(error, "Could not open the session loot export file.");
+            Log.Error(error, "Could not open the loot export file.");
             viewModel.LootExportStatusText = "Export failed. The file may be incomplete.";
         }
         finally { choosingLootExport = false; }

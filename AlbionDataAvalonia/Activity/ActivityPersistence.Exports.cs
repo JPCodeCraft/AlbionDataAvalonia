@@ -15,16 +15,8 @@ public sealed partial class ActivityPersistence
         CancellationToken cancellationToken = default)
     {
         ArgumentNullException.ThrowIfNull(filter);
-        if (filter.SessionId is null)
-            throw new ArgumentException("A session is required to export loot.", nameof(filter));
-
-        var snapshotFilter = filter with
-        {
-            Kind = ActivityEventKind.Loot,
-            LootOnly = true,
-            ItemsOnly = false,
-            ItemSources = ActivityItemSources.All
-        };
+        // The caller's list filters (session, period, scope, search, sources) are kept as shown.
+        var snapshotFilter = filter with { Kind = ActivityEventKind.Loot, LootOnly = true };
         // Never hold the read gate while waiting for accepted writes to commit.
         await FlushAsync(cancellationToken).ConfigureAwait(false);
         return await ReadAsync(ct => GetLootExportSnapshotCoreAsync(snapshotFilter, ct), cancellationToken).ConfigureAwait(false);

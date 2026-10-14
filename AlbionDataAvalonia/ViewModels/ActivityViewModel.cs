@@ -30,6 +30,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     private int timelinePage;
     private int sessionLootPage;
     private int globalLootPage;
+    private ActivityQuery? displayedGlobalLootQuery;
     private long detailVersion;
     private long sessionListVersion;
     private long globalLootVersion;
@@ -607,6 +608,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         var resources = append ? null : await persistence.GetResourceTotalsAsync(query, cancellationToken);
         if (isDisposed || version != globalLootVersion || GlobalItemsQuery() != query) return;
         ApplyEventRows(GlobalLoot, result.Items.Select(observation => new ActivityLootRow(observation)).ToArray(), row => row.SourceEvent, append);
+        displayedGlobalLootQuery = query with { LootOnly = true };
         valuations?.RequestMissing(result.Items);
         if (resources is not null) GlobalResources = new(resources.Select(row => new ActivityResourceRow(row)));
         globalLootPage = page;

@@ -33,17 +33,17 @@ public partial class ActivityViewModel
         && SelectedSession is not null && !IsImportedDetail && (SelectedSessionItemSource.Value & ActivityItemSources.Loot) != 0;
     public bool HasLootExportStatus => !string.IsNullOrEmpty(LootExportStatusText);
 
-    public ActivityQuery? CaptureSessionLootExportQuery() => CanExportSessionLoot
-        ? DetailQuery(true) with { Kind = ActivityEventKind.Loot, LootOnly = true, ItemsOnly = false, ItemSources = ActivityItemSources.All }
-        : null;
+    // Each export uses the exact query of the loot list it is opened from, across all pages.
+    public ActivityQuery? CaptureSessionLootExportQuery() => CanExportSessionLoot ? DetailQuery(true) with { LootOnly = true } : null;
+    public ActivityQuery? CaptureCurrentLootExportQuery() => CanStartLootExport && HasCurrentLoot ? currentLootQuery : null;
+    public ActivityQuery? CaptureGlobalLootExportQuery() => CanStartLootExport && ShowGlobalLootPanel ? displayedGlobalLootQuery : null;
 
-    public async Task ExportSessionLootAsync(Stream stream, ActivityQuery query, LootExportFormat format,
+    public async Task ExportLootAsync(Stream stream, ActivityQuery query, LootExportFormat format,
         CsvExportOptions? options = null, CancellationToken cancellationToken = default)
     {
         ObjectDisposedException.ThrowIf(isDisposed, this);
         if (IsLootExporting || persistence is null || csvExportService is null)
             throw new InvalidOperationException("Loot export is unavailable or already in progress.");
-        if (query.SessionId is null) throw new ArgumentException("Loot export requires a selected session.", nameof(query));
         using var cancellation = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
         lootExportCancellation = cancellation;
         var version = ++lootExportVersion;
@@ -79,7 +79,7 @@ public partial class ActivityViewModel
         }
         catch (Exception error)
         {
-            Log.Error(error, "Failed to export session loot.");
+            Log.Error(error, "Failed to export loot.");
             LootExportStatusText = "Export failed. The file may be incomplete.";
         }
         finally

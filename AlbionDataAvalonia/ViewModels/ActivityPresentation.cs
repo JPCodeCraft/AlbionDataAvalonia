@@ -242,7 +242,8 @@ public sealed class ActivityLootRow(ActivityEvent source)
     public string Evidence => IsImported ? "Imported summary" : source.Evidence == ActivityEvidence.Supplemental ? "Pending" : source.Evidence.ToString();
     public string ItemDetails => $"{ItemName} · {Quality}\n" + (source.EstimatedUnitValue is null
         ? "Price unavailable" : $"Estimated value each: {UnitValueText} silver")
-        + (source.EstimatedUnitValue is not null && source.Quality is null ? "\nNormal-quality estimate" : "")
+        + (source.EstimatedUnitValue is not null && source.Quality is null
+            ? source.Kind == ActivityEventKind.Loot ? "\nAverage estimate across qualities 1-4" : "\nNormal-quality estimate" : "")
         + (source.Evidence != ActivityEvidence.Confirmed ? "\nNot included in totals" : "");
     public string RecipientDetails => $"{Recipient} · {Relationship}{(string.IsNullOrWhiteSpace(Guild) ? "" : $"\nGuild: {Guild}")}{(string.IsNullOrWhiteSpace(Alliance) ? "" : $"\nAlliance: {Alliance}")}";
     public string ContextDetails => Location;

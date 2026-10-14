@@ -6,6 +6,7 @@ using AlbionDataAvalonia.Network.Events;
 using AlbionDataAvalonia.Network.Requests;
 using AlbionDataAvalonia.Network.Responses;
 using AlbionDataAvalonia.Party;
+using AlbionDataAvalonia.Players;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
 using Serilog;
@@ -35,6 +36,7 @@ public sealed partial class ActivityTrackerService : IDisposable
     private readonly ActivityGatheringCollector gathering;
     private readonly ActivityFameCollector fameCollector;
     private readonly ActivityItemValuationService valuations;
+    private readonly PlayerIdentityService identities;
     private readonly Timer timer;
     private readonly Dictionary<string, DateTime> origins = new(StringComparer.Ordinal);
     private readonly Queue<string> originOrder = new();
@@ -66,15 +68,18 @@ public sealed partial class ActivityTrackerService : IDisposable
     private bool awaitingContext = true;
     private bool captureSuspended = true;
     private bool storageSuspended;
+    // A database pause keeps map, actor and inventory context; recording resumes in place.
+    private bool storageGap;
     private bool disposed;
     private bool headersDirty;
     private DateTime lastHeaderSave;
 
     public ActivityTrackerService(PlayerState player, PartyTrackerService party, MobsService mobs,
         ItemEstimatedMarketValueService values, ItemsIdsService items, SettingsManager settings, ActivityPersistence persistence,
-        AchievementsService achievements, ActivityItemValuationService valuations)
+        AchievementsService achievements, ActivityItemValuationService valuations, PlayerIdentityService identities)
     {
         this.player = player;
+        this.identities = identities;
         this.settings = settings;
         this.persistence = persistence;
         this.valuations = valuations;
@@ -89,6 +94,7 @@ public sealed partial class ActivityTrackerService : IDisposable
         persistence.SessionDeleted += SessionDeleted;
         persistence.UnassignedLootDeleted += UnassignedLootDeleted;
         player.OnPlayerStateChanged += PeriodOwnerChanged;
+        identities.IdentityChanged += IdentityChanged;
     }
 
     public event EventHandler? Changed;
@@ -809,7 +815,7 @@ public sealed partial class ActivityTrackerService : IDisposable
     internal long MapEpoch => mapEpoch;
     internal ActivityEvent RecordLoot(ActivityEvent value, bool hasConfirmedPickupEvidence = false, bool preserveEncounterAssociation = false)
     {
-        value = valuations.Observe(value);
+        value = valuations.Observe(FillAffiliations(value));
         if (Tracked(value.SourceRelationship) && CanRecord &&
             (value.SessionId is null || value.SessionId == session?.Id) &&
             (value.Evidence == ActivityEvidence.Confirmed || hasConfirmedPickupEvidence))
@@ -825,7 +831,45 @@ public sealed partial class ActivityTrackerService : IDisposable
         Persist(value);
         return value;
     }
-    internal void AmendLoot(ActivityEvent value) => persistence.Amend(valuations.Observe(value));
+    internal ActivityEvent AmendLoot(ActivityEvent value)
+    {
+        value = valuations.Observe(FillAffiliations(value));
+        persistence.Amend(value);
+        return value;
+    }
+
+    // The identity directory outlives map bindings, so it supplies guild and alliance
+    // for looters and looted players that are no longer, or not yet, in view.
+    internal ActivityEvent FillAffiliations(ActivityEvent value)
+    {
+        if (value.Kind != ActivityEventKind.Loot) return value;
+        int? server = int.TryParse(value.Server, NumberStyles.Integer, CultureInfo.InvariantCulture, out var parsed) ? parsed : null;
+        if (value.SourceKind == ActivityActorKind.Player && (value.SourceGuild.Length == 0 || value.SourceAlliance.Length == 0)
+            && identities.TryGetByName(server, value.SourceName, out var looter))
+            value = value with
+            {
+                SourceGuild = value.SourceGuild.Length == 0 ? looter.GuildName : value.SourceGuild,
+                SourceAlliance = value.SourceAlliance.Length == 0 ? looter.AllianceName : value.SourceAlliance
+            };
+        if (string.Equals(value.LootSourceKind, "Player", StringComparison.Ordinal)
+            && (value.TargetGuild.Length == 0 || value.TargetAlliance.Length == 0)
+            && identities.TryGetByName(server, value.LootSourceName, out var owner))
+            value = value with
+            {
+                TargetGuild = value.TargetGuild.Length == 0 ? owner.GuildName : value.TargetGuild,
+                TargetAlliance = value.TargetAlliance.Length == 0 ? owner.AllianceName : value.TargetAlliance
+            };
+        return value;
+    }
+
+    private void IdentityChanged(PlayerIdentitySnapshot identity)
+    {
+        if (string.IsNullOrWhiteSpace(identity.GuildName) && string.IsNullOrWhiteSpace(identity.AllianceName)) return;
+        Collect(() => loot.RefreshAffiliations(identity.PlayerName));
+    }
+
+    internal ActivityActor? ResolvePartyRecipient(IReadOnlyCollection<Guid> playerGuids)
+        => actors.PartyRecipientName(playerGuids) is { } name ? ResolveActor(null, name) : null;
     internal void RecordResource(ActivityEvent value)
     {
         if (!CanRecord || value.Evidence != ActivityEvidence.Confirmed || !Tracked(value.SourceRelationship)
@@ -1095,8 +1139,8 @@ public sealed partial class ActivityTrackerService : IDisposable
         lock (sync)
         {
             var suspended = persistence.Status.IsSuspended;
-            if (suspended && !awaitingContext) { storageSuspended = true; Suspend(DateTime.UtcNow); }
-            else if (!suspended)
+            if (suspended) { PauseForStorage(DateTime.UtcNow); storageSuspended = true; }
+            else
             {
                 storageSuspended = false;
                 foreach (var header in deferredSessions.Values.ToArray())
@@ -1105,10 +1149,42 @@ public sealed partial class ActivityTrackerService : IDisposable
                     if (persistence.EnqueueEncounter(header)) deferredEncounters.Remove(header.Id);
                 if (deferredGap is { } gap && persistence.Create(gap)) deferredGap = null;
                 storageSuspended = persistence.Status.IsSuspended;
+                if (!storageSuspended) ResumeAfterStorage(DateTime.UtcNow);
             }
         }
         Changed?.Invoke(this, EventArgs.Empty);
     }
+    // Unlike a capture reset, the map, character and inventory remain known while
+    // writes are refused. Only in-flight correlations are dropped, and the session
+    // records an explicit gap that closes when the database accepts writes again.
+    private void PauseForStorage(DateTime at)
+    {
+        if (storageGap) return;
+        storageGap = true;
+        loot.ResetRecordingCorrelations();
+        gathering.Reset();
+        fameCollector.Reset();
+        if (awaitingContext || !enabled || session is null) return;
+        var gap = Stamp(ActivityEventKind.CaptureGap, at, null) with
+        { EncounterId = null, DetailsJson = JsonSerializer.Serialize(new { State = "StorageSuspended" }) };
+        CloseEncounter(at, ActivityEndReason.CaptureGap);
+        if (!persistence.Create(gap)) deferredGap = gap;
+        CloseObservation(at);
+        session = session with { Revision = session.Revision + 1, LastObservedAtUtc = at, IsPartial = true };
+        headersDirty = true;
+        SaveHeaders();
+    }
+
+    private void ResumeAfterStorage(DateTime at)
+    {
+        if (!storageGap) return;
+        storageGap = false;
+        if (session is null || !enabled || awaitingContext || map is null || session.ObservationStartedAtUtc is not null) return;
+        OpenObservation(at);
+        headersDirty = true;
+        SaveHeaders();
+    }
+
     private void SessionDeleted(Guid id)
     {
         lock (sync)
@@ -1146,6 +1222,7 @@ public sealed partial class ActivityTrackerService : IDisposable
         persistence.SessionDeleted -= SessionDeleted;
         persistence.UnassignedLootDeleted -= UnassignedLootDeleted;
         player.OnPlayerStateChanged -= PeriodOwnerChanged;
+        identities.IdentityChanged -= IdentityChanged;
     }
 
     private sealed record MobParticipation(Guid LifetimeId, Guid? SessionId, Guid? EncounterId,

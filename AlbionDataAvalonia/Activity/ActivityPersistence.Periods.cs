@@ -114,7 +114,7 @@ public sealed partial class ActivityPersistence
                         previous.ItemUniqueName != value.ItemUniqueName || previous.Quality != value.Quality) continue;
                     if (previous.Quantity > 0 && value.EstimatedUnitValue > long.MaxValue / previous.Quantity) continue;
                     value = ActivityItemValuationService.WithPrice(previous, value.EstimatedUnitValue.Value,
-                        value.PriceObservedAtUtc ?? DateTime.UtcNow, previous.Quality ?? 1);
+                        value.PriceObservedAtUtc ?? DateTime.UtcNow, ActivityItemValuationService.BasisQuality(previous));
                 }
                 else if (previous is not null)
                 {
@@ -135,7 +135,7 @@ public sealed partial class ActivityPersistence
                     };
                     if (frozenPrice)
                         value = ActivityItemValuationService.WithPrice(value, previous.EstimatedUnitValue!.Value,
-                            previous.PriceObservedAtUtc ?? DateTime.UtcNow, previous.Quality ?? 1) with
+                            previous.PriceObservedAtUtc ?? DateTime.UtcNow, ActivityItemValuationService.BasisQuality(previous)) with
                         { PriceObservedAtUtc = previous.PriceObservedAtUtc };
                 }
                 else if (value.OriginKey is { } origin && !origins.TryAdd(origin, value.Id)) continue;

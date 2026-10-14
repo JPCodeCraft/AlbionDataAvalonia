@@ -198,8 +198,19 @@
                                         <TextBlock Text="{Binding CurrentSummary.LootValue}" FontWeight="DemiBold" />
                                         <TextBlock Text="silver" Classes="UiLabel" />
                                     </StackPanel>
-                                    <Button Classes="UiAction UiSecondary" Content="Load more" Command="{Binding LoadMoreCurrentLootCommand}" IsVisible="{Binding HasMoreCurrentLoot}" />
+                                    <Button Classes="UiAction UiSecondary" Content="Load more" Command="{Binding LoadMoreCurrentLootCommand}" IsVisible="{Binding HasMoreCurrentLoot}" Margin="0,0,8,0" />
+                                    <Button Classes="UiAction UiSecondary" Content="Export loot…" IsEnabled="{Binding CanStartLootExport}" ToolTip.Tip="Export the loot shown here across all pages" Margin="0,0,8,0">
+                                        <Button.Flyout>
+                                            <MenuFlyout>
+                                                <MenuItem Header="AFM CSV" Tag="{x:Static vm:LootExportFormat.AfmCsv}" Click="ExportCurrentLoot_Click" />
+                                                <MenuItem Header="Loot Logger Viewer (.txt)" Tag="{x:Static vm:LootExportFormat.LootLoggerViewer}" Click="ExportCurrentLoot_Click" />
+                                            </MenuFlyout>
+                                        </Button.Flyout>
+                                    </Button>
+                                    <Button Classes="UiAction UiSecondary" Content="Cancel export" Command="{Binding CancelLootExportCommand}" IsVisible="{Binding IsLootExporting}" Margin="0,0,8,0" />
+                                    <ProgressBar Minimum="0" Maximum="100" Value="{Binding LootExportProgress}" IsIndeterminate="{Binding IsPreparingLootExport}" IsVisible="{Binding IsLootExporting}" Width="140" Height="6" VerticalAlignment="Center" />
                                 </WrapPanel>
+                                <TextBlock Classes="UiLabel" Text="{Binding LootExportStatusText}" IsVisible="{Binding HasLootExportStatus}" TextWrapping="Wrap" Margin="4,0,4,6" />
                             </StackPanel>
                         </Expander>
                         <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ActivityVisibilityTemplate}" />
@@ -319,7 +330,7 @@
                                     <Grid Grid.Row="3" RowDefinitions="Auto,Auto" RowSpacing="6">
                                         <WrapPanel>
                                             <Button Classes="UiAction UiSecondary" Content="Load more" Command="{Binding LoadMoreSessionLootCommand}" IsVisible="{Binding HasMoreSessionLoot}" Margin="0,0,8,0" />
-                                            <Button x:Name="ExportSessionLootButton" Classes="UiAction UiSecondary" Content="Export loot…" IsEnabled="{Binding CanExportSessionLoot}" ToolTip.Tip="Export matching loot across all pages" Margin="0,0,8,0">
+                                            <Button x:Name="ExportSessionLootButton" Classes="UiAction UiSecondary" Content="Export loot…" IsEnabled="{Binding CanExportSessionLoot}" ToolTip.Tip="Export the loot shown here across all pages" Margin="0,0,8,0">
                                                 <Button.Flyout>
                                                     <MenuFlyout>
                                                         <MenuItem Header="AFM CSV" Tag="{x:Static vm:LootExportFormat.AfmCsv}" Click="ExportSessionLoot_Click" />
@@ -405,8 +416,21 @@
                     </Expander>
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                         <TextBlock Text="{Binding GlobalLootTotalsText}" FontWeight="DemiBold" VerticalAlignment="Center" TextWrapping="Wrap" ToolTip.Tip="{Binding GlobalLootDetailsText}" />
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"><Button Classes="UiAction UiSecondary" Content="Load more" Command="{Binding LoadMoreGlobalLootCommand}" IsVisible="{Binding HasMoreGlobalLoot}" /></StackPanel>
+                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
+                            <Button Classes="UiAction UiSecondary" Content="Load more" Command="{Binding LoadMoreGlobalLootCommand}" IsVisible="{Binding HasMoreGlobalLoot}" />
+                            <Button Classes="UiAction UiSecondary" Content="Export loot…" IsEnabled="{Binding CanStartLootExport}" IsVisible="{Binding ShowGlobalLootPanel}" ToolTip.Tip="Export the loot shown here across all pages">
+                                <Button.Flyout>
+                                    <MenuFlyout>
+                                        <MenuItem Header="AFM CSV" Tag="{x:Static vm:LootExportFormat.AfmCsv}" Click="ExportGlobalLoot_Click" />
+                                        <MenuItem Header="Loot Logger Viewer (.txt)" Tag="{x:Static vm:LootExportFormat.LootLoggerViewer}" Click="ExportGlobalLoot_Click" />
+                                    </MenuFlyout>
+                                </Button.Flyout>
+                            </Button>
+                            <Button Classes="UiAction UiSecondary" Content="Cancel export" Command="{Binding CancelLootExportCommand}" IsVisible="{Binding IsLootExporting}" />
+                            <ProgressBar Minimum="0" Maximum="100" Value="{Binding LootExportProgress}" IsIndeterminate="{Binding IsPreparingLootExport}" IsVisible="{Binding IsLootExporting}" Width="140" Height="6" VerticalAlignment="Center" />
+                        </StackPanel>
                     </Grid>
+                    <TextBlock Classes="UiLabel" Text="{Binding LootExportStatusText}" IsVisible="{Binding HasLootExportStatus}" TextWrapping="Wrap" />
                 </StackPanel>
                 </ScrollViewer>
             </TabItem>

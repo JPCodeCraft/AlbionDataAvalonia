@@ -195,6 +195,20 @@ internal sealed class ActivityActorContext(PartyTrackerService party, MobsServic
             observedGuild ?? "", "", ActivityActorKind.Unknown, ActorRelationship.Unknown, Guid.Empty);
     }
 
+    // Loot chest updates list the players allowed to take restricted items. One
+    // known member, or one non-local member, identifies who emptied a type entry.
+    public string? PartyRecipientName(IReadOnlyCollection<Guid> playerGuids)
+    {
+        var members = party.CurrentSnapshot.Members;
+        var matched = playerGuids.Select(guid => members.FirstOrDefault(member => member.UserGuid == guid))
+            .Where(member => member is not null && !string.IsNullOrWhiteSpace(member.Name)
+                && !string.Equals(member.Name, "Not set", StringComparison.OrdinalIgnoreCase))
+            .DistinctBy(member => member!.UserGuid).ToArray();
+        if (matched.Length == 1) return matched[0]!.Name;
+        var others = matched.Where(member => !member!.IsLocalPlayer).ToArray();
+        return others.Length == 1 ? others[0]!.Name : null;
+    }
+
     private sealed record Entity(Guid Lifetime, Guid? CharacterId, string Name, string Guild,
         string Alliance, ActivityActorKind Kind, int? MobIndex = null, string? UniqueName = null,
         bool Terminal = false, DateTime? LeftAt = null, DateTime? TerminalAt = null);

@@ -48,25 +48,31 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
     public async Task FillMissingLootPricesAsync(IReadOnlyCollection<ActivityLootPrice> prices, CancellationToken cancellationToken = default)
     {
         // Database-only price patches commute with collector revisions; a stale snapshot cannot overwrite a filled price.
-        var snapshots = prices.Where(x => x.ItemId > 0 && x.Quality > 0 && x.UnitValue > 0)
-            .DistinctBy(x => (x.Server, x.ItemId, x.Quality)).ToArray();
+        var snapshots = prices.Where(x => x.ItemId > 0 && (x.Quality > 0 || x.LootBasis && x.Quality == 0) && x.UnitValue > 0)
+            .DistinctBy(x => (x.Server, x.ItemId, x.Quality, x.LootBasis)).ToArray();
         if (snapshots.Length == 0) return;
         await priceFillGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
         {
             foreach (var price in snapshots)
             {
+                var quality = price.Quality;
                 while (!disposed)
                 {
                     await FlushAsync(cancellationToken).ConfigureAwait(false);
                     var missing = await ReadAsync(async readCancellation =>
                     {
                         await using var context = contextFactory();
-                        return await context.ActivityEvents.AsNoTracking().Where(x => (x.Kind == ActivityEventKind.Loot || x.Kind == ActivityEventKind.Gathered || x.Kind == ActivityEventKind.FishingReward) && !x.IsRetracted &&
-                                x.Server == price.Server && x.ItemId == price.ItemId &&
-                                (x.Quality == price.Quality || x.Quality == null && price.Quality == 1) && x.EstimatedUnitValue == null &&
-                                (x.Quantity == 0 || x.Quantity <= long.MaxValue / price.UnitValue))
-                            .OrderBy(x => x.CapturedAtUtc).ThenBy(x => x.Id).Take(250).ToArrayAsync(readCancellation);
+                        var unpriced = context.ActivityEvents.AsNoTracking().Where(x => !x.IsRetracted &&
+                            x.Server == price.Server && x.ItemId == price.ItemId && x.EstimatedUnitValue == null &&
+                            (x.Quantity == 0 || x.Quantity <= long.MaxValue / price.UnitValue));
+                        // Loot uses its own valuation basis; quality 0 is the average for loot without quality.
+                        if (!price.LootBasis)
+                            unpriced = unpriced.Where(x => (x.Kind == ActivityEventKind.Gathered || x.Kind == ActivityEventKind.FishingReward) &&
+                                (x.Quality == quality || x.Quality == null && quality == 1));
+                        else if (quality == 0) unpriced = unpriced.Where(x => x.Kind == ActivityEventKind.Loot && x.Quality == null);
+                        else unpriced = unpriced.Where(x => x.Kind == ActivityEventKind.Loot && x.Quality == quality);
+                        return await unpriced.OrderBy(x => x.CapturedAtUtc).ThenBy(x => x.Id).Take(250).ToArrayAsync(readCancellation);
                     }, cancellationToken).ConfigureAwait(false);
                     if (missing.Length == 0) break;
                     foreach (var observation in missing)
@@ -248,7 +254,7 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                             previous.ItemUniqueName != observation.ItemUniqueName || previous.Quality != observation.Quality) break;
                         if (previous.Quantity > 0 && observation.EstimatedUnitValue > long.MaxValue / previous.Quantity) break;
                         observation = ActivityItemValuationService.WithPrice(previous, observation.EstimatedUnitValue.Value,
-                            observation.PriceObservedAtUtc ?? DateTime.UtcNow, previous.Quality ?? 1);
+                            observation.PriceObservedAtUtc ?? DateTime.UtcNow, ActivityItemValuationService.BasisQuality(previous));
                     }
                     else if (previous is not null && previous.Revision >= observation.Revision) break;
                     if (previous is not null)
@@ -270,7 +276,7 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                         };
                         if (frozenPrice)
                             observation = ActivityItemValuationService.WithPrice(observation, previous.EstimatedUnitValue!.Value,
-                                previous.PriceObservedAtUtc ?? DateTime.UtcNow, previous.Quality ?? 1) with
+                                previous.PriceObservedAtUtc ?? DateTime.UtcNow, ActivityItemValuationService.BasisQuality(previous)) with
                             { PriceObservedAtUtc = previous.PriceObservedAtUtc };
                     }
                     else if (observation.OriginKey is { } origin &&

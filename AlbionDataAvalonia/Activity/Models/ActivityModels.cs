@@ -238,7 +238,9 @@ public sealed record ActivityActorTotal(string ActorId, string Name, ActorRelati
     double DamageDealt, double DamageReceived, double HealingDone, double HealingReceived);
 public sealed record ActivityMobTotal(string MobId, string Name, long Kills, long InferredKills = 0);
 public sealed record ActivityRecordingStatus(bool IsSuspended, int PendingChanges, string? Error);
-public sealed record ActivityLootPrice(string Server, int ItemId, int Quality, long UnitValue, DateTime ObservedAtUtc);
+// LootBasis prices value loot only; quality 0 then fills loot whose quality is unknown.
+public sealed record ActivityLootPrice(string Server, int ItemId, int Quality, long UnitValue, DateTime ObservedAtUtc,
+    bool LootBasis = false);
 public sealed record ActivityRates(double DurationSeconds, double DamagePerSecond,
     double HealingPerSecond, double FamePerHour, double SilverPerHour, double LootValuePerHour,
     double DamageReceivedPerSecond, double HealingReceivedPerSecond, double CombatDurationSeconds = 0,
