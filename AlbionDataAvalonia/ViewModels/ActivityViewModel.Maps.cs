@@ -1,8 +1,10 @@
 using AlbionDataAvalonia.Activity;
 using AlbionDataAvalonia.Activity.Models;
+using AlbionDataAvalonia.Locations;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System;
+using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
@@ -16,6 +18,8 @@ public sealed class ActivityMapRow(ActivityMap source, DateTime? durationEndUtc 
     public ActivityMap Source { get; private set; } = source;
     public string RawMapId => Source.RawMapId;
     public string Name => Source.Name;
+    public string DetailsText => FormatDetails(Source.Metadata);
+    public bool HasDetails => DetailsText.Length > 0;
     public string StartedText => ActivityDisplay.LocalDate(Source.StartedAtUtc);
     public int VisitCount => Source.Visits;
     public double DurationSeconds => Source.GetDurationSeconds(durationEndUtc ?? DateTime.UtcNow);
@@ -30,6 +34,24 @@ public sealed class ActivityMapRow(ActivityMap source, DateTime? durationEndUtc 
     }
 
     public void RefreshDuration() => OnPropertyChanged(nameof(DurationText));
+
+    private static string FormatDetails(ActivityMapMetadata? metadata)
+    {
+        if (metadata is null) return string.Empty;
+        var parts = new List<string>();
+        if (metadata.Tier is > 0)
+            parts.Add(metadata.Enchantment is > 0 ? $"T{metadata.Tier}.{metadata.Enchantment}" : $"T{metadata.Tier}");
+        if (!string.IsNullOrWhiteSpace(metadata.ZoneType)) parts.Add($"{metadata.ZoneType} zone");
+        if (!string.IsNullOrWhiteSpace(metadata.Rarity)) parts.Add(metadata.Rarity);
+        if (!string.IsNullOrWhiteSpace(metadata.Mode)) parts.Add(metadata.Mode);
+        if (!string.IsNullOrWhiteSpace(metadata.Faction)) parts.Add(metadata.Faction);
+        if (!string.IsNullOrWhiteSpace(metadata.OriginMapId))
+        {
+            var origin = AlbionLocations.ResolveActivityLocation(metadata.OriginMapId);
+            if (origin.Kind != ActivityMapKind.Unknown) parts.Add($"From {origin.DisplayName}");
+        }
+        return string.Join(" · ", parts);
+    }
 }
 
 public partial class ActivityViewModel
@@ -47,6 +69,8 @@ public partial class ActivityViewModel
 
     public bool IsShowingMap => SelectedDetailTabIndex == MapsDetailTabIndex && SelectedMap is not null;
     public bool HasSelectedDetailSelection => HasSelectedEncounter || IsShowingMap;
+    public string DetailMapMetadataText => IsShowingMap ? SelectedMap!.DetailsText : string.Empty;
+    public bool HasDetailMapMetadata => DetailMapMetadataText.Length > 0;
 
     private async Task RefreshMapsAsync(long version, ActivitySession session, CancellationToken cancellationToken)
     {

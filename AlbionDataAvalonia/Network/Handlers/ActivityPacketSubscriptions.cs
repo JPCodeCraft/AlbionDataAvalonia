@@ -18,6 +18,7 @@ internal static class ActivityPacketSubscriptions
         Event<NewCharacterEvent>(builder, EventCodes.NewCharacter, activity);
         Event<NewMobEvent>(builder, EventCodes.NewMob, activity);
         Event<LeaveEvent>(builder, EventCodes.Leave, activity);
+        Event<NewRandomDungeonExitEvent>(builder, EventCodes.NewRandomDungeonExit, activity);
         Event<HealthUpdateEvent>(builder, EventCodes.HealthUpdate, activity);
         Event<HealthUpdatesEvent>(builder, EventCodes.HealthUpdates, activity);
         Event<UpdateFameEvent>(builder, EventCodes.UpdateFame, activity);
@@ -51,6 +52,8 @@ internal static class ActivityPacketSubscriptions
         Event<NewSiegeBannerItemEvent>(builder, EventCodes.NewSiegeBannerItem, activity);
         builder.SubscribeRequest<JoinRequest>((int)OperationCodes.Join, packet => Observe(activity, packet));
         builder.SubscribeResponse<JoinResponse>((int)OperationCodes.Join, packet => Observe(activity, packet));
+        builder.SubscribeResponse<ChangeClusterResponse>((int)OperationCodes.ChangeCluster, packet => Observe(activity, packet));
+        builder.SubscribeRequest<ExitEnterStartRequest>((int)OperationCodes.ExitEnterStart, packet => Observe(activity, packet));
         builder.SubscribeRequest<InventoryMoveItemRequest>((int)OperationCodes.InventoryMoveItem, packet => Observe(activity, packet));
         builder.SubscribeRequest<InventoryMoveGivenItemsRequest>((int)OperationCodes.InventoryMoveGivenItems, packet => Observe(activity, packet));
         builder.SubscribeRequest<FishingStartRequest>((int)OperationCodes.FishingStart, packet => Observe(activity, packet));
@@ -75,6 +78,8 @@ internal static class ActivityPacketSubscriptions
     {
         protected override Task OnHandleAsync(RequestPacket packet)
         {
+            if (packet.OperationCode == (int)OperationCodes.ExitEnterCancel)
+                activity.CancelEntranceSelection(packet);
             if (packet.OperationCode is (int)OperationCodes.InventorySplitStack or (int)OperationCodes.InventorySplitStackInto
                 or (int)OperationCodes.InventoryStack or (int)OperationCodes.InventoryAddToStacks
                 or (int)OperationCodes.InventoryDestroyItem or (int)OperationCodes.InventoryDropAll)

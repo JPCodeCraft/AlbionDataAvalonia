@@ -35,7 +35,7 @@ public sealed partial class ActivityTrackerService
                 throw new InvalidOperationException("Log in with the same character and server to resume this session.");
             var now = DateTime.UtcNow;
             var resumedVisits = (JsonSerializer.Deserialize<ActivityVisit[]>(previous.VisitsJson) ?? [])
-                .Append(new(map!.RawLocationId, map.DisplayName, now, null, map.InstanceId?.ToString()));
+                .Append(new(map!.RawLocationId, map.DisplayName, now, null, map.InstanceId?.ToString(), mapMetadata));
             var instances = (JsonSerializer.Deserialize<string[]>(previous.KnownInstancesJson) ?? []).AsEnumerable();
             if (IsInstance(map.Kind)) instances = instances.Append(InstanceKey(map));
             return previous with

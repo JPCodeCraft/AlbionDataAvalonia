@@ -68,6 +68,8 @@ public sealed partial class ActivityPersistence
         ReadAsync(ct => GetEncountersCoreAsync(sessionId, page, ct), cancellationToken);
     public Task<ActivityPage<ActivityEvent>> GetEventsAsync(ActivityQuery filter, int page = 0, CancellationToken cancellationToken = default) =>
         ReadAsync(ct => GetEventsCoreAsync(filter, page, ct), cancellationToken);
+    internal Task<ActivityPage<ActivityEvent>> GetEventsThroughPageAsync(ActivityQuery filter, int lastPage, CancellationToken cancellationToken = default) =>
+        ReadAsync(ct => GetEventsCoreAsync(filter, 0, ct, (int)Math.Min(int.MaxValue, Math.Max(0L, lastPage) + 1)), cancellationToken);
     public Task<ActivitySummary> GetSummaryAsync(ActivityQuery filter, CancellationToken cancellationToken = default) =>
         ReadAsync(ct => GetSummaryCoreAsync(filter, ct), cancellationToken);
     public Task<IReadOnlyList<ActivityChartPoint>> GetChartsAsync(ActivityQuery filter, ActivityChartMetric metric, CancellationToken cancellationToken = default) =>

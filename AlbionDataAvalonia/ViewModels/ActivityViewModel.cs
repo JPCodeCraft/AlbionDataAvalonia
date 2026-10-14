@@ -107,6 +107,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     [ObservableProperty] private bool hasMoreGlobalLoot;
 
     public bool HasError => !string.IsNullOrWhiteSpace(ErrorText);
+    public bool ShowActivityScope => SelectedTabIndex is 0 or 1;
     public Guid? CurrentSessionId => tracker?.CurrentSessionId;
     public string RecordingButtonText => IsRecordingEnabled ? "Disable recording" : "Enable recording";
     public bool HasSelectedSession => SelectedSession is not null;
@@ -569,7 +570,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         var cancellationToken = detailQueryCancellation.Token;
         var sessionId = SelectedSession.Id;
         var page = append ? sessionLootPage + 1 : refresh ? sessionLootPage : 0;
-        var result = await ReadPagesAsync(index => persistence.GetEventsAsync(query with { LootOnly = true }, index, cancellationToken), page, append);
+        var result = await ReadEventRowsAsync(query with { LootOnly = true }, page, append, cancellationToken);
         if (isDisposed || SelectedSession?.Id != sessionId || DetailQuery(true) != query || version is { } expected && detailVersion != expected) return;
         ApplyEventRows(SessionLoot, result.Items.Select(observation => new ActivityLootRow(observation)).ToArray(), row => row.SourceEvent, append);
         valuations?.RequestMissing(result.Items);
@@ -585,7 +586,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         var page = append ? timelinePage + 1 : refresh ? timelinePage : 0;
         var query = DetailQuery() with { ShowCategories = VisibleCategories };
         var cancellationToken = detailQueryCancellation.Token;
-        var result = await ReadPagesAsync(index => persistence.GetEventsAsync(query, index, cancellationToken), page, append);
+        var result = await ReadEventRowsAsync(query, page, append, cancellationToken);
         if (isDisposed || SelectedSession?.Id != sessionId || (DetailQuery() with { ShowCategories = VisibleCategories }) != query || version is { } expected && detailVersion != expected) return;
         ApplyEventRows(Timeline, result.Items.Where(observation => observation.Kind is not (ActivityEventKind.OutcomeEvidence or ActivityEventKind.LegacyImportMarker))
             .Select(observation => new ActivityEventRow(observation)).ToArray(), row => row.SourceEvent, append);
@@ -601,7 +602,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         var cancellationToken = BeginRead(ref itemsQueryCancellation);
         var page = append ? globalLootPage + 1 : refresh ? globalLootPage : 0;
         var query = GlobalItemsQuery();
-        var result = await ReadPagesAsync(index => persistence.GetEventsAsync(query with { LootOnly = true }, index, cancellationToken), page, append);
+        var result = await ReadEventRowsAsync(query with { LootOnly = true }, page, append, cancellationToken);
         var summary = append ? null : await persistence.GetSummaryAsync(query, cancellationToken);
         var resources = append ? null : await persistence.GetResourceTotalsAsync(query, cancellationToken);
         if (isDisposed || version != globalLootVersion || GlobalItemsQuery() != query) return;
@@ -641,6 +642,11 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         var pages = await Task.WhenAll(Enumerable.Range(0, lastPage + 1).Select(readPage));
         return new(pages.SelectMany(page => page.Items).ToArray(), pages[^1].HasMore);
     }
+
+    private Task<ActivityPage<ActivityEvent>> ReadEventRowsAsync(ActivityQuery query, int lastPage, bool append,
+        CancellationToken cancellationToken) => append
+        ? persistence!.GetEventsAsync(query, lastPage, cancellationToken)
+        : persistence!.GetEventsThroughPageAsync(query, lastPage, cancellationToken);
 
     private static void ApplyHeaderRows<TRow, TSource, TKey>(ObservableCollection<TRow> rows, IReadOnlyList<TSource> sources,
         Func<TRow, TKey> rowId, Func<TSource, TKey> sourceId, Func<TSource, TRow> create, Action<TRow, TSource> update, bool append) where TKey : notnull
@@ -705,7 +711,12 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         try
         {
             await action();
-            if (persistence?.Status.Error is not { Length: > 0 }) ErrorText = "";
+            // Chart and replay reads handle their own failures and recovery. A successful
+            // surrounding refresh must not immediately dismiss their warning.
+            if (persistence?.Status.Error is not { Length: > 0 } && ErrorText is
+                "Could not load activity. Try reopening this tab." or
+                "Activity could not be saved. Recording will resume when storage is available.")
+                ErrorText = "";
         }
         catch (OperationCanceledException) { /* Superseded view requests are expected. */ }
         catch (Exception exception)
@@ -728,6 +739,8 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(HasSelectedPlayer));
         OnPropertyChanged(nameof(CanDeleteSelectedSession));
         OnPropertyChanged(nameof(DetailTitle));
+        OnPropertyChanged(nameof(DetailMapMetadataText));
+        OnPropertyChanged(nameof(HasDetailMapMetadata));
         OnPropertyChanged(nameof(CanExportSessionLoot));
         OnPropertyChanged(nameof(ShowSessionLootPanel));
         OnPropertyChanged(nameof(DetailDurationText));
@@ -767,6 +780,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     }
     partial void OnSelectedTabIndexChanged(int value)
     {
+        OnPropertyChanged(nameof(ShowActivityScope));
         if (value != 1) CancelHistoryReplayRead();
         if (value != 0) { currentQueryCancellation.Cancel(); liveTimelineCancellation.Cancel(); }
         if (value != 1) { historyQueryCancellation.Cancel(); detailQueryCancellation.Cancel(); }

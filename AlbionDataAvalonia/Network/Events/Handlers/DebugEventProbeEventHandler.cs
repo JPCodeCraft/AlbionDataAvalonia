@@ -66,6 +66,7 @@ public class DebugEventProbeEventHandler : EventPacketHandler<DebugEventProbeEve
         (int)EventCodes.Respawn,
         (int)EventCodes.Teleport,
         (int)EventCodes.ClusterInfoUpdate,
+        (int)EventCodes.NewRandomDungeonExit,
         (int)EventCodes.PartyJoined,
         (int)EventCodes.PartyPlayerJoined,
         (int)EventCodes.PartyPlayerLeft,

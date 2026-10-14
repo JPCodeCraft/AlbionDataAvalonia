@@ -321,12 +321,16 @@ public sealed partial class ActivityPersistence
             .OrderBy(x => x.Number).Skip(Math.Max(0, page) * 100).Take(101).ToListAsync(cancellationToken);
         return new(rows.Take(100).ToArray(), rows.Count > 100);
     }
-    private async Task<ActivityPage<ActivityEvent>> GetEventsCoreAsync(ActivityQuery filter, int page = 0, CancellationToken cancellationToken = default)
+    private async Task<ActivityPage<ActivityEvent>> GetEventsCoreAsync(ActivityQuery filter, int page = 0, CancellationToken cancellationToken = default, int pageCount = 1)
     {
         await using var context = contextFactory();
+        // Refresh the already-loaded prefix in one query. Repeating every OFFSET page
+        // makes active history progressively more expensive as the user loads older rows.
+        var count = (int)Math.Min(int.MaxValue - 1L, Math.Max(1L, pageCount) * 250);
+        var offset = (int)Math.Min(int.MaxValue, Math.Max(0L, page) * 250);
         var rows = await FilterEvents(context, filter).OrderByDescending(x => x.CapturedAtUtc).ThenByDescending(x => x.CaptureOrder)
-            .ThenBy(x => x.Id).Skip(Math.Max(0, page) * 250).Take(251).ToListAsync(cancellationToken);
-        return new(rows.Take(250).ToArray(), rows.Count > 250);
+            .ThenBy(x => x.Id).Skip(offset).Take(count + 1).ToListAsync(cancellationToken);
+        return new(rows.Take(count).ToArray(), rows.Count > count);
     }
 
     private static IQueryable<ActivityEvent> FilterEvents(LocalContext context, ActivityQuery filter)

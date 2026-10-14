@@ -132,6 +132,7 @@ public sealed partial class ActivityTrackerService : IDisposable
             if (value && map is not null) { mapEnteredAt = DateTime.UtcNow; partialEntry = true; }
             if (!value) CloseSession(DateTime.UtcNow, ActivityEndReason.Disabled);
             loot.ResetRecordingCorrelations();
+            locations.ClearPending();
             gathering.Reset();
             fameCollector.Reset();
             mobParticipation.Clear();
@@ -149,6 +150,7 @@ public sealed partial class ActivityTrackerService : IDisposable
             CloseSession(DateTime.UtcNow, ActivityEndReason.Finished);
             resumable = null;
             loot.ResetCandidates();
+            locations.ClearPending();
             gathering.Reset();
             fameCollector.Reset();
             mobParticipation.Clear();
@@ -197,6 +199,9 @@ public sealed partial class ActivityTrackerService : IDisposable
         awaitingContext = true;
         actors.Suspend();
         map = null;
+        mapMetadata = new();
+        locationObservation = null;
+        locations.Reset();
         loot.Reset();
         gathering.Reset();
         fameCollector.Reset();
@@ -218,6 +223,9 @@ public sealed partial class ActivityTrackerService : IDisposable
             Expire(at);
             switch (packet)
             {
+                case NewRandomDungeonExitEvent entrance when HasConfirmedContext:
+                    locations.Observe(entrance, map!.RawLocationId, at);
+                    break;
                 case NewCharacterEvent character: actors.Character(character); break;
                 case NewMobEvent mob when mob.ObjectId is > 0:
                     actors.Mob(mob.ObjectId.Value, mob.MobIndex, mob.CurrentHealth);
@@ -225,6 +233,7 @@ public sealed partial class ActivityTrackerService : IDisposable
                     break;
                 case LeaveEvent leave:
                     actors.Leave(leave.userObjectId, at);
+                    locations.Leave(leave.userObjectId, at);
                     // A local Leave may be a map transition, never a confirmed logout/death.
                     break;
                 case HealthUpdateEvent health when CanRecord && health.IsValid:
@@ -287,6 +296,11 @@ public sealed partial class ActivityTrackerService : IDisposable
             Expire(at);
             if (packet is JoinResponse join && join.ReturnCode == 0
                 && join.userObjectId > 0 && !string.IsNullOrWhiteSpace(join.RawLocationId)) Join(join, at);
+            else if (packet is JoinResponse) locations.ClearPending();
+            else if (packet is ChangeClusterResponse transition && HasConfirmedContext)
+                ObserveLocationTransition(transition, at);
+            else if (packet is ExitEnterStartRequest entrance && HasConfirmedContext)
+                locations.Observe(entrance, at);
             else if (CanRecord)
             {
                 gathering.Observe(packet, at);
@@ -306,6 +320,10 @@ public sealed partial class ActivityTrackerService : IDisposable
         var next = packet.ActivityLocation;
         var previous = map;
         var nextServer = player.AlbionServer?.Id;
+        var sameCharacter = actors.HasIdentity && actors.ServerId == nextServer
+            && actors.CharacterId == (packet.userGuid?.ToString() ?? "")
+            && (actors.CharacterId.Length > 0 || actors.CharacterName == packet.playerName);
+        var nextMetadata = locations.Join(packet, next, previous?.RawLocationId, sameCharacter, at);
         var switched = session is not null && (session.Server != nextServer?.ToString(CultureInfo.InvariantCulture)
             || session.CharacterId != (packet.userGuid?.ToString() ?? "")
             || session.CharacterId.Length == 0 && session.CharacterName != packet.playerName);
@@ -333,6 +351,9 @@ public sealed partial class ActivityTrackerService : IDisposable
         confirmedOwner = actors.HasIdentity ? new ActivityOwner(actors.ServerId!.Value.ToString(CultureInfo.InvariantCulture),
             actors.CharacterId, actors.CharacterName) : null;
         map = next;
+        mapMetadata = nextMetadata;
+        locationObservation = null;
+        if (sameCharacter) RestoreLocationMetadata();
         mapEnteredAt = at;
         partialEntry = !enabled;
         awaitingContext = !actors.HasIdentity;
@@ -392,7 +413,8 @@ public sealed partial class ActivityTrackerService : IDisposable
             visits.AddRange(JsonSerializer.Deserialize<ActivityVisit[]>(old.VisitsJson) ?? []);
             knownInstances.Clear();
             foreach (var value in JsonSerializer.Deserialize<string[]>(old.KnownInstancesJson) ?? []) knownInstances.Add(value);
-            visits.Add(new ActivityVisit(map.RawLocationId, map.DisplayName, mapEnteredAt, null, map.InstanceId?.ToString()));
+            RestoreLocationMetadata();
+            visits.Add(new ActivityVisit(map.RawLocationId, map.DisplayName, mapEnteredAt, null, map.InstanceId?.ToString(), mapMetadata));
             visitStartedAt = mapEnteredAt;
             // Existing encounter numbers remain monotonic after a resumed visit.
         }
@@ -420,7 +442,7 @@ public sealed partial class ActivityTrackerService : IDisposable
                 State = ActivityState.Open,
                 IsPartial = partialEntry
             };
-            visits.Add(new ActivityVisit(map.RawLocationId, map.DisplayName, start, null, map.InstanceId?.ToString()));
+            visits.Add(new ActivityVisit(map.RawLocationId, map.DisplayName, start, null, map.InstanceId?.ToString(), mapMetadata));
         }
         resumable = null;
         reentryConfirmed = false;
@@ -428,17 +450,6 @@ public sealed partial class ActivityTrackerService : IDisposable
         SaveHeaders();
         Persist(LocationEvent(visitStartedAt, null));
     }
-
-    private ActivityEvent LocationEvent(DateTime at, string? origin) => WithSource(Stamp(ActivityEventKind.Location, at, origin), actors.Local) with
-    {
-        DetailsJson = JsonSerializer.Serialize(new
-        {
-            OriginalName = map?.DisplayName,
-            map?.ParentClusterId,
-            map?.SourceClusterId,
-            GroupingInferred = session?.HasInferredGrouping ?? false
-        })
-    };
 
     private void TrackInstance(ActivityLocationDescriptor value)
     {
@@ -457,7 +468,7 @@ public sealed partial class ActivityTrackerService : IDisposable
     {
         if (session is null || map is null) return;
         session = session with { ObservationStartedAtUtc = at, Revision = session.Revision + 1 };
-        visits.Add(new ActivityVisit(map.RawLocationId, map.DisplayName, at, null, map.InstanceId?.ToString()));
+        visits.Add(new ActivityVisit(map.RawLocationId, map.DisplayName, at, null, map.InstanceId?.ToString(), mapMetadata));
     }
 
     private void CloseObservation(DateTime at)
@@ -901,6 +912,7 @@ public sealed partial class ActivityTrackerService : IDisposable
         };
         QueueSession(ended);
         session = null;
+        locationObservation = null;
         resumable = null;
         mobParticipation.Clear();
         pendingTerminals.Clear();

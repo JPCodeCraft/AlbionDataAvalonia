@@ -134,7 +134,12 @@
         <Style Selector="DataGrid"><Setter Property="AutoGenerateColumns" Value="False" /><Setter Property="IsReadOnly" Value="True" /><Setter Property="GridLinesVisibility" Value="None" /><Setter Property="Background" Value="{DynamicResource ActivitySurfaceBrush}" /><Setter Property="BorderThickness" Value="0" /></Style>
         <Style Selector="DataGridColumnHeader /template/ Grid#PART_ColumnHeaderRoot"><Setter Property="Background" Value="{DynamicResource ActivityInputBrush}" /></Style>
         <Style Selector="TabControl.ActivityDetails TabItem /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="FontSize" Value="16" /></Style>
-        <Style Selector="TabControl.ActivityDetails DataGrid"><Setter Property="VerticalScrollBarVisibility" Value="Disabled" /><Setter Property="RowHeight" Value="32" /><Setter Property="ColumnHeaderHeight" Value="32" /></Style>
+        <Style Selector="TabControl.ActivityDetails DataGrid">
+            <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
+            <Setter Property="MaxHeight" Value="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" />
+            <Setter Property="RowHeight" Value="32" />
+            <Setter Property="ColumnHeaderHeight" Value="32" />
+        </Style>
     </UserControl.Styles>
 
     <Grid RowDefinitions="Auto,Auto,*" Margin="0,8,0,0" RowSpacing="8">
@@ -144,7 +149,7 @@
                 <TextBlock Text="{Binding StatusText}" TextWrapping="Wrap" Opacity="0.75" />
             </StackPanel>
             <WrapPanel VerticalAlignment="Center">
-                <views:ActivitySegmentedSelector ItemsSource="{Binding ScopeOptions}" SelectedItem="{Binding SelectedScope, Mode=TwoWay}" AutomationProperties.Name="Activity scope" Margin="0,0,12,0" />
+                <views:ActivitySegmentedSelector ItemsSource="{Binding ScopeOptions}" SelectedItem="{Binding SelectedScope, Mode=TwoWay}" IsVisible="{Binding ShowActivityScope}" AutomationProperties.Name="Activity scope" Margin="0,0,12,0" />
                 <Button Classes="ActivityAction ActivitySecondary" Content="{Binding RecordingButtonText}" Command="{Binding ToggleRecordingCommand}" Margin="0,0,10,4" />
                 <Button Classes="ActivityAction" Content="Finish session" Click="FinishSession_Click" IsEnabled="{Binding HasCurrentSession}" Margin="0,0,0,4" />
             </WrapPanel>
@@ -225,7 +230,12 @@
                 </ScrollViewer>
             </TabItem>
             <TabItem Header="History">
-                <Grid ColumnDefinitions="320,12,*" Margin="0,10,0,0">
+                <Grid Margin="0,10,0,0">
+                    <Grid.ColumnDefinitions>
+                        <ColumnDefinition Width="*" MinWidth="180" MaxWidth="320" />
+                        <ColumnDefinition Width="12" />
+                        <ColumnDefinition Width="3*" />
+                    </Grid.ColumnDefinitions>
                     <Grid RowDefinitions="Auto,*,Auto" RowSpacing="10">
                     <TextBlock Text="Sessions" FontSize="16" FontWeight="DemiBold" />
                     <Border Grid.Row="1" Background="{DynamicResource ActivitySurfaceBrush}" CornerRadius="6">
@@ -234,7 +244,7 @@
                                 <DataTemplate x:DataType="vm:ActivitySessionRow">
                                     <StackPanel Spacing="6">
                                         <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="DemiBold" TextWrapping="Wrap" />
-                                        <TextBlock Text="{Binding MetadataText}" Classes="ActivityLabel" />
+                                        <TextBlock Text="{Binding MetadataText}" Classes="ActivityLabel" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding MetadataText}" />
                                         <WrapPanel><TextBlock Text="{Binding DurationText}" Margin="0,0,12,0" /><TextBlock Text="{Binding TagsText}" Foreground="#A0D477" Margin="0,0,12,0" /><TextBlock Text="{Binding StateText}" Classes="ActivityLabel" /></WrapPanel>
                                     </StackPanel>
                                 </DataTemplate>
@@ -250,7 +260,7 @@
                     <ScrollViewer x:Name="HistorySessionDetailScroll" Grid.Column="2" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding HasSelectedSession}">
                     <StackPanel Spacing="12">
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                            <StackPanel Spacing="4"><TextBlock Text="{Binding DetailTitle}" FontSize="20" FontWeight="DemiBold" TextWrapping="Wrap" /><TextBlock Text="{Binding DetailDurationText}" /><TextBlock Text="{Binding DetailScopeText}" IsVisible="{Binding DetailScopeText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" Classes="ActivityLabel" /><TextBlock Text="{Binding DetailTagsText}" Foreground="#A0D477" /><TextBlock Text="{Binding ImportedDetailText}" IsVisible="{Binding IsImportedDetail}" Classes="ActivityLabel" ToolTip.Tip="{Binding ImportedDetailTooltipText}" /></StackPanel>
+                            <StackPanel Spacing="4"><TextBlock Text="{Binding DetailTitle}" FontSize="20" FontWeight="DemiBold" TextWrapping="Wrap" /><TextBlock Text="{Binding DetailMapMetadataText}" IsVisible="{Binding HasDetailMapMetadata}" Classes="ActivityLabel" /><TextBlock Text="{Binding DetailDurationText}" /><TextBlock Text="{Binding DetailScopeText}" IsVisible="{Binding DetailScopeText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" Classes="ActivityLabel" /><TextBlock Text="{Binding DetailTagsText}" Foreground="#A0D477" /><TextBlock Text="{Binding ImportedDetailText}" IsVisible="{Binding IsImportedDetail}" Classes="ActivityLabel" ToolTip.Tip="{Binding ImportedDetailTooltipText}" /></StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                 <Button Classes="ActivityAction ActivitySecondary" Content="Whole session" Command="{Binding ClearEncounterCommand}" IsVisible="{Binding HasSelectedDetailSelection}" />
                                 <Button Classes="ActivityAction ActivitySecondary" Content="All players" Command="{Binding ClearPlayerCommand}" IsVisible="{Binding HasSelectedPlayer}" />
@@ -352,11 +362,20 @@
                             <TabItem Header="Maps" IsEnabled="{Binding HasDetailedHistory}">
                                 <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
                                     <TextBlock Text="Select a map to see its totals." Classes="ActivityLabel" />
-                                    <DataGrid x:Name="HistoryMapsTable" Grid.Row="1" ItemsSource="{Binding Maps}" SelectedItem="{Binding SelectedMap, Mode=TwoWay}" SelectionMode="Single"
-                                              Height="{Binding Maps.Count, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}"
+                                    <DataGrid x:Name="HistoryMapsTable" Grid.Row="1" ItemsSource="{Binding Maps}" SelectedItem="{Binding SelectedMap, Mode=TwoWay}" SelectionMode="Single" RowHeight="48"
+                                              Height="{Binding Maps.Count, Converter={x:Static views:ActivityView.HistoryMapTableHeightConverter}}"
                                               MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto">
                                         <DataGrid.Columns>
-                                            <DataGridTextColumn Header="Map" Binding="{Binding Name}" Width="*" MinWidth="160" />
+                                            <DataGridTemplateColumn Header="Map" Width="*" MinWidth="200" SortMemberPath="Name">
+                                                <DataGridTemplateColumn.CellTemplate>
+                                                    <DataTemplate x:DataType="vm:ActivityMapRow">
+                                                        <StackPanel VerticalAlignment="Center" Spacing="2" Margin="8,0" ToolTip.Tip="{Binding DetailsText}">
+                                                            <TextBlock Text="{Binding Name}" TextTrimming="CharacterEllipsis" />
+                                                            <TextBlock Text="{Binding DetailsText}" IsVisible="{Binding HasDetails}" Classes="ActivityLabel" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                                                        </StackPanel>
+                                                    </DataTemplate>
+                                                </DataGridTemplateColumn.CellTemplate>
+                                            </DataGridTemplateColumn>
                                             <DataGridTextColumn Header="First visit" Binding="{Binding StartedText}" />
                                             <DataGridTextColumn Header="Visits" Binding="{Binding VisitCount}" />
                                             <DataGridTextColumn Header="Recorded time" Binding="{Binding DurationText}" />

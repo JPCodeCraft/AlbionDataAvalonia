@@ -55,7 +55,7 @@ public partial class ActivityViewModel
         var dataVersion = itemChangeVersion;
         var cancellationToken = BeginRead(ref currentLootCancellation);
         var page = append ? currentLootPage + 1 : currentLootPage;
-        var result = await ReadPagesAsync(index => persistence.GetEventsAsync(query, index, cancellationToken), page, append);
+        var result = await ReadEventRowsAsync(query, page, append, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
         if (isDisposed || !isActive || SelectedTabIndex != 0 || !IsCurrentLootExpanded ||
             version != currentLootVersion || key != GetCurrentPeriodKey()) return;

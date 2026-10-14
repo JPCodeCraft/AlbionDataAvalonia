@@ -20,6 +20,7 @@ public partial class ActivityView : UserControl
 {
     // DataGrid caps its initial rows when measured with unlimited height.
     public static readonly FuncValueConverter<int, double> HistoryTableHeightConverter = new(count => 52 + Math.Max(0, count) * 32d);
+    public static readonly FuncValueConverter<int, double> HistoryMapTableHeightConverter = new(count => 52 + Math.Max(0, count) * 48d);
     public static readonly FuncValueConverter<int, double> HistoryLootTableHeightConverter = new(count => 52 + Math.Max(0, count) * 56d);
     public static readonly FuncValueConverter<double, double> HistoryTimelineViewportHeightConverter = new(height => Math.Clamp(height - 120, 240, 640));
 
@@ -47,7 +48,6 @@ public partial class ActivityView : UserControl
 
         if (table.VerticalScrollBarVisibility != ScrollBarVisibility.Disabled)
         {
-            if (table != HistoryTimelineTable && table != HistoryMapsTable) return;
             var scrollbar = table.GetVisualDescendants().OfType<ScrollBar>().FirstOrDefault(bar => bar.Orientation == Orientation.Vertical);
             if (scrollbar is not null && (args.Delta.Y > 0 ? scrollbar.Value > scrollbar.Minimum : scrollbar.Value < scrollbar.Maximum)) return;
         }

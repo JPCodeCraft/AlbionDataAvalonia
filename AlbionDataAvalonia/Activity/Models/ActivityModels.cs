@@ -69,7 +69,17 @@ public sealed record ActivitySession
 }
 
 public sealed record ActivityVisit(string RawMapId, string LocationName, DateTime StartedAtUtc,
-    DateTime? EndedAtUtc, string? InstanceId = null);
+    DateTime? EndedAtUtc, string? InstanceId = null, ActivityMapMetadata? Metadata = null);
+
+public sealed record ActivityMapMetadata(int? Tier = null, string? ZoneType = null,
+    string? Mode = null, string? Faction = null, int? Enchantment = null,
+    string? Rarity = null, string? OriginMapId = null)
+{
+    public ActivityMapMetadata Merge(ActivityMapMetadata? newer) => newer is null ? this : new(
+        newer.Tier ?? Tier, newer.ZoneType ?? ZoneType, newer.Mode ?? Mode,
+        newer.Faction ?? Faction, newer.Enchantment ?? Enchantment,
+        newer.Rarity ?? Rarity, newer.OriginMapId ?? OriginMapId);
+}
 
 public sealed record ActivityEncounter
 {
