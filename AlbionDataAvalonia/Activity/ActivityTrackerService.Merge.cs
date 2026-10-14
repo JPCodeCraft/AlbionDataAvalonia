@@ -46,6 +46,7 @@ public sealed partial class ActivityTrackerService
             knownInstances.UnionWith(JsonSerializer.Deserialize<string[]>(session.KnownInstancesJson) ?? []);
             encounterNumber = result.Encounters.Count;
             if (encounter is { } active) encounter = result.Encounters.Single(x => x.Id == active.Id);
+            if (timedOutEncounter is { } idle) timedOutEncounter = result.Encounters.Single(x => x.Id == idle.Id);
             if (resumable?.Id == sourceSessionId) resumable = null;
             deferredSessions.Remove(sourceSessionId);
             foreach (var id in deferredEncounters.Where(x => x.Value.SessionId == sourceSessionId).Select(x => x.Key).ToArray())

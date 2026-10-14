@@ -52,6 +52,9 @@ public sealed partial class ActivityTrackerService : IDisposable
     private DateTime mapEnteredAt;
     private ActivitySession? session;
     private ActivityEncounter? encounter;
+    // A wall-clock timeout is provisional until captured traffic confirms the gap.
+    // Keep only the latest header so a delayed packet can retain its original fight.
+    private ActivityEncounter? timedOutEncounter;
     private ActivitySession? resumable;
     private readonly List<ActivityVisit> visits = new();
     private readonly HashSet<string> knownInstances = new(StringComparer.OrdinalIgnoreCase);
@@ -183,6 +186,7 @@ public sealed partial class ActivityTrackerService : IDisposable
 
     private void Suspend(DateTime at)
     {
+        timedOutEncounter = null;
         if (!awaitingContext && enabled && session is not null)
         {
             var gap = Stamp(ActivityEventKind.CaptureGap, at, null) with
@@ -564,6 +568,7 @@ public sealed partial class ActivityTrackerService : IDisposable
         if (session is null || map is null) return;
         if (encounter is null)
         {
+            timedOutEncounter = null;
             encounter = new ActivityEncounter
             {
                 Id = Guid.NewGuid(),
@@ -881,16 +886,19 @@ public sealed partial class ActivityTrackerService : IDisposable
         }
     }
 
-    private void CloseEncounter(DateTime at, ActivityEndReason reason)
+    private void CloseEncounter(DateTime at, ActivityEndReason reason, bool provisional = false)
     {
+        timedOutEncounter = null;
         if (encounter is null) return;
-        QueueEncounter(encounter with
+        var closed = encounter with
         {
             Revision = encounter.Revision + 1,
             State = reason == ActivityEndReason.Interrupted ? ActivityState.Interrupted : ActivityState.Closed,
             ClosedAtUtc = Max(at, encounter.LastObservedAtUtc),
             EndReason = reason
-        });
+        };
+        QueueEncounter(closed);
+        if (provisional) timedOutEncounter = closed;
         encounter = null;
     }
 
@@ -920,10 +928,11 @@ public sealed partial class ActivityTrackerService : IDisposable
         return ended;
     }
 
-    private void Expire(DateTime at)
+    private void Expire(DateTime at, bool fromTimer = false)
     {
+        if (!fromTimer) RestoreTimedOutEncounter(at);
         if (encounter is not null && at >= encounter.LastCombatAtUtc + EncounterIdle)
-            CloseEncounter(encounter.LastCombatAtUtc + EncounterIdle, ActivityEndReason.Inactivity);
+            CloseEncounter(encounter.LastCombatAtUtc + EncounterIdle, ActivityEndReason.Inactivity, provisional: fromTimer);
         if (session is { Kind: ActivitySessionKind.Roaming } && !awaitingContext && at >= session.LastRelevantAtUtc + SessionIdle)
             CloseSession(session.LastRelevantAtUtc + SessionIdle, ActivityEndReason.Inactivity);
         if (!reentryConfirmed && resumable?.ClosedAtUtc is { } exited && at - exited > ReentryGrace) resumable = null;
@@ -940,12 +949,35 @@ public sealed partial class ActivityTrackerService : IDisposable
             mobParticipation.Remove(key);
     }
 
+    private void RestoreTimedOutEncounter(DateTime at)
+    {
+        if (timedOutEncounter is not { } previous) return;
+        if (session?.Id != previous.SessionId || map?.RawLocationId != previous.RawMapId
+            || at >= previous.LastCombatAtUtc + EncounterIdle)
+        {
+            timedOutEncounter = null;
+            return;
+        }
+        if (at < previous.StartedAtUtc) return;
+        // Capture callbacks can be delayed by more than seven seconds. A timer
+        // must not split combat that was continuous on the captured timeline.
+        encounter = previous with
+        {
+            Revision = previous.Revision + 1,
+            State = ActivityState.Open,
+            ClosedAtUtc = null,
+            EndReason = ActivityEndReason.None
+        };
+        timedOutEncounter = null;
+        headersDirty = true;
+    }
+
     private void Tick()
     {
         lock (sync)
         {
             if (disposed) return;
-            try { Expire(DateTime.UtcNow); if (headersDirty) SaveHeaders(); }
+            try { Expire(DateTime.UtcNow, fromTimer: true); if (headersDirty) SaveHeaders(); }
             catch (Exception error) { Log.Warning(error, "Failed to update activity recording state."); }
         }
         Changed?.Invoke(this, EventArgs.Empty);
@@ -1076,7 +1108,7 @@ public sealed partial class ActivityTrackerService : IDisposable
             if (session?.Id != id) return;
             gathering.Reset();
             fameCollector.Reset();
-            session = null; encounter = null; headersDirty = false;
+            session = null; encounter = null; timedOutEncounter = null; headersDirty = false;
             mapEnteredAt = DateTime.UtcNow;
             mobParticipation.Clear(); pendingTerminals.Clear();
         }

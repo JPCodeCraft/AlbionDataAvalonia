@@ -54,6 +54,7 @@ public sealed partial class ActivityTrackerService
         {
             session = result.Session;
             encounter = null;
+            timedOutEncounter = null;
             encounterNumber = result.LastEncounterNumber;
             visits.Clear();
             visits.AddRange(JsonSerializer.Deserialize<ActivityVisit[]>(session.VisitsJson) ?? []);
