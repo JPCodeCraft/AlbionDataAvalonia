@@ -957,10 +957,30 @@ public sealed partial class ActivityTrackerService : IDisposable
         if (!persistence.EnqueueEncounter(value))
         { if (!deferredEncounters.TryGetValue(value.Id, out var old) || value.Revision > old.Revision) deferredEncounters[value.Id] = value; storageSuspended = true; }
     }
-    private bool SameConnection(string value, PhotonMessageIdentity? identity) =>
-        (string.IsNullOrEmpty(connectionId) || string.IsNullOrEmpty(value) || string.Equals(connectionId, value, StringComparison.Ordinal))
-        && (connectionIdentity is null || identity is null || connectionIdentity.ReceiverGeneration == identity.ReceiverGeneration
-            && connectionIdentity.PeerId == identity.PeerId && connectionIdentity.Challenge == identity.Challenge);
+    private bool SameConnection(string value, PhotonMessageIdentity? identity)
+    {
+        if (!string.IsNullOrEmpty(connectionId) && !string.IsNullOrEmpty(value)
+            && !string.Equals(connectionId, value, StringComparison.Ordinal)) return false;
+        if (connectionIdentity is null || identity is null) return true;
+        if (connectionIdentity.ReceiverGeneration != identity.ReceiverGeneration
+            || connectionIdentity.Challenge != identity.Challenge) return false;
+
+        var joinedStream = connectionIdentity.DirectionalConnection;
+        var observedStream = identity.DirectionalConnection;
+        if (string.Equals(joinedStream, observedStream, StringComparison.Ordinal))
+            return connectionIdentity.PeerId == identity.PeerId;
+
+        // Photon peer IDs differ by direction. Requests must match the reverse of
+        // the Join response's endpoints, not its inbound peer ID.
+        var joinedSeparator = joinedStream.IndexOf('>');
+        var observedSeparator = observedStream.IndexOf('>');
+        return joinedSeparator > 0 && joinedSeparator < joinedStream.Length - 1
+            && joinedSeparator == joinedStream.LastIndexOf('>')
+            && observedSeparator > 0 && observedSeparator < observedStream.Length - 1
+            && observedSeparator == observedStream.LastIndexOf('>')
+            && joinedStream.AsSpan(0, joinedSeparator).SequenceEqual(observedStream.AsSpan(observedSeparator + 1))
+            && joinedStream.AsSpan(joinedSeparator + 1).SequenceEqual(observedStream.AsSpan(0, observedSeparator));
+    }
 
     private bool Accept(string? origin, string kind, DateTime at)
     {

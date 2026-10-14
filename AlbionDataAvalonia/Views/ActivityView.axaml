@@ -162,7 +162,10 @@
                                 <TextBlock Text="{Binding CurrentTitle}" FontSize="20" FontWeight="DemiBold" />
                                 <TextBlock Text="{Binding CurrentDescription}" IsVisible="{Binding CurrentDescription, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" TextWrapping="Wrap" Opacity="0.75" />
                             </StackPanel>
-                            <Button Grid.Column="1" Classes="ActivityAction ActivitySecondary" Content="View session" Command="{Binding OpenCurrentSessionCommand}" IsEnabled="{Binding HasCurrentSession}" VerticalAlignment="Center" />
+                            <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                                <Button Classes="ActivityAction ActivitySecondary" Content="{Binding SessionActionText}" Click="MergeSession_Click" />
+                                <Button Classes="ActivityAction ActivitySecondary" Content="View session" Command="{Binding OpenCurrentSessionCommand}" IsEnabled="{Binding HasCurrentSession}" />
+                            </StackPanel>
                         </Grid>
                         <WrapPanel>
                             <views:ActivitySegmentedSelector ItemsSource="{Binding PeriodOptions}" SelectedItem="{Binding SelectedPeriod, Mode=TwoWay}" AutomationProperties.Name="Current totals period" Margin="0,0,8,0" />
@@ -249,7 +252,7 @@
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                             <StackPanel Spacing="4"><TextBlock Text="{Binding DetailTitle}" FontSize="20" FontWeight="DemiBold" TextWrapping="Wrap" /><TextBlock Text="{Binding DetailDurationText}" /><TextBlock Text="{Binding DetailScopeText}" IsVisible="{Binding DetailScopeText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" Classes="ActivityLabel" /><TextBlock Text="{Binding DetailTagsText}" Foreground="#A0D477" /><TextBlock Text="{Binding ImportedDetailText}" IsVisible="{Binding IsImportedDetail}" Classes="ActivityLabel" ToolTip.Tip="{Binding ImportedDetailTooltipText}" /></StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                <Button Classes="ActivityAction ActivitySecondary" Content="Whole session" Command="{Binding ClearEncounterCommand}" IsVisible="{Binding HasSelectedEncounter}" />
+                                <Button Classes="ActivityAction ActivitySecondary" Content="Whole session" Command="{Binding ClearEncounterCommand}" IsVisible="{Binding HasSelectedDetailSelection}" />
                                 <Button Classes="ActivityAction ActivitySecondary" Content="All players" Command="{Binding ClearPlayerCommand}" IsVisible="{Binding HasSelectedPlayer}" />
                             </StackPanel>
                         </Grid>
@@ -339,10 +342,27 @@
                             <TabItem Header="Timeline" IsEnabled="{Binding HasDetailedHistory}">
                                 <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
                                     <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ActivityVisibilityTemplate}" />
-                                    <DataGrid Grid.Row="1" ItemsSource="{Binding Timeline}" Height="{Binding Timeline.Count, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}">
-                                        <DataGrid.Columns><DataGridTextColumn Header="Time" Binding="{Binding TimeText}" /><DataGridTextColumn Header="Event" Binding="{Binding Kind}" /><DataGridTextColumn Header="Source" Binding="{Binding Source}" /><DataGridTextColumn Header="Target" Binding="{Binding Target}" /><DataGridTextColumn Header="Details" Binding="{Binding Description}" Width="*" /><DataGridTextColumn Header="Location" Binding="{Binding Location}" /></DataGrid.Columns>
+                                    <DataGrid x:Name="HistoryTimelineTable" Grid.Row="1" ItemsSource="{Binding Timeline}" Height="{Binding Timeline.Count, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}"
+                                              MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto">
+                                        <DataGrid.Columns><DataGridTextColumn Header="Time" Binding="{Binding TimeText}" /><DataGridTextColumn Header="Event" Binding="{Binding Kind}" /><DataGridTextColumn Header="Source" Binding="{Binding Source}" /><DataGridTextColumn Header="Target" Binding="{Binding Target}" /><DataGridTextColumn Header="Details" Binding="{Binding Description}" Width="*" MinWidth="160" /><DataGridTextColumn Header="Location" Binding="{Binding Location}" /></DataGrid.Columns>
                                     </DataGrid>
                                     <Button Grid.Row="2" Classes="ActivityAction ActivitySecondary" Content="Load more" Command="{Binding LoadMoreTimelineCommand}" IsVisible="{Binding HasMoreTimeline}" HorizontalAlignment="Left" />
+                                </Grid>
+                            </TabItem>
+                            <TabItem Header="Maps" IsEnabled="{Binding HasDetailedHistory}">
+                                <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
+                                    <TextBlock Text="Select a map to see its totals." Classes="ActivityLabel" />
+                                    <DataGrid x:Name="HistoryMapsTable" Grid.Row="1" ItemsSource="{Binding Maps}" SelectedItem="{Binding SelectedMap, Mode=TwoWay}" SelectionMode="Single"
+                                              Height="{Binding Maps.Count, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}"
+                                              MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Map" Binding="{Binding Name}" Width="*" MinWidth="160" />
+                                            <DataGridTextColumn Header="First visit" Binding="{Binding StartedText}" />
+                                            <DataGridTextColumn Header="Visits" Binding="{Binding VisitCount}" />
+                                            <DataGridTextColumn Header="Recorded time" Binding="{Binding DurationText}" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                    <Button Grid.Row="2" Classes="ActivityAction ActivitySecondary" Content="Load more" Command="{Binding LoadMoreMapsCommand}" IsVisible="{Binding HasMoreMaps}" HorizontalAlignment="Left" />
                                 </Grid>
                             </TabItem>
                         </TabControl>
@@ -352,7 +372,7 @@
             </TabItem>
             <TabItem Header="Items">
                 <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-                <Grid RowDefinitions="Auto,Auto,Auto,Auto,Auto" RowSpacing="8" Margin="0,10,0,0">
+                <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="8" Margin="0,10,0,0">
                     <StackPanel Spacing="4">
                         <WrapPanel>
                             <views:ActivitySegmentedSelector ItemsSource="{Binding LootScopeOptions}" SelectedItem="{Binding SelectedLootScope, Mode=TwoWay}" AutomationProperties.Name="Item scope" Margin="0,0,12,0" />
@@ -363,22 +383,10 @@
                             <Button Classes="ActivityAction" Content="Search" Command="{Binding ApplyLootFiltersCommand}" Margin="0,0,0,4" />
                         </WrapPanel>
                     </StackPanel>
-                    <Expander Grid.Row="1" Header="Filters" HorizontalAlignment="Stretch">
-                        <WrapPanel Margin="12">
-                            <StackPanel Margin="0,0,12,6"><TextBlock Classes="ActivityLabel" Text="From" /><DatePicker SelectedDate="{Binding FromDate, Mode=TwoWay}" /></StackPanel>
-                            <StackPanel Margin="0,0,12,6"><TextBlock Classes="ActivityLabel" Text="Through" /><DatePicker SelectedDate="{Binding ThroughDate, Mode=TwoWay}" /></StackPanel>
-                            <StackPanel Margin="0,0,12,6"><TextBlock Classes="ActivityLabel" Text="Server" /><ComboBox ItemsSource="{Binding ServerOptions}" SelectedItem="{Binding SelectedServer, Mode=TwoWay}" Width="120" /></StackPanel>
-                            <StackPanel Margin="0,0,12,6"><TextBlock Classes="ActivityLabel" Text="Character" /><TextBox Text="{Binding CharacterFilter}" Watermark="Any character" Width="140" /></StackPanel>
-                            <StackPanel Margin="0,0,12,6"><TextBlock Classes="ActivityLabel" Text="Location" /><TextBox Text="{Binding LocationFilter}" Watermark="Any location" Width="150" /></StackPanel>
-                            <StackPanel Margin="0,0,12,6"><TextBlock Classes="ActivityLabel" Text="Location type" /><ComboBox ItemsSource="{Binding KindOptions}" SelectedItem="{Binding SelectedKind, Mode=TwoWay}" Width="145" /></StackPanel>
-                            <Button Classes="ActivityAction" Content="Apply filters" Command="{Binding ApplyLootFiltersCommand}" Margin="0,17,8,6" />
-                            <Button Classes="ActivityAction ActivitySecondary" Content="Reset filters" Command="{Binding ResetFiltersCommand}" Margin="0,17,8,6" />
-                        </WrapPanel>
-                    </Expander>
-                    <Expander Grid.Row="2" Header="Gathered" IsVisible="{Binding HasGlobalResources}" IsExpanded="False" Padding="0" HorizontalAlignment="Stretch">
+                    <Expander Grid.Row="1" Header="Gathered" IsVisible="{Binding HasGlobalResources}" IsExpanded="False" Padding="0" HorizontalAlignment="Stretch">
                                         <ScrollViewer MaxHeight="108" HorizontalScrollBarVisibility="Disabled" Margin="8,8,8,2"><ItemsControl ItemsSource="{Binding GlobalResources}" ItemTemplate="{StaticResource ActivityResourceTileTemplate}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel></ItemsControl></ScrollViewer>
                                     </Expander>
-                    <Expander Grid.Row="3" Header="Loot" IsVisible="{Binding ShowGlobalLootPanel}" IsExpanded="False" Padding="0" HorizontalAlignment="Stretch">
+                    <Expander Grid.Row="2" Header="Loot" IsVisible="{Binding ShowGlobalLootPanel}" IsExpanded="False" Padding="0" HorizontalAlignment="Stretch">
                     <DataGrid ItemsSource="{Binding GlobalLoot}" MaxHeight="420">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Time" Binding="{Binding DateTimeText}" />
@@ -391,7 +399,7 @@
                         </DataGrid.Columns>
                     </DataGrid>
                     </Expander>
-                    <Grid Grid.Row="4" ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                    <Grid Grid.Row="3" ColumnDefinitions="*,Auto" ColumnSpacing="12">
                         <TextBlock Text="{Binding GlobalLootTotalsText}" FontWeight="DemiBold" VerticalAlignment="Center" TextWrapping="Wrap" ToolTip.Tip="{Binding GlobalLootDetailsText}" />
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8"><Button Classes="ActivityAction ActivitySecondary" Content="Load more" Command="{Binding LoadMoreGlobalLootCommand}" IsVisible="{Binding HasMoreGlobalLoot}" /></StackPanel>
                     </Grid>

@@ -67,23 +67,11 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         [new(ActivityScope.Personal, "Personal"), new(ActivityScope.Party, "Party")];
     public IReadOnlyList<ActivityOption<ActivityScope>> LootScopeOptions { get; } =
         [new(ActivityScope.Personal, "Personal"), new(ActivityScope.Party, "Party"), new(ActivityScope.AllObserved, "Everyone")];
-    public IReadOnlyList<ActivityOption<string?>> ServerOptions { get; } =
-        [new(null, "All servers"), new("1", "Americas"), new("2", "Asia"), new("3", "Europe")];
-    public IReadOnlyList<ActivityOption<ActivitySessionKind?>> KindOptions { get; } =
-        new[] { new ActivityOption<ActivitySessionKind?>(null, "All locations") }
-            .Concat(Enum.GetValues<ActivitySessionKind>().Select(kind => new ActivityOption<ActivitySessionKind?>(kind, KindLabel(kind)))).ToArray();
-
     [ObservableProperty] private ActivityOption<ActivityScope> selectedScope = new(ActivityScope.Personal, "Personal");
     [ObservableProperty] private ActivityOption<ActivityScope> selectedLootScope = new(ActivityScope.Personal, "Personal");
     [ObservableProperty] private ActivityOption<ActivityScope> selectedSessionLootScope = new(ActivityScope.Personal, "Personal");
-    [ObservableProperty] private ActivityOption<ActivitySessionKind?> selectedKind = new(null, "All locations");
     [ObservableProperty] private int selectedTabIndex;
     [ObservableProperty] private int selectedDetailTabIndex;
-    [ObservableProperty] private DateTimeOffset? fromDate;
-    [ObservableProperty] private DateTimeOffset? throughDate;
-    [ObservableProperty] private ActivityOption<string?> selectedServer = new(null, "All servers");
-    [ObservableProperty] private string characterFilter = "";
-    [ObservableProperty] private string locationFilter = "";
     [ObservableProperty] private string lootSearch = "";
     [ObservableProperty] private string statusText = "Waiting for character";
     [ObservableProperty] private string errorText = "";
@@ -126,8 +114,9 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     public bool HasSelectedPlayer => SelectedPlayer is not null;
     public bool CanDeleteSelectedSession => SelectedSession is { Source.State: not ActivityState.Open } && SelectedSession.Id != tracker?.CurrentSessionId;
     public string CurrentCombatDurationText => $"Combat time: {ActivityDisplay.Duration(CurrentSummary.Rates.CombatDurationSeconds)}";
-    public string DetailTitle => SelectedEncounter is { } encounter ? $"Encounter {encounter.Number} · {encounter.Classification}" : SelectedSession?.Title ?? "Select a session";
-    public string DetailDurationText => IsImportedDetail ? $"Duration: {SelectedSession?.DurationText}" : SelectedEncounter is { } encounter ? $"Combat time: {encounter.DurationText}"
+    public string DetailTitle => IsShowingMap ? SelectedMap!.Name : SelectedEncounter is { } encounter ? $"Encounter {encounter.Number} · {encounter.Classification}" : SelectedSession?.Title ?? "Select a session";
+    public string DetailDurationText => IsShowingMap ? $"Recorded time: {SelectedMap!.DurationText} · Combat time: {ActivityDisplay.Duration(DetailSummary.Rates.CombatDurationSeconds)}"
+        : IsImportedDetail ? $"Duration: {SelectedSession?.DurationText}" : SelectedEncounter is { } encounter ? $"Combat time: {encounter.DurationText}"
         : $"Session time: {SelectedSession?.DurationText ?? "0:00"} · Combat time: {ActivityDisplay.Duration(DetailSummary.Rates.CombatDurationSeconds)}";
     public string DetailScopeText => $"{SelectedPlayer?.Name ?? ""}{(SelectedSession?.Source.IsPartial == true ? $"{(SelectedPlayer is null ? "" : " · ")}Incomplete recording" : "")}";
     public string DetailEarningsText => SelectedEncounter is not null ? "Items picked up while this encounter was open" : "";
@@ -234,7 +223,11 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         if (SelectedTabIndex == 1)
         {
             foreach (var row in Sessions.Where(x => x.Source.State == ActivityState.Open)) row.RefreshDuration();
-            if (SelectedSession is { Source.State: ActivityState.Open } open && SelectedEncounter is null)
+            foreach (var row in Maps.Where(x => x.Source.ObservationStartedAtUtc is not null)) row.RefreshDuration();
+            if (IsShowingMap)
+                DetailSummary = new(DetailSummary.Summary, ActivityProjection.GetRates(DetailSummary.Summary,
+                    SelectedMap!.DurationSeconds, DetailSummary.Rates.CombatDurationSeconds), true, SelectedMap.Source.Visits > 0);
+            else if (SelectedSession is { Source.State: ActivityState.Open } open && SelectedEncounter is null)
                 DetailSummary = new(DetailSummary.Summary, ActivityProjection.GetRates(DetailSummary.Summary, open.Source,
                     DetailSummary.Rates.CombatDurationSeconds, DateTime.UtcNow), true);
         }
@@ -469,6 +462,13 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
             else SelectedEncounter = null;
         }
         finally { applyingSelection = false; }
+        if (detailTab == MapsDetailTabIndex)
+        {
+            await RefreshMapsAsync(version, selected, cancellationToken);
+            if (IsCurrentDetail(version, sessionId) && SelectedDetailTabIndex == detailTab)
+                detailReadVersion = dataVersion;
+            return;
+        }
         // Cached scope summaries describe all events assigned to this header. Actor,
         // time, item, and category filters must still use the event projection.
         var wholeHeader = query == new ActivityQuery { SessionId = sessionId, EncounterId = encounterId, Scope = scope };
@@ -621,12 +621,6 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
 
     private ActivityQuery GlobalItemsQuery() => new()
     {
-        FromUtc = FromDate is { } from ? from.Date.ToUniversalTime() : null,
-        ToUtc = ThroughDate is { } through ? through.Date.AddDays(1).ToUniversalTime() : null,
-        Server = SelectedServer.Value,
-        CharacterName = EmptyToNull(CharacterFilter),
-        Location = EmptyToNull(LocationFilter),
-        SessionKind = SelectedKind.Value,
         Scope = SelectedLootScope.Value,
         ItemsOnly = true,
         ItemSources = SelectedItemSource.Value,
@@ -648,8 +642,8 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         return new(pages.SelectMany(page => page.Items).ToArray(), pages[^1].HasMore);
     }
 
-    private static void ApplyHeaderRows<TRow, TSource>(ObservableCollection<TRow> rows, IReadOnlyList<TSource> sources,
-        Func<TRow, Guid> rowId, Func<TSource, Guid> sourceId, Func<TSource, TRow> create, Action<TRow, TSource> update, bool append)
+    private static void ApplyHeaderRows<TRow, TSource, TKey>(ObservableCollection<TRow> rows, IReadOnlyList<TSource> sources,
+        Func<TRow, TKey> rowId, Func<TSource, TKey> sourceId, Func<TSource, TRow> create, Action<TRow, TSource> update, bool append) where TKey : notnull
     {
         if (!append)
         {
@@ -662,7 +656,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         {
             var source = sources[index];
             var id = sourceId(source);
-            if (!append && index < rows.Count && rowId(rows[index]) == id) update(rows[index], source);
+            if (!append && index < rows.Count && EqualityComparer<TKey>.Default.Equals(rowId(rows[index]), id)) update(rows[index], source);
             else if (byId.TryGetValue(id, out var existing))
             {
                 update(existing, source);
@@ -730,6 +724,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     {
         OnPropertyChanged(nameof(HasSelectedSession));
         OnPropertyChanged(nameof(HasSelectedEncounter));
+        OnPropertyChanged(nameof(HasSelectedDetailSelection));
         OnPropertyChanged(nameof(HasSelectedPlayer));
         OnPropertyChanged(nameof(CanDeleteSelectedSession));
         OnPropertyChanged(nameof(DetailTitle));
@@ -784,8 +779,21 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         if (value == 3) cleanupReadVersion = -1;
         if (isActive && !applyingSelection) _ = RunSafelyAsync(RefreshVisibleAsync);
     }
-    partial void OnSelectedDetailTabIndexChanged(int value)
-    { if (value != 1) CancelHistoryReplayRead(); ++detailChangeVersion; ++detailVersion; if (isActive && !applyingSelection) _ = RunSafelyAsync(RefreshDetailsAsync); }
+    partial void OnSelectedDetailTabIndexChanged(int oldValue, int newValue)
+    {
+        if (newValue != 1) CancelHistoryReplayRead();
+        if (oldValue == MapsDetailTabIndex || newValue == MapsDetailTabIndex)
+            DetailSummary = ActivitySummaryPresentation.Empty;
+        if (newValue == MapsDetailTabIndex && !applyingSelection)
+        {
+            applyingSelection = true;
+            try { SelectedEncounter = null; SelectedPlayer = null; }
+            finally { applyingSelection = false; }
+        }
+        NotifyDetailProperties();
+        ++detailChangeVersion; ++detailVersion;
+        if (isActive && !applyingSelection) _ = RunSafelyAsync(RefreshDetailsAsync);
+    }
     partial void OnErrorTextChanged(string value) => OnPropertyChanged(nameof(HasError));
     partial void OnIsRecordingEnabledChanged(bool value) => OnPropertyChanged(nameof(RecordingButtonText));
     partial void OnCurrentSummaryChanged(ActivitySummaryPresentation value) { OnPropertyChanged(nameof(CurrentCombatDurationText)); OnPropertyChanged(nameof(CurrentTagsText)); }
@@ -805,6 +813,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         {
             SelectedEncounter = null;
             SelectedPlayer = null;
+            ResetMaps();
             if (IsImportedDetail) SelectedDetailTabIndex = 4;
         }
         finally { applyingSelection = false; }
@@ -865,6 +874,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         {
             SelectedSession = row;
             SelectedPlayer = null;
+            ResetMaps();
             Encounters.Clear(); Players.Clear(); Mobs.Clear(); SessionLoot.Clear(); Timeline.Clear(); HistoryLiveTimeline = null;
             encounterPage = timelinePage = sessionLootPage = 0;
             HasMoreEncounters = HasMoreSessionLoot = HasMoreTimeline = false;
@@ -872,6 +882,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
             LegacyImportInfo = null;
             SelectedEncounter = encounter is null ? null : new ActivityEncounterRow(encounter, SelectedScope.Value);
             if (SelectedEncounter is not null) Encounters.Add(SelectedEncounter);
+            if (SelectedEncounter is not null && SelectedDetailTabIndex == MapsDetailTabIndex) SelectedDetailTabIndex = 0;
             if (IsImportedDetail) SelectedDetailTabIndex = 4;
             ++detailChangeVersion;
             ++detailVersion;
@@ -881,12 +892,6 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         await RefreshDetailsAsync();
     }
     [RelayCommand]
-    private async Task ResetFiltersAsync()
-    {
-        FromDate = ThroughDate = null; SelectedServer = ServerOptions[0]; CharacterFilter = LocationFilter = ""; SelectedKind = KindOptions[0];
-        await ApplyLootFiltersAsync();
-    }
-    [RelayCommand]
     private async Task ApplyLootFiltersAsync() => await RunSafelyAsync(() =>
     { ++itemChangeVersion; return LoadGlobalLootAsync(false); });
     [RelayCommand] private async Task LoadMoreSessionsAsync() => await RunSafelyAsync(() => LoadSessionsAsync(true));
@@ -894,7 +899,12 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     [RelayCommand] private async Task LoadMoreTimelineAsync() => await RunSafelyAsync(() => LoadTimelineAsync(true));
     [RelayCommand] private async Task LoadMoreSessionLootAsync() => await RunSafelyAsync(() => LoadSessionLootAsync(true));
     [RelayCommand] private async Task LoadMoreGlobalLootAsync() => await RunSafelyAsync(() => LoadGlobalLootAsync(true));
-    [RelayCommand] private void ClearEncounter() => SelectedEncounter = null;
+    [RelayCommand]
+    private void ClearEncounter()
+    {
+        if (IsShowingMap) SelectedMap = null;
+        else SelectedEncounter = null;
+    }
     [RelayCommand] private void ClearPlayer() => SelectedPlayer = null;
 
     public async Task DeleteSelectedSessionAsync()
@@ -916,15 +926,6 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     }
 
     private static string? EmptyToNull(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
-    private static string KindLabel(ActivitySessionKind kind) => kind switch
-    {
-        ActivitySessionKind.MistsDungeon => "Mists dungeon",
-        ActivitySessionKind.AbyssalDepths => "Abyssal Depths",
-        ActivitySessionKind.DragonArea => "Dragon area",
-        ActivitySessionKind.StaticDungeon => "Static dungeon",
-        _ => kind.ToString()
-    };
-
     public void Dispose()
     {
         if (isDisposed) return;

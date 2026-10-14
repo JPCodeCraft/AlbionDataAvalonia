@@ -11,6 +11,7 @@ using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
 using Serilog;
 using System;
+using System.Linq;
 using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.Views;
@@ -20,10 +21,12 @@ public partial class ActivityView : UserControl
     // DataGrid caps its initial rows when measured with unlimited height.
     public static readonly FuncValueConverter<int, double> HistoryTableHeightConverter = new(count => 52 + Math.Max(0, count) * 32d);
     public static readonly FuncValueConverter<int, double> HistoryLootTableHeightConverter = new(count => 52 + Math.Max(0, count) * 56d);
+    public static readonly FuncValueConverter<double, double> HistoryTimelineViewportHeightConverter = new(height => Math.Clamp(height - 120, 240, 640));
 
     private ActivityViewModel? activeViewModel;
     private bool isAttached;
     private bool choosingLootExport;
+    private bool choosingSessionMerge;
 
     public ActivityView()
     {
@@ -40,9 +43,16 @@ public partial class ActivityView : UserControl
     {
         if (sender is not ScrollViewer scroll || args.Delta.Y == 0 || args.KeyModifiers.HasFlag(KeyModifiers.Shift)
             || args.Source is not Visual source
-            || (source as DataGrid ?? source.FindAncestorOfType<DataGrid>()) is not { VerticalScrollBarVisibility: ScrollBarVisibility.Disabled }) return;
+            || (source as DataGrid ?? source.FindAncestorOfType<DataGrid>()) is not { } table) return;
 
-        // DataGrid consumes wheel input even when it cannot scroll vertically.
+        if (table.VerticalScrollBarVisibility != ScrollBarVisibility.Disabled)
+        {
+            if (table != HistoryTimelineTable && table != HistoryMapsTable) return;
+            var scrollbar = table.GetVisualDescendants().OfType<ScrollBar>().FirstOrDefault(bar => bar.Orientation == Orientation.Vertical);
+            if (scrollbar is not null && (args.Delta.Y > 0 ? scrollbar.Value > scrollbar.Minimum : scrollbar.Value < scrollbar.Maximum)) return;
+        }
+
+        // DataGrid consumes wheel input even when disabled or at the end of its viewport.
         var offset = Math.Clamp(scroll.Offset.Y - args.Delta.Y * 50, 0, Math.Max(0, scroll.Extent.Height - scroll.Viewport.Height));
         scroll.Offset = new Vector(scroll.Offset.X, offset);
         args.Handled = true;
@@ -103,6 +113,20 @@ public partial class ActivityView : UserControl
         if (await ConfirmAsync(owner, "Finish session?", "New activity will start a new session. This session stays in History.", "Finish session")
             && viewModel.CurrentSessionId == id)
             viewModel.FinishCurrentSession(id);
+    }
+
+    private async void MergeSession_Click(object? sender, RoutedEventArgs args)
+    {
+        if (choosingSessionMerge || DataContext is not ActivityViewModel viewModel
+            || TopLevel.GetTopLevel(this) is not Window owner
+            || viewModel.CreateSessionMerge() is not { } merge) return;
+        choosingSessionMerge = true;
+        try
+        {
+            using (merge)
+                await new ActivitySessionMergeWindow(merge).ShowDialog(owner);
+        }
+        finally { choosingSessionMerge = false; }
     }
 
     private async void DeleteSession_Click(object? sender, RoutedEventArgs args)

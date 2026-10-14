@@ -186,6 +186,9 @@ internal sealed class ActivityLootCollector : IDisposable
                 if (record) Broadcast(pickup, at);
                 break;
             case NewSimpleItemEvent item when item.ObjectIdState == PacketFieldState.Valid && item.ItemIdState == PacketFieldState.Valid:
+                if (item.QuantityState == PacketFieldState.Invalid && item.Item?.ObjectId is { } invalidQuantityObjectId
+                    && items.TryGetValue(invalidQuantityObjectId, out var previousItem))
+                    items[invalidQuantityObjectId] = previousItem with { QuantitySeenAt = DateTime.MinValue, ValidAcquisitionQuantity = false };
                 NewItem(item.Item, at, item.HasValidAcquisitionMetadata, record);
                 break;
             case NewEquipmentItemEvent item: NewItem(item.Item, at, record: record); break;
@@ -340,7 +343,8 @@ internal sealed class ActivityLootCollector : IDisposable
                     || TryContainer(previous, at, out var sameSource) && sameSource.SourceId == matches[0].Source.Id
                     || matches[0].Removed))
             {
-                // The transfer is confirmed, but an old source quantity cannot establish the received stack amount.
+                // Server membership proves this same item object moved into the local inventory.
+                // An unchanged whole stack need not receive another quantity packet after the move.
                 var candidate = matches[0];
                 var item = ItemSnapshot(objectId, at);
                 candidate.Transfer = tracker.RecordLoot(ActivityTrackerService.WithSource(
@@ -357,7 +361,9 @@ internal sealed class ActivityLootCollector : IDisposable
                     DetailsJson = JsonSerializer.Serialize(new
                     { Proof = "ExactObjectTransferAwaitingQuantity", HasConfirmedPickupEvidence = true, SourceObjectId = candidate.Source.Id, ItemObjectId = objectId })
                 }, hasConfirmedPickupEvidence: true);
-                if (item.QuantitySeenAt >= candidate.CreatedAt)
+                var wholeStack = candidate.IntentQuantity is null || candidate.IntentQuantity >= item.Quantity;
+                if (item.QuantitySeenAt >= candidate.CreatedAt
+                    || wholeStack && at - item.QuantitySeenAt <= MetadataLifetime)
                     Confirm(candidate, item, item.Quantity, at, origin, "ExactObjectTransfer");
             }
             else if (previous != destination && at > nonLootMoveUntil

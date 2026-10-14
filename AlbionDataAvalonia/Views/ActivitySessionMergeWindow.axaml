@@ -1,0 +1,44 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
+        x:Class="AlbionDataAvalonia.Views.ActivitySessionMergeWindow"
+        x:DataType="vm:ActivitySessionMergeViewModel"
+        Title="{Binding WindowTitle}" Width="600" Height="560" MinWidth="460" MinHeight="380"
+        ShowInTaskbar="False" WindowStartupLocation="CenterOwner" Icon="/Assets/logo.ico">
+    <Window.Styles>
+        <Style Selector="Button"><Setter Property="Height" Value="36" /><Setter Property="Padding" Value="12,6" /></Style>
+        <Style Selector="Button.Secondary"><Setter Property="Background" Value="#383838" /><Setter Property="BorderBrush" Value="#555555" /><Setter Property="BorderThickness" Value="1" /></Style>
+        <Style Selector="ListBox"><Setter Property="Background" Value="#383838" /><Setter Property="BorderBrush" Value="#555555" /><Setter Property="BorderThickness" Value="1" /></Style>
+        <Style Selector="ListBoxItem"><Setter Property="Padding" Value="12,10" /><Setter Property="HorizontalContentAlignment" Value="Stretch" /></Style>
+        <Style Selector="ListBoxItem:pointerover"><Setter Property="Background" Value="#424242" /></Style>
+        <Style Selector="ListBoxItem:selected"><Setter Property="Background" Value="{DynamicResource AFMBrown}" /><Setter Property="BorderBrush" Value="{DynamicResource AFMOrange}" /><Setter Property="BorderThickness" Value="3,0,0,0" /></Style>
+    </Window.Styles>
+    <Grid Margin="20" RowDefinitions="Auto,Auto,*,Auto,Auto" RowSpacing="12">
+        <StackPanel Spacing="4">
+            <TextBlock Text="{Binding Heading}" FontSize="20" FontWeight="DemiBold" />
+            <TextBlock Text="{Binding CurrentTitle}" IsVisible="{Binding !IsResuming}" FontWeight="DemiBold" TextWrapping="Wrap" />
+            <TextBlock Text="{Binding CharacterText}" IsVisible="{Binding !IsResuming}" Opacity="0.75" />
+        </StackPanel>
+        <TextBlock Grid.Row="1" Text="{Binding Description}" TextWrapping="Wrap" Opacity="0.85" />
+        <Grid Grid.Row="2">
+            <ListBox ItemsSource="{Binding Candidates}" SelectedItem="{Binding SelectedSession, Mode=TwoWay}" IsEnabled="{Binding !IsBusy}" SelectionMode="Single" AutomationProperties.Name="Recent sessions">
+                <ListBox.ItemTemplate>
+                    <DataTemplate x:DataType="vm:ActivitySessionRow">
+                        <StackPanel Spacing="4">
+                            <TextBlock Text="{Binding Title}" FontWeight="DemiBold" TextTrimming="CharacterEllipsis" />
+                            <TextBlock Text="{Binding MetadataText}" TextWrapping="Wrap" Opacity="0.85" />
+                            <WrapPanel><TextBlock Text="{Binding DurationText}" Margin="0,0,12,0" Opacity="0.8" /><TextBlock Text="{Binding TagsText}" Foreground="#A0D477" TextWrapping="Wrap" /></WrapPanel>
+                        </StackPanel>
+                    </DataTemplate>
+                </ListBox.ItemTemplate>
+            </ListBox>
+            <TextBlock Text="Loading recent sessions…" IsVisible="{Binding IsLoading}" HorizontalAlignment="Center" VerticalAlignment="Center" />
+            <TextBlock Text="{Binding EmptyText}" IsVisible="{Binding ShowEmpty}" HorizontalAlignment="Center" VerticalAlignment="Center" TextWrapping="Wrap" Margin="16" />
+        </Grid>
+        <TextBlock Grid.Row="3" Text="{Binding ErrorText}" IsVisible="{Binding HasError}" Foreground="#FFB74D" TextWrapping="Wrap" />
+        <StackPanel Grid.Row="4" Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
+            <Button Classes="Secondary" Content="Cancel" Click="Cancel_Click" IsEnabled="{Binding !IsMerging}" />
+            <Button Content="{Binding MergeButtonText}" Click="Merge_Click" IsEnabled="{Binding CanMerge}" />
+        </StackPanel>
+    </Grid>
+</Window>

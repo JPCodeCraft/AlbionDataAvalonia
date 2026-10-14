@@ -9,6 +9,7 @@ using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Threading;
 
 namespace AlbionDataAvalonia.Views;
 
@@ -29,12 +30,18 @@ internal sealed class ActivityLiveTimelineCanvas : Control
     private readonly Dictionary<string, long> introducedMarkers = new();
     private HashSet<string> knownMarkerIds = new();
     private ActivityLiveTimelineSnapshot? snapshot;
+    private ActivityLiveTimelineSnapshot? groupedSnapshot;
+    private ActivityLiveTimelineMarker[] visibleMarkers = [];
+    private IReadOnlyList<ActivityLiveTimelineMarker> groupedMarkers = [];
+    private double groupedWidth;
     private DateTime endUtc = DateTime.UtcNow;
     private Point? pointer;
     private string? lastInspection;
     private const double ChartTop = 100;
     private const double ChartBottom = 226;
     private const double EncounterTop = 268;
+    private const int MarkerLanes = 4;
+    private const double MarkerSpacing = 2;
     private Rect Plot => new(52, ChartTop, Math.Max(1, Bounds.Width - 68), ChartBottom - ChartTop);
     private double WindowSeconds => snapshot is { } value && value.WindowEndUtc > value.WindowStartUtc
         ? (value.WindowEndUtc - value.WindowStartUtc).TotalSeconds : ActivityLiveTimeline.WindowSeconds;
@@ -44,8 +51,6 @@ internal sealed class ActivityLiveTimelineCanvas : Control
     private DateTime BucketEndUtc(ActivityLiveTimelineSample sample) => new(sample.CapturedAtUtc.Ticks +
         Math.Min(DateTime.MaxValue.Ticks - sample.CapturedAtUtc.Ticks, (long)(SampleSeconds * TimeSpan.TicksPerSecond)), DateTimeKind.Utc);
 
-    public event Action? HoverStarted;
-    public event Action? HoverEnded;
     public event Action<ActivityLiveTimelineTooltip?, Point>? InspectionChanged;
     public event Action<Guid>? EncounterSelected;
     public bool ShowReceived { get; set; }
@@ -127,6 +132,14 @@ internal sealed class ActivityLiveTimelineCanvas : Control
         {
             context.DrawLine(new Pen(new SolidColorBrush(Color.Parse("#969696")), 1), new Point(position.X, ChartTop), new Point(position.X, ChartBottom));
         }
+        // The chart moves under a stationary pointer. Refresh against the newly drawn hit bounds,
+        // after rendering finishes so tooltip layout changes do not mutate the visual tree here.
+        if (pointer is not null) Dispatcher.UIThread.Post(RefreshInspection, DispatcherPriority.Background);
+    }
+
+    private void RefreshInspection()
+    {
+        if (pointer is { } position) Inspect(position);
     }
 
     private void DrawArea(DrawingContext context, IReadOnlyList<ActivityLiveTimelineSample> samples, double maximum,
@@ -250,16 +263,16 @@ internal sealed class ActivityLiveTimelineCanvas : Control
         if (snapshot == null) return;
         var occupied = new List<Rect>();
         var crowded = new List<ActivityLiveTimelineMarker>();
-        var visible = snapshot.Markers.Where(marker => marker.CapturedAtUtc >= StartUtc && marker.CapturedAtUtc <= endUtc)
+        var visible = GetGroupedMarkers()
             .OrderByDescending(marker => Priority(marker.Kind)).ThenByDescending(marker => marker.CapturedAtUtc).ToArray();
         foreach (var marker in visible)
         {
             var drawn = false;
-            // Keep the third lane available for local overflow, or a single remaining marker.
-            for (var lane = 0; lane < 2; lane++)
+            // The final lane holds remaining individual markers, combining only local collisions.
+            for (var lane = 0; lane < MarkerLanes - 1; lane++)
             {
-                var rect = MarkerBounds(marker.CapturedAtUtc, MakeText(marker.ValueText, 11, TextBrush).Width + 31, lane);
-                if (occupied.Any(other => other.Inflate(3).Intersects(rect))) continue;
+                var rect = MarkerBounds(marker.CapturedAtUtc, MarkerWidth(marker), lane);
+                if (occupied.Any(other => other.Inflate(MarkerSpacing).Intersects(rect))) continue;
                 occupied.Add(rect);
                 DrawMarker(context, marker, rect);
                 drawn = true;
@@ -271,13 +284,13 @@ internal sealed class ActivityLiveTimelineCanvas : Control
         var groups = new List<List<ActivityLiveTimelineMarker>>();
         foreach (var marker in crowded.OrderBy(marker => marker.CapturedAtUtc).ThenBy(marker => marker.Id))
         {
-            var bounds = MarkerBounds(marker.CapturedAtUtc, MakeText(marker.ValueText, 11, TextBrush).Width + 31, 2);
-            if (groups.Count > 0 && CrowdedBounds(groups[^1]).Inflate(3).Intersects(bounds))
+            var bounds = MarkerBounds(marker.CapturedAtUtc, MarkerWidth(marker), MarkerLanes - 1);
+            if (groups.Count > 0 && CrowdedBounds(groups[^1]).Inflate(MarkerSpacing).Intersects(bounds))
                 groups[^1].Add(marker);
             else
                 groups.Add([marker]);
             // A growing count can widen a badge; merge only adjacent colliding groups.
-            while (groups.Count > 1 && CrowdedBounds(groups[^2]).Inflate(3).Intersects(CrowdedBounds(groups[^1])))
+            while (groups.Count > 1 && CrowdedBounds(groups[^2]).Inflate(MarkerSpacing).Intersects(CrowdedBounds(groups[^1])))
             {
                 groups[^2].AddRange(groups[^1]);
                 groups.RemoveAt(groups.Count - 1);
@@ -292,32 +305,51 @@ internal sealed class ActivityLiveTimelineCanvas : Control
                 continue;
             }
             var time = group[0].CapturedAtUtc;
-            var lines = group.Take(4).Select(marker => marker.CapturedAtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture) +
+            var lines = group.Take(4).Select(marker => (marker.Tooltip?.TimeText ??
+                marker.CapturedAtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture)) +
                 " · " + marker.Label + " · " + marker.ValueText).ToList();
-            if (group.Count > 4) lines.Add($"+{group.Count - 4:N0} more events");
-            var tooltip = new ActivityLiveTimelineTooltip("More events", "", $"{group.Count:N0} events", lines);
+            if (group.Count > 4) lines.Add($"+{group.Count - 4:N0} more groups");
+            var tooltip = new ActivityLiveTimelineTooltip("More activity", "", $"{group.Count:N0} groups", lines);
             var overflow = new ActivityLiveTimelineMarker("timeline-overflow:" + group[0].Id, ActivityLiveTimelineMarkerKind.Overflow, time,
-                "More events", string.Join("\n", lines), group.SelectMany(marker => marker.EventIds).Distinct().ToArray(), null,
-                group.Count, ValueText: $"+{group.Count:N0}", Tooltip: tooltip);
+                "More activity", string.Join("\n", lines), group.SelectMany(marker => marker.EventIds).Distinct().ToArray(), null,
+                group.Count, ValueText: $"+{group.Count:N0}", Tooltip: tooltip,
+                EndedAtUtc: group.Max(marker => marker.EndedAtUtc ?? marker.CapturedAtUtc));
             var x = X(time);
             context.DrawLine(GridPen, new Point(x, rect.Bottom), new Point(x, ChartTop));
             context.DrawEllipse(MutedBrush, null, new Point(x, ChartTop), 2, 2);
             context.DrawRectangle(PillBrush, GridPen, rect, 4, 4);
-            Text(context, overflow.ValueText, new Point(rect.Center.X, rect.Top + 4), 11, TextBrush, centered: true);
+            Text(context, overflow.ValueText, new Point(rect.Center.X, rect.Top + 2), 11, TextBrush, centered: true);
             markerHits.Add(new MarkerHit(rect, overflow));
         }
     }
+
+    private IReadOnlyList<ActivityLiveTimelineMarker> GetGroupedMarkers()
+    {
+        if (snapshot == null) return [];
+        var visible = snapshot.Markers.Where(marker => marker.CapturedAtUtc >= StartUtc && marker.CapturedAtUtc <= endUtc).ToArray();
+        if (!ReferenceEquals(groupedSnapshot, snapshot) || groupedWidth != Plot.Width || !visible.SequenceEqual(visibleMarkers))
+        {
+            // Roughly one badge width; zooming out combines nearby awards before they consume extra lanes.
+            groupedMarkers = ActivityLiveTimeline.GroupMarkers(visible, snapshot.Gaps, WindowSeconds * 48 / Plot.Width);
+            visibleMarkers = visible;
+            groupedSnapshot = snapshot;
+            groupedWidth = Plot.Width;
+        }
+        return groupedMarkers;
+    }
+
+    private static double MarkerWidth(ActivityLiveTimelineMarker marker) => MakeText(marker.ValueText, 11, TextBrush).Width + 25;
 
     private Rect MarkerBounds(DateTime time, double width, int lane)
     {
         width = Math.Min(Plot.Width, width);
         var left = Math.Clamp(X(time) - width / 2, Plot.Left, Math.Max(Plot.Left, Plot.Right - width));
-        return new Rect(left, 7 + lane * 29, width, 23);
+        return new Rect(left, 7 + lane * 22, width, 19);
     }
 
     private Rect CrowdedBounds(IReadOnlyList<ActivityLiveTimelineMarker> group) => MarkerBounds(group[0].CapturedAtUtc,
-        group.Count == 1 ? MakeText(group[0].ValueText, 11, TextBrush).Width + 31 :
-            Math.Max(36, MakeText($"+{group.Count:N0}", 11, TextBrush).Width + 16), 2);
+        group.Count == 1 ? MarkerWidth(group[0]) :
+            Math.Max(30, MakeText($"+{group.Count:N0}", 11, TextBrush).Width + 12), MarkerLanes - 1);
 
     private void DrawMarker(DrawingContext context, ActivityLiveTimelineMarker marker, Rect rect)
     {
@@ -328,8 +360,8 @@ internal sealed class ActivityLiveTimelineCanvas : Control
             ? Math.Max(0, 1 - Stopwatch.GetElapsedTime(introduced).TotalSeconds / 1.2) : 0;
         var fill = highlight > 0 ? new SolidColorBrush(Color.FromArgb((byte)(45 + highlight * 65), color.R, color.G, color.B)) : PillBrush;
         context.DrawRectangle(fill, new Pen(new SolidColorBrush(color), 1 + highlight), rect, 4, 4);
-        DrawIcon(context, marker.Kind, new Point(rect.Left + 12, rect.Center.Y), color);
-        Text(context, marker.ValueText, new Point(rect.Left + 24, rect.Top + 4), 11, TextBrush);
+        DrawIcon(context, marker.Kind, new Point(rect.Left + 10, rect.Center.Y), color);
+        Text(context, marker.ValueText, new Point(rect.Left + 20, rect.Top + 2), 11, TextBrush);
         context.DrawEllipse(new SolidColorBrush(color), null, new Point(x, ChartTop), 2, 2);
         markerHits.Add(new MarkerHit(rect, marker));
     }
@@ -381,7 +413,6 @@ internal sealed class ActivityLiveTimelineCanvas : Control
     protected override void OnPointerMoved(PointerEventArgs e)
     {
         base.OnPointerMoved(e);
-        if (pointer == null) HoverStarted?.Invoke();
         pointer = e.GetPosition(this);
         Inspect(pointer.Value);
         InvalidateVisual();
@@ -391,7 +422,6 @@ internal sealed class ActivityLiveTimelineCanvas : Control
     {
         base.OnPointerExited(e);
         ClearInspection();
-        HoverEnded?.Invoke();
     }
 
     protected override void OnPointerPressed(PointerPressedEventArgs e)

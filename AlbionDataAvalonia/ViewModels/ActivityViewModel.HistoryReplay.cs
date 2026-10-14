@@ -39,7 +39,7 @@ public partial class ActivityViewModel
         var span = (request.WindowEndUtc - request.WindowStartUtc).TotalSeconds;
         if (request.ContextKey != overview.ContextKey || request.ContextKey != contextKey ||
             request.WindowEndUtc < overview.WindowStartUtc || request.WindowEndUtc > overview.WindowEndUtc ||
-            span <= 0 || span > 900 || request.WindowEndUtc.Ticks % TimeSpan.TicksPerSecond != 0) return;
+            span <= 0 || span > 7200 || request.WindowEndUtc.Ticks % TimeSpan.TicksPerSecond != 0) return;
 
         var version = ++historyReplayReadVersion;
         var cancellationToken = BeginRead(ref historyReplayCancellation);

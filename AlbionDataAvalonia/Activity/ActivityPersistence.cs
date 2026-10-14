@@ -234,7 +234,7 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                     encounters[encounter.Id] = encounter;
                     break;
                 case EventCommand mutation:
-                    var observation = mutation.Value;
+                    var observation = RedirectMergedEvent(mutation.Value);
                     if (deletedEvents.Contains(observation.Id)) break;
                     if (observation.SessionId is { } deleted && deletedSessions.Contains(deleted)) break;
                     Validate(observation);
@@ -351,6 +351,8 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
     private async Task ExecuteControlAsync(ControlCommand command, CancellationToken cancellationToken)
     {
         if (command is FlushCommand) return;
+        if (command is MergeSessionCommand merge) { ExecuteMerge(merge); return; }
+        if (command is ResumeSessionCommand resume) { ExecuteResume(resume); return; }
         if (command is ImportLegacyCommand import) { import.Result = await ImportLegacyRunsAsync(cancellationToken); return; }
         if (command is RebuildTagsCommand) { await RebuildTagsAsync(cancellationToken); return; }
         if (command is CleanupCommand cleanup) { await ExecuteCleanupAsync(cleanup, cancellationToken); return; }

@@ -24,7 +24,7 @@ public sealed partial class ActivityPersistence
         ActivitySession? liveSession, ActivityEncounter? liveEncounter, CancellationToken cancellationToken,
         int windowSeconds = ActivityLiveTimeline.WindowSeconds) =>
         ReadAsync(ct => GetLiveTimelineCoreAsync(query, endUtc, liveSession, liveEncounter, ct,
-            Math.Clamp(windowSeconds, 300, 900)), cancellationToken);
+            Math.Clamp(windowSeconds, 300, 7200)), cancellationToken);
 
     private static bool HasQueryContext(ActivityQuery query) => query.SessionId is not null ||
         !string.IsNullOrWhiteSpace(query.Server) && (!string.IsNullOrWhiteSpace(query.CharacterId) ||
@@ -75,7 +75,8 @@ public sealed partial class ActivityPersistence
     {
         lock (acceptedSync)
         {
-            var accepted = acceptedWrites.ToArray();
+            var accepted = acceptedWrites.Select(x => x is EventCommand mutation
+                ? mutation with { Value = RedirectMergedEvent(mutation.Value) } : x).ToArray();
             var eventTombstones = accepted.OfType<EventCommand>().Select(command => command.Value.Id)
                 .Where(deletedEvents.Contains).Distinct().ToArray();
             return new(accepted, deletedSessions.ToArray(), CurrentReadVersion, eventTombstones);

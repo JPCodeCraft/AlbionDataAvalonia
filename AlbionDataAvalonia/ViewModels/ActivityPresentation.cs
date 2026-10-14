@@ -18,17 +18,19 @@ public sealed class ActivitySummaryPresentation
 {
     public static ActivitySummaryPresentation Empty { get; } = new(new(), ActivityProjection.GetRates(new(), 0));
 
-    public ActivitySummaryPresentation(ActivitySummary summary, ActivityRates rates, bool isSessionAverage = false)
+    public ActivitySummaryPresentation(ActivitySummary summary, ActivityRates rates, bool isSessionAverage = false, bool hasRecordedDuration = true)
     {
         Summary = summary;
         Rates = rates;
         IsSessionAverage = isSessionAverage;
+        HasRecordedDuration = hasRecordedDuration;
     }
 
     public ActivitySummary Summary { get; }
     public bool IsImported => Summary.IsLegacyAggregate;
     public ActivityRates Rates { get; }
     public bool IsSessionAverage { get; }
+    public bool HasRecordedDuration { get; }
     public string DamageDealt => Summary.IsLegacyAggregate ? "Unavailable" : ActivityDisplay.Number(Summary.DamageDealt);
     public string DamageReceived => Summary.IsLegacyAggregate ? "Unavailable" : ActivityDisplay.Number(Summary.DamageReceived);
     public string HealingDone => Summary.IsLegacyAggregate ? "Unavailable" : ActivityDisplay.Number(Summary.HealingDone);
@@ -40,7 +42,7 @@ public sealed class ActivitySummaryPresentation
     public bool HasUnknownFame => Summary.UnclassifiedFame > 0 && !Summary.IsLegacyAggregate;
     public bool HasPvpFame => Summary.PvpFame > 0;
     public string TotalSilver => ActivityDisplay.Number(Summary.Silver + Summary.LootValue + Summary.ResourceValue);
-    public string TotalSilverPerHour => ActivityDisplay.Number(Rates.SilverPerHour + Rates.LootValuePerHour + Rates.ResourceValuePerHour);
+    public string TotalSilverPerHour => HasRecordedDuration ? ActivityDisplay.Number(Rates.SilverPerHour + Rates.LootValuePerHour + Rates.ResourceValuePerHour) : "Unavailable";
     public string TotalSilverDetailsText => (IsImported
         ? "Imported gathering and fishing value; silver pickups and loot were not recorded."
         : "Silver picked up + estimated loot, gathering and fishing value.")
@@ -53,7 +55,7 @@ public sealed class ActivitySummaryPresentation
     public string DamageReceivedRate => Summary.IsLegacyAggregate ? "Not recorded" : $"{Rates.DamageReceivedPerSecond:N1} DPS";
     public string HealingRate => Summary.IsLegacyAggregate ? "Not recorded" : $"{Rates.HealingPerSecond:N1} HPS";
     public string HealingReceivedRate => Summary.IsLegacyAggregate ? "Not recorded" : $"{Rates.HealingReceivedPerSecond:N1} HPS";
-    public string FameRate => Summary.IsLegacyAggregate ? "Not recorded" : $"{Rates.FamePerHour:N0} / hour";
+    public string FameRate => Summary.IsLegacyAggregate || !HasRecordedDuration ? "Not recorded" : $"{Rates.FamePerHour:N0} / hour";
     public string CombatFameRate => FameRateText(Summary.CombatFame);
     public string GatheringFameRate => FameRateText(Summary.GatheringFame + Summary.FishingFame);
     public string CombatFameDetailsText => HasPvpFame ? $"PvE {ActivityDisplay.Number(Summary.PveFame)} · PvP {ActivityDisplay.Number(Summary.PvpFame)}" : "Your combat fame";
@@ -61,8 +63,8 @@ public sealed class ActivitySummaryPresentation
     public string CombatFameFooterText => (IsSessionAverage ? CombatFameRate : "")
         + (HasPvpFame ? $"{(IsSessionAverage ? " · " : "")}PvP {ActivityDisplay.Number(Summary.PvpFame)}" : "");
     public string UnknownFameText => $"Unknown fame {UnknownFame}";
-    public string SilverRate => Summary.IsLegacyAggregate ? "Not recorded" : $"{Rates.SilverPerHour:N0} / hour";
-    public string LootValueRate => ValueRateText(Summary.LootValue, Summary.MissingPriceItems, Rates.LootValuePerHour);
+    public string SilverRate => Summary.IsLegacyAggregate || !HasRecordedDuration ? "Not recorded" : $"{Rates.SilverPerHour:N0} / hour";
+    public string LootValueRate => HasRecordedDuration ? ValueRateText(Summary.LootValue, Summary.MissingPriceItems, Rates.LootValuePerHour) : "Hourly rate unavailable";
     public bool HasUnknownSilver => Summary.UnknownSilverCount > 0;
     public bool HasMissingLootPrices => Summary.MissingLootPriceCount > 0;
     public string UnknownSilver => $"{Summary.UnknownSilverCount:N0} pickups with an unknown amount";
@@ -85,19 +87,19 @@ public sealed class ActivitySummaryPresentation
     public string ResourceQuantityText => ActivityDisplay.Number(Summary.ResourceItems);
     public string ResourceBreakdownText => $"Gathering {Summary.GatheringItems:N0} · Fishing {Summary.FishingItems:N0}" + (Summary.UnclassifiedResourceItems > 0 ? $" · Other {Summary.UnclassifiedResourceItems:N0}" : "");
     public string ResourceValueText => Summary.ResourceValue == 0 && Summary.MissingResourcePriceItems > 0 ? "Unavailable" : ActivityDisplay.Number(Summary.ResourceValue);
-    public string ResourceRateText => $"{Rates.ResourceItemsPerHour:N0} items / hour · {ValueRateText(Summary.ResourceValue, Summary.MissingResourcePriceItems, Rates.ResourceValuePerHour)}";
-    public string ItemsValueRate => ValueRateText(Summary.LootValue + Summary.ResourceValue, Summary.MissingPriceItems + Summary.MissingResourcePriceItems, Rates.LootValuePerHour + Rates.ResourceValuePerHour);
+    public string ResourceRateText => HasRecordedDuration ? $"{Rates.ResourceItemsPerHour:N0} items / hour · {ValueRateText(Summary.ResourceValue, Summary.MissingResourcePriceItems, Rates.ResourceValuePerHour)}" : "Hourly rate unavailable";
+    public string ItemsValueRate => HasRecordedDuration ? ValueRateText(Summary.LootValue + Summary.ResourceValue, Summary.MissingPriceItems + Summary.MissingResourcePriceItems, Rates.LootValuePerHour + Rates.ResourceValuePerHour) : "Hourly rate unavailable";
     public string ItemsCountText => $"{Summary.LootItems + Summary.ResourceItems:N0} items acquired";
     public string ItemsBreakdownText => Summary.IsLegacyAggregate ? "Imported gathering" : $"Loot {LootValue} · Gathering {ResourceValueText}";
     public string ItemsEstimateText => "Loot value";
     public string ItemsFooterText => $"{Summary.LootItems:N0} items"
-        + (IsSessionAverage && (Summary.LootValue > 0 || !HasMissingLootPrices) ? $" · {Rates.LootValuePerHour:N0} / h" : "")
+        + (IsSessionAverage && HasRecordedDuration && (Summary.LootValue > 0 || !HasMissingLootPrices) ? $" · {Rates.LootValuePerHour:N0} / h" : "")
         + (HasMissingLootPrices ? " *" : "");
     public string ItemsDetailsText => "Estimated value of loot only" + (HasMissingLootPrices ? $"\n{MissingLootPrices}" : "");
     public string ResourceValueDetailsText => ResourceRateText + (Summary.MissingResourcePriceItems > 0 ? $"\n{Summary.MissingResourcePriceItems:N0} items without prices" : "");
     private static string ValueRateText(long knownValue, long missingItems, double rate) => missingItems > 0 && knownValue == 0
         ? "Value / hour unavailable" : $"{rate:N0} estimated silver / hour";
-    private string FameRateText(double amount) => Summary.IsLegacyAggregate ? "Not recorded" : $"{ActivityProjection.GetFameRate(amount, Rates):N0} / hour";
+    private string FameRateText(double amount) => Summary.IsLegacyAggregate || !HasRecordedDuration ? "Not recorded" : $"{ActivityProjection.GetFameRate(amount, Rates):N0} / hour";
 
 }
 

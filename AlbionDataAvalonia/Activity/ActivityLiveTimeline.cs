@@ -13,7 +13,8 @@ public sealed record ActivityLiveTimelineSample(DateTime CapturedAtUtc, double D
     double DamageReceived, double HealingDone, double HealingReceived, double GatheringQuantity = 0, double FishingQuantity = 0);
 public sealed record ActivityLiveTimelineMarker(string Id, ActivityLiveTimelineMarkerKind Kind,
     DateTime CapturedAtUtc, string Label, string Detail, IReadOnlyList<Guid> EventIds, Guid? EncounterId,
-    double Amount = 0, bool HasUnknownAmount = false, string ValueText = "", ActivityLiveTimelineTooltip? Tooltip = null);
+    double Amount = 0, bool HasUnknownAmount = false, string ValueText = "", ActivityLiveTimelineTooltip? Tooltip = null,
+    DateTime? EndedAtUtc = null);
 public sealed record ActivityLiveTimelineTooltip(string Title, string TimeText, string ContextText, IReadOnlyList<string> Lines);
 public sealed record ActivityLiveTimelineEncounter(Guid Id, int Number, DateTime StartedAtUtc,
     DateTime LastCombatAtUtc, ActivityEncounterKind Kind, ActivityState State);
@@ -117,9 +118,7 @@ internal static class ActivityLiveTimeline
             _ => summary.Silver
         };
         var unknown = kind == ActivityLiveTimelineMarkerKind.Silver && summary.UnknownSilverEvents > 0;
-        var valueText = unknown && summary.SilverRaw == 0 ? "?" :
-            kind is ActivityLiveTimelineMarkerKind.Fame or ActivityLiveTimelineMarkerKind.Silver ? CompactAmount(amount) : amount.ToString("N0", CultureInfo.CurrentCulture);
-        if (unknown && summary.SilverRaw > 0) valueText += " ?";
+        var valueText = MarkerValue(amount, unknown);
         var lines = new List<string>();
         var context = first.LocationName;
         if (kind is ActivityLiveTimelineMarkerKind.Loot or ActivityLiveTimelineMarkerKind.Gathering or ActivityLiveTimelineMarkerKind.Fishing)
@@ -162,8 +161,66 @@ internal static class ActivityLiveTimeline
         var tooltip = new ActivityLiveTimelineTooltip(tooltipTitle, time, context, lines);
         var detail = time + "\n" + context + "\n" + string.Join("\n", lines);
         return new($"{kind}:{first.Id:N}", kind, first.CapturedAtUtc, label, detail,
-            events.Select(x => x.Id).Distinct().Take(250).ToArray(), first.EncounterId, amount, unknown, valueText, tooltip);
+            events.Select(x => x.Id).Distinct().Take(250).ToArray(), first.EncounterId, amount, unknown, valueText, tooltip, events[^1].CapturedAtUtc);
     }
+
+    // Display grouping adapts to the chart's width, independently of event/encounter accounting.
+    // Anchor each group at its first marker so a continuous stream cannot chain into one large badge.
+    internal static IReadOnlyList<ActivityLiveTimelineMarker> GroupMarkers(IReadOnlyList<ActivityLiveTimelineMarker> markers,
+        IReadOnlyList<ActivityLiveTimelineGap> gaps, double groupingSeconds)
+    {
+        var groups = new List<List<ActivityLiveTimelineMarker>>();
+        var recent = new Dictionary<(ActivityLiveTimelineMarkerKind Kind, string Label, string Context), int>();
+        foreach (var marker in markers.OrderBy(value => value.CapturedAtUtc).ThenBy(value => value.Id))
+        {
+            var critical = marker.Kind is ActivityLiveTimelineMarkerKind.PlayerKill or ActivityLiveTimelineMarkerKind.Death or ActivityLiveTimelineMarkerKind.Knockdown;
+            var key = (marker.Kind, marker.Label, marker.Tooltip?.ContextText ?? "");
+            if (!critical && recent.TryGetValue(key, out var index) &&
+                (marker.CapturedAtUtc - groups[index][0].CapturedAtUtc).TotalSeconds <= groupingSeconds &&
+                !gaps.Any(gap => gap.StartedAtUtc < (marker.EndedAtUtc ?? marker.CapturedAtUtc) &&
+                    gap.EndedAtUtc > groups[index][0].CapturedAtUtc))
+                groups[index].Add(marker);
+            else
+            {
+                if (!critical) recent[key] = groups.Count;
+                groups.Add([marker]);
+            }
+        }
+        return groups.Select(group => group.Count == 1 ? group[0] : CombineMarkers(group)).ToArray();
+    }
+
+    private static ActivityLiveTimelineMarker CombineMarkers(IReadOnlyList<ActivityLiveTimelineMarker> group)
+    {
+        var first = group[0];
+        var end = group.Max(marker => marker.EndedAtUtc ?? marker.CapturedAtUtc);
+        var amount = group.Sum(marker => marker.Amount);
+        var unknown = group.Any(marker => marker.HasUnknownAmount);
+        var time = first.CapturedAtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture);
+        if (end > first.CapturedAtUtc) time += " – " + end.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture);
+        var title = first.Label + " · " + amount.ToString("N0", CultureInfo.CurrentCulture) + (unknown ? " + ?" : "");
+        // Keep constituent ranges and totals: their existing item/mob breakdowns may already be truncated.
+        var lines = group.Take(4).Select(marker =>
+            (marker.Tooltip?.TimeText ?? marker.CapturedAtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture)) +
+            " · " + marker.Amount.ToString("N0", CultureInfo.CurrentCulture) + (marker.HasUnknownAmount ? " + ?" : "") +
+            (marker.Kind is ActivityLiveTimelineMarkerKind.Loot or ActivityLiveTimelineMarkerKind.Gathering or ActivityLiveTimelineMarkerKind.Fishing
+                ? " items" : marker.Kind == ActivityLiveTimelineMarkerKind.MobKill ? " kills" : "")).ToList();
+        if (group.Count > 4) lines.Add($"+{group.Count - 4:N0} more groups");
+        var tooltip = new ActivityLiveTimelineTooltip(title, time, first.Tooltip?.ContextText ?? "", lines);
+        return first with
+        {
+            Amount = amount,
+            HasUnknownAmount = unknown,
+            ValueText = MarkerValue(amount, unknown),
+            EndedAtUtc = end,
+            EventIds = group.SelectMany(marker => marker.EventIds).Distinct().ToArray(),
+            EncounterId = group.All(marker => marker.EncounterId == first.EncounterId) ? first.EncounterId : null,
+            Detail = time + "\n" + tooltip.ContextText + "\n" + string.Join("\n", lines),
+            Tooltip = tooltip
+        };
+    }
+
+    private static string MarkerValue(double amount, bool unknown) =>
+        unknown && amount == 0 ? "?" : CompactAmount(amount) + (unknown ? " ?" : "");
 
     private static string CompactAmount(double value) => value >= 1000000 ? (value / 1000000).ToString("0.#", CultureInfo.CurrentCulture) + "m" :
         value >= 1000 ? (value / 1000).ToString("0.#", CultureInfo.CurrentCulture) + "k" : value.ToString("N0", CultureInfo.CurrentCulture);

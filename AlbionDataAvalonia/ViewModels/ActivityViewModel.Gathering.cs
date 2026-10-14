@@ -74,7 +74,8 @@ public partial class ActivityViewModel
 
     public string CurrentTagsText => ActivityDisplay.Tags(CurrentSummary.Summary.Tags);
 
-    public string DetailTagsText => SelectedSession is { } row ? ActivityDisplay.Tags(Activity.ActivityProjection.GetSummary(row.Source, SelectedScope.Value).Tags) : "";
+    public string DetailTagsText => IsShowingMap ? ActivityDisplay.Tags(DetailSummary.Summary.Tags)
+        : SelectedSession is { } row ? ActivityDisplay.Tags(Activity.ActivityProjection.GetSummary(row.Source, SelectedScope.Value).Tags) : "";
 
     public bool IsImportedDetail => SelectedSession is { } row && Activity.ActivityProjection.GetSummary(row.Source, SelectedScope.Value).IsLegacyAggregate;
 

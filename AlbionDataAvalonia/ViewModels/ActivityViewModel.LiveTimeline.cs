@@ -21,7 +21,7 @@ public partial class ActivityViewModel
 
     partial void OnLiveTimelineMinutesChanged(int value)
     {
-        if (value is not (5 or 10 or 15)) { LiveTimelineMinutes = 5; return; }
+        if (value is not (5 or 15 or 30 or 60 or 120)) { LiveTimelineMinutes = 5; return; }
         liveTimelineCancellation.Cancel();
         CurrentLiveTimeline = null;
         if (isActive && SelectedTabIndex == 0) _ = RefreshLiveTimelineSafelyAsync();
