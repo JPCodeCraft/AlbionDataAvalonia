@@ -25,7 +25,7 @@ public partial class ActivityViewModel
 
     [ObservableProperty] private ActivityOption<ActivityPeriodMode> selectedPeriod = new(ActivityPeriodMode.CurrentSession, "Current session");
     [ObservableProperty] private decimal lastHours = 1;
-    [ObservableProperty] private string currentPeriodDescription = "";
+    [ObservableProperty] private string currentPeriodDescription = "Waiting for activity";
     [ObservableProperty] private string currentPeriodWarning = "";
 
     public bool IsLastHoursPeriod => SelectedPeriod.Value == ActivityPeriodMode.LastHours;
@@ -150,7 +150,7 @@ public partial class ActivityViewModel
         CurrentSummary = ActivitySummaryPresentation.Empty;
         if (CurrentResources.Count > 0) CurrentResources = new();
         CurrentDurationText = SelectedPeriod.Value == ActivityPeriodMode.CurrentSession ? "Session time: 0:00" : "Tracked time: 0:00";
-        CurrentPeriodDescription = SelectedPeriod.Value == ActivityPeriodMode.CurrentSession ? "" : "Waiting for your character";
+        CurrentPeriodDescription = SelectedPeriod.Value == ActivityPeriodMode.CurrentSession ? "Waiting for activity" : "Waiting for your character";
         CurrentPeriodWarning = "";
     }
 

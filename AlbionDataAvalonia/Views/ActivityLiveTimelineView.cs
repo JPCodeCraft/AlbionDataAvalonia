@@ -24,8 +24,8 @@ public sealed class ActivityLiveTimelineView : UserControl
         AvaloniaProperty.Register<ActivityLiveTimelineView, ActivityLiveTimelineSnapshot?>(nameof(Snapshot));
     public static readonly StyledProperty<ICommand?> OpenEncounterCommandProperty =
         AvaloniaProperty.Register<ActivityLiveTimelineView, ICommand?>(nameof(OpenEncounterCommand));
-    public static readonly StyledProperty<bool> IsGatheringModeProperty =
-        AvaloniaProperty.Register<ActivityLiveTimelineView, bool>(nameof(IsGatheringMode));
+    public static readonly StyledProperty<ActivityTimelineChartMode> ChartModeProperty =
+        AvaloniaProperty.Register<ActivityLiveTimelineView, ActivityTimelineChartMode>(nameof(ChartMode));
     public static readonly StyledProperty<int> WindowMinutesProperty =
         AvaloniaProperty.Register<ActivityLiveTimelineView, int>(nameof(WindowMinutes), 5);
     public static readonly StyledProperty<bool> IsRollingProperty =
@@ -54,7 +54,8 @@ public sealed class ActivityLiveTimelineView : UserControl
     };
     private readonly ActivitySegmentedSelector mode = new()
     {
-        ItemsSource = new[] { new ActivityOption<bool>(false, "Combat"), new ActivityOption<bool>(true, "Gathering") },
+        ItemsSource = new[] { new ActivityOption<ActivityTimelineChartMode>(ActivityTimelineChartMode.Combat, "Combat"),
+            new(ActivityTimelineChartMode.Gathering, "Gathering"), new(ActivityTimelineChartMode.Fame, "Fame") },
         SelectedIndex = 0
     };
     private readonly ActivitySegmentedSelector direction = new()
@@ -82,8 +83,7 @@ public sealed class ActivityLiveTimelineView : UserControl
         MaxWidth = 200,
         TextTrimming = TextTrimming.CharacterEllipsis
     };
-    private readonly TextBlock damageLegend = Legend("Damage dealt", ActivityLiveTimelineCanvas.DamageColor);
-    private readonly TextBlock healingLegend = Legend("Healing done", ActivityLiveTimelineCanvas.HealingColor);
+    private readonly WrapPanel legends = new();
     private readonly DispatcherTimer renderTimer = new() { Interval = TimeSpan.FromMilliseconds(100) };
     private readonly Stopwatch sinceSnapshot = new();
     private readonly Stopwatch replayClock = new();
@@ -116,7 +116,7 @@ public sealed class ActivityLiveTimelineView : UserControl
 
     public ActivityLiveTimelineSnapshot? Snapshot { get => GetValue(SnapshotProperty); set => SetValue(SnapshotProperty, value); }
     public ICommand? OpenEncounterCommand { get => GetValue(OpenEncounterCommandProperty); set => SetValue(OpenEncounterCommandProperty, value); }
-    public bool IsGatheringMode { get => GetValue(IsGatheringModeProperty); set => SetValue(IsGatheringModeProperty, value); }
+    public ActivityTimelineChartMode ChartMode { get => GetValue(ChartModeProperty); set => SetValue(ChartModeProperty, value); }
     public int WindowMinutes { get => GetValue(WindowMinutesProperty); set => SetValue(WindowMinutesProperty, value); }
     public bool IsRolling { get => GetValue(IsRollingProperty); set => SetValue(IsRollingProperty, value); }
     public bool ShowWindowSelector { get => GetValue(ShowWindowSelectorProperty); set => SetValue(ShowWindowSelectorProperty, value); }
@@ -127,7 +127,10 @@ public sealed class ActivityLiveTimelineView : UserControl
 
     public ActivityLiveTimelineView()
     {
-        mode.SelectionChanged += (_, _) => IsGatheringMode = mode.SelectedIndex == 1;
+        mode.SelectionChanged += (_, _) =>
+        {
+            if (mode.SelectedItem is ActivityOption<ActivityTimelineChartMode> option) SetCurrentValue(ChartModeProperty, option.Value);
+        };
         direction.SelectionChanged += (_, _) =>
         {
             canvas.ShowReceived = direction.SelectedIndex == 1;
@@ -195,10 +198,6 @@ public sealed class ActivityLiveTimelineView : UserControl
         heading.Children.Add(window);
         Grid.SetColumn(window, 1);
 
-        var legends = new WrapPanel();
-        legends.Children.Add(damageLegend);
-        legends.Children.Add(healingLegend);
-
         // The tooltip shares the chart's host rather than its clipped drawing surface. Keeping
         // the entire overlay out of hit testing lets pointer movement continue through it.
         tooltipLayer.Children.Add(tooltipPanel);
@@ -221,8 +220,7 @@ public sealed class ActivityLiveTimelineView : UserControl
             renderTimer.Stop();
             canvas.ClearInspection();
         };
-        DrawLatest();
-        UpdateState();
+        UpdateMode();
     }
 
     private void RenderTick()
@@ -248,7 +246,7 @@ public sealed class ActivityLiveTimelineView : UserControl
     protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
     {
         base.OnPropertyChanged(change);
-        if (change.Property == IsGatheringModeProperty) { UpdateMode(); return; }
+        if (change.Property == ChartModeProperty) { UpdateMode(); return; }
         if (change.Property == ReplaySnapshotProperty)
         {
             var value = ReplaySnapshot;
@@ -294,13 +292,12 @@ public sealed class ActivityLiveTimelineView : UserControl
 
     private void UpdateMode()
     {
-        canvas.IsGatheringMode = IsGatheringMode;
-        mode.SelectedIndex = IsGatheringMode ? 1 : 0;
-        direction.IsVisible = !IsGatheringMode;
-        damageLegend.Text = IsGatheringMode ? "●  Gathering / sec" : canvas.ShowReceived ? "●  Damage received" : "●  Damage dealt";
-        healingLegend.Text = IsGatheringMode ? "●  Fishing / sec" : canvas.ShowReceived ? "●  Healing received" : "●  Healing done";
-        damageLegend.Foreground = new SolidColorBrush(IsGatheringMode ? ActivityLiveTimelineCanvas.GatheringColor : ActivityLiveTimelineCanvas.DamageColor);
-        healingLegend.Foreground = new SolidColorBrush(IsGatheringMode ? ActivityLiveTimelineCanvas.FishingColor : ActivityLiveTimelineCanvas.HealingColor);
+        canvas.ChartMode = ChartMode;
+        mode.SelectedIndex = (int)ChartMode;
+        direction.IsVisible = ChartMode == ActivityTimelineChartMode.Combat;
+        legends.Children.Clear();
+        foreach (var series in canvas.VisibleSeries)
+            legends.Children.Add(Legend(series.Label + (ChartMode == ActivityTimelineChartMode.Gathering ? " / sec" : ""), series.Color));
         RefreshDisplay();
     }
 
@@ -316,7 +313,8 @@ public sealed class ActivityLiveTimelineView : UserControl
         latest.WindowEndUtc > latest.WindowStartUtc && ReplayWindowCommand != null &&
         (latest.Markers.Count > 0 || latest.Encounters.Count > 0 || latest.Samples.Any(sample =>
             sample.DamageDealt > 0 || sample.DamageReceived > 0 || sample.HealingDone > 0 || sample.HealingReceived > 0 ||
-            sample.GatheringQuantity > 0 || sample.FishingQuantity > 0));
+            sample.GatheringQuantity > 0 || sample.FishingQuantity > 0 || sample.PveFame > 0 || sample.PvpFame > 0 ||
+            sample.GatheringFame > 0 || sample.FishingFame > 0 || sample.UnknownFame > 0));
 
     private void ToggleReplay()
     {

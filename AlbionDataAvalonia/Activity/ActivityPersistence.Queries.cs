@@ -102,20 +102,25 @@ public sealed partial class ActivityPersistence
         var matchesCategory = categoryExpression.Compile();
         var filtered = FilterEvents(context, query with { ShowCategories = ActivityCategories.All }).Where(categoryExpression)
             .Where(x => x.SessionId == null || !deleted.Contains(x.SessionId.Value));
-        var combat = filtered.Where(x => x.Kind == ActivityEventKind.Damage || x.Kind == ActivityEventKind.Healing ||
-            x.Kind == ActivityEventKind.Gathered || x.Kind == ActivityEventKind.FishingReward);
+        var sampleEvents = filtered.Where(x => x.Kind == ActivityEventKind.Damage || x.Kind == ActivityEventKind.Healing ||
+            x.Kind == ActivityEventKind.Gathered || x.Kind == ActivityEventKind.FishingReward || x.Kind == ActivityEventKind.Fame);
         var dealt = ActivityProjection.ChartExpression(scope, query.ActorKey, ActivityChartMetric.DamageDealt);
         var received = ActivityProjection.ChartExpression(scope, query.ActorKey, ActivityChartMetric.DamageReceived);
         var healed = ActivityProjection.ChartExpression(scope, query.ActorKey, ActivityChartMetric.HealingDone);
         var healingReceived = ActivityProjection.ChartExpression(scope, query.ActorKey, ActivityChartMetric.HealingReceived);
         var gathering = ActivityProjection.ChartExpression(scope, query.ActorKey, ActivityChartMetric.GatheringItems);
         var fishing = ActivityProjection.ChartExpression(scope, query.ActorKey, ActivityChartMetric.FishingItems);
+        var pveFame = ActivityProjection.ChartExpression(scope, query.ActorKey, ActivityChartMetric.PveFame);
+        var pvpFame = ActivityProjection.ChartExpression(scope, query.ActorKey, ActivityChartMetric.PvpFame);
+        var gatheringFame = ActivityProjection.ChartExpression(scope, query.ActorKey, ActivityChartMetric.GatheringFame);
+        var fishingFame = ActivityProjection.ChartExpression(scope, query.ActorKey, ActivityChartMetric.FishingFame);
+        var unknownFame = ActivityProjection.ChartExpression(scope, query.ActorKey, ActivityChartMetric.UnclassifiedFame);
         var pendingContribution = string.IsNullOrWhiteSpace(query.ActorKey) ? null : ActivityProjection.ContributionExpression(scope, query.ActorKey).Compile();
         var firstSecond = fromUtc.Hour * 3600 + fromUtc.Minute * 60 + fromUtc.Second;
         var firstDate = fromUtc.Date;
         // Only whole calendar days use julianday, where midnight differences are exact. Calendar
         // second fields preserve bucket boundaries, including multi-day history and UTC midnight.
-        var healthRows = await combat.GroupBy(x =>
+        var sampleRows = await sampleEvents.GroupBy(x =>
                 (int)(((ActivityDatabaseFunctions.JulianDay(x.CapturedAtUtc.Date) - ActivityDatabaseFunctions.JulianDay(firstDate)) * 86400 +
                     x.CapturedAtUtc.Hour * 3600 + x.CapturedAtUtc.Minute * 60 + x.CapturedAtUtc.Second - firstSecond) / sampleSeconds))
             .Select(g => new
@@ -126,16 +131,22 @@ public sealed partial class ActivityPersistence
                 HealingDone = g.AsQueryable().Select(healed).Sum(),
                 HealingReceived = g.AsQueryable().Select(healingReceived).Sum(),
                 Gathering = g.AsQueryable().Select(gathering).Sum(),
-                Fishing = g.AsQueryable().Select(fishing).Sum()
+                Fishing = g.AsQueryable().Select(fishing).Sum(),
+                PveFame = g.AsQueryable().Select(pveFame).Sum(),
+                PvpFame = g.AsQueryable().Select(pvpFame).Sum(),
+                GatheringFame = g.AsQueryable().Select(gatheringFame).Sum(),
+                FishingFame = g.AsQueryable().Select(fishingFame).Sum(),
+                UnknownFame = g.AsQueryable().Select(unknownFame).Sum()
             }).Take(sampleCount).ToArrayAsync(cancellationToken);
         var samples = Enumerable.Range(0, sampleCount).Select(i =>
             new ActivityLiveTimelineSample(fromUtc.AddSeconds(i * sampleSeconds), 0, 0, 0, 0)).ToArray();
-        foreach (var row in healthRows)
+        foreach (var row in sampleRows)
             if (row.Bucket >= 0 && row.Bucket < sampleCount)
             {
                 var seconds = BucketSeconds(row.Bucket);
                 samples[row.Bucket] = new(fromUtc.AddSeconds(row.Bucket * sampleSeconds), row.DamageDealt / seconds,
-                    row.DamageReceived / seconds, row.HealingDone / seconds, row.HealingReceived / seconds, row.Gathering / seconds, row.Fishing / seconds);
+                    row.DamageReceived / seconds, row.HealingDone / seconds, row.HealingReceived / seconds, row.Gathering / seconds, row.Fishing / seconds,
+                    row.PveFame / seconds, row.PvpFame / seconds, row.GatheringFame / seconds, row.FishingFame / seconds, row.UnknownFame / seconds);
             }
 
         var markerQuery = filtered.Where(x =>
@@ -156,8 +167,8 @@ public sealed partial class ActivityPersistence
 
         foreach (var value in canonical.Values)
         {
-            if (before.TryGetValue(value.Id, out var old)) AddHealth(old, -1);
-            AddHealth(value, 1);
+            if (before.TryGetValue(value.Id, out var old)) AddSample(old, -1);
+            AddSample(value, 1);
             markerEvents.Remove(value.Id);
             if (InWindow(value) && !value.IsRetracted && ActivityClassification.IsTemporal(value.Kind) &&
                 matchesCategory(value) && !ActivityLiveTimeline.IsCombat(value)) markerEvents[value.Id] = value;
@@ -201,7 +212,7 @@ public sealed partial class ActivityPersistence
 
         bool InWindow(ActivityEvent value) => MatchesOwner(value, query) && value.CapturedAtUtc >= selectedFromUtc && value.CapturedAtUtc < endUtc &&
             (value.SessionId is null || !deleted.Contains(value.SessionId.Value));
-        void AddHealth(ActivityEvent value, int sign)
+        void AddSample(ActivityEvent value, int sign)
         {
             if (!InWindow(value) || !matchesCategory(value) || !ActivityClassification.IsTemporal(value.Kind)) return;
             var index = (int)((value.CapturedAtUtc.Ticks - fromUtc.Ticks) / TimeSpan.TicksPerSecond / sampleSeconds);
@@ -216,7 +227,12 @@ public sealed partial class ActivityPersistence
                 HealingDone = sample.HealingDone + sign * contribution.HealingDone / seconds,
                 HealingReceived = sample.HealingReceived + sign * contribution.HealingReceived / seconds,
                 GatheringQuantity = sample.GatheringQuantity + sign * contribution.GatheringItems / seconds,
-                FishingQuantity = sample.FishingQuantity + sign * contribution.FishingItems / seconds
+                FishingQuantity = sample.FishingQuantity + sign * contribution.FishingItems / seconds,
+                PveFame = sample.PveFame + sign * contribution.PveFame / seconds,
+                PvpFame = sample.PvpFame + sign * contribution.PvpFame / seconds,
+                GatheringFame = sample.GatheringFame + sign * contribution.GatheringFame / seconds,
+                FishingFame = sample.FishingFame + sign * contribution.FishingFame / seconds,
+                UnknownFame = sample.UnknownFame + sign * (contribution.UnknownFameAmount ?? 0) / seconds
             };
         }
         double BucketSeconds(int index) => Math.Max(1, Math.Min(sampleSeconds, windowSeconds - index * sampleSeconds));

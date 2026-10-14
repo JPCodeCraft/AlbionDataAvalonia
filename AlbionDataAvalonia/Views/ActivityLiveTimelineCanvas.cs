@@ -20,6 +20,29 @@ internal sealed class ActivityLiveTimelineCanvas : Control
     internal static readonly Color HealingColor = Color.Parse("#69D2A0");
     internal static readonly Color GatheringColor = Color.Parse("#A0D477");
     internal static readonly Color FishingColor = Color.Parse("#64CBDD");
+    private static readonly Series[] CombatDealtSeries =
+    [
+        new("Damage dealt", DamageColor, sample => sample.DamageDealt),
+        new("Healing done", HealingColor, sample => sample.HealingDone)
+    ];
+    private static readonly Series[] CombatReceivedSeries =
+    [
+        new("Damage received", DamageColor, sample => sample.DamageReceived),
+        new("Healing received", HealingColor, sample => sample.HealingReceived)
+    ];
+    private static readonly Series[] GatheringSeries =
+    [
+        new("Gathering", GatheringColor, sample => sample.GatheringQuantity),
+        new("Fishing", FishingColor, sample => sample.FishingQuantity)
+    ];
+    private static readonly Series[] FameSeries =
+    [
+        new("PvE fame", DamageColor, sample => sample.PveFame),
+        new("PvP fame", Color.Parse("#EB9C64"), sample => sample.PvpFame),
+        new("Gathering fame", GatheringColor, sample => sample.GatheringFame),
+        new("Fishing fame", FishingColor, sample => sample.FishingFame),
+        new("Unknown fame", Color.Parse("#C5C5C5"), sample => sample.UnknownFame)
+    ];
     private static readonly IBrush TextBrush = new SolidColorBrush(Color.Parse("#EFEFEF"));
     private static readonly IBrush MutedBrush = new SolidColorBrush(Color.Parse("#C5C5C5"));
     private static readonly IBrush ChartBrush = new SolidColorBrush(Color.Parse("#343434"));
@@ -54,7 +77,19 @@ internal sealed class ActivityLiveTimelineCanvas : Control
     public event Action<ActivityLiveTimelineTooltip?, Point>? InspectionChanged;
     public event Action<Guid>? EncounterSelected;
     public bool ShowReceived { get; set; }
-    public bool IsGatheringMode { get; set; }
+    public ActivityTimelineChartMode ChartMode { get; set; }
+    internal IReadOnlyList<Series> VisibleSeries => ChartMode switch
+    {
+        ActivityTimelineChartMode.Gathering => GatheringSeries,
+        ActivityTimelineChartMode.Fame => FameSeries,
+        _ => ShowReceived ? CombatReceivedSeries : CombatDealtSeries
+    };
+    private string RateUnit => ChartMode switch
+    {
+        ActivityTimelineChartMode.Gathering => "items/s",
+        ActivityTimelineChartMode.Fame => "fame/s",
+        _ => "HP/s"
+    };
     public bool IsLive { get; set; } = true;
     public bool IsReplay { get; set; }
 
@@ -108,19 +143,24 @@ internal sealed class ActivityLiveTimelineCanvas : Control
         encounterHits.Clear();
         context.DrawRectangle(ChartBrush, null, plot, 4, 4);
         var samples = snapshot?.Samples ?? Array.Empty<ActivityLiveTimelineSample>();
-        var max = NiceMaximum(samples.Where(sample => BucketEndUtc(sample) > StartUtc && sample.CapturedAtUtc < endUtc)
-            .Select(sample => Math.Max(Damage(sample), Healing(sample))).DefaultIfEmpty(0).Max());
+        var series = VisibleSeries;
+        var maximum = 0d;
+        foreach (var sample in samples)
+        {
+            if (BucketEndUtc(sample) <= StartUtc || sample.CapturedAtUtc >= endUtc) continue;
+            foreach (var item in series) maximum = Math.Max(maximum, item.Value(sample));
+        }
+        var max = NiceMaximum(maximum);
         for (var line = 0; line <= 3; line++)
         {
             var y = plot.Bottom - plot.Height * line / 3;
             context.DrawLine(GridPen, new Point(plot.Left, y), new Point(plot.Right, y));
             Text(context, Compact(max * line / 3), new Point(plot.Left - 7, y - 7), 11, MutedBrush, rightAligned: true);
         }
-        Text(context, IsGatheringMode ? "items/s" : "HP/s", new Point(3, ChartTop - 19), 10, MutedBrush);
+        Text(context, RateUnit, new Point(3, ChartTop - 19), 10, MutedBrush);
         using (context.PushClip(plot))
         {
-            DrawArea(context, samples, max, Damage, IsGatheringMode ? GatheringColor : DamageColor);
-            DrawArea(context, samples, max, Healing, IsGatheringMode ? FishingColor : HealingColor);
+            foreach (var item in series) DrawArea(context, samples, max, item.Value, item.Color);
             DrawGaps(context);
         }
         DrawAxis(context);
@@ -391,10 +431,14 @@ internal sealed class ActivityLiveTimelineCanvas : Control
             }
             var sample = snapshot?.Samples.LastOrDefault(item => item.CapturedAtUtc <= time &&
                 time < BucketEndUtc(item));
-            var damage = sample != null ? Damage(sample) : 0;
-            var healing = sample != null ? Healing(sample) : 0;
-            tooltip = IsGatheringMode ? new("Gathering rate", timeText, "", [$"Gathering {damage:N0} items/s", $"Fishing {healing:N0} items/s"]) :
-                new(ShowReceived ? "Combat received" : "Combat dealt", timeText, "", [$"Damage {damage:N0} / sec", $"Healing {healing:N0} / sec"]);
+            var title = ChartMode switch
+            {
+                ActivityTimelineChartMode.Gathering => "Gathering rate",
+                ActivityTimelineChartMode.Fame => "Fame gained",
+                _ => ShowReceived ? "Combat received" : "Combat dealt"
+            };
+            tooltip = new(title, timeText, "", VisibleSeries.Select(item =>
+                $"{item.Label}: {(sample != null ? item.Value(sample) : 0):N1} {RateUnit}").ToArray());
         }
         Cursor = new Cursor(encounter != null ? StandardCursorType.Hand : StandardCursorType.Cross);
         var text = tooltip.Title + "\n" + tooltip.TimeText + "\n" + tooltip.ContextText + "\n" + string.Join("\n", tooltip.Lines);
@@ -434,8 +478,6 @@ internal sealed class ActivityLiveTimelineCanvas : Control
     }
 
     private double X(DateTime time) => Plot.Left + (time - StartUtc).TotalSeconds / WindowSeconds * Plot.Width;
-    private double Damage(ActivityLiveTimelineSample sample) => IsGatheringMode ? sample.GatheringQuantity : ShowReceived ? sample.DamageReceived : sample.DamageDealt;
-    private double Healing(ActivityLiveTimelineSample sample) => IsGatheringMode ? sample.FishingQuantity : ShowReceived ? sample.HealingReceived : sample.HealingDone;
     private static string EncounterKind(ActivityEncounterKind kind) => kind switch { ActivityEncounterKind.Pve => "PvE", ActivityEncounterKind.Pvp => "PvP", ActivityEncounterKind.Unknown => "", _ => kind.ToString() };
     private static string GapLabel(string reason) => reason switch
     {
@@ -532,6 +574,7 @@ internal sealed class ActivityLiveTimelineCanvas : Control
         var text = MakeText(value, size, brush);
         context.DrawText(text, new Point(position.X - (centered ? text.Width / 2 : rightAligned ? text.Width : 0), position.Y));
     }
+    internal sealed record Series(string Label, Color Color, Func<ActivityLiveTimelineSample, double> Value);
     private sealed record MarkerHit(Rect Bounds, ActivityLiveTimelineMarker Marker);
     private sealed record EncounterHit(Rect Bounds, ActivityLiveTimelineEncounter Encounter);
 }

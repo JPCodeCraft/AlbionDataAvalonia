@@ -1,3 +1,4 @@
+using AlbionDataAvalonia.Activity;
 using AlbionDataAvalonia.Activity.Models;
 
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -50,7 +51,7 @@ public partial class ActivityViewModel
 
     [ObservableProperty] private bool showOther;
 
-    [ObservableProperty] private bool isGatheringChart;
+    [ObservableProperty] private ActivityTimelineChartMode chartMode;
     [ObservableProperty] private ActivityLegacyImportInfo? legacyImportInfo;
 
     [ObservableProperty] private ObservableCollection<ActivityResourceRow> sessionResources = new();
@@ -144,13 +145,13 @@ public partial class ActivityViewModel
 
             if (!ShowGathering && !ShowFishing && !ShowPve && !ShowPvp && !ShowOther) ShowAllActivities = true;
 
-            if (!ShowAllActivities && !ShowOther)
+            if (!ShowAllActivities && !ShowOther && ChartMode != ActivityTimelineChartMode.Fame)
 
             {
 
-                if ((ShowGathering || ShowFishing) && !ShowPve && !ShowPvp) IsGatheringChart = true;
+                if ((ShowGathering || ShowFishing) && !ShowPve && !ShowPvp) ChartMode = ActivityTimelineChartMode.Gathering;
 
-                else if ((ShowPve || ShowPvp) && !ShowGathering && !ShowFishing) IsGatheringChart = false;
+                else if ((ShowPve || ShowPvp) && !ShowGathering && !ShowFishing) ChartMode = ActivityTimelineChartMode.Combat;
 
             }
 

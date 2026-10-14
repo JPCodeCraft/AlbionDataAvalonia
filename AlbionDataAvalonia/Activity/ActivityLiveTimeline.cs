@@ -8,9 +8,12 @@ using System.Text.Json;
 namespace AlbionDataAvalonia.Activity;
 
 public enum ActivityLiveTimelineMarkerKind { MobKill, PlayerKill, Death, Knockdown, Loot, Fame, Silver, Gathering, Fishing, Overflow }
+public enum ActivityTimelineChartMode { Combat, Gathering, Fame }
 
+/// <summary>Per-second rates over the snapshot's sample interval, including each fame category once.</summary>
 public sealed record ActivityLiveTimelineSample(DateTime CapturedAtUtc, double DamageDealt,
-    double DamageReceived, double HealingDone, double HealingReceived, double GatheringQuantity = 0, double FishingQuantity = 0);
+    double DamageReceived, double HealingDone, double HealingReceived, double GatheringQuantity = 0, double FishingQuantity = 0,
+    double PveFame = 0, double PvpFame = 0, double GatheringFame = 0, double FishingFame = 0, double UnknownFame = 0);
 public sealed record ActivityLiveTimelineMarker(string Id, ActivityLiveTimelineMarkerKind Kind,
     DateTime CapturedAtUtc, string Label, string Detail, IReadOnlyList<Guid> EventIds, Guid? EncounterId,
     double Amount = 0, bool HasUnknownAmount = false, string ValueText = "", ActivityLiveTimelineTooltip? Tooltip = null,
