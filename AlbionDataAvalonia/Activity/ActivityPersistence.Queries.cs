@@ -153,7 +153,8 @@ public sealed partial class ActivityPersistence
                 x.Kind == ActivityEventKind.MobKilled || x.Kind == ActivityEventKind.PlayerKilled ||
                 x.Kind == ActivityEventKind.Death || x.Kind == ActivityEventKind.Knockdown ||
                 x.Kind == ActivityEventKind.Loot || x.Kind == ActivityEventKind.Fame || x.Kind == ActivityEventKind.Silver ||
-                x.Kind == ActivityEventKind.Gathered || x.Kind == ActivityEventKind.FishingReward)
+                x.Kind == ActivityEventKind.Gathered || x.Kind == ActivityEventKind.FishingReward ||
+                x.Kind == ActivityEventKind.PartyJoined || x.Kind == ActivityEventKind.PartyLeft)
             .OrderByDescending(x => x.Kind == ActivityEventKind.Death || x.Kind == ActivityEventKind.PlayerKilled || x.Kind == ActivityEventKind.Knockdown)
             .ThenByDescending(x => x.CapturedAtUtc).ThenByDescending(x => x.CaptureOrder).ThenBy(x => x.Id);
         // The result is already bounded. Offset pages would repeat the same sort for each 250 rows.
@@ -389,9 +390,11 @@ public sealed partial class ActivityPersistence
                 x.ItemName.Contains(filter.Search) || (x.ItemUniqueName != null && x.ItemUniqueName.Contains(filter.Search)) ||
                 x.LootSourceName.Contains(filter.Search) || x.SourceGuild.Contains(filter.Search) || x.SourceAlliance.Contains(filter.Search) ||
                 x.TargetGuild.Contains(filter.Search) || x.TargetAlliance.Contains(filter.Search));
+        // Location, gaps and party changes are context for every scope.
         if (filter.Scope == ActivityScope.Personal)
             query = query.Where(x => x.SourceRelationship == ActorRelationship.Self || x.TargetRelationship == ActorRelationship.Self ||
-                (x.Kind == ActivityEventKind.MobKilled && x.ParticipatedSelf) || x.Kind == ActivityEventKind.Location || x.Kind == ActivityEventKind.CaptureGap);
+                (x.Kind == ActivityEventKind.MobKilled && x.ParticipatedSelf) || x.Kind == ActivityEventKind.Location || x.Kind == ActivityEventKind.CaptureGap ||
+                x.Kind == ActivityEventKind.PartyJoined || x.Kind == ActivityEventKind.PartyLeft);
         else if (filter.Scope == ActivityScope.Party)
             query = query.Where(x => x.SourceRelationship == ActorRelationship.Self || x.SourceRelationship == ActorRelationship.Party ||
                 x.TargetRelationship == ActorRelationship.Self || x.TargetRelationship == ActorRelationship.Party ||
@@ -460,6 +463,8 @@ public sealed partial class ActivityPersistence
 
     private async Task<IReadOnlyList<ActivityActorTotal>> GetPlayersCoreAsync(ActivityQuery filter, CancellationToken cancellationToken = default)
     {
+        // Rows are already per player, so the personal view still lists each party member's own totals.
+        if (filter.Scope == ActivityScope.Personal) filter = filter with { Scope = ActivityScope.Party };
         await using var context = contextFactory();
         var query = FilterEvents(context, filter).Where(x => x.Kind == ActivityEventKind.Damage || x.Kind == ActivityEventKind.Healing);
         var party = filter.Scope != ActivityScope.Personal;
@@ -492,10 +497,36 @@ public sealed partial class ActivityPersistence
                 HealingReceived = g.Sum(x => x.Kind == ActivityEventKind.Healing ? x.Amount : 0)
             })
             .OrderByDescending(x => x.DamageReceived + x.HealingReceived).Take(250).ToListAsync(cancellationToken);
-        return source.Concat(targets).GroupBy(x => new { x.ActorId, x.Name, x.Relationship })
+        var totals = source.Concat(targets).GroupBy(x => new { x.ActorId, x.Name, x.Relationship })
             .Select(g => new ActivityActorTotal(g.Key.ActorId, g.Key.Name, g.Key.Relationship,
                 g.Sum(x => x.DamageDealt), g.Sum(x => x.DamageReceived), g.Sum(x => x.HealingDone), g.Sum(x => x.HealingReceived)))
-            .OrderByDescending(x => x.DamageDealt + x.HealingDone).Take(250).ToArray();
+            .OrderByDescending(x => x.DamageDealt + x.HealingDone).Take(250).ToList();
+        // You and party members stay listed without combat, e.g. a member who only looted or
+        // joined. Membership comes from any recorded event, independent of the totals scope.
+        var membershipFilter = filter with { Scope = ActivityScope.AllObserved, ShowCategories = ActivityCategories.All, ActorKey = null };
+        var memberEvents = FilterEvents(context, membershipFilter);
+        var memberSources = memberEvents.Where(x => x.SourceActorId != null && x.SourceKind == ActivityActorKind.Player &&
+                (x.SourceRelationship == ActorRelationship.Self || x.SourceRelationship == ActorRelationship.Party))
+            .Select(x => new { ActorId = x.SourceActorId!, Name = x.SourceName, Relationship = x.SourceRelationship });
+        var memberTargets = memberEvents.Where(x => x.TargetActorId != null && x.TargetKind == ActivityActorKind.Player &&
+                (x.TargetRelationship == ActorRelationship.Self || x.TargetRelationship == ActorRelationship.Party))
+            .Select(x => new { ActorId = x.TargetActorId!, Name = x.TargetName, Relationship = x.TargetRelationship });
+        var members = await memberSources.Union(memberTargets).Take(250).ToListAsync(cancellationToken);
+        // Pickups resolved by name may use another actor key; one row per name is enough.
+        var listed = totals.Select(x => x.Name).ToHashSet(StringComparer.OrdinalIgnoreCase);
+        foreach (var member in members.Where(x => !string.IsNullOrWhiteSpace(x.Name) && x.Name != "Unknown" && !Guid.TryParse(x.Name, out _))
+                     .OrderBy(x => x.Relationship).ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase))
+            if (listed.Add(member.Name) && totals.Count < 250)
+                totals.Add(new ActivityActorTotal(member.ActorId, member.Name, member.Relationship, 0, 0, 0, 0));
+        return totals;
+    }
+
+    private async Task<IReadOnlyList<ActivityEvent>> GetPartyEventsCoreAsync(Guid sessionId, CancellationToken cancellationToken = default)
+    {
+        await using var context = contextFactory();
+        return await context.ActivityEvents.AsNoTracking().Where(x => x.SessionId == sessionId && !x.IsRetracted &&
+                (x.Kind == ActivityEventKind.PartyJoined || x.Kind == ActivityEventKind.PartyLeft))
+            .OrderBy(x => x.CapturedAtUtc).ThenBy(x => x.CaptureOrder).Take(5000).ToArrayAsync(cancellationToken);
     }
 
     private async Task<IReadOnlyDictionary<Guid, IReadOnlyList<string>>> GetSessionPartyMembersCoreAsync(Guid?[] sessionIds, CancellationToken cancellationToken = default)

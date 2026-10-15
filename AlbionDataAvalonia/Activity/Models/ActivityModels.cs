@@ -12,7 +12,8 @@ public enum ActivityEventKind
 {
     Damage, Healing, Fame, Silver, Loot, MobKilled, PlayerKilled, Death,
     Knockdown, Location, CaptureGap, OutcomeEvidence,
-    Gathered, FishingReward, LegacyGatheringAggregate, LegacyImportMarker
+    Gathered, FishingReward, LegacyGatheringAggregate, LegacyImportMarker,
+    PartyJoined, PartyLeft
 }
 [Flags]
 public enum ActivityTags { None = 0, Gathering = 1, Pve = 2, Pvp = 4 }
@@ -66,6 +67,16 @@ public sealed record ActivitySession
     public string PersonalSummaryJson { get; init; } = "{}";
     public string PartySummaryJson { get; init; } = "{}";
     public string ObservedSummaryJson { get; init; } = "{}";
+}
+
+// Roster marks members already present when the session opened rather than a join seen live.
+public sealed record ActivityPartyDetails(Guid UserGuid, bool Roster, int PartySize)
+{
+    public static ActivityPartyDetails? Parse(string json)
+    {
+        try { return System.Text.Json.JsonSerializer.Deserialize<ActivityPartyDetails>(json); }
+        catch (System.Text.Json.JsonException) { return null; }
+    }
 }
 
 public sealed record ActivityVisit(string RawMapId, string LocationName, DateTime StartedAtUtc,

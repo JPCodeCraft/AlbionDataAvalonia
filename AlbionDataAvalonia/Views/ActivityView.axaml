@@ -7,6 +7,7 @@
              x:Class="AlbionDataAvalonia.Views.ActivityView"
              x:DataType="vm:ActivityViewModel" Classes="AppPage">
     <UserControl.Resources>
+        <StreamGeometry x:Key="ActivityPartyIcon">M6,2.5 A2.5,2.5 0 1 0 6,7.5 A2.5,2.5 0 1 0 6,2.5 Z M1,14 C1,10.5 3,9 6,9 C9,9 11,10.5 11,14 Z M11.5,2.5 A2,2 0 1 0 11.5,6.5 A2,2 0 1 0 11.5,2.5 Z M12,8.5 C14,8.7 15.5,10 15.5,13 L12.3,13 C12.1,11 11.5,9.6 10.6,8.9 C11,8.6 11.5,8.5 12,8.5 Z</StreamGeometry>
         <DataTemplate x:Key="KillSummaryTemplate" x:DataType="vm:ActivitySummaryPresentation">
             <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="8" ToolTip.Tip="{Binding OutcomesDetailsText}">
                 <TextBlock Classes="UiLabel" Text="Mob kills" />
@@ -99,6 +100,12 @@
         <Style Selector="ListBox.ActivitySessionList ListBoxItem:pointerover"><Setter Property="Background" Value="{DynamicResource UiInputBrush}" /></Style>
         <Style Selector="ListBox.ActivitySessionList ListBoxItem:selected"><Setter Property="Background" Value="{DynamicResource AFMBrown}" /><Setter Property="BorderBrush" Value="{DynamicResource AFMOrange}" /><Setter Property="BorderThickness" Value="3,0,0,0" /></Style>
         <Style Selector="DataGrid"><Setter Property="AutoGenerateColumns" Value="False" /><Setter Property="IsReadOnly" Value="True" /></Style>
+        <Style Selector="Button.ActivityPartyChip"><Setter Property="Background" Value="{DynamicResource UiSurfaceBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource UiBorderBrush}" /><Setter Property="BorderThickness" Value="1" /><Setter Property="CornerRadius" Value="14" /><Setter Property="Padding" Value="10,4" /><Setter Property="MinHeight" Value="28" /></Style>
+        <Style Selector="Button.ActivityPartyChip:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource UiInputBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource AFMOrange}" /></Style>
+        <Style Selector="Border.ActivityPartyMember"><Setter Property="Background" Value="{DynamicResource UiInputBrush}" /><Setter Property="CornerRadius" Value="10" /><Setter Property="Padding" Value="8,2" /><Setter Property="Margin" Value="0,0,4,4" /></Style>
+        <Style Selector="Border.ActivityPartyMember.You"><Setter Property="Background" Value="{DynamicResource AFMBrown}" /><Setter Property="BorderBrush" Value="{DynamicResource AFMOrange}" /><Setter Property="BorderThickness" Value="1" /></Style>
+        <Style Selector="TextBlock.PartyChange"><Setter Property="Foreground" Value="#F47D7D" /></Style>
+        <Style Selector="TextBlock.PartyChange.Joined"><Setter Property="Foreground" Value="#A0D477" /></Style>
         <Style Selector="TabControl.ActivityDetails TabItem /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="FontSize" Value="16" /></Style>
         <Style Selector="TabControl.ActivityDetails DataGrid">
             <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
@@ -154,8 +161,49 @@
                                         <TextBlock Text="{Binding CurrentCombatDurationText}" Margin="0,0,18,4" />
                                         <TextBlock Text="{Binding CurrentTagsText}" Foreground="#A0D477" Margin="0,0,0,4" IsVisible="{Binding CurrentTagsText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" />
                                     </WrapPanel>
-                                    <TextBlock Grid.Column="1" Text="{Binding CurrentPartyText}" IsVisible="{Binding HasCurrentParty}" ToolTip.Tip="{Binding CurrentPartyDetailsText}"
-                                               HorizontalAlignment="Right" VerticalAlignment="Top" TextAlignment="Right" MaxWidth="360" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource AFMOrange}" />
+                                    <Button Grid.Column="1" Classes="ActivityPartyChip" IsVisible="{Binding HasCurrentParty}" ToolTip.Tip="{Binding CurrentPartyDetailsText}"
+                                            HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-5,0,0" AutomationProperties.Name="Current party">
+                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                            <PathIcon Data="{StaticResource ActivityPartyIcon}" Width="14" Height="14" Foreground="{DynamicResource AFMOrange}" />
+                                            <TextBlock Text="{Binding CurrentPartyText}" FontWeight="DemiBold" Foreground="{DynamicResource AFMOrange}" VerticalAlignment="Center" />
+                                            <TextBlock Text="{Binding CurrentPartyPreviewText}" IsVisible="{Binding HasCurrentPartyPreview}" Opacity="0.8" MaxWidth="240" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                        <Button.Flyout>
+                                            <Flyout Placement="BottomEdgeAlignedRight">
+                                                <StackPanel Width="340" Spacing="10">
+                                                    <TextBlock Text="{Binding CurrentPartyHeaderText}" FontSize="15" FontWeight="DemiBold" />
+                                                    <ScrollViewer MaxHeight="220" HorizontalScrollBarVisibility="Disabled">
+                                                        <ItemsControl ItemsSource="{Binding CurrentPartyMembers}">
+                                                            <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate x:DataType="vm:ActivityPartyMemberChip">
+                                                                    <Border Classes="ActivityPartyMember" Classes.You="{Binding IsYou}">
+                                                                        <TextBlock Text="{Binding Name}" FontSize="12" MaxWidth="150" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Name}" />
+                                                                    </Border>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                    </ScrollViewer>
+                                                    <StackPanel Spacing="4" IsVisible="{Binding HasCurrentPartyChanges}">
+                                                        <TextBlock Text="Recent changes" Classes="UiLabel" />
+                                                        <ItemsControl ItemsSource="{Binding CurrentPartyChanges}">
+                                                            <ItemsControl.ItemTemplate>
+                                                                <DataTemplate x:DataType="vm:ActivityPartyChangeRow">
+                                                                    <Grid ColumnDefinitions="64,52,*,Auto" ColumnSpacing="6" Margin="0,1">
+                                                                        <TextBlock Text="{Binding TimeText}" Classes="UiLabel" VerticalAlignment="Center" />
+                                                                        <TextBlock Grid.Column="1" Text="{Binding Change}" Classes="PartyChange" Classes.Joined="{Binding Joined}" FontSize="12" VerticalAlignment="Center" />
+                                                                        <TextBlock Grid.Column="2" Text="{Binding Player}" ToolTip.Tip="{Binding PlayerDetails}" FontSize="12" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" />
+                                                                        <TextBlock Grid.Column="3" Text="{Binding PartySizeText}" Classes="UiLabel" VerticalAlignment="Center" ToolTip.Tip="Party size after the change" />
+                                                                    </Grid>
+                                                                </DataTemplate>
+                                                            </ItemsControl.ItemTemplate>
+                                                        </ItemsControl>
+                                                    </StackPanel>
+                                                    <TextBlock Text="Joins and departures are saved with the session. See History → Party for the full timeline." Classes="UiLabel" />
+                                                </StackPanel>
+                                            </Flyout>
+                                        </Button.Flyout>
+                                    </Button>
                                 </Grid>
                             </StackPanel>
                         </StackPanel>
@@ -373,6 +421,43 @@
                                     </DataGrid>
                                     <Button Grid.Row="2" Classes="UiAction UiSecondary" Content="Load more" Command="{Binding LoadMoreMapsCommand}" IsVisible="{Binding HasMoreMaps}" HorizontalAlignment="Left" />
                                 </Grid>
+                            </TabItem>
+                            <TabItem Header="Party" IsEnabled="{Binding HasDetailedHistory}">
+                                <StackPanel Spacing="12">
+                                    <TextBlock Text="No party members were recorded in this session." IsVisible="{Binding !HasPartyHistory}" Classes="UiLabel" />
+                                    <TextBlock Text="{Binding PartyHistory.SummaryText}" IsVisible="{Binding HasPartyHistory}" Classes="UiLabel" />
+                                    <DataGrid ItemsSource="{Binding PartyHistory.Members}" IsVisible="{Binding HasPartyHistory}" Height="{Binding PartyHistory.MemberCount, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="Member" Binding="{Binding Name}" Width="*" MinWidth="160" />
+                                            <DataGridTextColumn Header="Joined" Binding="{Binding JoinedText}" />
+                                            <DataGridTextColumn Header="Left" Binding="{Binding LeftText}" />
+                                            <DataGridTextColumn Header="Time in party" Binding="{Binding DurationText}" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                    <StackPanel Spacing="6" IsVisible="{Binding HasPartyChanges}">
+                                        <TextBlock Text="Changes" Classes="UiSectionTitle" />
+                                        <DataGrid ItemsSource="{Binding PartyHistory.Changes}" Height="{Binding PartyHistory.ChangeCount, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}">
+                                            <DataGrid.Columns>
+                                                <DataGridTextColumn Header="Time" Binding="{Binding TimeText}" />
+                                                <DataGridTemplateColumn Header="Change">
+                                                    <DataGridTemplateColumn.CellTemplate>
+                                                        <DataTemplate x:DataType="vm:ActivityPartyChangeRow">
+                                                            <TextBlock Text="{Binding Change}" Classes="PartyChange" Classes.Joined="{Binding Joined}" VerticalAlignment="Center" Margin="12,0" />
+                                                        </DataTemplate>
+                                                    </DataGridTemplateColumn.CellTemplate>
+                                                </DataGridTemplateColumn>
+                                                <DataGridTemplateColumn Header="Members" Width="*" MinWidth="160">
+                                                    <DataGridTemplateColumn.CellTemplate>
+                                                        <DataTemplate x:DataType="vm:ActivityPartyChangeRow">
+                                                            <TextBlock Text="{Binding Player}" ToolTip.Tip="{Binding PlayerDetails}" TextTrimming="CharacterEllipsis" VerticalAlignment="Center" Margin="12,0" />
+                                                        </DataTemplate>
+                                                    </DataGridTemplateColumn.CellTemplate>
+                                                </DataGridTemplateColumn>
+                                                <DataGridTextColumn Header="Party size" Binding="{Binding PartySizeText}" />
+                                            </DataGrid.Columns>
+                                        </DataGrid>
+                                    </StackPanel>
+                                </StackPanel>
                             </TabItem>
                         </TabControl>
                     </StackPanel>

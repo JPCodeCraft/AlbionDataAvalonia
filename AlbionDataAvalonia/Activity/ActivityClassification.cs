@@ -39,6 +39,7 @@ public static class ActivityClassification
     public const int TagVersion = 3;
     public static bool IsResource(ActivityEventKind kind) => kind is ActivityEventKind.Gathered or ActivityEventKind.FishingReward or ActivityEventKind.LegacyGatheringAggregate;
     public static bool IsItem(ActivityEventKind kind) => kind == ActivityEventKind.Loot || IsResource(kind);
+    public static bool IsParty(ActivityEventKind kind) => kind is ActivityEventKind.PartyJoined or ActivityEventKind.PartyLeft;
     public static bool IsTemporal(ActivityEventKind kind) => kind is not (ActivityEventKind.LegacyGatheringAggregate or ActivityEventKind.LegacyImportMarker);
     public static ActivityResourceMethod ResourceMethod(ActivityEvent value) => ResourceMethodValue(value);
     internal static readonly Expression<Func<ActivityEvent, ActivityResourceMethod>> ResourceMethodExpression = e =>
@@ -157,7 +158,9 @@ public static class ActivityClassification
                 e.Kind == ActivityEventKind.Silver || e.Kind == ActivityEventKind.MobKilled ||
                 e.Kind == ActivityEventKind.Death || e.Kind == ActivityEventKind.Knockdown || e.Kind == ActivityEventKind.PlayerKilled || e.Kind == ActivityEventKind.OutcomeEvidence) &&
                 (showPve && isPve || showPvp && isPvp || other && !isPve && !isPvp) ||
-            other && (e.Kind == ActivityEventKind.Location || e.Kind == ActivityEventKind.CaptureGap);
+            other && (e.Kind == ActivityEventKind.Location || e.Kind == ActivityEventKind.CaptureGap) ||
+            // Party changes explain the other activity, so every category filter keeps them.
+            e.Kind == ActivityEventKind.PartyJoined || e.Kind == ActivityEventKind.PartyLeft;
         var parameter = predicate.Parameters[0];
         var body = new ReplaceParameter(predicate.Parameters[1], new ReplaceParameter(pve.Parameters[0], parameter).Visit(pve.Body)!)
             .Visit(predicate.Body)!;

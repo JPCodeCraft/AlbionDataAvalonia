@@ -88,6 +88,7 @@ public sealed partial class ActivityTrackerService : IDisposable
         this.settings = settings;
         this.persistence = persistence;
         this.valuations = valuations;
+        partyRoster = party;
         enabled = settings.UserSettings.ActivityRecordingEnabled;
         actors = new ActivityActorContext(party, mobs);
         loot = new ActivityLootCollector(this, values, items);
@@ -290,7 +291,15 @@ public sealed partial class ActivityTrackerService : IDisposable
                 case NewRandomDungeonExitEvent entrance when HasConfirmedContext:
                     locations.Observe(entrance, map!.RawLocationId, at);
                     break;
-                case NewCharacterEvent character: actors.Character(character); break;
+                case NewCharacterEvent character:
+                    actors.Character(character);
+                    // A member first listed without a name is recorded once a nearby character names it.
+                    if (partyHasUnnamedMembers) SyncParty(at, Origin(packet, "Party"));
+                    break;
+                case PartyJoinedEvent or PartyPlayerJoinedEvent or PartyPlayerLeftEvent or PartyDisbandedEvent
+                    or PartyOnClusterPartyJoinedEvent or PartySetRoleFlagEvent:
+                    SyncParty(at, Origin(packet, "Party"));
+                    break;
                 case NewMobEvent mob when mob.ObjectId is > 0:
                     actors.Mob(mob.ObjectId.Value, mob.MobIndex, mob.CurrentHealth);
                     ResolvePendingTerminals(mob.ObjectId.Value, at);
@@ -529,6 +538,7 @@ public sealed partial class ActivityTrackerService : IDisposable
         TrackInstance(map);
         SaveHeaders();
         Persist(LocationEvent(visitStartedAt, null));
+        SyncParty(visitStartedAt, null);
     }
 
     private void TrackInstance(ActivityLocationDescriptor value)

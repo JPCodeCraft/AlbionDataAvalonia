@@ -73,6 +73,7 @@ public sealed partial class ActivityTrackerService
             headersDirty = false;
             Interlocked.Increment(ref periodContextVersion);
             Persist(LocationEvent(session.ObservationStartedAtUtc!.Value, null));
+            SyncParty(session.ObservationStartedAtUtc!.Value, null);
             SaveHeaders();
         }).ConfigureAwait(false);
         Changed?.Invoke(this, EventArgs.Empty);

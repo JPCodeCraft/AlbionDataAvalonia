@@ -159,8 +159,8 @@ public sealed class ActivitySessionRow : ObservableObject
     private IReadOnlyList<string> partyMembers = [];
     public bool NeedsParty => partySource != Source && !IsImported;
     public bool HasParty => partyMembers.Count > 0;
-    public string PartyText => HasParty ? $"Party: {ActivityDisplay.PartyNames(partyMembers)}" : "";
-    public string PartyDetailsText => HasParty ? $"Party members recorded in this session\n{string.Join("\n", partyMembers)}" : "";
+    public string PartyText => ActivityPartyText.With(partyMembers);
+    public string PartyDetailsText => HasParty ? $"Party members in this session ({partyMembers.Count:N0})\n{ActivityPartyText.Members(partyMembers)}" : "";
 
     public void SetParty(ActivitySession source, IReadOnlyList<string> members)
     {
@@ -291,6 +291,8 @@ public sealed class ActivityEventRow(ActivityEvent source)
         ActivityEventKind.Knockdown => "Knocked down",
         ActivityEventKind.Location => "Location changed",
         ActivityEventKind.LegacyImportMarker => "Imported gathering",
+        ActivityEventKind.PartyJoined => ActivityPartyDetails.Parse(source.DetailsJson) is { Roster: true } ? "In party" : "Joined party",
+        ActivityEventKind.PartyLeft => "Left party",
         _ => source.Kind.ToString()
     };
     public string Source => string.IsNullOrWhiteSpace(source.SourceName) && source.Kind is not (ActivityEventKind.Damage or ActivityEventKind.Healing or ActivityEventKind.PlayerKilled or ActivityEventKind.Death or ActivityEventKind.Knockdown)
@@ -305,6 +307,8 @@ public sealed class ActivityEventRow(ActivityEvent source)
         ActivityEventKind.Damage or ActivityEventKind.Healing or ActivityEventKind.Fame => ActivityDisplay.Number(source.Amount),
         ActivityEventKind.Silver => source.HasKnownNetSilver ? $"{source.SilverRaw / 10000d:N0} silver" : "Amount unknown",
         ActivityEventKind.Loot or ActivityEventKind.Gathered or ActivityEventKind.FishingReward or ActivityEventKind.LegacyGatheringAggregate => source.Quantity > 0 ? $"{source.Quantity:N0} × {ActivityDisplay.ItemName(source.ItemName)}" : $"Quantity unknown · {ActivityDisplay.ItemName(source.ItemName)}",
+        ActivityEventKind.PartyJoined or ActivityEventKind.PartyLeft => ActivityPartyDetails.Parse(source.DetailsJson) is { PartySize: > 0 } party
+            ? party.PartySize == 1 ? "Now solo" : $"Party size {party.PartySize:N0}" : "",
         _ => ""
     };
 }
@@ -375,8 +379,6 @@ internal static class ActivityDisplay
         var duration = TimeSpan.FromSeconds(Math.Max(0, seconds));
         return duration.TotalDays >= 1 ? $"{(int)duration.TotalDays}d {duration:hh\\:mm\\:ss}" : $"{(int)duration.TotalHours}:{duration:mm\\:ss}";
     }
-    public static string PartyNames(IReadOnlyList<string> names, int shown = 3) => names.Count <= shown
-        ? string.Join(", ", names) : $"{string.Join(", ", names.Take(shown))} +{names.Count - shown}";
     public static string Relationship(ActorRelationship value) => value switch { ActorRelationship.Self => "You", ActorRelationship.Party => "Party", ActorRelationship.Other => "Other", _ => "Unknown" };
     public static string State(ActivityState state, ActivityEndReason reason) => state == ActivityState.Open ? "Active"
         : state == ActivityState.Interrupted ? "Interrupted" : reason == ActivityEndReason.Finished ? "Finished" : "Ended";

@@ -1,7 +1,10 @@
+using AlbionDataAvalonia.Activity.Models;
 using AlbionDataAvalonia.Party;
 using AlbionDataAvalonia.Party.Models;
 using CommunityToolkit.Mvvm.ComponentModel;
 using System;
+using System.Collections.Generic;
+using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -10,15 +13,34 @@ namespace AlbionDataAvalonia.ViewModels;
 
 public partial class ActivityViewModel
 {
+    private const int PartyDetailTabIndex = 7;
+    private const int MaximumPartyChanges = 12;
     private PartyTrackerService? partyTracker;
     private LatestUiValueDispatcher<PartyTrackerSnapshot>? partySnapshots;
+    private Dictionary<Guid, string>? shownPartyMembers;
+    private Guid? shownPartyLocalGuid;
 
     [ObservableProperty] private string currentPartyText = "";
+    [ObservableProperty] private string currentPartyPreviewText = "";
+    [ObservableProperty] private string currentPartyHeaderText = "";
     [ObservableProperty] private string currentPartyDetailsText = "";
+    [ObservableProperty] private ObservableCollection<ActivityPartyMemberChip> currentPartyMembers = new();
+    [ObservableProperty] private ActivityPartyHistory partyHistory = ActivityPartyHistory.Empty;
 
+    public ObservableCollection<ActivityPartyChangeRow> CurrentPartyChanges { get; } = new();
     public bool HasCurrentParty => !string.IsNullOrEmpty(CurrentPartyText);
+    public bool HasCurrentPartyPreview => !string.IsNullOrEmpty(CurrentPartyPreviewText);
+    public bool HasCurrentPartyChanges => CurrentPartyChanges.Count > 0;
+    public bool HasPartyHistory => PartyHistory.Members.Count > 0;
+    public bool HasPartyChanges => PartyHistory.Changes.Count > 0;
 
     partial void OnCurrentPartyTextChanged(string value) => OnPropertyChanged(nameof(HasCurrentParty));
+    partial void OnCurrentPartyPreviewTextChanged(string value) => OnPropertyChanged(nameof(HasCurrentPartyPreview));
+    partial void OnPartyHistoryChanged(ActivityPartyHistory value)
+    {
+        OnPropertyChanged(nameof(HasPartyHistory));
+        OnPropertyChanged(nameof(HasPartyChanges));
+    }
 
     private void AttachPartyTracker(PartyTrackerService? party)
     {
@@ -36,17 +58,55 @@ public partial class ActivityViewModel
     {
         if (isDisposed) return;
         var local = snapshot.Members.FirstOrDefault(member => member.IsLocalPlayer);
-        var others = snapshot.Members.Where(member => !member.IsLocalPlayer)
-            .Select(member => ActivityDisplay.ActorName(member.Name)).ToArray();
-        if (local is null && others.Length == 0)
+        var others = snapshot.Members.Where(member => !member.IsLocalPlayer && member.UserGuid is not null)
+            .GroupBy(member => member.UserGuid!.Value).ToDictionary(group => group.Key, group => ActivityDisplay.ActorName(group.First().Name));
+        RecordPartyChanges(local?.UserGuid, others);
+        var names = others.Values.Order(StringComparer.OrdinalIgnoreCase).ToArray();
+        if (local is null && names.Length == 0)
         {
-            CurrentPartyText = "";
-            CurrentPartyDetailsText = "";
+            CurrentPartyText = CurrentPartyPreviewText = CurrentPartyHeaderText = CurrentPartyDetailsText = "";
+            CurrentPartyMembers = new();
             return;
         }
-        CurrentPartyText = others.Length == 0 ? "Solo" : $"Party: {ActivityDisplay.PartyNames(others)}";
-        var lines = (local is null ? others : others.Prepend($"{ActivityDisplay.ActorName(local.Name)} (you)")).ToArray();
-        CurrentPartyDetailsText = others.Length == 0 ? "Not in a party" : $"Party ({lines.Length})\n{string.Join("\n", lines)}";
+        var size = names.Length + (local is null ? 0 : 1);
+        CurrentPartyText = names.Length == 0 ? "Solo" : $"Party · {size:N0}";
+        CurrentPartyPreviewText = ActivityPartyText.Preview(names);
+        CurrentPartyHeaderText = names.Length == 0 ? "Not in a party" : $"Party · {size:N0} members";
+        CurrentPartyDetailsText = names.Length == 0 ? "Not in a party" : $"Party · {size:N0} members\n{ActivityPartyText.Members(names)}\nClick for details";
+        var chips = new List<ActivityPartyMemberChip>(size);
+        if (local is not null) chips.Add(new($"{ActivityDisplay.ActorName(local.Name)} (you)", true));
+        chips.AddRange(names.Select(name => new ActivityPartyMemberChip(name, false)));
+        if (!CurrentPartyMembers.SequenceEqual(chips)) CurrentPartyMembers = new(chips);
+    }
+
+    // The first snapshot and character switches set a baseline; later differences are changes.
+    private void RecordPartyChanges(Guid? localGuid, Dictionary<Guid, string> others)
+    {
+        var named = others.Where(x => x.Value != "Unknown").ToDictionary(x => x.Key, x => x.Value);
+        if (shownPartyMembers is null || shownPartyLocalGuid != localGuid)
+        {
+            shownPartyMembers = named;
+            shownPartyLocalGuid = localGuid;
+            return;
+        }
+        var now = DateTime.UtcNow;
+        var size = (localGuid is null ? 0 : 1) + others.Count;
+        AddPartyChange(now, false, shownPartyMembers.Where(x => !named.ContainsKey(x.Key)).Select(x => x.Value), size);
+        AddPartyChange(now, true, named.Where(x => !shownPartyMembers.ContainsKey(x.Key)).Select(x => x.Value), size);
+        while (CurrentPartyChanges.Count > MaximumPartyChanges) CurrentPartyChanges.RemoveAt(CurrentPartyChanges.Count - 1);
+        shownPartyMembers = named;
+        OnPropertyChanged(nameof(HasCurrentPartyChanges));
+    }
+
+    // A large party arrives as a burst of roster updates; nearby changes of one kind share a row.
+    private void AddPartyChange(DateTime at, bool joined, IEnumerable<string> players, int size)
+    {
+        var names = players.Order(StringComparer.OrdinalIgnoreCase).ToArray();
+        if (names.Length == 0) return;
+        if (CurrentPartyChanges.Count > 0 && CurrentPartyChanges[0] is { } latest && latest.Joined == joined &&
+            at - latest.AtUtc <= ActivityPartyChangeRow.MergeWindow)
+            CurrentPartyChanges[0] = latest with { Players = latest.Players.Concat(names).ToArray(), PartySize = size };
+        else CurrentPartyChanges.Insert(0, new(at, joined, names, size));
     }
 
     // Party members are derived from the session's recorded events, so they stay accurate
@@ -62,6 +122,15 @@ public partial class ActivityViewModel
         foreach (var row in Sessions)
             if (requested.TryGetValue(row.Id, out var source))
                 row.SetParty(source, members.TryGetValue(row.Id, out var names) ? names : []);
+    }
+
+    private async Task LoadPartyHistoryAsync(long version, ActivitySession session, CancellationToken cancellationToken)
+    {
+        if (persistence is null) return;
+        var events = await persistence.GetPartyEventsAsync(session.Id, cancellationToken);
+        var members = await persistence.GetSessionPartyMembersAsync([session.Id], cancellationToken);
+        if (!IsCurrentDetail(version, session.Id) || SelectedDetailTabIndex != PartyDetailTabIndex) return;
+        PartyHistory = ActivityPartyHistory.Build(events, session, members.TryGetValue(session.Id, out var names) ? names : [], DateTime.UtcNow);
     }
 
     private void DisposeParty()

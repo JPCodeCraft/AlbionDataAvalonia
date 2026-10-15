@@ -7,7 +7,7 @@ using System.Text.Json;
 
 namespace AlbionDataAvalonia.Activity;
 
-public enum ActivityLiveTimelineMarkerKind { MobKill, PlayerKill, Death, Knockdown, Loot, Fame, Silver, Gathering, Fishing, Overflow }
+public enum ActivityLiveTimelineMarkerKind { MobKill, PlayerKill, Death, Knockdown, Loot, Fame, Silver, Gathering, Fishing, Party, Overflow }
 public enum ActivityTimelineChartMode { Combat, Gathering, Fame }
 
 /// <summary>Per-second rates over the snapshot's sample interval, including each fame category once.</summary>
@@ -17,7 +17,7 @@ public sealed record ActivityLiveTimelineSample(DateTime CapturedAtUtc, double D
 public sealed record ActivityLiveTimelineMarker(string Id, ActivityLiveTimelineMarkerKind Kind,
     DateTime CapturedAtUtc, string Label, string Detail, IReadOnlyList<Guid> EventIds, Guid? EncounterId,
     double Amount = 0, bool HasUnknownAmount = false, string ValueText = "", ActivityLiveTimelineTooltip? Tooltip = null,
-    DateTime? EndedAtUtc = null);
+    DateTime? EndedAtUtc = null, double SecondaryAmount = 0);
 public sealed record ActivityLiveTimelineTooltip(string Title, string TimeText, string ContextText, IReadOnlyList<string> Lines);
 // Summary holds the encounter's saved totals for the snapshot scope; null when the chart follows one player.
 public sealed record ActivityLiveTimelineEncounter(Guid Id, int Number, DateTime StartedAtUtc,
@@ -52,6 +52,13 @@ internal static class ActivityLiveTimeline
         foreach (var observation in events.OrderBy(x => x.CapturedAtUtc).ThenBy(x => x.CaptureOrder))
         {
             if (!ActivityClassification.IsTemporal(observation.Kind)) continue;
+            if (ActivityClassification.IsParty(observation.Kind))
+            {
+                // The roster journaled when a session opens is context, not a change.
+                if (ActivityPartyDetails.Parse(observation.DetailsJson) is not { Roster: true })
+                    candidates.Add((observation, ActivityLiveTimelineMarkerKind.Party));
+                continue;
+            }
             var amount = contribution(observation);
             if (amount.MobKills > 0) candidates.Add((observation, ActivityLiveTimelineMarkerKind.MobKill));
             if (amount.PlayerKills > 0) candidates.Add((observation, ActivityLiveTimelineMarkerKind.PlayerKill));
@@ -71,8 +78,9 @@ internal static class ActivityLiveTimeline
         {
             var value = candidate.Event;
             var critical = candidate.Kind is ActivityLiveTimelineMarkerKind.PlayerKill or ActivityLiveTimelineMarkerKind.Death or ActivityLiveTimelineMarkerKind.Knockdown;
+            // A large party joining at once shares one marker, like a burst of mob kills.
             var key = (candidate.Kind, value.SessionId, value.EncounterId, value.CaptureGeneration, value.MapEpoch,
-                candidate.Kind == ActivityLiveTimelineMarkerKind.MobKill ? "" : value.SourceActorId ?? value.SourceName,
+                candidate.Kind is ActivityLiveTimelineMarkerKind.MobKill or ActivityLiveTimelineMarkerKind.Party ? "" : value.SourceActorId ?? value.SourceName,
                 candidate.Kind == ActivityLiveTimelineMarkerKind.Loot ? LootSourceKey(value) : "",
                 candidate.Kind == ActivityLiveTimelineMarkerKind.Fame ? ActivityClassification.GetFameCategory(value) : ActivityFameCategory.Unknown);
             if (!critical && recent.TryGetValue(key, out var index) &&
@@ -96,6 +104,7 @@ internal static class ActivityLiveTimeline
         var first = group[0].Event;
         var kind = group[0].Kind;
         var events = group.Select(x => x.Event).ToArray();
+        if (kind == ActivityLiveTimelineMarkerKind.Party) return PartyMarker(events);
         var summary = events.Aggregate(new ActivitySummary(), (sum, value) => ActivityProjection.Add(sum, contribution(value)));
         var label = kind switch
         {
@@ -168,6 +177,38 @@ internal static class ActivityLiveTimeline
             events.Select(x => x.Id).Distinct().Take(250).ToArray(), first.EncounterId, amount, unknown, valueText, tooltip, events[^1].CapturedAtUtc);
     }
 
+    private static ActivityLiveTimelineMarker PartyMarker(ActivityEvent[] events)
+    {
+        var first = events[0];
+        var joined = events.Where(x => x.Kind == ActivityEventKind.PartyJoined).Select(x => Actor(x.SourceName)).ToArray();
+        var left = events.Where(x => x.Kind == ActivityEventKind.PartyLeft).Select(x => Actor(x.SourceName)).ToArray();
+        var lines = new List<string>();
+        if (joined.Length > 0) lines.Add("Joined: " + Names(joined));
+        if (left.Length > 0) lines.Add("Left: " + Names(left));
+        if (ActivityPartyDetails.Parse(events[^1].DetailsJson) is { PartySize: > 0 } details)
+            lines.Add(details.PartySize == 1 ? "Now solo" : $"Party size: {details.PartySize:N0}");
+        var title = joined.Length > 0 && left.Length > 0 ? "Party changed"
+            : joined.Length > 0 ? joined.Length == 1 ? "Player joined the party" : $"{joined.Length:N0} players joined the party"
+            : left.Length == 1 ? "Player left the party" : $"{left.Length:N0} players left the party";
+        var time = first.CapturedAtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture);
+        if (events[^1].CapturedAtUtc > first.CapturedAtUtc)
+            time += " – " + events[^1].CapturedAtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture);
+        var tooltip = new ActivityLiveTimelineTooltip(title, time, first.LocationName, lines);
+        return new($"{ActivityLiveTimelineMarkerKind.Party}:{first.Id:N}", ActivityLiveTimelineMarkerKind.Party, first.CapturedAtUtc,
+            "Party changed", time + "\n" + first.LocationName + "\n" + string.Join("\n", lines),
+            events.Select(x => x.Id).Distinct().Take(250).ToArray(), null, joined.Length, false, PartyValue(joined.Length, left.Length),
+            tooltip, events[^1].CapturedAtUtc, left.Length);
+
+        static string Names(string[] names) => names.Length <= 5 ? string.Join(", ", names)
+            : string.Join(", ", names.Take(5)) + $" +{names.Length - 5:N0} more";
+    }
+
+    private static string PartyValue(double joined, double left) => string.Join(" ", new[]
+    {
+        joined > 0 ? "+" + joined.ToString("N0", CultureInfo.CurrentCulture) : null,
+        left > 0 ? "−" + left.ToString("N0", CultureInfo.CurrentCulture) : null
+    }.Where(x => x is not null));
+
     // Display grouping adapts to the chart's width, independently of event/encounter accounting.
     // Anchor each group at its first marker so a continuous stream cannot chain into one large badge.
     internal static IReadOnlyList<ActivityLiveTimelineMarker> GroupMarkers(IReadOnlyList<ActivityLiveTimelineMarker> markers,
@@ -196,16 +237,18 @@ internal static class ActivityLiveTimeline
     private static ActivityLiveTimelineMarker CombineMarkers(IReadOnlyList<ActivityLiveTimelineMarker> group)
     {
         var first = group[0];
+        var party = first.Kind == ActivityLiveTimelineMarkerKind.Party;
         var end = group.Max(marker => marker.EndedAtUtc ?? marker.CapturedAtUtc);
         var amount = group.Sum(marker => marker.Amount);
+        var secondary = group.Sum(marker => marker.SecondaryAmount);
         var unknown = group.Any(marker => marker.HasUnknownAmount);
         var time = first.CapturedAtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture);
         if (end > first.CapturedAtUtc) time += " – " + end.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture);
-        var title = first.Label + " · " + amount.ToString("N0", CultureInfo.CurrentCulture) + (unknown ? " + ?" : "");
+        var title = first.Label + " · " + (party ? PartyValue(amount, secondary) : amount.ToString("N0", CultureInfo.CurrentCulture) + (unknown ? " + ?" : ""));
         // Keep constituent ranges and totals: their existing item/mob breakdowns may already be truncated.
         var lines = group.Take(4).Select(marker =>
             (marker.Tooltip?.TimeText ?? marker.CapturedAtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture)) +
-            " · " + marker.Amount.ToString("N0", CultureInfo.CurrentCulture) + (marker.HasUnknownAmount ? " + ?" : "") +
+            " · " + (party ? marker.ValueText : marker.Amount.ToString("N0", CultureInfo.CurrentCulture) + (marker.HasUnknownAmount ? " + ?" : "")) +
             (marker.Kind is ActivityLiveTimelineMarkerKind.Loot or ActivityLiveTimelineMarkerKind.Gathering or ActivityLiveTimelineMarkerKind.Fishing
                 ? " items" : marker.Kind == ActivityLiveTimelineMarkerKind.MobKill ? " kills" : "")).ToList();
         if (group.Count > 4) lines.Add($"+{group.Count - 4:N0} more groups");
@@ -213,8 +256,9 @@ internal static class ActivityLiveTimeline
         return first with
         {
             Amount = amount,
+            SecondaryAmount = secondary,
             HasUnknownAmount = unknown,
-            ValueText = MarkerValue(amount, unknown),
+            ValueText = party ? PartyValue(amount, secondary) : MarkerValue(amount, unknown),
             EndedAtUtc = end,
             EventIds = group.SelectMany(marker => marker.EventIds).Distinct().ToArray(),
             EncounterId = group.All(marker => marker.EncounterId == first.EncounterId) ? first.EncounterId : null,

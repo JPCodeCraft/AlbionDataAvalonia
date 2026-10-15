@@ -30,6 +30,12 @@ internal static class ActivityPacketSubscriptions
         Event<KnockedDownEvent>(builder, EventCodes.KnockedDown, activity);
         Event<KilledPlayerEvent>(builder, EventCodes.KilledPlayer, activity);
         Event<PartySilverGainedEvent>(builder, EventCodes.PartySilverGained, activity);
+        Event<PartyJoinedEvent>(builder, EventCodes.PartyJoined, activity);
+        Event<PartyPlayerJoinedEvent>(builder, EventCodes.PartyPlayerJoined, activity);
+        Event<PartyPlayerLeftEvent>(builder, EventCodes.PartyPlayerLeft, activity);
+        Event<PartyDisbandedEvent>(builder, EventCodes.PartyDisbanded, activity);
+        Event<PartyOnClusterPartyJoinedEvent>(builder, EventCodes.PartyOnClusterPartyJoined, activity);
+        Event<PartySetRoleFlagEvent>(builder, EventCodes.PartySetRoleFlag, activity);
         Event<NewLootEvent>(builder, EventCodes.NewLoot, activity);
         Event<NewLootChestEvent>(builder, EventCodes.NewLootChest, activity);
         Event<UpdateLootChestEvent>(builder, EventCodes.UpdateLootChest, activity);

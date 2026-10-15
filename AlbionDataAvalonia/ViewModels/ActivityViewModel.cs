@@ -492,6 +492,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         }
         else if (detailTab == 4) await LoadSessionLootAsync(false, version, true);
         else if (detailTab == 5) await LoadTimelineAsync(false, version, true);
+        else if (detailTab == PartyDetailTabIndex) await LoadPartyHistoryAsync(version, selected, cancellationToken);
         if (IsCurrentDetail(version, sessionId) && DetailQuery() == query && SelectedDetailTabIndex == detailTab)
             detailReadVersion = dataVersion;
     }

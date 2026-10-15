@@ -86,6 +86,8 @@ public sealed partial class ActivityPersistence
     }
     public Task<IReadOnlyList<ActivityActorTotal>> GetPlayersAsync(ActivityQuery filter, CancellationToken cancellationToken = default) =>
         ReadAsync(ct => GetPlayersCoreAsync(filter, ct), cancellationToken);
+    internal Task<IReadOnlyList<ActivityEvent>> GetPartyEventsAsync(Guid sessionId, CancellationToken cancellationToken = default) =>
+        ReadAsync(ct => GetPartyEventsCoreAsync(sessionId, ct), cancellationToken);
     internal Task<IReadOnlyDictionary<Guid, IReadOnlyList<string>>> GetSessionPartyMembersAsync(IEnumerable<Guid> sessionIds, CancellationToken cancellationToken = default)
     {
         var requested = sessionIds.Distinct().Select(id => (Guid?)id).ToArray();

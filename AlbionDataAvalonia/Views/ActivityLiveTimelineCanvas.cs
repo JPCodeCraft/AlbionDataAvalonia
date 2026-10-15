@@ -526,7 +526,7 @@ internal sealed class ActivityLiveTimelineCanvas : Control
         ActivityLiveTimelineMarkerKind.PlayerKill => 6,
         ActivityLiveTimelineMarkerKind.Knockdown => 5,
         ActivityLiveTimelineMarkerKind.Loot or ActivityLiveTimelineMarkerKind.Gathering or ActivityLiveTimelineMarkerKind.Fishing => 4,
-        ActivityLiveTimelineMarkerKind.MobKill => 3,
+        ActivityLiveTimelineMarkerKind.MobKill or ActivityLiveTimelineMarkerKind.Party => 3,
         ActivityLiveTimelineMarkerKind.Fame => 2,
         _ => 1
     };
@@ -539,6 +539,7 @@ internal sealed class ActivityLiveTimelineCanvas : Control
         ActivityLiveTimelineMarkerKind.Fishing => FishingColor,
         ActivityLiveTimelineMarkerKind.Fame => Color.Parse("#86D1A2"),
         ActivityLiveTimelineMarkerKind.Silver => Color.Parse("#E7BD64"),
+        ActivityLiveTimelineMarkerKind.Party => Color.Parse("#8FA8F5"),
         _ => Color.Parse("#64CBDD")
     };
     private static void DrawIcon(DrawingContext context, ActivityLiveTimelineMarkerKind kind, Point center, Color color)
@@ -586,6 +587,16 @@ internal sealed class ActivityLiveTimelineCanvas : Control
                 context.DrawEllipse(brush, null, center + new Vector(-2, -2), 0.8, 0.8);
                 context.DrawEllipse(brush, null, center + new Vector(2, -2), 0.8, 0.8);
                 context.DrawLine(pen, center + new Vector(0, 2), center + new Vector(0, 5));
+                break;
+            case ActivityLiveTimelineMarkerKind.Party:
+                // Two heads and shoulders.
+                context.DrawEllipse(null, pen, center + new Vector(-2.5, -2.5), 2, 2);
+                context.DrawEllipse(null, pen, center + new Vector(3, -3), 1.8, 1.8);
+                context.DrawLine(pen, center + new Vector(-6, 5), center + new Vector(-5, 1.5));
+                context.DrawLine(pen, center + new Vector(-5, 1.5), center + new Vector(0, 1.5));
+                context.DrawLine(pen, center + new Vector(0, 1.5), center + new Vector(1, 5));
+                context.DrawLine(pen, center + new Vector(1.5, 0.5), center + new Vector(5, 0.5));
+                context.DrawLine(pen, center + new Vector(5, 0.5), center + new Vector(6, 4));
                 break;
             case ActivityLiveTimelineMarkerKind.Fame:
                 context.DrawLine(pen, center + new Vector(-5, 0), center + new Vector(5, 0));
