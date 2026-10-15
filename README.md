@@ -310,6 +310,8 @@ After switching branches or pulling a change to the submodule pointer, run `git 
 
 `DesktopClientCore` explicitly enables market orders (including loadouts), market history, specs, EMV, islands, gold, and world events. It adapts desktop settings, account credentials, and upload statistics to the shared runtime. Activity, party, awakened items, market mail, and trade history remain desktop services and subscribe after shared packet processing. Capture drivers, database schemas, installers, and UI stay in the desktop repository.
 
+The app embeds gzipped base copies of its reference data (items, locations, achievements, mobs and awakened-item data) from `AlbionDataAvalonia/ReferenceData`. They are used only when a file cannot be downloaded and has no validated disk cache yet, such as a first start without access to the CDN. Run `AlbionDataAvalonia/ReferenceData/update.sh` before a release to refresh them from the CDN.
+
 Shared-library integration validation includes building the desktop solution and running the PoW correctness tests. Manual checks cover ordinary and loadout market routing, gold and bandit uploads during Private Mode, authenticated specs/EMV/world events, local tracker updates, account/server changes, and island collection, failed actions, offline retry, and restart recovery. Cross-platform capture and UI checks require the corresponding operating systems; builds alone do not validate live game traffic.
 
 ## Private Mode and sharing

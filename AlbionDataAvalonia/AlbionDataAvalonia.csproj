@@ -75,6 +75,9 @@
 		</None>
 	</ItemGroup>
 	<ItemGroup>
+		<EmbeddedResource Include="ReferenceData\*.gz" LogicalName="ReferenceData.%(Filename)%(Extension)" />
+	</ItemGroup>
+	<ItemGroup>
 		<Folder Include="Themes\" />
 	</ItemGroup>
 	<ItemGroup>

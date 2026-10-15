@@ -28,6 +28,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
+using System.IO.Compression;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
@@ -151,6 +152,7 @@ public partial class App : Application
             ReferenceDataSecondRetryDelaySeconds = settings.AppSettings.ReferenceDataSecondRetryDelaySeconds,
             ReferenceDataRequestTimeoutSeconds = settings.AppSettings.ReferenceDataRequestTimeoutSeconds
         });
+        ReferenceDataLoader.Shared.ConfigureBundled(OpenBundledReferenceData);
 
         //GETTING SERVICES
         var listener = services.GetRequiredService<NetworkListenerService>();
@@ -501,6 +503,13 @@ public partial class App : Application
         {
             currentProcess.Kill();
         }
+    }
+
+    // Base copies shipped with the app for a first load that cannot download or use a cache.
+    private static Stream? OpenBundledReferenceData(string fileName)
+    {
+        var stream = typeof(App).Assembly.GetManifestResourceStream($"ReferenceData.{fileName}.gz");
+        return stream is null ? null : new GZipStream(stream, CompressionMode.Decompress);
     }
 }
 
