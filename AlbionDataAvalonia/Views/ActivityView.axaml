@@ -189,6 +189,11 @@
                                                 </DataTemplate>
                                             </DataGridTemplateColumn.CellTemplate>
                                         </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="Guild" Binding="{Binding Guild}" />
+                                        <DataGridTextColumn Header="Alliance" Binding="{Binding Alliance}" />
+                                        <DataGridTextColumn Header="Source" Binding="{Binding Source}" />
+                                        <DataGridTextColumn Header="Source guild" Binding="{Binding LootSourceGuild}" />
+                                        <DataGridTextColumn Header="Source alliance" Binding="{Binding LootSourceAlliance}" />
                                     </DataGrid.Columns>
                                 </DataGrid>
                                 <WrapPanel Margin="4,0,4,6" IsVisible="{Binding HasCurrentLoot}">
@@ -322,7 +327,11 @@
                                             <DataGridTextColumn Header="Quantity" Binding="{Binding AmountText}" />
                                             <DataGridTextColumn Header="Estimated value" Binding="{Binding ValueText}" />
                                             <DataGridTemplateColumn Header="Recipient" MinWidth="110"><DataGridTemplateColumn.CellTemplate><DataTemplate x:DataType="vm:ActivityLootRow"><TextBlock Text="{Binding Recipient}" ToolTip.Tip="{Binding RecipientDetails}" VerticalAlignment="Center" /></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+                                            <DataGridTextColumn Header="Guild" Binding="{Binding Guild}" />
+                                            <DataGridTextColumn Header="Alliance" Binding="{Binding Alliance}" />
                                             <DataGridTextColumn Header="Source" Binding="{Binding Source}" />
+                                            <DataGridTextColumn Header="Source guild" Binding="{Binding LootSourceGuild}" />
+                                            <DataGridTextColumn Header="Source alliance" Binding="{Binding LootSourceAlliance}" />
                                             <DataGridTextColumn Header="Location" Binding="{Binding Location}" />
                                         </DataGrid.Columns>
                                     </DataGrid>
@@ -409,7 +418,11 @@
                             <DataGridTextColumn Header="Quantity" Binding="{Binding AmountText}" />
                             <DataGridTextColumn Header="Estimated value" Binding="{Binding ValueText}" />
                             <DataGridTemplateColumn Header="Recipient" MinWidth="130"><DataGridTemplateColumn.CellTemplate><DataTemplate x:DataType="vm:ActivityLootRow"><TextBlock Text="{Binding Recipient}" ToolTip.Tip="{Binding RecipientDetails}" VerticalAlignment="Center" /></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
+                            <DataGridTextColumn Header="Guild" Binding="{Binding Guild}" />
+                            <DataGridTextColumn Header="Alliance" Binding="{Binding Alliance}" />
                             <DataGridTextColumn Header="Source" Binding="{Binding Source}" />
+                            <DataGridTextColumn Header="Source guild" Binding="{Binding LootSourceGuild}" />
+                            <DataGridTextColumn Header="Source alliance" Binding="{Binding LootSourceAlliance}" />
                             <DataGridTemplateColumn Header="Location" MinWidth="140"><DataGridTemplateColumn.CellTemplate><DataTemplate x:DataType="vm:ActivityLootRow"><TextBlock Text="{Binding Location}" ToolTip.Tip="{Binding ContextDetails}" VerticalAlignment="Center" /></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                         </DataGrid.Columns>
                     </DataGrid>

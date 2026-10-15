@@ -223,6 +223,9 @@ public sealed class ActivityLootRow(ActivityEvent source)
     public string Recipient => ActivityDisplay.ActorName(source.SourceName, source.SourceKind);
     public string Guild => source.SourceGuild;
     public string Alliance => source.SourceAlliance;
+    // Target affiliation is the looted player's when the loot came from a player.
+    public string LootSourceGuild => source.TargetGuild;
+    public string LootSourceAlliance => source.TargetAlliance;
     public string Relationship => ActivityDisplay.Relationship(source.SourceRelationship);
     public string ItemUniqueName => source.ItemUniqueName ?? "";
     public string ItemName => ActivityDisplay.ItemName(source.ItemName);

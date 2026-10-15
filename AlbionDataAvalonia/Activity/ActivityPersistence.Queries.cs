@@ -391,7 +391,8 @@ public sealed partial class ActivityPersistence
         if (!string.IsNullOrWhiteSpace(filter.Search))
             query = query.Where(x => x.SourceName.Contains(filter.Search) || x.TargetName.Contains(filter.Search) ||
                 x.ItemName.Contains(filter.Search) || (x.ItemUniqueName != null && x.ItemUniqueName.Contains(filter.Search)) ||
-                x.LootSourceName.Contains(filter.Search) || x.SourceGuild.Contains(filter.Search) || x.SourceAlliance.Contains(filter.Search));
+                x.LootSourceName.Contains(filter.Search) || x.SourceGuild.Contains(filter.Search) || x.SourceAlliance.Contains(filter.Search) ||
+                x.TargetGuild.Contains(filter.Search) || x.TargetAlliance.Contains(filter.Search));
         if (filter.Scope == ActivityScope.Personal)
             query = query.Where(x => x.SourceRelationship == ActorRelationship.Self || x.TargetRelationship == ActorRelationship.Self ||
                 (x.Kind == ActivityEventKind.MobKilled && x.ParticipatedSelf) || x.Kind == ActivityEventKind.Location || x.Kind == ActivityEventKind.CaptureGap);
