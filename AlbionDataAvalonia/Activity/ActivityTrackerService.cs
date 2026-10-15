@@ -138,7 +138,7 @@ public sealed partial class ActivityTrackerService : IDisposable
         {
             if (enabled == value) return;
             // Pickups already proven before recording stops still belong to the closing session.
-            if (!value) loot.ResolvePending(DateTime.UtcNow);
+            if (!value) ResolvePending(DateTime.UtcNow);
             enabled = value;
             if (value && map is not null) { mapEnteredAt = DateTime.UtcNow; partialEntry = true; }
             if (!value) CloseSession(DateTime.UtcNow, ActivityEndReason.Disabled);
@@ -159,7 +159,7 @@ public sealed partial class ActivityTrackerService : IDisposable
         lock (sync)
         {
             if (expectedSessionId is { } expected && session?.Id != expected) return;
-            loot.ResolvePending(DateTime.UtcNow);
+            ResolvePending(DateTime.UtcNow);
             CloseSession(DateTime.UtcNow, ActivityEndReason.Finished);
             resumable = null;
             loot.ResetCandidates();
@@ -197,7 +197,7 @@ public sealed partial class ActivityTrackerService : IDisposable
 
     private void Suspend(DateTime at)
     {
-        loot.ResolvePending(at);
+        ResolvePending(at);
         ClearPendingActorMetadata();
         timedOutEncounter = null;
         if (!awaitingContext && enabled && session is not null)
@@ -334,13 +334,19 @@ public sealed partial class ActivityTrackerService : IDisposable
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
+    private void ResolvePending(DateTime at)
+    {
+        loot.ResolvePending(at);
+        gathering.ResolvePending(at);
+    }
+
     private bool HasConfirmedContext => !captureSuspended && !awaitingContext && map is not null && actors.HasIdentity;
     private bool CanRecord => enabled && !storageSuspended && HasConfirmedContext;
 
     private void Join(JoinResponse packet, DateTime at)
     {
-        // Pickups waiting on their correlation window belong to the map being left.
-        loot.ResolvePending(at);
+        // Pickups and catches waiting on their correlation window belong to the map being left.
+        ResolvePending(at);
         var next = packet.ActivityLocation;
         var previous = map;
         var nextServer = player.AlbionServer?.Id;
@@ -671,9 +677,8 @@ public sealed partial class ActivityTrackerService : IDisposable
         if (!Tracked(picker) || value.GrossRaw is null) return;
         EnsureSession(at);
         TouchRelevant(at);
-        var netKnown = value.NetRaw is not null && (picker.Relationship == ActorRelationship.Self
-            || value.ClusterTaxState == PacketFieldState.Valid && value.GuildTaxState == PacketFieldState.Valid
-                && value.AlliancePenaltyState == PacketFieldState.Valid);
+        // Omitted taxes mean no tax for every tracked picker, as for the local player.
+        var netKnown = value.NetRaw is not null;
         Persist(WithSource(Stamp(ActivityEventKind.Silver, at, Origin(value, "Silver")), picker) with
         {
             GameTimestamp = value.TimeStamp,
@@ -1004,10 +1009,13 @@ public sealed partial class ActivityTrackerService : IDisposable
             CloseSession(session.LastRelevantAtUtc + SessionIdle, ActivityEndReason.Inactivity);
         if (!reentryConfirmed && resumable?.ClosedAtUtc is { } exited && at - exited > ReentryGrace) resumable = null;
         pendingTerminals.RemoveAll(x => x.ExpiresAt < at);
-        gathering.Expire(at);
-        // Loot correlations follow the captured timeline. A wall-clock tick during delayed
-        // processing would resolve a pickup before its later packets are observed.
-        if (!fromTimer) loot.Expire(at);
+        // Loot and fishing correlations follow the captured timeline. A wall-clock tick during
+        // delayed processing would settle them before their later packets are observed.
+        if (!fromTimer)
+        {
+            gathering.Expire(at);
+            loot.Expire(at);
+        }
         // Combat/fishing deadlines stay exact; broad map-cache maintenance does
         // not need to scan every entity again for each incoming packet.
         if (at - lastCacheSweep < TimeSpan.FromSeconds(1)) return;
@@ -1221,7 +1229,13 @@ public sealed partial class ActivityTrackerService : IDisposable
 
     public async Task StopAsync(CancellationToken cancellationToken = default)
     {
-        lock (sync) { gathering.Reset(); CloseSession(DateTime.UtcNow, ActivityEndReason.Interrupted); captureSuspended = true; }
+        lock (sync)
+        {
+            ResolvePending(DateTime.UtcNow);
+            gathering.Reset();
+            CloseSession(DateTime.UtcNow, ActivityEndReason.Interrupted);
+            captureSuspended = true;
+        }
         await persistence.FlushAsync(cancellationToken).ConfigureAwait(false);
     }
 

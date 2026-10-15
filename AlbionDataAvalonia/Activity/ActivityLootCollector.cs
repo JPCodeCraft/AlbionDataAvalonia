@@ -309,9 +309,12 @@ internal sealed class ActivityLootCollector : IDisposable
     private Item ItemSnapshot(long objectId, DateTime at) => GetItem(objectId, at)
         ?? new Item(objectId, 0, null, 0, null, null, at, DateTime.MinValue);
 
-    // Lookups enforce the original TTL even between broad maintenance sweeps.
+    // Lookups enforce the original TTL even between broad maintenance sweeps. Stacks in the
+    // main inventory stay known, so a later merge into an old stack is still seen as a gain.
     private Item? GetItem(long objectId, DateTime at) => items.TryGetValue(objectId, out var item)
-        && at - item.LastSeen <= MetadataLifetime ? item : null;
+        && (at - item.LastSeen <= MetadataLifetime || InMainInventory(objectId)) ? item : null;
+    private bool InMainInventory(long objectId) => inventory is { } main
+        && membership.TryGetValue(objectId, out var bound) && bound == main;
     private bool TryContainer(Guid id, DateTime at, out Container container) => containers.TryGetValue(id, out container!)
         && at - container.LastSeen <= MetadataLifetime;
     private bool TrySource(long id, DateTime at, out Source source) => sources.TryGetValue(id, out source!)
@@ -930,7 +933,8 @@ internal sealed class ActivityLootCollector : IDisposable
         foreach (var key in pendingInventoryMetadata.Where(x => at - x.Value.LastSeen > TimeSpan.FromSeconds(10))
             .Select(x => x.Key).ToArray()) pendingInventoryMetadata.Remove(key);
         recent.RemoveAll(x => at - x.At > TimeSpan.FromMinutes(2));
-        foreach (var key in items.Where(x => at - x.Value.LastSeen > MetadataLifetime).Select(x => x.Key).ToArray()) items.Remove(key);
+        foreach (var key in items.Where(x => at - x.Value.LastSeen > MetadataLifetime && !InMainInventory(x.Key))
+            .Select(x => x.Key).ToArray()) items.Remove(key);
         foreach (var key in containers.Where(x => at - x.Value.LastSeen > MetadataLifetime).Select(x => x.Key).ToArray()) containers.Remove(key);
         foreach (var key in sources.Where(x => at - x.Value.LastSeen > MetadataLifetime).Select(x => x.Key).ToArray()) sources.Remove(key);
         foreach (var key in membership.Where(x => x.Value != inventory && !containers.ContainsKey(x.Value))

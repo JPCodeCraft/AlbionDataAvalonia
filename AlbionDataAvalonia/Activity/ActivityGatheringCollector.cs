@@ -102,6 +102,7 @@ internal sealed class ActivityGatheringCollector
                 }
                 break;
             case FishingCancelRequest:
+                ResolvePending(at);
                 Reset();
                 break;
             case FishingFinishRequest finish when fishing is { } attempt:
@@ -116,6 +117,7 @@ internal sealed class ActivityGatheringCollector
                 else attempt.CompletedAt = at;
                 break;
             case InventoryMoveItemRequest or InventoryMoveGivenItemsRequest:
+                ResolvePending(at);
                 Reset();
                 break;
         }
@@ -124,12 +126,26 @@ internal sealed class ActivityGatheringCollector
     public void Expire(DateTime at)
     {
         if (fishing is not { } attempt) return;
-        if (!tracker.HasContext || tracker.MapEpoch != attempt.MapEpoch || tracker.LocalActor.Id != attempt.Actor.Id
-            || at - attempt.StartedAt > AttemptLifetime)
+        if (!tracker.HasContext || tracker.MapEpoch != attempt.MapEpoch || tracker.LocalActor.Id != attempt.Actor.Id)
         { Reset(); return; }
-        if (attempt.CompletedAt is not { } completed || at <= completed + CompletionGrace) return;
+        // A completed catch is settled even when its attempt outlived the lifetime of an unfinished one.
+        if (attempt.CompletedAt is { } completed)
+        {
+            if (at <= completed + CompletionGrace) return;
+            Reset();
+            Finalize(attempt, completed + CompletionGrace);
+            return;
+        }
+        if (at - attempt.StartedAt > AttemptLifetime) Reset();
+    }
+
+    // Cancel, inventory work, map changes and stopping end the attempt, but a catch the
+    // server already completed is kept with the rewards and gains observed so far.
+    internal void ResolvePending(DateTime at)
+    {
+        if (fishing is not { CompletedAt: { } completed } attempt || at < completed) return;
         Reset();
-        Finalize(attempt, completed + CompletionGrace);
+        Finalize(attempt, at < completed + CompletionGrace ? at : completed + CompletionGrace);
     }
 
     private void Finalize(FishingAttempt attempt, DateTime cutoff)
@@ -186,7 +202,11 @@ internal sealed class ActivityGatheringCollector
 
     public void Reset() => fishing = null;
     public void InventoryIntent(DateTime at)
-    { if (fishing is { } attempt && at >= attempt.StartedAt) Reset(); }
+    {
+        if (fishing is not { } attempt || at < attempt.StartedAt) return;
+        ResolvePending(at);
+        Reset();
+    }
 
     private sealed class FishingAttempt(string id, long rodObjectId, DateTime startedAt, ActivityActor actor, long mapEpoch)
     {
