@@ -33,7 +33,8 @@ internal sealed class ActivityActorContext(PartyTrackerService party, MobsServic
     public int? ServerId => serverId;
     public string CharacterId => characterId?.ToString() ?? "";
     public string CharacterName => localName;
-    public bool HasIdentity => serverId is > 0 && localObjectId is > 0 && localName.Length > 0;
+    // Server 0 records activity whose server IP is not recognised.
+    public bool HasIdentity => serverId is >= 0 && localObjectId is > 0 && localName.Length > 0;
 
     public void Join(JoinResponse packet, int? server, long mapEpoch)
     {
@@ -156,10 +157,19 @@ internal sealed class ActivityActorContext(PartyTrackerService party, MobsServic
 
     public void Expire(DateTime at)
     {
+        // Dead players stay bound until they leave: they can respawn or be revived in place.
         foreach (var id in entities.Where(x => x.Key != localObjectId &&
             (x.Value.LeftAt is { } left && at - left > BindingGrace ||
-             x.Value.TerminalAt is { } terminal && at - terminal > BindingGrace))
+             x.Value.Kind != ActivityActorKind.Player && x.Value.TerminalAt is { } terminal && at - terminal > BindingGrace))
             .Select(x => x.Key).ToArray()) entities.Remove(id);
+    }
+
+    public void Revive(long? objectId)
+    {
+        if (objectId is not { } id || !entities.TryGetValue(id, out var entity)
+            || entity.Kind != ActivityActorKind.Player || !entity.Terminal) return;
+        entities[id] = entity with { Terminal = false, TerminalAt = null };
+        terminals.Remove(id);
     }
 
     public ActivityActor Local => Resolve(localObjectId);

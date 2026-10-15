@@ -27,6 +27,8 @@ public sealed partial class ActivityTrackerService : IDisposable
     private static readonly TimeSpan EncounterIdle = TimeSpan.FromSeconds(7);
     private static readonly TimeSpan SessionIdle = TimeSpan.FromMinutes(30);
     private static readonly TimeSpan ReentryGrace = TimeSpan.FromMinutes(2);
+    // A capture restart within this time continues on the same map and character.
+    private static readonly TimeSpan CaptureResumeGrace = TimeSpan.FromMinutes(1);
     private readonly object sync = new();
     private readonly PlayerState player;
     private readonly SettingsManager settings;
@@ -70,6 +72,9 @@ public sealed partial class ActivityTrackerService : IDisposable
     private bool storageSuspended;
     // A database pause keeps map, actor and inventory context; recording resumes in place.
     private bool storageGap;
+    // A short capture interruption keeps its context; observation reopens with the next packet.
+    private bool captureGap;
+    private DateTime? captureStoppedAt;
     private bool disposed;
     private bool headersDirty;
     private DateTime lastHeaderSave;
@@ -180,10 +185,18 @@ public sealed partial class ActivityTrackerService : IDisposable
     {
         lock (sync)
         {
-            Suspend(DateTime.UtcNow);
+            var now = DateTime.UtcNow;
+            // An adapter change or traffic recovery restarts capture on the same map. After a
+            // longer stop the map or character may have changed, so wait for the next join.
+            if (captureStoppedAt is { } stopped && now - stopped > CaptureResumeGrace) Suspend(now);
+            else PauseCapture(now);
+            captureStoppedAt = null;
             captureGeneration++;
             origins.Clear();
             originOrder.Clear();
+            // The restarted parser identifies its connections anew; the next join binds them again.
+            connectionId = null;
+            connectionIdentity = null;
             captureSuspended = false;
         }
         Changed?.Invoke(this, EventArgs.Empty);
@@ -191,8 +204,50 @@ public sealed partial class ActivityTrackerService : IDisposable
 
     public void OnCaptureSuspended()
     {
-        lock (sync) Suspend(DateTime.UtcNow);
+        lock (sync)
+        {
+            PauseCapture(DateTime.UtcNow);
+            captureSuspended = true;
+            captureStoppedAt ??= DateTime.UtcNow;
+        }
         Changed?.Invoke(this, EventArgs.Empty);
+    }
+
+    // Keeps map, character and inventory context; only in-flight correlations are dropped.
+    private void PauseCapture(DateTime at)
+    {
+        ResolvePending(at);
+        ClearPendingActorMetadata();
+        timedOutEncounter = null;
+        loot.ResetCandidates();
+        gathering.Reset();
+        fameCollector.Reset();
+        mobParticipation.Clear();
+        pendingTerminals.Clear();
+        if (captureGap || awaitingContext || !enabled || session is null) return;
+        RecordGap(at, "Suspended");
+        captureGap = true;
+    }
+
+    private void ResumeAfterCaptureGap(DateTime at)
+    {
+        captureGap = false;
+        if (session is null || !enabled || awaitingContext || map is null || storageGap || session.ObservationStartedAtUtc is not null) return;
+        OpenObservation(at);
+        headersDirty = true;
+    }
+
+    // Closes the encounter and observation and marks the session partial at an explicit gap.
+    private void RecordGap(DateTime at, string state)
+    {
+        var gap = Stamp(ActivityEventKind.CaptureGap, at, null) with
+        { EncounterId = null, DetailsJson = JsonSerializer.Serialize(new { State = state }) };
+        CloseEncounter(at, ActivityEndReason.CaptureGap);
+        if (!persistence.Create(gap)) deferredGap = gap;
+        CloseObservation(at);
+        session = session! with { Revision = session.Revision + 1, LastObservedAtUtc = at, IsPartial = true };
+        headersDirty = true;
+        SaveHeaders();
     }
 
     private void Suspend(DateTime at)
@@ -200,18 +255,8 @@ public sealed partial class ActivityTrackerService : IDisposable
         ResolvePending(at);
         ClearPendingActorMetadata();
         timedOutEncounter = null;
-        if (!awaitingContext && enabled && session is not null)
-        {
-            var gap = Stamp(ActivityEventKind.CaptureGap, at, null) with
-            { EncounterId = null, DetailsJson = JsonSerializer.Serialize(new { State = "Suspended" }) };
-            awaitingContext = true;
-            CloseEncounter(at, ActivityEndReason.CaptureGap);
-            if (!persistence.Create(gap)) deferredGap = gap;
-            CloseObservation(at);
-            session = session with { Revision = session.Revision + 1, LastObservedAtUtc = at, IsPartial = true };
-            headersDirty = true;
-            SaveHeaders();
-        }
+        if (!captureGap && !awaitingContext && enabled && session is not null) RecordGap(at, "Suspended");
+        captureGap = false;
         captureSuspended = true;
         awaitingContext = true;
         actors.Suspend();
@@ -239,6 +284,7 @@ public sealed partial class ActivityTrackerService : IDisposable
             if (!awaitingContext && (at < mapEnteredAt || !SameConnection(packet.ConnectionId, packet.MessageIdentity)))
             { gathering.Reset(); fameCollector.Reset(); return; }
             Expire(at);
+            if (captureGap) ResumeAfterCaptureGap(at);
             switch (packet)
             {
                 case NewRandomDungeonExitEvent entrance when HasConfirmedContext:
@@ -316,6 +362,7 @@ public sealed partial class ActivityTrackerService : IDisposable
             if (packet is not JoinResponse && !awaitingContext && (at < mapEnteredAt || !SameConnection(packet.ConnectionId, packet.MessageIdentity)))
             { gathering.Reset(); fameCollector.Reset(); return; }
             Expire(at);
+            if (captureGap && packet is not JoinResponse) ResumeAfterCaptureGap(at);
             if (packet is JoinResponse join && join.ReturnCode == 0
                 && join.userObjectId > 0 && !string.IsNullOrWhiteSpace(join.RawLocationId)) Join(join, at);
             else if (packet is JoinResponse) { locations.ClearPending(); ClearPendingActorMetadata(); }
@@ -349,12 +396,14 @@ public sealed partial class ActivityTrackerService : IDisposable
         ResolvePending(at);
         var next = packet.ActivityLocation;
         var previous = map;
-        var nextServer = player.AlbionServer?.Id;
+        // An unrecognised server IP (VPN, routing tools) keeps the last known server, else 0.
+        var nextServer = player.AlbionServer?.Id ?? actors.ServerId ?? 0;
+        captureGap = false;
         var sameCharacter = actors.HasIdentity && actors.ServerId == nextServer
             && actors.CharacterId == (packet.userGuid?.ToString() ?? "")
             && (actors.CharacterId.Length > 0 || actors.CharacterName == packet.playerName);
         var nextMetadata = locations.Join(packet, next, previous?.RawLocationId, sameCharacter, at);
-        var switched = session is not null && (session.Server != nextServer?.ToString(CultureInfo.InvariantCulture)
+        var switched = session is not null && (session.Server != nextServer.ToString(CultureInfo.InvariantCulture)
             || session.CharacterId != (packet.userGuid?.ToString() ?? "")
             || session.CharacterId.Length == 0 && session.CharacterName != packet.playerName);
         CloseEncounter(at, switched ? ActivityEndReason.CharacterChanged : ActivityEndReason.MapTransition);
@@ -390,7 +439,7 @@ public sealed partial class ActivityTrackerService : IDisposable
         awaitingContext = !actors.HasIdentity;
         captureSuspended = false;
         reentryConfirmed = resumable is { ClosedAtUtc: { } exited } old && at - exited <= ReentryGrace
-            && old.Server == nextServer?.ToString(CultureInfo.InvariantCulture)
+            && old.Server == nextServer.ToString(CultureInfo.InvariantCulture)
             && old.CharacterId == (packet.userGuid?.ToString() ?? "") && !old.HasLocalDeath
             && JsonSerializer.Deserialize<string[]>(old.KnownInstancesJson)?.Contains(InstanceKey(next)) == true;
         loot.Join(packet, at);
@@ -533,6 +582,9 @@ public sealed partial class ActivityTrackerService : IDisposable
         double? resultingHealth, int? spell, long? gameTime, DateTime at, string? origin)
     {
         if (!double.IsFinite(delta) || targetId <= 0) return;
+        // A dead player who acts, or is healed, has respawned or been revived.
+        actors.Revive(sourceId);
+        if (delta > 0) actors.Revive(targetId);
         var source = actors.Resolve(sourceId);
         var target = actors.Resolve(targetId);
         var relevant = delta != 0 && (Tracked(source) || Tracked(target));
@@ -1184,22 +1236,15 @@ public sealed partial class ActivityTrackerService : IDisposable
         loot.ResetRecordingCorrelations();
         gathering.Reset();
         fameCollector.Reset();
-        if (awaitingContext || !enabled || session is null) return;
-        var gap = Stamp(ActivityEventKind.CaptureGap, at, null) with
-        { EncounterId = null, DetailsJson = JsonSerializer.Serialize(new { State = "StorageSuspended" }) };
-        CloseEncounter(at, ActivityEndReason.CaptureGap);
-        if (!persistence.Create(gap)) deferredGap = gap;
-        CloseObservation(at);
-        session = session with { Revision = session.Revision + 1, LastObservedAtUtc = at, IsPartial = true };
-        headersDirty = true;
-        SaveHeaders();
+        if (awaitingContext || !enabled || session is null || captureGap) return;
+        RecordGap(at, "StorageSuspended");
     }
 
     private void ResumeAfterStorage(DateTime at)
     {
         if (!storageGap) return;
         storageGap = false;
-        if (session is null || !enabled || awaitingContext || map is null || session.ObservationStartedAtUtc is not null) return;
+        if (session is null || !enabled || awaitingContext || map is null || captureGap || session.ObservationStartedAtUtc is not null) return;
         OpenObservation(at);
         headersDirty = true;
         SaveHeaders();

@@ -1,6 +1,7 @@
 using AlbionDataAvalonia.Activity.Models;
 using AlbionDataAvalonia.DB;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -153,7 +154,13 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                 {
                     try
                     {
-                        if (batch.Count > 0) await PersistAsync(batch, shutdown.Token);
+                        if (batch.Count > 0)
+                        {
+                            try { await PersistAsync(batch, shutdown.Token); }
+                            // A validation rejection repeats on every retry and would suspend recording
+                            // for good. Write the batch one by one and drop only the rejected writes.
+                            catch (InvalidOperationException) { await PersistEachAsync(batch, shutdown.Token); }
+                        }
                         if (control is not null) await ExecuteControlAsync(control, shutdown.Token);
                         lock (acceptedSync)
                         {
@@ -195,6 +202,15 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
         {
             try { StatusChanged?.Invoke(next); }
             catch { /* A UI subscriber cannot interrupt accepted journal writes. */ }
+        }
+    }
+
+    private async Task PersistEachAsync(List<WriteCommand> batch, CancellationToken cancellationToken)
+    {
+        foreach (var command in batch)
+        {
+            try { await PersistAsync([command], cancellationToken); }
+            catch (InvalidOperationException error) { Log.Warning(error, "Dropped an invalid activity write ({Command}).", command.GetType().Name); }
         }
     }
 
