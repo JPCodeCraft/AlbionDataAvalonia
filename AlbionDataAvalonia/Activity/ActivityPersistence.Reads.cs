@@ -86,6 +86,13 @@ public sealed partial class ActivityPersistence
     }
     public Task<IReadOnlyList<ActivityActorTotal>> GetPlayersAsync(ActivityQuery filter, CancellationToken cancellationToken = default) =>
         ReadAsync(ct => GetPlayersCoreAsync(filter, ct), cancellationToken);
+    internal Task<IReadOnlyDictionary<Guid, IReadOnlyList<string>>> GetSessionPartyMembersAsync(IEnumerable<Guid> sessionIds, CancellationToken cancellationToken = default)
+    {
+        var requested = sessionIds.Distinct().Select(id => (Guid?)id).ToArray();
+        ArgumentOutOfRangeException.ThrowIfGreaterThan(requested.Length, 1000);
+        return requested.Length == 0 ? Task.FromResult<IReadOnlyDictionary<Guid, IReadOnlyList<string>>>(new Dictionary<Guid, IReadOnlyList<string>>()) :
+            ReadAsync(ct => GetSessionPartyMembersCoreAsync(requested, ct), cancellationToken);
+    }
     public Task<IReadOnlyList<ActivityResourceTotal>> GetResourceTotalsAsync(ActivityQuery filter, CancellationToken cancellationToken = default) =>
         ReadAsync(ct => GetResourceTotalsCoreAsync(filter, ct), cancellationToken);
     public Task<ActivityLegacyImportInfo?> GetLegacyImportInfoAsync(Guid sessionId, CancellationToken cancellationToken = default) =>

@@ -498,6 +498,22 @@ public sealed partial class ActivityPersistence
             .OrderByDescending(x => x.DamageDealt + x.HealingDone).Take(250).ToArray();
     }
 
+    private async Task<IReadOnlyDictionary<Guid, IReadOnlyList<string>>> GetSessionPartyMembersCoreAsync(Guid?[] sessionIds, CancellationToken cancellationToken = default)
+    {
+        await using var context = contextFactory();
+        var events = context.ActivityEvents.AsNoTracking().Where(x => !x.IsRetracted && sessionIds.Contains(x.SessionId));
+        var sources = events.Where(x => x.SourceKind == ActivityActorKind.Player && x.SourceRelationship == ActorRelationship.Party && x.SourceName != "")
+            .Select(x => new { x.SessionId, Name = x.SourceName });
+        var targets = events.Where(x => x.TargetKind == ActivityActorKind.Player && x.TargetRelationship == ActorRelationship.Party && x.TargetName != "")
+            .Select(x => new { x.SessionId, Name = x.TargetName });
+        var rows = await sources.Union(targets).ToListAsync(cancellationToken);
+        // Unresolved actors are stored as "Unknown" or their GUID; neither identifies a member.
+        return rows.Where(x => x.SessionId is not null && !string.IsNullOrWhiteSpace(x.Name) && x.Name != "Unknown" && !Guid.TryParse(x.Name, out _))
+            .GroupBy(x => x.SessionId!.Value)
+            .ToDictionary(g => g.Key, g => (IReadOnlyList<string>)g.Select(x => x.Name.Trim())
+                .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToArray());
+    }
+
     public Task<ActivityPage<ActivityEvent>> GetItemsAsync(ActivityQuery filter, int page = 0, CancellationToken cancellationToken = default) =>
         GetEventsAsync(filter with { ItemsOnly = true, LootOnly = false }, page, cancellationToken);
 

@@ -4,6 +4,7 @@ using AlbionDataAvalonia.Items;
 using AlbionDataAvalonia.Network.Models;
 using CommunityToolkit.Mvvm.ComponentModel;
 using System;
+using System.Collections.Generic;
 using System.Globalization;
 using System.Linq;
 
@@ -152,6 +153,24 @@ public sealed class ActivitySessionRow : ObservableObject
         }
     }
     public string StateText => $"{ActivityDisplay.State(Source.State, Source.EndReason)}{(Source.IsPartial && Source.State != ActivityState.Interrupted ? " · incomplete" : "")}{(IsImported ? " · imported" : "")}";
+
+    // Party members are read separately; a changed header re-reads them.
+    private ActivitySession? partySource;
+    private IReadOnlyList<string> partyMembers = [];
+    public bool NeedsParty => partySource != Source && !IsImported;
+    public bool HasParty => partyMembers.Count > 0;
+    public string PartyText => HasParty ? $"Party: {ActivityDisplay.PartyNames(partyMembers)}" : "";
+    public string PartyDetailsText => HasParty ? $"Party members recorded in this session\n{string.Join("\n", partyMembers)}" : "";
+
+    public void SetParty(ActivitySession source, IReadOnlyList<string> members)
+    {
+        partySource = source;
+        if (partyMembers.SequenceEqual(members)) return;
+        partyMembers = members;
+        OnPropertyChanged(nameof(HasParty));
+        OnPropertyChanged(nameof(PartyText));
+        OnPropertyChanged(nameof(PartyDetailsText));
+    }
 }
 
 public sealed class ActivityEncounterRow : ObservableObject
@@ -356,6 +375,8 @@ internal static class ActivityDisplay
         var duration = TimeSpan.FromSeconds(Math.Max(0, seconds));
         return duration.TotalDays >= 1 ? $"{(int)duration.TotalDays}d {duration:hh\\:mm\\:ss}" : $"{(int)duration.TotalHours}:{duration:mm\\:ss}";
     }
+    public static string PartyNames(IReadOnlyList<string> names, int shown = 3) => names.Count <= shown
+        ? string.Join(", ", names) : $"{string.Join(", ", names.Take(shown))} +{names.Count - shown}";
     public static string Relationship(ActorRelationship value) => value switch { ActorRelationship.Self => "You", ActorRelationship.Party => "Party", ActorRelationship.Other => "Other", _ => "Unknown" };
     public static string State(ActivityState state, ActivityEndReason reason) => state == ActivityState.Open ? "Active"
         : state == ActivityState.Interrupted ? "Interrupted" : reason == ActivityEndReason.Finished ? "Finished" : "Ended";

@@ -1,6 +1,7 @@
 using AlbionDataAvalonia.Activity;
 using AlbionDataAvalonia.Activity.Models;
 using AlbionDataAvalonia.Network.Services;
+using AlbionDataAvalonia.Party;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -133,7 +134,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     }
 
     public ActivityViewModel(ActivityTrackerService tracker, ActivityPersistence persistence, CsvExportService csvExportService,
-        ActivityItemValuationService? valuations = null) : this()
+        ActivityItemValuationService? valuations = null, PartyTrackerService? partyTracker = null) : this()
     {
         this.tracker = tracker;
         this.persistence = persistence;
@@ -142,6 +143,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         tracker.Changed += OnActivityChanged;
         persistence.StatusChanged += OnPersistenceStatusChanged;
         persistence.DataChanged += OnCommittedDataChanged;
+        AttachPartyTracker(partyTracker);
         UpdateStatus();
     }
 
@@ -398,6 +400,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
             }
         }
         finally { applyingSelection = false; }
+        await LoadSessionPartiesAsync(cancellationToken);
     }
 
     private async Task RefreshDetailsAsync()
@@ -926,6 +929,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         refreshTimer.Stop();
         refreshTimer.Tick -= OnRefreshTick;
         if (tracker is not null) tracker.Changed -= OnActivityChanged;
+        DisposeParty();
         if (persistence is not null)
         {
             persistence.StatusChanged -= OnPersistenceStatusChanged;

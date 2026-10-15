@@ -148,11 +148,15 @@
                             </WrapPanel>
                             <StackPanel Spacing="4">
                                 <TextBlock Text="{Binding CurrentPeriodDescription}" MinHeight="16" Classes="UiLabel" />
-                                <WrapPanel ToolTip.Tip="{Binding CurrentPeriodWarning}" Margin="0,0,0,-4">
-                                    <TextBlock Text="{Binding CurrentDurationText}" Margin="0,0,18,4" />
-                                    <TextBlock Text="{Binding CurrentCombatDurationText}" Margin="0,0,18,4" />
-                                    <TextBlock Text="{Binding CurrentTagsText}" Foreground="#A0D477" Margin="0,0,0,4" IsVisible="{Binding CurrentTagsText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" />
-                                </WrapPanel>
+                                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                                    <WrapPanel ToolTip.Tip="{Binding CurrentPeriodWarning}" Margin="0,0,0,-4">
+                                        <TextBlock Text="{Binding CurrentDurationText}" Margin="0,0,18,4" />
+                                        <TextBlock Text="{Binding CurrentCombatDurationText}" Margin="0,0,18,4" />
+                                        <TextBlock Text="{Binding CurrentTagsText}" Foreground="#A0D477" Margin="0,0,0,4" IsVisible="{Binding CurrentTagsText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" />
+                                    </WrapPanel>
+                                    <TextBlock Grid.Column="1" Text="{Binding CurrentPartyText}" IsVisible="{Binding HasCurrentParty}" ToolTip.Tip="{Binding CurrentPartyDetailsText}"
+                                               HorizontalAlignment="Right" VerticalAlignment="Top" TextAlignment="Right" MaxWidth="360" TextTrimming="CharacterEllipsis" Foreground="{DynamicResource AFMOrange}" />
+                                </Grid>
                             </StackPanel>
                         </StackPanel>
                         <ContentControl Content="{Binding CurrentSummary}" ContentTemplate="{StaticResource SummaryTemplate}" />
@@ -227,6 +231,7 @@
                                         <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="DemiBold" TextWrapping="Wrap" />
                                         <TextBlock Text="{Binding MetadataText}" Classes="UiLabel" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding MetadataText}" />
                                         <WrapPanel><TextBlock Text="{Binding DurationText}" Margin="0,0,12,0" /><TextBlock Text="{Binding TagsText}" Foreground="#A0D477" Margin="0,0,12,0" /><TextBlock Text="{Binding StateText}" Classes="UiLabel" /></WrapPanel>
+                                        <TextBlock Text="{Binding PartyText}" IsVisible="{Binding HasParty}" ToolTip.Tip="{Binding PartyDetailsText}" Classes="UiLabel" TextTrimming="CharacterEllipsis" />
                                     </StackPanel>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
@@ -241,7 +246,7 @@
                     <ScrollViewer x:Name="HistorySessionDetailScroll" Grid.Column="2" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding HasSelectedSession}">
                     <StackPanel Spacing="12">
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                            <StackPanel Spacing="4"><TextBlock Text="{Binding DetailTitle}" FontSize="20" FontWeight="DemiBold" TextWrapping="Wrap" /><TextBlock Text="{Binding DetailMapMetadataText}" IsVisible="{Binding HasDetailMapMetadata}" Classes="UiLabel" /><TextBlock Text="{Binding DetailDurationText}" TextWrapping="Wrap" /><TextBlock Text="{Binding DetailScopeText}" IsVisible="{Binding DetailScopeText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" Classes="UiLabel" /><TextBlock Text="{Binding DetailTagsText}" IsVisible="{Binding DetailTagsText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" Foreground="#A0D477" /><TextBlock Text="{Binding ImportedDetailText}" IsVisible="{Binding IsImportedDetail}" Classes="UiLabel" ToolTip.Tip="{Binding ImportedDetailTooltipText}" /></StackPanel>
+                            <StackPanel Spacing="4"><TextBlock Text="{Binding DetailTitle}" FontSize="20" FontWeight="DemiBold" TextWrapping="Wrap" /><TextBlock Text="{Binding DetailMapMetadataText}" IsVisible="{Binding HasDetailMapMetadata}" Classes="UiLabel" /><TextBlock Text="{Binding DetailDurationText}" TextWrapping="Wrap" /><TextBlock Text="{Binding SelectedSession.PartyText, FallbackValue=''}" IsVisible="{Binding SelectedSession.HasParty, FallbackValue=False}" ToolTip.Tip="{Binding SelectedSession.PartyDetailsText, FallbackValue=''}" TextWrapping="Wrap" Foreground="{DynamicResource AFMOrange}" /><TextBlock Text="{Binding DetailScopeText}" IsVisible="{Binding DetailScopeText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" Classes="UiLabel" /><TextBlock Text="{Binding DetailTagsText}" IsVisible="{Binding DetailTagsText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" Foreground="#A0D477" /><TextBlock Text="{Binding ImportedDetailText}" IsVisible="{Binding IsImportedDetail}" Classes="UiLabel" ToolTip.Tip="{Binding ImportedDetailTooltipText}" /></StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                 <Button Classes="UiAction UiSecondary" Content="Whole session" Command="{Binding ClearEncounterCommand}" IsVisible="{Binding HasSelectedDetailSelection}" />
                                 <Button Classes="UiAction UiSecondary" Content="All players" Command="{Binding ClearPlayerCommand}" IsVisible="{Binding HasSelectedPlayer}" />
