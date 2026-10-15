@@ -62,7 +62,6 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     private CancellationTokenSource itemsQueryCancellation = new();
     private CancellationTokenSource currentQueryCancellation = new();
     private ActivitySession? currentSession;
-    private ActivityEncounter? currentEncounter;
 
     public IReadOnlyList<ActivityOption<ActivityScope>> ScopeOptions { get; } =
         [new(ActivityScope.Personal, "Personal"), new(ActivityScope.Party, "Party")];
@@ -81,14 +80,9 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     [ObservableProperty] private string currentTitle = "No active session";
     [ObservableProperty] private string currentDescription = "Start playing to record activity.";
     [ObservableProperty] private string currentDurationText = "Session time: 0:00";
-    [ObservableProperty] private string currentEncounterHeading = "Last encounter";
-    [ObservableProperty] private string currentEncounterText = "No encounters yet";
-    [ObservableProperty] private string currentEncounterStateText = "";
     [ObservableProperty] private bool hasCurrentSession;
     [ObservableProperty] private bool hasCurrentEncounter;
-    [ObservableProperty] private bool hasDisplayedEncounter;
     [ObservableProperty] private ActivitySummaryPresentation currentSummary = ActivitySummaryPresentation.Empty;
-    [ObservableProperty] private ActivitySummaryPresentation currentEncounterSummary = ActivitySummaryPresentation.Empty;
     [ObservableProperty] private ActivitySummaryPresentation detailSummary = ActivitySummaryPresentation.Empty;
     [ObservableProperty] private ActivitySummaryPresentation globalLootSummary = ActivitySummaryPresentation.Empty;
     [ObservableProperty] private ObservableCollection<ActivitySessionRow> sessions = new();
@@ -290,30 +284,26 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         if (persistence is null || tracker is null) return;
         var context = tracker.GetCurrentContext();
         var sessionId = context.Session?.Id;
-        var encounterId = context.Encounter?.Id;
         var scope = SelectedScope.Value;
         var period = SelectedPeriod.Value;
         var hours = LastHours;
         var cancellationToken = BeginRead(ref currentQueryCancellation);
         var sessionTask = period == ActivityPeriodMode.CurrentSession && sessionId is { } currentSessionId
             ? persistence.GetSessionAsync(currentSessionId, cancellationToken) : Task.FromResult<ActivitySession?>(null);
-        var encounterTask = context.Encounter is { } activeEncounter ? persistence.GetEncounterAsync(activeEncounter.Id, cancellationToken)
-            : sessionId is { } currentId ? persistence.GetLatestEncounterAsync(currentId, cancellationToken) : Task.FromResult<ActivityEncounter?>(null);
         var combatQuery = period == ActivityPeriodMode.CurrentSession && sessionId is { } combatSessionId
             ? new ActivityQuery { SessionId = combatSessionId, Scope = scope } : null;
         var combatVersion = currentCombatChangeVersion;
         var combatTask = combatQuery is null ? Task.FromResult(0d) : combatQuery == currentCombatQuery && combatVersion == currentCombatReadVersion
             ? Task.FromResult(currentCombatSeconds) : persistence.GetCombatDurationSecondsAsync(combatQuery, cancellationToken);
-        await Task.WhenAll(sessionTask, encounterTask, combatTask);
+        await Task.WhenAll(sessionTask, combatTask);
         cancellationToken.ThrowIfCancellationRequested();
         if (isDisposed || !isActive || SelectedTabIndex != 0 || SelectedScope.Value != scope ||
             SelectedPeriod.Value != period || LastHours != hours || tracker.GetCurrentContext().Owner != context.Owner ||
-            tracker.CurrentSessionId != sessionId || tracker.CurrentEncounterId != encounterId) return;
+            tracker.CurrentSessionId != sessionId) return;
         currentCombatQuery = combatQuery;
         currentCombatReadVersion = combatVersion;
         currentCombatSeconds = combatTask.Result;
         currentSession = context.Session;
-        currentEncounter = encounterTask.Result;
         // The tracker owns live boundaries; only the journal writer updates cached totals.
         if (currentSession is { } liveSession && sessionTask.Result is { } savedSession)
             currentSession = liveSession with
@@ -322,13 +312,6 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
                 PartySummaryJson = savedSession.PartySummaryJson,
                 ObservedSummaryJson = savedSession.ObservedSummaryJson
             };
-        if (context.Encounter is { } liveEncounter)
-            currentEncounter = currentEncounter is { } savedEncounter ? liveEncounter with
-            {
-                PersonalSummaryJson = savedEncounter.PersonalSummaryJson,
-                PartySummaryJson = savedEncounter.PartySummaryJson,
-                ObservedSummaryJson = savedEncounter.ObservedSummaryJson
-            } : liveEncounter;
         CurrentTitle = currentSession is { } currentTitle ? ActivityDisplay.SessionTitle(currentTitle) : "No active session";
         CurrentDescription = currentSession is { } session ? $"{session.CharacterName} · {ActivityDisplay.Server(session.Server)}{(session.IsPartial ? " · incomplete recording" : "")}"
             : tracker.IsAwaitingContext ? "" : "Start playing to record activity.";
@@ -340,16 +323,6 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
             CurrentPeriodDescription = $"Since {ActivityDisplay.LocalDate(current.StartedAtUtc)}";
         }
         else if (period == ActivityPeriodMode.CurrentSession) ClearCurrentPeriod();
-        HasDisplayedEncounter = currentEncounter is not null;
-        CurrentEncounterHeading = currentEncounter?.State == ActivityState.Open ? "Active encounter" : "Last encounter";
-        if (currentEncounter is { } combat)
-        {
-            var summary = ActivityProjection.GetSummary(combat, scope);
-            CurrentEncounterSummary = new(summary, ActivityProjection.GetRates(summary, combat));
-            CurrentEncounterText = $"Encounter {combat.Number} · {ActivityDisplay.EncounterKind(combat.Kind)} · {combat.LocationName}";
-            CurrentEncounterStateText = $"{ActivityDisplay.LocalTime(combat.StartedAtUtc)} · {ActivityDisplay.Duration(combat.CombatDurationSeconds)} combat";
-        }
-        else { CurrentEncounterSummary = ActivitySummaryPresentation.Empty; CurrentEncounterText = "No encounters yet"; CurrentEncounterStateText = ""; }
         if (period == ActivityPeriodMode.CurrentSession)
         {
             CurrentPeriodWarning = "";
@@ -861,12 +834,6 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     private async Task OpenCurrentSessionAsync()
     {
         if (tracker?.CurrentSessionId is { } id) await RunSafelyAsync(() => OpenSessionDetailsAsync(id));
-    }
-
-    [RelayCommand]
-    private async Task OpenCurrentEncounterAsync()
-    {
-        if (currentEncounter is { } encounter) await RunSafelyAsync(() => OpenSessionDetailsAsync(encounter.SessionId, encounter.Id));
     }
 
     private async Task OpenSessionDetailsAsync(Guid id, Guid? encounterId = null)

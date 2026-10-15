@@ -19,8 +19,9 @@ public sealed record ActivityLiveTimelineMarker(string Id, ActivityLiveTimelineM
     double Amount = 0, bool HasUnknownAmount = false, string ValueText = "", ActivityLiveTimelineTooltip? Tooltip = null,
     DateTime? EndedAtUtc = null);
 public sealed record ActivityLiveTimelineTooltip(string Title, string TimeText, string ContextText, IReadOnlyList<string> Lines);
+// Summary holds the encounter's saved totals for the snapshot scope; null when the chart follows one player.
 public sealed record ActivityLiveTimelineEncounter(Guid Id, int Number, DateTime StartedAtUtc,
-    DateTime LastCombatAtUtc, ActivityEncounterKind Kind, ActivityState State);
+    DateTime LastCombatAtUtc, ActivityEncounterKind Kind, ActivityState State, string LocationName = "", ActivitySummary? Summary = null);
 public sealed record ActivityLiveTimelineGap(DateTime StartedAtUtc, DateTime EndedAtUtc, string Reason);
 public sealed record ActivityLiveTimelineSnapshot(Guid? SessionId, ActivityScope Scope, DateTime WindowStartUtc,
     DateTime WindowEndUtc, IReadOnlyList<ActivityLiveTimelineSample> Samples,

@@ -46,20 +46,6 @@
             </Grid>
             </StackPanel>
         </DataTemplate>
-        <DataTemplate x:Key="EncounterSummaryTemplate" x:DataType="vm:ActivitySummaryPresentation">
-            <Border Classes="UiCard ActivityEncounterCard">
-                <views:ResponsiveUniformGrid MaximumColumns="8" MinimumItemWidth="150" Margin="-3">
-                    <StackPanel Height="60" Margin="3"><TextBlock Classes="UiLabel" Text="Damage dealt" /><TextBlock Classes="ActivityValue" Text="{Binding DamageDealt}" /><TextBlock Classes="UiLabel" Text="{Binding DamageRate}" /></StackPanel>
-                    <StackPanel Height="60" Margin="3"><TextBlock Classes="UiLabel" Text="Damage received" /><TextBlock Classes="ActivityValue" Text="{Binding DamageReceived}" /></StackPanel>
-                    <StackPanel Height="60" Margin="3"><TextBlock Classes="UiLabel" Text="Healing done" /><TextBlock Classes="ActivityValue" Text="{Binding HealingDone}" /><TextBlock Classes="UiLabel" Text="{Binding HealingRate}" /></StackPanel>
-                    <StackPanel Height="60" Margin="3"><TextBlock Classes="UiLabel" Text="Healing received" /><TextBlock Classes="ActivityValue" Text="{Binding HealingReceived}" /></StackPanel>
-                    <StackPanel Height="60" Margin="3" ToolTip.Tip="{Binding CombatFameDetailsText}"><TextBlock Classes="UiLabel" Text="Combat Fame" /><TextBlock Classes="ActivityValue" Text="{Binding CombatFame}" /><TextBlock Classes="UiLabel" Text="{Binding CombatFameFooterText}" /></StackPanel>
-                    <StackPanel Height="60" Margin="3" ToolTip.Tip="Net silver pickups after taxes and penalties"><TextBlock Classes="UiLabel" Text="Silver picked up" /><TextBlock Classes="ActivityValue" Text="{Binding Silver}" /></StackPanel>
-                    <StackPanel Height="60" Margin="3"><TextBlock Classes="UiLabel" Text="Loot value" /><TextBlock Classes="ActivityValue" Text="{Binding LootValue}" /><TextBlock Classes="UiLabel" Text="{Binding LootItemsText}" /></StackPanel>
-                    <ContentControl Height="60" Margin="3" Content="{Binding}" ContentTemplate="{StaticResource KillSummaryTemplate}" />
-                </views:ResponsiveUniformGrid>
-            </Border>
-        </DataTemplate>
         <DataTemplate x:Key="LootTemplate" x:DataType="vm:ActivityLootRow">
             <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center" ToolTip.Tip="{Binding ItemDetails}">
                 <Image Width="32" Height="32" Stretch="Uniform"
@@ -105,9 +91,9 @@
         <Style Selector="Border.ActivityIncomeCard TextBlock"><Setter Property="TextWrapping" Value="NoWrap" /><Setter Property="TextTrimming" Value="CharacterEllipsis" /><Setter Property="MaxLines" Value="1" /></Style>
         <Style Selector="TextBlock.ActivityIncomeValue"><Setter Property="FontSize" Value="22" /><Setter Property="LineHeight" Value="28" /><Setter Property="FontWeight" Value="DemiBold" /><Setter Property="Foreground" Value="{DynamicResource AFMOrange}" /><Setter Property="Margin" Value="0,2,0,0" /></Style>
         <Style Selector="Border.ActivityMetricCard"><Setter Property="Height" Value="76" /></Style>
-        <Style Selector="Border.ActivityMetricCard TextBlock, Border.ActivityEncounterCard TextBlock"><Setter Property="TextWrapping" Value="NoWrap" /><Setter Property="TextTrimming" Value="CharacterEllipsis" /><Setter Property="MaxLines" Value="1" /></Style>
-        <Style Selector="Border.ActivityMetricCard TextBlock.UiLabel, Border.ActivityEncounterCard TextBlock.UiLabel"><Setter Property="LineHeight" Value="16" /></Style>
-        <Style Selector="Border.ActivityMetricCard TextBlock.ActivityValue, Border.ActivityEncounterCard TextBlock.ActivityValue"><Setter Property="LineHeight" Value="24" /></Style>
+        <Style Selector="Border.ActivityMetricCard TextBlock"><Setter Property="TextWrapping" Value="NoWrap" /><Setter Property="TextTrimming" Value="CharacterEllipsis" /><Setter Property="MaxLines" Value="1" /></Style>
+        <Style Selector="Border.ActivityMetricCard TextBlock.UiLabel"><Setter Property="LineHeight" Value="16" /></Style>
+        <Style Selector="Border.ActivityMetricCard TextBlock.ActivityValue"><Setter Property="LineHeight" Value="24" /></Style>
         <Style Selector="ListBox.ActivitySessionList"><Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" /></Style>
         <Style Selector="ListBox.ActivitySessionList ListBoxItem"><Setter Property="Background" Value="Transparent" /><Setter Property="Padding" Value="12" /><Setter Property="HorizontalContentAlignment" Value="Stretch" /></Style>
         <Style Selector="ListBox.ActivitySessionList ListBoxItem:pointerover"><Setter Property="Background" Value="{DynamicResource UiInputBrush}" /></Style>
@@ -221,12 +207,6 @@
                         <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ActivityVisibilityTemplate}" />
                         <views:ActivityLiveTimelineView ChartMode="{Binding ChartMode, Mode=TwoWay}" Snapshot="{Binding CurrentLiveTimeline}" WindowMinutes="{Binding LiveTimelineMinutes, Mode=TwoWay}"
                                                         OpenEncounterCommand="{Binding OpenTimelineEncounterCommand}" />
-                        <Border Height="1" Background="{DynamicResource UiBorderBrush}" IsVisible="{Binding HasDisplayedEncounter}" />
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12" IsVisible="{Binding HasDisplayedEncounter}">
-                            <StackPanel Spacing="4"><TextBlock Text="{Binding CurrentEncounterHeading}" FontSize="18" FontWeight="DemiBold" /><TextBlock Text="{Binding CurrentEncounterText}" /><TextBlock Text="{Binding CurrentEncounterStateText}" Classes="UiLabel" /></StackPanel>
-                            <Button Grid.Column="1" Classes="UiAction UiSecondary" Content="View encounter" Command="{Binding OpenCurrentEncounterCommand}" IsVisible="{Binding HasDisplayedEncounter}" VerticalAlignment="Center" />
-                        </Grid>
-                        <ContentControl Content="{Binding CurrentEncounterSummary}" ContentTemplate="{StaticResource EncounterSummaryTemplate}" IsVisible="{Binding HasDisplayedEncounter}" ToolTip.Tip="Items, fame and silver picked up while this encounter was open" />
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>

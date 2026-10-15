@@ -5,6 +5,7 @@ using System.Globalization;
 using System.Linq;
 using AlbionDataAvalonia.Activity;
 using AlbionDataAvalonia.Activity.Models;
+using AlbionDataAvalonia.ViewModels;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
@@ -416,11 +417,7 @@ internal sealed class ActivityLiveTimelineCanvas : Control
         var timeText = time.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture);
         if (marker != null) tooltip = marker.Marker.Tooltip ?? new(marker.Marker.Label,
             marker.Marker.CapturedAtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture), "", [marker.Marker.Detail]);
-        else if (encounter != null) tooltip = new("Encounter " + encounter.Encounter.Number +
-            (encounter.Encounter.Kind == ActivityEncounterKind.Unknown ? "" : " · " + EncounterKind(encounter.Encounter.Kind)),
-            encounter.Encounter.StartedAtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture), "",
-            [$"{Math.Max(1, (encounter.Encounter.LastCombatAtUtc - encounter.Encounter.StartedAtUtc).TotalSeconds):N0} " +
-                (IsReplay && encounter.Encounter.State == ActivityState.Open ? "seconds elapsed so far" : "seconds of combat"), "Click to view details"]);
+        else if (encounter != null) tooltip = EncounterTooltip(encounter.Encounter);
         else if (gap != null && Plot.Contains(point)) tooltip = new(GapLabel(gap.Reason), timeText, "", []);
         else
         {
@@ -445,6 +442,43 @@ internal sealed class ActivityLiveTimelineCanvas : Control
         if (text == lastInspection) return;
         lastInspection = text;
         InspectionChanged?.Invoke(tooltip, point);
+    }
+
+    private ActivityLiveTimelineTooltip EncounterTooltip(ActivityLiveTimelineEncounter encounter)
+    {
+        var open = encounter.State == ActivityState.Open;
+        var kind = EncounterKind(encounter.Kind);
+        var seconds = Math.Max(1, (encounter.LastCombatAtUtc - encounter.StartedAtUtc).TotalSeconds);
+        var duration = ActivityDisplay.Duration(seconds) + (IsReplay && open ? " so far" : " of combat");
+        var lines = new List<string>();
+        if (encounter.Summary is { } summary)
+        {
+            var rates = ActivityProjection.GetRates(summary, seconds);
+            void Add(string label, double value, string rate = "")
+            {
+                if (value > 0) lines.Add($"{label}: {ActivityDisplay.Number(value)}{rate}");
+            }
+            Add("Damage dealt", summary.DamageDealt, $" ({rates.DamagePerSecond:N0} DPS)");
+            Add("Damage received", summary.DamageReceived);
+            Add("Healing done", summary.HealingDone, $" ({rates.HealingPerSecond:N0} HPS)");
+            Add("Healing received", summary.HealingReceived);
+            Add("Combat fame", summary.CombatFame, summary.PvpFame > 0 ? $" (PvP {ActivityDisplay.Number(summary.PvpFame)})" : "");
+            Add("Silver", summary.Silver);
+            if (summary.LootItems > 0)
+                lines.Add($"Loot: {summary.LootItems:N0} items · " + (summary.LootValue > 0 ? $"{ActivityDisplay.Number(summary.LootValue)} silver" : "value unavailable"));
+            var kills = new List<string>();
+            if (summary.MobKills > 0) kills.Add($"{summary.MobKills:N0} {(summary.MobKills == 1 ? "mob" : "mobs")}");
+            if (summary.PlayerKills > 0) kills.Add($"{summary.PlayerKills:N0} {(summary.PlayerKills == 1 ? "player" : "players")}");
+            var outcomes = new List<string>();
+            if (kills.Count > 0) outcomes.Add("Kills: " + string.Join(" · ", kills));
+            if (summary.Deaths > 0) outcomes.Add($"Deaths: {summary.Deaths:N0}");
+            if (summary.Knockdowns > 0) outcomes.Add($"Knockdowns: {summary.Knockdowns:N0}");
+            if (outcomes.Count > 0) lines.Add(string.Join(" · ", outcomes));
+        }
+        lines.Add("Click to open in History");
+        return new($"Encounter #{encounter.Number}{(kind.Length == 0 ? "" : " · " + kind)} · {(open ? "in progress" : "ended")}",
+            encounter.StartedAtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture),
+            string.Join(" · ", new[] { encounter.LocationName, duration }.Where(x => !string.IsNullOrWhiteSpace(x))), lines);
     }
 
     private void HideTooltip()

@@ -49,8 +49,6 @@ public sealed partial class ActivityPersistence
         ReadAsync(ct => GetSessionCoreAsync(id, ct), cancellationToken);
     public Task<ActivityEncounter?> GetEncounterAsync(Guid id, CancellationToken cancellationToken = default) =>
         ReadAsync(ct => GetEncounterCoreAsync(id, ct), cancellationToken);
-    public Task<ActivityEncounter?> GetLatestEncounterAsync(Guid sessionId, CancellationToken cancellationToken = default) =>
-        ReadAsync(ct => GetLatestEncounterCoreAsync(sessionId, ct), cancellationToken);
     public Task<double> GetCombatDurationSecondsAsync(ActivityQuery filter, CancellationToken cancellationToken = default) =>
         ReadAsync(ct => GetCombatDurationSecondsCoreAsync(filter, ct), cancellationToken);
     public Task<ActivityEvent?> GetEventAsync(Guid id, CancellationToken cancellationToken = default) =>

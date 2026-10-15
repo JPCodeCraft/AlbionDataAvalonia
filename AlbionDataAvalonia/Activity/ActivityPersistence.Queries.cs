@@ -183,6 +183,8 @@ public sealed partial class ActivityPersistence
         var encounterRows = await encounterQuery.Take(301).ToArrayAsync(cancellationToken);
         truncated |= encounterRows.Length > 300;
         var encounters = encounterRows.Take(300).ToDictionary(x => x.Id);
+        // Headers from the tracker carry boundaries only; saved rows carry the journal's totals.
+        var savedEncounters = new Dictionary<Guid, ActivityEncounter>(encounters);
         foreach (var pendingHeader in accepted.OfType<EncounterCommand>().Where(x => headerIds.Contains(x.Value.SessionId)))
             if (!encounters.TryGetValue(pendingHeader.Value.Id, out var old) || pendingHeader.Value.Revision > old.Revision)
                 encounters[pendingHeader.Value.Id] = pendingHeader.Value;
@@ -202,7 +204,8 @@ public sealed partial class ActivityPersistence
         return new ActivityLiveTimelineSnapshot(id, scope, fromUtc, endUtc, samples, markers,
             encounters.Values.Where(x => visibleEncounterIds.Contains(x.Id) && x.StartedAtUtc < endUtc && x.LastCombatAtUtc >= selectedFromUtc)
                 .OrderBy(x => x.StartedAtUtc).ThenBy(x => x.Number)
-                .Select(x => new ActivityLiveTimelineEncounter(x.Id, x.Number, x.StartedAtUtc, x.LastCombatAtUtc, x.Kind, x.State)).ToArray(),
+                .Select(x => new ActivityLiveTimelineEncounter(x.Id, x.Number, x.StartedAtUtc, x.LastCombatAtUtc, x.Kind, x.State, x.LocationName,
+                    query.ActorKey is null ? ActivityProjection.GetSummary(savedEncounters.GetValueOrDefault(x.Id) ?? x, scope) : null)).ToArray(),
             gaps, headers.Values.Any(x => x.IsPartial), truncated || markersTruncated, categories)
         {
             HasContext = true,
@@ -257,13 +260,6 @@ public sealed partial class ActivityPersistence
         await using var context = contextFactory();
         return await context.ActivityEncounters.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
-    private async Task<ActivityEncounter?> GetLatestEncounterCoreAsync(Guid sessionId, CancellationToken cancellationToken = default)
-    {
-        await using var context = contextFactory();
-        return await context.ActivityEncounters.AsNoTracking().Where(x => x.SessionId == sessionId)
-            .OrderByDescending(x => x.Number).FirstOrDefaultAsync(cancellationToken);
-    }
-
     private async Task<double> GetCombatDurationSecondsCoreAsync(ActivityQuery filter, CancellationToken cancellationToken = default)
     {
         await using var context = contextFactory();
