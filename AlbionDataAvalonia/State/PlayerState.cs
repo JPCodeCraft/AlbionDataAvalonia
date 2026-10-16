@@ -57,6 +57,8 @@ namespace AlbionDataAvalonia.State
             set
             {
                 location = value;
+                // Market readability is unknown again on a new map until a market reply is seen.
+                hasEncryptedData = false;
                 Log.Information("Player location set to {Location}", Location.FriendlyName);
                 InvokePlayerStateChanged();
             }

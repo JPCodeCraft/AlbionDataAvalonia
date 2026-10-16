@@ -929,16 +929,19 @@ namespace AlbionDataAvalonia.Network.Services
         {
             if (result.Status == PacketStatus.Encrypted)
             {
-                if (result.HasValidPhotonTraffic)
+                // Albion also encrypts unrelated replies, such as on dungeon entry. Only an
+                // encrypted reply to a market request means market orders cannot be read.
+                if (result.IsMarketEncrypted)
                 {
                     _playerState.HasEncryptedData = true;
-                    Log.Warning("Encrypted packet received! You can't see market orders!");
+                    Log.Warning("Encrypted market data received! You can't see market orders!");
                 }
                 else
                 {
                     Log.Debug(
-                        "Photon UDP payload used an encrypted flag but failed encrypted framing validation. PayloadBytes={PayloadBytes}",
-                        payloadBytes);
+                        "Encrypted Photon message not tied to a market request. PayloadBytes={PayloadBytes}, HasValidPhotonTraffic={HasValidPhotonTraffic}",
+                        payloadBytes,
+                        result.HasValidPhotonTraffic);
                 }
 
                 return;
