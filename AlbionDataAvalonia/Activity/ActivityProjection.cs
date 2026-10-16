@@ -40,13 +40,14 @@ public static class ActivityProjection
             UnknownSilverEvents = !e.IsRetracted && e.Kind == ActivityEventKind.Silver && !e.HasKnownNetSilver && e.Evidence != ActivityEvidence.Supplemental &&
                 (actorKey == null || e.SourceActorId == actorKey) &&
                 (all || e.SourceRelationship == ActorRelationship.Self || (party && e.SourceRelationship == ActorRelationship.Party)) ? 1 : 0,
-            LootValue = !e.IsRetracted && e.Kind == ActivityEventKind.Loot && e.Evidence == ActivityEvidence.Confirmed && e.EstimatedUnitValue != null &&
+            // Everyone also counts items taken by an unknown player, such as from a public chest.
+            LootValue = !e.IsRetracted && e.Kind == ActivityEventKind.Loot && (e.Evidence == ActivityEvidence.Confirmed || all && e.Evidence == ActivityEvidence.Inferred) && e.EstimatedUnitValue != null &&
                 (actorKey == null || e.SourceActorId == actorKey) &&
                 (all || e.SourceRelationship == ActorRelationship.Self || (party && e.SourceRelationship == ActorRelationship.Party)) ? e.EstimatedUnitValue.Value * e.Quantity : 0,
-            LootItems = !e.IsRetracted && e.Kind == ActivityEventKind.Loot && e.Evidence == ActivityEvidence.Confirmed &&
+            LootItems = !e.IsRetracted && e.Kind == ActivityEventKind.Loot && (e.Evidence == ActivityEvidence.Confirmed || all && e.Evidence == ActivityEvidence.Inferred) &&
                 (actorKey == null || e.SourceActorId == actorKey) &&
                 (all || e.SourceRelationship == ActorRelationship.Self || (party && e.SourceRelationship == ActorRelationship.Party)) ? e.Quantity : 0,
-            MissingPriceItems = !e.IsRetracted && e.Kind == ActivityEventKind.Loot && e.Evidence == ActivityEvidence.Confirmed && e.EstimatedUnitValue == null &&
+            MissingPriceItems = !e.IsRetracted && e.Kind == ActivityEventKind.Loot && (e.Evidence == ActivityEvidence.Confirmed || all && e.Evidence == ActivityEvidence.Inferred) && e.EstimatedUnitValue == null &&
                 (actorKey == null || e.SourceActorId == actorKey) &&
                 (all || e.SourceRelationship == ActorRelationship.Self || (party && e.SourceRelationship == ActorRelationship.Party)) ? e.Quantity : 0,
             MobKills = !e.IsRetracted && e.Kind == ActivityEventKind.MobKilled &&
