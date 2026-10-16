@@ -51,7 +51,7 @@ public sealed partial class ActivityStreamerViewModel : ViewModelBase, IDisposab
     public double WindowWidth => Settings.StreamerSizeIndex switch { 0 => 250, 1 => 330, _ => 380 };
     public string SilverPerHourShortText => PerHourShort(Summary.Rates.SilverPerHour + Summary.Rates.LootValuePerHour + Summary.Rates.ResourceValuePerHour);
     public string CombatFamePerHourShortText => PerHourShort(ActivityProjection.GetFameRate(Summary.Summary.CombatFame, Summary.Rates));
-    public string DpsShortText => Summary.IsImported ? "" : $"{Summary.Rates.DamagePerSecond:N0} DPS";
+    public string DpsShortText => Summary.IsImported ? "" : $"{ActivityDisplay.Number(Summary.Rates.DamagePerSecond)} DPS";
     public string GatheredPerHourShortText => PerHourShort(Summary.Rates.ResourceValuePerHour);
     public bool ShowChart => Settings.StreamerShowChart && HasSession && !IsSmall;
     public bool ShowNothingSelected => !Settings.StreamerShowSilver && !Settings.StreamerShowCombat &&

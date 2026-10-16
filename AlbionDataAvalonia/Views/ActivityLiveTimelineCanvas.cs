@@ -435,7 +435,7 @@ internal sealed class ActivityLiveTimelineCanvas : Control
                 _ => ShowReceived ? "Combat received" : "Combat dealt"
             };
             tooltip = new(title, timeText, "", VisibleSeries.Select(item =>
-                $"{item.Label}: {(sample != null ? item.Value(sample) : 0):N1} {RateUnit}").ToArray());
+                $"{item.Label}: {ActivityDisplay.Number(sample != null ? item.Value(sample) : 0)} {RateUnit}").ToArray());
         }
         Cursor = new Cursor(encounter != null ? StandardCursorType.Hand : StandardCursorType.Cross);
         var text = tooltip.Title + "\n" + tooltip.TimeText + "\n" + tooltip.ContextText + "\n" + string.Join("\n", tooltip.Lines);
@@ -458,14 +458,14 @@ internal sealed class ActivityLiveTimelineCanvas : Control
             {
                 if (value > 0) lines.Add($"{label}: {ActivityDisplay.Number(value)}{rate}");
             }
-            Add("Damage dealt", summary.DamageDealt, $" ({rates.DamagePerSecond:N0} DPS)");
+            Add("Damage dealt", summary.DamageDealt, $" ({ActivityDisplay.Number(rates.DamagePerSecond)} DPS)");
             Add("Damage received", summary.DamageReceived);
-            Add("Healing done", summary.HealingDone, $" ({rates.HealingPerSecond:N0} HPS)");
+            Add("Healing done", summary.HealingDone, $" ({ActivityDisplay.Number(rates.HealingPerSecond)} HPS)");
             Add("Healing received", summary.HealingReceived);
             Add("Combat fame", summary.CombatFame, summary.PvpFame > 0 ? $" (PvP {ActivityDisplay.Number(summary.PvpFame)})" : "");
             Add("Silver", summary.Silver);
             if (summary.LootItems > 0)
-                lines.Add($"Loot: {summary.LootItems:N0} items · " + (summary.LootValue > 0 ? $"EMV {ActivityDisplay.Number(summary.LootValue)} silver" : "EMV unavailable"));
+                lines.Add($"Loot: {ActivityDisplay.Number(summary.LootItems)} items · " + (summary.LootValue > 0 ? $"EMV {ActivityDisplay.Number(summary.LootValue)} silver" : "EMV unavailable"));
             var kills = new List<string>();
             if (summary.MobKills > 0) kills.Add($"{summary.MobKills:N0} {(summary.MobKills == 1 ? "mob" : "mobs")}");
             if (summary.PlayerKills > 0) kills.Add($"{summary.PlayerKills:N0} {(summary.PlayerKills == 1 ? "player" : "players")}{ActivityDisplay.NonLethal(summary.NonLethalPlayerKills)}");

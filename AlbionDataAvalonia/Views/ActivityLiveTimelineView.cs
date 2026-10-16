@@ -527,7 +527,7 @@ public sealed class ActivityLiveTimelineView : UserControl
             var elapsed = latest == null ? 0 : Math.Max(0, (cursor - latest.WindowStartUtc).TotalSeconds);
             replaySeek.Maximum = Math.Max(1, total);
             replaySeek.Value = Math.Min(total, elapsed);
-            replayPosition.Text = Duration(elapsed) + " / " + Duration(total);
+            replayPosition.Text = ActivityDisplay.Duration(elapsed) + " / " + ActivityDisplay.Duration(total);
         }
         finally { updatingReplayPosition = false; }
         var windowTitle = WindowMinutes switch { 60 => "Last hour", 120 => "Last 2 hours", _ => $"Last {WindowMinutes} minutes" };
@@ -560,9 +560,4 @@ public sealed class ActivityLiveTimelineView : UserControl
         Classes = { "ActivityAction", "ActivitySecondary" }
     };
 
-    private static string Duration(double seconds)
-    {
-        var value = TimeSpan.FromSeconds(seconds);
-        return value.TotalHours >= 1 ? $"{(long)value.TotalHours}:{value.Minutes:00}:{value.Seconds:00}" : $"{(long)value.TotalMinutes}:{value.Seconds:00}";
-    }
 }

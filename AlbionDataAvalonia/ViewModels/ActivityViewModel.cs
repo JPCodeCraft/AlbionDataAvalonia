@@ -124,7 +124,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     public string LootCountText => $"{GlobalLoot.Count:N0} pickups";
     public string GlobalLootTotalsText => string.Join(" · ", new[]
     {
-        ShowGlobalLootPanel ? $"Loot {GlobalLootSummary.Summary.LootItems:N0} items · EMV {GlobalLootSummary.LootValue}" : null,
+        ShowGlobalLootPanel ? $"Loot {ActivityDisplay.Number(GlobalLootSummary.Summary.LootItems)} items · EMV {GlobalLootSummary.LootValue}" : null,
         SelectedItemSource.Value != ActivityItemSources.Loot ? $"Gathered {GlobalLootSummary.ResourceQuantityText} · EMV {GlobalLootSummary.ResourceValueText}" : null
     }.Where(value => value is not null));
     public string GlobalLootDetailsText => "Loot uses the Black Market EMV when available";

@@ -56,14 +56,14 @@ public sealed class ActivitySummaryPresentation
         + (HasMissingItemPrices || HasUnknownSilver ? "\nExcludes items without EMV and unknown silver" : "");
     public string Silver => Summary.IsLegacyAggregate ? "Unavailable" : ActivityDisplay.Number(Summary.Silver);
     public string LootValue => Summary.LootValue == 0 && Summary.MissingLootPriceCount > 0 ? "Unavailable" : ActivityDisplay.Number(Summary.LootValue);
-    public string LootItemsText => $"{Summary.LootItems:N0} items picked up";
+    public string LootItemsText => $"{ActivityDisplay.Number(Summary.LootItems)} items picked up";
     public string MobKills => Summary.IsLegacyAggregate ? "Unavailable" : ActivityDisplay.Number(Summary.MobKills);
     public string PlayerKills => Summary.IsLegacyAggregate ? "Unavailable" : ActivityDisplay.Number(Summary.PlayerKills);
-    public string DamageRate => Summary.IsLegacyAggregate ? "Not recorded" : $"{Rates.DamagePerSecond:N1} DPS";
-    public string DamageReceivedRate => Summary.IsLegacyAggregate ? "Not recorded" : $"{Rates.DamageReceivedPerSecond:N1} DPS";
-    public string HealingRate => Summary.IsLegacyAggregate ? "Not recorded" : $"{Rates.HealingPerSecond:N1} HPS";
-    public string HealingReceivedRate => Summary.IsLegacyAggregate ? "Not recorded" : $"{Rates.HealingReceivedPerSecond:N1} HPS";
-    public string FameRate => Summary.IsLegacyAggregate || !HasRecordedDuration ? "Not recorded" : $"{Rates.FamePerHour:N0} / hour";
+    public string DamageRate => Summary.IsLegacyAggregate ? "Not recorded" : $"{ActivityDisplay.Number(Rates.DamagePerSecond)} DPS";
+    public string DamageReceivedRate => Summary.IsLegacyAggregate ? "Not recorded" : $"{ActivityDisplay.Number(Rates.DamageReceivedPerSecond)} DPS";
+    public string HealingRate => Summary.IsLegacyAggregate ? "Not recorded" : $"{ActivityDisplay.Number(Rates.HealingPerSecond)} HPS";
+    public string HealingReceivedRate => Summary.IsLegacyAggregate ? "Not recorded" : $"{ActivityDisplay.Number(Rates.HealingReceivedPerSecond)} HPS";
+    public string FameRate => Summary.IsLegacyAggregate || !HasRecordedDuration ? "Not recorded" : $"{ActivityDisplay.Number(Rates.FamePerHour)} / hour";
     public string CombatFameRate => FameRateText(Summary.CombatFame);
     public string GatheringFameRate => FameRateText(Summary.GatheringFame + Summary.FishingFame);
     public string CombatFameDetailsText => HasPvpFame ? $"PvE {ActivityDisplay.Number(Summary.PveFame)} · PvP {ActivityDisplay.Number(Summary.PvpFame)}" : "Your combat fame";
@@ -71,7 +71,7 @@ public sealed class ActivitySummaryPresentation
     public string CombatFameFooterText => (IsSessionAverage ? CombatFameRate : "")
         + (HasPvpFame ? $"{(IsSessionAverage ? " · " : "")}PvP {ActivityDisplay.Number(Summary.PvpFame)}" : "");
     public string UnknownFameText => $"Unknown fame {UnknownFame}";
-    public string SilverRate => Summary.IsLegacyAggregate || !HasRecordedDuration ? "Not recorded" : $"{Rates.SilverPerHour:N0} / hour";
+    public string SilverRate => Summary.IsLegacyAggregate || !HasRecordedDuration ? "Not recorded" : $"{ActivityDisplay.Number(Rates.SilverPerHour)} / hour";
     public string LootValueRate => HasRecordedDuration ? ValueRateText(Summary.LootValue, Summary.MissingPriceItems, Rates.LootValuePerHour) : "Hourly rate unavailable";
     public bool HasUnknownSilver => Summary.UnknownSilverCount > 0;
     public bool HasMissingLootPrices => Summary.MissingLootPriceCount > 0;
@@ -96,20 +96,20 @@ public sealed class ActivitySummaryPresentation
         (Summary.NonLethalPlayerKills + Summary.NonLethalDeaths > 0 ? "\nNon-lethal: no lethal flag, e.g. arenas" : "");
     public bool HasResources => Summary.ResourceItems > 0;
     public bool HasMissingItemPrices => Summary.MissingPriceItems + Summary.MissingResourcePriceItems > 0;
-    public string ResourceItemsText => $"{Summary.ResourceItems:N0} items gathered";
+    public string ResourceItemsText => $"{ActivityDisplay.Number(Summary.ResourceItems)} items gathered";
     public string ResourceQuantityText => ActivityDisplay.Number(Summary.ResourceItems);
-    public string ResourceBreakdownText => $"Gathering {Summary.GatheringItems:N0} · Fishing {Summary.FishingItems:N0}" + (Summary.UnclassifiedResourceItems > 0 ? $" · Other {Summary.UnclassifiedResourceItems:N0}" : "");
+    public string ResourceBreakdownText => $"Gathering {ActivityDisplay.Number(Summary.GatheringItems)} · Fishing {ActivityDisplay.Number(Summary.FishingItems)}" + (Summary.UnclassifiedResourceItems > 0 ? $" · Other {ActivityDisplay.Number(Summary.UnclassifiedResourceItems)}" : "");
     public string ResourceValueText => Summary.ResourceValue == 0 && Summary.MissingResourcePriceItems > 0 ? "Unavailable" : ActivityDisplay.Number(Summary.ResourceValue);
-    public string ResourceRateText => HasRecordedDuration ? $"{Rates.ResourceItemsPerHour:N0} items / hour · {ValueRateText(Summary.ResourceValue, Summary.MissingResourcePriceItems, Rates.ResourceValuePerHour)}" : "Hourly rate unavailable";
-    public string ItemsCountText => $"{Summary.LootItems + Summary.ResourceItems:N0} items acquired";
-    public string ItemsFooterText => $"{Summary.LootItems:N0} items"
-        + (IsSessionAverage && HasRecordedDuration && (Summary.LootValue > 0 || !HasMissingLootPrices) ? $" · {Rates.LootValuePerHour:N0} / h" : "")
+    public string ResourceRateText => HasRecordedDuration ? $"{ActivityDisplay.Number(Rates.ResourceItemsPerHour)} items / hour · {ValueRateText(Summary.ResourceValue, Summary.MissingResourcePriceItems, Rates.ResourceValuePerHour)}" : "Hourly rate unavailable";
+    public string ItemsCountText => $"{ActivityDisplay.Number(Summary.LootItems + Summary.ResourceItems)} items acquired";
+    public string ItemsFooterText => $"{ActivityDisplay.Number(Summary.LootItems)} items"
+        + (IsSessionAverage && HasRecordedDuration && (Summary.LootValue > 0 || !HasMissingLootPrices) ? $" · {ActivityDisplay.Number(Rates.LootValuePerHour)} / h" : "")
         + (HasMissingLootPrices ? " *" : "");
     public string ItemsDetailsText => "Black Market EMV when available, otherwise EMV" + (HasMissingLootPrices ? $"\n{MissingLootPrices}" : "");
     public string ResourceValueDetailsText => ResourceRateText + (Summary.MissingResourcePriceItems > 0 ? $"\n{Summary.MissingResourcePriceItems:N0} items without EMV" : "");
     private static string ValueRateText(long knownValue, long missingItems, double rate) => missingItems > 0 && knownValue == 0
-        ? "EMV / hour unavailable" : $"{rate:N0} EMV / hour";
-    private string FameRateText(double amount) => Summary.IsLegacyAggregate || !HasRecordedDuration ? "Not recorded" : $"{ActivityProjection.GetFameRate(amount, Rates):N0} / hour";
+        ? "EMV / hour unavailable" : $"{ActivityDisplay.Number(rate)} EMV / hour";
+    private string FameRateText(double amount) => Summary.IsLegacyAggregate || !HasRecordedDuration ? "Not recorded" : $"{ActivityDisplay.Number(ActivityProjection.GetFameRate(amount, Rates))} / hour";
 
 }
 
@@ -165,8 +165,8 @@ public sealed class ActivityEncounterRow : ObservableObject
         var rates = ActivityProjection.GetRates(summary, source);
         DamageText = ActivityDisplay.Number(summary.DamageDealt);
         HealingText = ActivityDisplay.Number(summary.HealingDone);
-        DamageRateText = rates.DamagePerSecond.ToString("N1", CultureInfo.CurrentCulture);
-        HealingRateText = rates.HealingPerSecond.ToString("N1", CultureInfo.CurrentCulture);
+        DamageRateText = ActivityDisplay.Number(rates.DamagePerSecond);
+        HealingRateText = ActivityDisplay.Number(rates.HealingPerSecond);
         OnPropertyChanged(string.Empty);
     }
 
@@ -311,7 +311,7 @@ public sealed class ActivityEventRow(ActivityEvent source)
         ActivityEventKind.Fame => ActivityDisplay.Number(ActivityProjection.Contribution(source, ActivityScope.AllObserved).Fame),
         ActivityEventKind.Damage or ActivityEventKind.Healing => ActivityDisplay.Number(source.Amount),
         ActivityEventKind.Silver => source.HasKnownNetSilver ? $"{source.SilverRaw / 10000d:N0} silver" : "Amount unknown",
-        ActivityEventKind.Loot or ActivityEventKind.Gathered or ActivityEventKind.FishingReward or ActivityEventKind.LegacyGatheringAggregate => source.Quantity > 0 ? $"{source.Quantity:N0} × {ActivityDisplay.ItemName(source.ItemName)}" : $"Quantity unknown · {ActivityDisplay.ItemName(source.ItemName)}",
+        ActivityEventKind.Loot or ActivityEventKind.Gathered or ActivityEventKind.FishingReward or ActivityEventKind.LegacyGatheringAggregate => source.Quantity > 0 ? $"{ActivityDisplay.Number(source.Quantity)} × {ActivityDisplay.ItemName(source.ItemName)}" : $"Quantity unknown · {ActivityDisplay.ItemName(source.ItemName)}",
         ActivityEventKind.PartyJoined or ActivityEventKind.PartyLeft => ActivityPartyDetails.Parse(source.DetailsJson) is { PartySize: > 0 } party
             ? party.PartySize == 1 ? "Now solo" : $"Party size {party.PartySize:N0}" : "",
         _ => ""
@@ -379,7 +379,19 @@ internal static class ActivityDisplay
         tags.HasFlag(ActivityTags.Pve) ? "PvE" : null,
         tags.HasFlag(ActivityTags.Pvp) ? "PvP" : null
     }.Where(value => value is not null));
-    public static string Number(double value) => value.ToString("N0", CultureInfo.CurrentCulture);
+    // Short numbers as on the AFM website: 5.6, 845, 12.3k, 345k, 12.3M, 345M, 1.2B; whole numbers under 10 stay whole.
+    public static string Number(double value)
+    {
+        var size = Math.Abs(value);
+        var text = size < 10 ? size.ToString(size % 1 == 0 ? "0" : "0.0", CultureInfo.CurrentCulture)
+            : size < 1_000 ? size.ToString("0", CultureInfo.CurrentCulture)
+            : size < 100_000 ? (size / 1_000).ToString("0.0", CultureInfo.CurrentCulture) + "k"
+            : size < 1_000_000 ? (size / 1_000).ToString("0", CultureInfo.CurrentCulture) + "k"
+            : size < 100_000_000 ? (size / 1_000_000).ToString("0.0", CultureInfo.CurrentCulture) + "M"
+            : size < 1_000_000_000 ? (size / 1_000_000).ToString("0", CultureInfo.CurrentCulture) + "M"
+            : (size / 1_000_000_000).ToString("0.0", CultureInfo.CurrentCulture) + "B";
+        return value < 0 ? "-" + text : text;
+    }
     public static string ItemName(string? value) => string.IsNullOrWhiteSpace(value) || value == "Unset" || value.StartsWith('@') || value.Contains('_') ? "Unknown item" : value;
     public static string ActorName(string? value, ActivityActorKind kind = ActivityActorKind.Unknown)
         => kind == ActivityActorKind.Mob ? MobName(value) : string.IsNullOrWhiteSpace(value) || Guid.TryParse(value, out _) ? "Unknown" : value;
@@ -403,10 +415,14 @@ internal static class ActivityDisplay
     }
     public static string LocalDate(DateTime value) => DateTime.SpecifyKind(value, DateTimeKind.Utc).ToLocalTime().ToString("g", CultureInfo.CurrentCulture);
     public static string LocalTime(DateTime value) => DateTime.SpecifyKind(value, DateTimeKind.Utc).ToLocalTime().ToString("T", CultureInfo.CurrentCulture);
+    // The two largest units: 2d 5h, 5h 22m, 12m 5s, 45s; seconds only below an hour.
     public static string Duration(double seconds)
     {
-        var duration = TimeSpan.FromSeconds(Math.Max(0, seconds));
-        return duration.TotalDays >= 1 ? $"{(int)duration.TotalDays}d {duration:hh\\:mm\\:ss}" : $"{(int)duration.TotalHours}:{duration:mm\\:ss}";
+        var duration = TimeSpan.FromSeconds(Math.Floor(Math.Max(0, seconds)));
+        return duration.TotalDays >= 1 ? $"{(int)duration.TotalDays}d {duration.Hours}h"
+            : duration.TotalHours >= 1 ? $"{duration.Hours}h {duration.Minutes}m"
+            : duration.TotalMinutes >= 1 ? $"{duration.Minutes}m {duration.Seconds}s"
+            : $"{duration.Seconds}s";
     }
     public static string NonLethal(long count) => count > 0 ? $" ({count:N0} non-lethal)" : "";
     public static string Relationship(ActorRelationship value) => value switch { ActorRelationship.Self => "You", ActorRelationship.Party => "Party", ActorRelationship.Other => "Other", _ => "Unknown" };
