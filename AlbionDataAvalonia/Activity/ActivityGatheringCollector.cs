@@ -20,8 +20,8 @@ internal sealed class ActivityGatheringCollector
     private readonly ActivityLootCollector loot;
     private readonly ItemEstimatedMarketValueService values;
     private readonly ItemsIdsService items;
-    // The game's value for each journal item, from the latest item packet that carried one.
-    private readonly Dictionary<int, long> journalGameValues = new();
+    // The game's value for each journal and simple item, from the latest item packet that carried one.
+    private readonly Dictionary<int, long> gameValues = new();
     private FishingAttempt? fishing;
 
     public ActivityGatheringCollector(ActivityTrackerService tracker, ActivityLootCollector loot,
@@ -73,13 +73,52 @@ internal sealed class ActivityGatheringCollector
         if (packet.ResourceObjectId is { } source) value = ActivityTrackerService.WithTarget(value, tracker.ResolveActor(source));
         tracker.RecordResource(Estimate(value));
         if (actor.Relationship == ActorRelationship.Self) loot.NoteHarvestAcquisition(packet.ItemId, value.Quantity, at);
+        for (var index = 0; index < packet.BonusRewards.Count; index++)
+            RecordBonus(packet, packet.BonusRewards[index], index, actor, at);
     }
 
-    public void NoteJournalValue(NewJournalItemEvent packet)
+    // A bonus drop, such as a gathering tome, is a gathered output of the swing that dropped it.
+    // Its item packet precedes the harvest, so the game's value is already known.
+    private void RecordBonus(HarvestFinishedEvent packet, HarvestBonusReward reward, int index, ActivityActor actor, DateTime at)
     {
-        if (packet.Item is not { ItemIndex: > 0, EstimatedMarketValue: > 0 } item) return;
-        if (journalGameValues.Count >= 256 && !journalGameValues.ContainsKey(item.ItemIndex)) return;
-        journalGameValues[item.ItemIndex] = item.EstimatedMarketValue;
+        // Without a known item the drop has no name, icon or price to show.
+        if (items.GetItemIdByUniqueName(reward.UniqueName) is not { } itemId) return;
+        var item = Describe(itemId);
+        long? market = tracker.ServerId is { } server && values.Get(server, itemId, 1)?.NormalEmv is > 0 and var estimate ? estimate : null;
+        long? game = gameValues.TryGetValue(itemId, out var gameValue) ? gameValue : null;
+        var price = market ?? game;
+        var identity = ActivityResourceIdentity.FromUniqueName(reward.UniqueName);
+        var value = ActivityTrackerService.WithSource(tracker.Stamp(ActivityEventKind.Gathered, at,
+            ActivityTrackerService.Origin(packet, "HarvestBonus", index)), actor) with
+        {
+            ItemId = itemId,
+            ItemUniqueName = reward.UniqueName,
+            ItemName = item.Name,
+            Quality = 1,
+            Quantity = reward.Count,
+            EstimatedUnitValue = price,
+            PriceObservedAtUtc = price is null ? null : at,
+            DetailsJson = JsonSerializer.Serialize(new ActivityResourceDetails
+            {
+                Method = ActivityResourceMethod.Gathering,
+                Proof = "HarvestBonusReward",
+                ResourceObjectId = packet.ResourceObjectId,
+                ResourceFamily = identity.Family,
+                Tier = identity.Tier,
+                Enchantment = identity.Enchantment,
+                ValueBasis = market is not null ? "Market" : game is not null ? "GameValue" : null
+            })
+        };
+        if (packet.ResourceObjectId is { } source) value = ActivityTrackerService.WithTarget(value, tracker.ResolveActor(source));
+        tracker.RecordResource(value);
+        if (actor.Relationship == ActorRelationship.Self) loot.NoteHarvestAcquisition(itemId, reward.Count, at);
+    }
+
+    public void NoteGameValue(NewItem? item)
+    {
+        if (item is not { ItemIndex: > 0, EstimatedMarketValue: > 0 }) return;
+        if (gameValues.Count >= 256 && !gameValues.ContainsKey(item.ItemIndex)) return;
+        gameValues[item.ItemIndex] = item.EstimatedMarketValue;
     }
 
     // A journal that filled while gathering is a gathered output worth the full journal minus
@@ -123,7 +162,7 @@ internal sealed class ActivityGatheringCollector
     private (long? Price, string? Basis, long? Full, long? Empty) JournalValue(int fullId, int? emptyId)
     {
         long? Market(int id) => tracker.ServerId is { } server && values.Get(server, id, 1)?.NormalEmv is > 0 and var price ? price : null;
-        long? Game(int id) => journalGameValues.TryGetValue(id, out var price) ? price : null;
+        long? Game(int id) => gameValues.TryGetValue(id, out var price) ? price : null;
         if (emptyId is not { } empty) return (null, null, null, null);
         if (Market(fullId) is { } marketFull && Market(empty) is { } marketEmpty)
             return (Math.Max(0, marketFull - marketEmpty), "Market", marketFull, marketEmpty);

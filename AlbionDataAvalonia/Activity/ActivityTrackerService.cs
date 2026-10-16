@@ -247,7 +247,8 @@ public sealed partial class ActivityTrackerService : IDisposable
             // Item baselines can precede Join on the next connection. Cache only;
             // Join confirms their connection and inventory membership before use.
             loot.ObservePendingInventoryMetadata(packet, at);
-            if (packet is NewJournalItemEvent journalItem) gathering.NoteJournalValue(journalItem);
+            if (packet is NewJournalItemEvent journalItem) gathering.NoteGameValue(journalItem.Item);
+            else if (packet is NewSimpleItemEvent simpleItem) gathering.NoteGameValue(simpleItem.Item);
             ObservePendingActorMetadata(packet, at);
             if (!awaitingContext && (at < mapEnteredAt || !SameConnection(packet.ConnectionId, packet.MessageIdentity)))
             { gathering.Reset(); fameCollector.Reset(); return; }
