@@ -323,6 +323,31 @@ public class UserSettings : INotifyPropertyChanged
         }
     }
 
+    // Where the main and streamer windows were last closed; none opens them at the default spot.
+    private WindowPlacement? mainWindowPlacement;
+    public WindowPlacement? MainWindowPlacement
+    {
+        get => mainWindowPlacement;
+        set
+        {
+            if (mainWindowPlacement == value) return;
+            mainWindowPlacement = value;
+            OnPropertyChanged(nameof(MainWindowPlacement));
+        }
+    }
+
+    private WindowPlacement? streamerWindowPlacement;
+    public WindowPlacement? StreamerWindowPlacement
+    {
+        get => streamerWindowPlacement;
+        set
+        {
+            if (streamerWindowPlacement == value) return;
+            streamerWindowPlacement = value;
+            OnPropertyChanged(nameof(StreamerWindowPlacement));
+        }
+    }
+
     private void SetStreamerOption(ref bool field, bool value, string propertyName)
     {
         if (field == value) return;

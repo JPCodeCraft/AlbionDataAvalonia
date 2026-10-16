@@ -10,6 +10,7 @@ namespace AlbionDataAvalonia.Views;
 public partial class MainWindow : Window
 {
     private readonly SettingsManager _settingsManager;
+    private readonly WindowPlacementTracker _placement;
     private bool _isShuttingDown;
     private bool _suppressMinimizeToTrayOnce;
 
@@ -18,6 +19,7 @@ public partial class MainWindow : Window
         _settingsManager = settingsManager;
 
         InitializeComponent();
+        _placement = new WindowPlacementTracker(this, settingsManager.UserSettings.MainWindowPlacement, restoreSize: true);
         Closing += OnClosing;
     }
 
@@ -53,6 +55,7 @@ public partial class MainWindow : Window
 
     private async void OnClosing(object? sender, CancelEventArgs e)
     {
+        if (_placement.Capture() is { } placement) _settingsManager.UserSettings.MainWindowPlacement = placement;
         if (App.IsShuttingDown)
         {
             _isShuttingDown = true;

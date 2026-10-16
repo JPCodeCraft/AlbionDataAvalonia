@@ -31,6 +31,12 @@ public sealed class ActivityStreamerWindowService(ActivityTrackerService tracker
         if (App.IsShuttingDown) return;
         var viewModel = new ActivityStreamerViewModel(tracker, persistence, settings.UserSettings);
         var opened = new ActivityStreamerWindow { DataContext = viewModel };
+        // Its width follows the size setting and its height the sections shown, so only the spot is restored.
+        var placement = new WindowPlacementTracker(opened, settings.UserSettings.StreamerWindowPlacement, restoreSize: false);
+        opened.Closing += (_, _) =>
+        {
+            if (placement.Capture() is { } spot) settings.UserSettings.StreamerWindowPlacement = spot;
+        };
         opened.Closed += (_, _) =>
         {
             viewModel.Dispose();
