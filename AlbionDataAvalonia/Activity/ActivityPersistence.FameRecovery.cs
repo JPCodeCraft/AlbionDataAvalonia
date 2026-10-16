@@ -97,6 +97,74 @@ public sealed partial class ActivityPersistence
         catch (NotSupportedException) { return false; }
     }
 
+    private static async Task RestoreQuickLearnFameAsync(LocalContext context, CommittedChanges changes, CancellationToken cancellationToken)
+    {
+        // Kill and hide awards were saved without their Quick Learn bonus (UPDATE_FAME key 12), and hides
+        // as unknown fame. Add the bonus; a harvest captured with an unknown award makes it gathering fame.
+        var skipped = 0;
+        while (true)
+        {
+            var rows = await context.ActivityEvents.Where(x => !x.IsRetracted && x.Kind == ActivityEventKind.Fame &&
+                    ActivityDatabaseFunctions.JsonLong(x.DetailsJson, "$.RawFixedPointComponents.12") > 0 &&
+                    (ActivityDatabaseFunctions.JsonLong(x.DetailsJson, "$.UsesEnhancedAward") ?? 0) == 0)
+                .OrderBy(x => x.CapturedAtUtc).ThenBy(x => x.Id).Skip(skipped).Take(250).ToListAsync(cancellationToken);
+            if (rows.Count == 0) return;
+            var sessions = new Dictionary<Guid, ActivitySession>();
+            var encounters = new Dictionary<Guid, ActivityEncounter>();
+            foreach (var observation in rows)
+            {
+                var harvested = await context.ActivityEvents.AnyAsync(x => !x.IsRetracted && x.Kind == ActivityEventKind.Gathered &&
+                    x.CapturedAtUtc == observation.CapturedAtUtc && x.SourceActorId == observation.SourceActorId &&
+                    x.SessionId == observation.SessionId, cancellationToken);
+                if (!TryRestoreQuickLearnFame(observation, harvested, out var replacement)) { skipped++; continue; }
+                Validate(replacement);
+                await ValidateGroupingAsync(context, replacement, cancellationToken);
+                await ApplyContributionAsync(context, observation, -1, sessions, encounters, cancellationToken);
+                await ApplyContributionAsync(context, replacement, 1, sessions, encounters, cancellationToken);
+                context.Entry(observation).CurrentValues.SetValues(replacement);
+            }
+            changes.Include(context);
+            await context.SaveChangesAsync(cancellationToken);
+            context.ChangeTracker.Clear();
+        }
+    }
+
+    private static bool TryRestoreQuickLearnFame(ActivityEvent observation, bool harvested, out ActivityEvent replacement)
+    {
+        replacement = observation;
+        if (observation.Revision == int.MaxValue || observation.Evidence != ActivityEvidence.Confirmed) return false;
+        try
+        {
+            var detail = JsonSerializer.Deserialize<FameSnapshot>(observation.DetailsJson);
+            // Only awards saved as exactly the ordinary award are corrected.
+            if (detail is null || detail.UsesEnhancedAward == true || detail.ComponentStates?.GetValueOrDefault((byte)12) != PacketFieldState.Valid ||
+                detail.RawFixedPointComponents?.GetValueOrDefault((byte)12) is not { } raw || raw <= 0 ||
+                detail.OrdinaryAward is not { } ordinary || detail.Award is not { } saved ||
+                !SameAward(saved, ordinary) || !SameAward(saved, observation.Amount) ||
+                JsonNode.Parse(observation.DetailsJson) is not JsonObject json) return false;
+            var quickLearn = raw / 10000d;
+            json["QuickLearnFame"] = quickLearn;
+            json["UsesEnhancedAward"] = true;
+            json["Award"] = ordinary + quickLearn;
+            json["CalculationVersion"] = 5;
+            if (harvested && detail.FameCategory is null or ActivityFameCategory.Unknown)
+            {
+                json["FameCategory"] = (int)ActivityFameCategory.Gathering;
+                json["Category"] = ActivityFameCategory.Gathering.ToString();
+                json["ClassificationSource"] = "HarvestFinished";
+            }
+            replacement = observation with
+            {
+                Revision = observation.Revision + 1,
+                Amount = ordinary + quickLearn,
+                DetailsJson = json.ToJsonString()
+            };
+            return true;
+        }
+        catch (JsonException) { return false; }
+        catch (NotSupportedException) { return false; }
+    }
+
     private static bool SameAward(double a, double b) => double.IsFinite(a) && double.IsFinite(b) &&
         Math.Abs(a - b) <= Math.Max(1, Math.Max(Math.Abs(a), Math.Abs(b))) * 1e-10;
 
@@ -107,6 +175,9 @@ public sealed partial class ActivityPersistence
         public double PremiumFame { get; init; }
         public double? ReportedBonusIncrement { get; init; }
         public double? Award { get; init; }
+        public double? OrdinaryAward { get; init; }
+        public bool? UsesEnhancedAward { get; init; }
+        public ActivityFameCategory? FameCategory { get; init; }
         public int CalculationVersion { get; init; }
     }
 }

@@ -194,11 +194,17 @@ public sealed partial class ActivityPersistence
                 Name = g.Max(x => x.ItemName),
                 Quantity = g.Sum(x => x.Quantity),
                 KnownValue = g.Sum(x => x.EstimatedUnitValue == null ? 0 : x.Quantity * x.EstimatedUnitValue.Value),
-                Missing = g.Sum(x => x.EstimatedUnitValue == null ? x.Quantity : 0)
+                Missing = g.Sum(x => x.EstimatedUnitValue == null ? x.Quantity : 0),
+                FullJournalValue = g.Sum(x => x.EstimatedUnitValue != null && x.ItemUniqueName != null && x.ItemUniqueName.EndsWith("_FULL")
+                    ? x.Quantity * (ActivityDatabaseFunctions.JsonLong(x.DetailsJson, "$.FullJournalUnitValue") ?? 0) : 0),
+                EmptyJournalValue = g.Sum(x => x.EstimatedUnitValue != null && x.ItemUniqueName != null && x.ItemUniqueName.EndsWith("_FULL")
+                    ? x.Quantity * (ActivityDatabaseFunctions.JsonLong(x.DetailsJson, "$.EmptyJournalUnitValue") ?? 0) : 0),
+                MarketJournalItems = g.Sum(x => x.EstimatedUnitValue != null && x.ItemUniqueName != null && x.ItemUniqueName.EndsWith("_FULL") &&
+                    x.DetailsJson.Contains("\"ValueBasis\":\"Market\"") ? x.Quantity : 0)
             }).ToArrayAsync(cancellationToken);
         var resources = rows.Select(x => new ActivityResourceTotal(x.ItemId, x.Quality, x.ItemUniqueName, x.Name ?? "",
             x.Kind == ActivityEventKind.Gathered ? ActivityResourceMethod.Gathering : ActivityResourceMethod.Fishing,
-            x.Quantity, x.KnownValue, x.Missing)).ToDictionary(ResourceKey);
+            x.Quantity, x.KnownValue, x.Missing, x.FullJournalValue, x.EmptyJournalValue, x.MarketJournalItems)).ToDictionary(ResourceKey);
         var contribution = ActivityProjection.ContributionExpression(query.Scope).Compile();
         foreach (var value in after.Values)
         {
@@ -266,8 +272,11 @@ public sealed partial class ActivityPersistence
             var amount = contribution(value);
             summary = ActivityProjection.Add(summary, amount, sign);
             if (amount.ResourceItems <= 0) return;
+            var journal = ActivityJournals.Values(value);
             var total = new ActivityResourceTotal(value.ItemId, value.Quality, value.ItemUniqueName, value.ItemName,
-                ActivityClassification.ResourceMethod(value), amount.ResourceItems, amount.ResourceValue, amount.MissingResourcePriceItems);
+                ActivityClassification.ResourceMethod(value), amount.ResourceItems, amount.ResourceValue, amount.MissingResourcePriceItems,
+                (journal?.Full ?? 0) * amount.ResourceItems, (journal?.Empty ?? 0) * amount.ResourceItems,
+                journal?.Market == true ? amount.ResourceItems : 0);
             var key = ResourceKey(total);
             var prior = resources.GetValueOrDefault(key) ?? total with { Quantity = 0, KnownValue = 0, MissingPriceItems = 0 };
             resources[key] = prior with
@@ -275,7 +284,10 @@ public sealed partial class ActivityPersistence
                 Name = string.IsNullOrWhiteSpace(total.Name) ? prior.Name : total.Name,
                 Quantity = prior.Quantity + sign * total.Quantity,
                 KnownValue = prior.KnownValue + sign * total.KnownValue,
-                MissingPriceItems = prior.MissingPriceItems + sign * total.MissingPriceItems
+                MissingPriceItems = prior.MissingPriceItems + sign * total.MissingPriceItems,
+                FullJournalValue = prior.FullJournalValue + sign * total.FullJournalValue,
+                EmptyJournalValue = prior.EmptyJournalValue + sign * total.EmptyJournalValue,
+                MarketJournalItems = prior.MarketJournalItems + sign * total.MarketJournalItems
             };
         }
     }
@@ -321,7 +333,8 @@ public sealed partial class ActivityPersistence
             Knockdowns = g.Sum(x => x.Knockdowns),
             NonLethalPlayerKills = g.Sum(x => x.NonLethalPlayerKills),
             NonLethalDeaths = g.Sum(x => x.NonLethalDeaths),
-            QuickLearnFame = g.Sum(x => x.QuickLearnFame)
+            GatheringQuickLearnFame = g.Sum(x => x.GatheringQuickLearnFame),
+            CombatQuickLearnFame = g.Sum(x => x.CombatQuickLearnFame)
         }).SingleOrDefaultAsync(cancellationToken);
 
     private static async Task<ActivitySummary> AggregateSummaryAsync(IQueryable<ActivityEvent> query, ActivityScope scope,

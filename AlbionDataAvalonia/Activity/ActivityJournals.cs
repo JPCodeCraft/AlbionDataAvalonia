@@ -1,4 +1,6 @@
+using AlbionDataAvalonia.Activity.Models;
 using System;
+using System.Text.Json;
 
 namespace AlbionDataAvalonia.Activity;
 
@@ -11,4 +13,17 @@ internal static class ActivityJournals
 
     public static string? EmptyUniqueName(string? fullUniqueName) =>
         IsFull(fullUniqueName) ? fullUniqueName![..^"_FULL".Length] + "_EMPTY" : null;
+
+    // A priced filled journal's full and empty unit values, and whether they are market prices.
+    public static (long Full, long Empty, bool Market)? Values(ActivityEvent value)
+    {
+        if (value.EstimatedUnitValue is null || !IsFull(value.ItemUniqueName)) return null;
+        try
+        {
+            var details = JsonSerializer.Deserialize<ActivityResourceDetails>(value.DetailsJson);
+            return details is { FullJournalUnitValue: { } full, EmptyJournalUnitValue: { } empty }
+                ? (full, empty, details.ValueBasis == "Market") : null;
+        }
+        catch (JsonException) { return null; }
+    }
 }

@@ -224,8 +224,9 @@ public sealed record ActivitySummary
     // Included in PlayerKills and Deaths: deaths reported without the lethal flag, such as in arenas.
     public long NonLethalPlayerKills { get; init; }
     public long NonLethalDeaths { get; init; }
-    // Included in GatheringFame and FishingFame: bonus fame bought with Quick Learn.
-    public double QuickLearnFame { get; init; }
+    // Bonus fame bought with Quick Learn, included in GatheringFame and FishingFame, and in PveFame and PvpFame.
+    public double GatheringQuickLearnFame { get; init; }
+    public double CombatQuickLearnFame { get; init; }
     public double Silver => SilverRaw / 10000d;
     public double CombatFame => PveFame + PvpFame;
     public double UnclassifiedFame => Math.Max(0, UnknownFameAmount ?? Fame - PveFame - GatheringFame - FishingFame - PvpFame);
@@ -283,8 +284,11 @@ public sealed record ActivityRates(double DurationSeconds, double DamagePerSecon
     double DamageReceivedPerSecond, double HealingReceivedPerSecond, double CombatDurationSeconds = 0,
     double ResourceItemsPerHour = 0, double ResourceValuePerHour = 0);
 
+// Filled journals also total the full and empty journal values behind their known value,
+// and how many of them were valued at market prices rather than the game's values.
 public sealed record ActivityResourceTotal(int? ItemId, int? Quality, string? UniqueName, string Name,
-    ActivityResourceMethod Source, long Quantity, long KnownValue, long MissingPriceItems);
+    ActivityResourceMethod Source, long Quantity, long KnownValue, long MissingPriceItems,
+    long FullJournalValue = 0, long EmptyJournalValue = 0, long MarketJournalItems = 0);
 public sealed record ActivityImportResult(int ImportedSessions, int SkippedSessions, IReadOnlyList<string> Errors);
 public sealed record ActivityResourceDetails
 {

@@ -68,11 +68,17 @@ public sealed class ActivitySummaryPresentation
     public string FameRate => Summary.IsLegacyAggregate || !HasRecordedDuration ? "Not recorded" : $"{Rates.FamePerHour:N0} / hour";
     public string CombatFameRate => FameRateText(Summary.CombatFame);
     public string GatheringFameRate => FameRateText(Summary.GatheringFame + Summary.FishingFame);
-    public string CombatFameDetailsText => HasPvpFame ? $"PvE {ActivityDisplay.Number(Summary.PveFame)} · PvP {ActivityDisplay.Number(Summary.PvpFame)}" : "Your combat fame";
+    public string CombatFameDetailsText => (HasPvpFame ? $"PvE {ActivityDisplay.Number(Summary.PveFame)} · PvP {ActivityDisplay.Number(Summary.PvpFame)}" : "Your combat fame")
+        + QuickLearnDetails(Summary.CombatQuickLearnFame);
     public string GatheringFameDetailsText => (Summary.FishingFame > 0 ? $"Gathering {ActivityDisplay.Number(Summary.GatheringFame)} · Fishing {ActivityDisplay.Number(Summary.FishingFame)}" : "Your gathering fame")
-        + (HasQuickLearnFame ? $"\nIncludes {ActivityDisplay.Number(Summary.QuickLearnFame)} bonus fame bought with Quick Learn" : "");
-    public bool HasQuickLearnFame => Summary.QuickLearnFame > 0 && !Summary.IsLegacyAggregate;
-    public string QuickLearnFameText => $"incl. {ActivityDisplay.Number(Summary.QuickLearnFame)} from Quick Learn";
+        + QuickLearnDetails(Summary.GatheringQuickLearnFame);
+    public bool HasGatheringQuickLearnFame => Summary.GatheringQuickLearnFame > 0 && !Summary.IsLegacyAggregate;
+    public string GatheringQuickLearnFameText => QuickLearnText(Summary.GatheringQuickLearnFame);
+    public bool HasCombatQuickLearnFame => Summary.CombatQuickLearnFame > 0 && !Summary.IsLegacyAggregate;
+    public string CombatQuickLearnFameText => QuickLearnText(Summary.CombatQuickLearnFame);
+    private static string QuickLearnText(double fame) => $"incl. {ActivityDisplay.Number(fame)} from Quick Learn";
+    private string QuickLearnDetails(double fame) => fame > 0 && !Summary.IsLegacyAggregate
+        ? $"\nIncludes {ActivityDisplay.Number(fame)} bonus fame bought with Quick Learn" : "";
     public string CombatFameFooterText => (IsSessionAverage ? CombatFameRate : "")
         + (HasPvpFame ? $"{(IsSessionAverage ? " · " : "")}PvP {ActivityDisplay.Number(Summary.PvpFame)}" : "");
     public string UnknownFameText => $"Unknown fame {UnknownFame}";
@@ -426,5 +432,21 @@ public sealed class ActivityResourceRow(ActivityResourceTotal source)
     public string ValueLabel => "Total EMV";
     public string MissingPricesText => source.MissingPriceItems > 0 ? $"{source.MissingPriceItems:N0} without prices" : "";
     public string Details => $"{ItemName} · {ItemQuality.Format(source.Quality)}\n{QuantityText} items · estimated value {ValueText} silver" +
+        (JournalValueText is { } journal ? $"\n{journal}" : "") +
         (HasMissingPrices ? $"\n{MissingPricesText}" : "");
+
+    // A filled journal is worth the full journal minus the empty one it replaced.
+    private string? JournalValueText
+    {
+        get
+        {
+            if (source.FullJournalValue <= 0) return null;
+            var priced = source.Quantity - source.MissingPriceItems;
+            var journals = priced == 1 ? "journal" : "journals";
+            var basis = source.MarketJournalItems >= priced ? "market prices"
+                : source.MarketJournalItems == 0 ? "game values" : "market prices and game values";
+            return $"Full {journals} {ActivityDisplay.Number(source.FullJournalValue)} − empty {journals} {ActivityDisplay.Number(source.EmptyJournalValue)}" +
+                $" = {ActivityDisplay.Number(source.KnownValue)} silver ({basis})";
+        }
+    }
 }

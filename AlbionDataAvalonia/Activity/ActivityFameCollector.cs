@@ -8,8 +8,7 @@ using System.Linq;
 
 namespace AlbionDataAvalonia.Activity;
 
-internal sealed record ActivityFameMatch(ActivityFameCategory Category, IReadOnlyList<int> AchievementIndexes,
-    double? Award = null, bool UsesEnhancedAward = false)
+internal sealed record ActivityFameMatch(ActivityFameCategory Category, IReadOnlyList<int> AchievementIndexes)
 {
     public static ActivityFameMatch Unknown { get; } = new(ActivityFameCategory.Unknown, []);
 }
@@ -56,25 +55,13 @@ internal sealed partial class ActivityFameCollector(AchievementsService achievem
         var categories = categorized.Select(x => x.Category).Distinct().ToArray();
         if (categories.Length != 1) return ActivityFameMatch.Unknown;
         var category = categories[0];
-        var indexes = categorized.Select(x => x.Observation.AchievementIndex).Distinct().ToArray();
-        if (category is ActivityFameCategory.Gathering or ActivityFameCategory.Fishing)
-        {
-            var states = packet.ComponentStates;
-            if (states.GetValueOrDefault((byte)12) == PacketFieldState.Invalid
-                || states.GetValueOrDefault((byte)13) == PacketFieldState.Invalid)
-                return ActivityFameMatch.Unknown;
-            var hasEnhancedEvidence = packet.RawFixedPointComponents.GetValueOrDefault((byte)12) is > 0
-                || packet.RawFixedPointComponents.GetValueOrDefault((byte)13) is > 0;
-            // Quick Learn's bonus counts as fame, as the game reports it; summaries show it separately.
-            if (hasEnhancedEvidence)
-            {
-                if (packet.ObservedAward is not { } ordinaryAward || packet.QuickLearnFame is not { } quickLearn)
-                    return ActivityFameMatch.Unknown;
-                return new(category, indexes, ordinaryAward + quickLearn, UsesEnhancedAward: true);
-            }
-        }
-        return new(category, indexes, packet.ObservedAward);
+        if (packet.ComponentStates.GetValueOrDefault((byte)12) == PacketFieldState.Invalid) return ActivityFameMatch.Unknown;
+        return new(category, categorized.Select(x => x.Observation.AchievementIndex).Distinct().ToArray());
     }
+
+    // Quick Learn's bonus counts as fame, as the game reports it; summaries show it separately.
+    public static double? Award(UpdateFameEvent packet) =>
+        packet.QuickLearnFame is { } quickLearn ? packet.ObservedAward + quickLearn : packet.ObservedAward;
 
     private ActivityFameCategory Classify(int index)
     {

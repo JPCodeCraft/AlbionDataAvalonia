@@ -442,6 +442,7 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                     context.ChangeTracker.Clear();
                 }
                 await RestoreKnownFameAwardsAsync(context, changes, cancellationToken);
+                await RestoreQuickLearnFameAsync(context, changes, cancellationToken);
                 await RecoverPlaySessionsAsync(context, changes, cancellationToken);
                 break;
         }

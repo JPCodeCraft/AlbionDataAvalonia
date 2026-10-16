@@ -202,15 +202,10 @@ public partial class ActivityViewModel
     }
 
     private async Task RefreshSessionResourcesAsync(ActivityQuery query, long version)
-
     {
-
-        if (persistence is null || query.SessionId is not { } id) return;
-
+        if (persistence is null || SelectedPlaySession is not { } playSession) return;
         var rows = await persistence.GetResourceTotalsAsync(query, detailQueryCancellation.Token);
-
-        if (IsCurrentDetail(version, id) && DetailQuery(true) == query) SessionResources = new(rows.Select(row => new ActivityResourceRow(row)));
-
+        if (IsCurrentDetail(version, playSession.Id) && DetailQuery(true) == query) SessionResources = new(rows.Select(row => new ActivityResourceRow(row)));
     }
 
 }

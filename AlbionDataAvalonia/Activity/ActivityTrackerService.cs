@@ -797,7 +797,7 @@ public sealed partial class ActivityTrackerService : IDisposable
         if (packet.ActorObjectIdState == PacketFieldState.Invalid) { fameCollector.Reset(); return; }
         var actor = packet.ActorObjectId is { } actorId ? actors.Resolve(actorId) : actors.Local;
         var match = fameCollector.Match(packet, packet.ActorObjectId, at);
-        var award = match.Award ?? packet.ObservedAward;
+        var award = ActivityFameCollector.Award(packet);
         if (!Tracked(actor) || !(award is > 0 || packet.RawFixedPointComponents.GetValueOrDefault((byte)2) is > 0)) return;
         EnsureSession(at);
         TouchRelevant(at);
@@ -826,9 +826,9 @@ public sealed partial class ActivityTrackerService : IDisposable
                 packet.ReportedBonusIncrement,
                 packet.QuickLearnFame,
                 packet.QuickLearnSilverCost,
-                match.UsesEnhancedAward,
+                UsesEnhancedAward = packet.QuickLearnFame is not null,
                 OrdinaryAward = packet.ObservedAward,
-                CalculationVersion = 4,
+                CalculationVersion = 5,
                 Award = award
             })
         };

@@ -409,7 +409,8 @@ public sealed partial class ActivityPersistence
                 Knockdowns = g.Sum(x => x.Knockdowns),
                 NonLethalPlayerKills = g.Sum(x => x.NonLethalPlayerKills),
                 NonLethalDeaths = g.Sum(x => x.NonLethalDeaths),
-                QuickLearnFame = g.Sum(x => x.QuickLearnFame)
+                GatheringQuickLearnFame = g.Sum(x => x.GatheringQuickLearnFame),
+                CombatQuickLearnFame = g.Sum(x => x.CombatQuickLearnFame)
             }).SingleOrDefaultAsync(cancellationToken) ?? new();
     }
 
@@ -582,13 +583,19 @@ public sealed partial class ActivityPersistence
                 g.Key.Source,
                 Quantity = g.Sum(x => x.Quantity),
                 KnownValue = g.AsQueryable().Select(contribution).Sum(),
-                Missing = g.Sum(x => (x.Kind == ActivityEventKind.LegacyGatheringAggregate ? ActivityDatabaseFunctions.JsonLong(x.DetailsJson, "$.Legacy.RecordedTotalValue") == null : x.EstimatedUnitValue == null) ? x.Quantity : 0)
+                Missing = g.Sum(x => (x.Kind == ActivityEventKind.LegacyGatheringAggregate ? ActivityDatabaseFunctions.JsonLong(x.DetailsJson, "$.Legacy.RecordedTotalValue") == null : x.EstimatedUnitValue == null) ? x.Quantity : 0),
+                FullJournalValue = g.Sum(x => x.EstimatedUnitValue != null && x.ItemUniqueName != null && x.ItemUniqueName.EndsWith("_FULL")
+                    ? x.Quantity * (ActivityDatabaseFunctions.JsonLong(x.DetailsJson, "$.FullJournalUnitValue") ?? 0) : 0),
+                EmptyJournalValue = g.Sum(x => x.EstimatedUnitValue != null && x.ItemUniqueName != null && x.ItemUniqueName.EndsWith("_FULL")
+                    ? x.Quantity * (ActivityDatabaseFunctions.JsonLong(x.DetailsJson, "$.EmptyJournalUnitValue") ?? 0) : 0),
+                MarketJournalItems = g.Sum(x => x.EstimatedUnitValue != null && x.ItemUniqueName != null && x.ItemUniqueName.EndsWith("_FULL") &&
+                    x.DetailsJson.Contains("\"ValueBasis\":\"Market\"") ? x.Quantity : 0)
             })
             .OrderByDescending(x => x.KnownValue).ThenBy(x => x.ItemName).ThenBy(x => x.ItemId).ThenBy(x => x.Quality).ThenBy(x => x.Source);
         // Only one row per resource variant is materialized, not individual pickups.
         var rows = await grouped.ToArrayAsync(cancellationToken);
         return rows.Select(x => new ActivityResourceTotal(x.ItemId, x.Quality, x.ItemUniqueName, x.ItemName,
-            x.Source, x.Quantity, x.KnownValue, x.Missing)).ToArray();
+            x.Source, x.Quantity, x.KnownValue, x.Missing, x.FullJournalValue, x.EmptyJournalValue, x.MarketJournalItems)).ToArray();
     }
 
     private async Task<ActivityLegacyImportInfo?> GetLegacyImportInfoCoreAsync(Guid sessionId, CancellationToken cancellationToken = default)
