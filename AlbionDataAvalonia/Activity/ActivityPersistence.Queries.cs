@@ -39,8 +39,14 @@ public sealed partial class ActivityPersistence
             endUtc.Ticks - (long)(windowSeconds * TimeSpan.TicksPerSecond)), DateTimeKind.Utc);
         windowSeconds = Math.Max(1, (endUtc - fromUtc).TotalSeconds);
         var sampleSeconds = Math.Max(1, Math.Ceiling(windowSeconds / 600));
-        var sampleCount = Math.Min(600, (int)Math.Ceiling(windowSeconds / sampleSeconds));
+        // Buckets sit on a fixed clock grid. Anchoring them to the moving window start would
+        // regroup the same hits on every refresh and reshape longer windows each second.
+        var sampleTicks = (long)sampleSeconds * TimeSpan.TicksPerSecond;
+        var gridFromUtc = new DateTime(fromUtc.Ticks - fromUtc.Ticks % sampleTicks, DateTimeKind.Utc);
+        var sampleCount = Math.Min(601, (int)Math.Ceiling((endUtc - gridFromUtc).TotalSeconds / sampleSeconds));
         var selectedFromUtc = query.FromUtc is { } selectedFrom && selectedFrom > fromUtc ? selectedFrom : fromUtc;
+        // The first bucket starts before the window and still holds all of its events.
+        var sampleFromUtc = selectedFromUtc > fromUtc ? selectedFromUtc : gridFromUtc;
         query = query with { FromUtc = selectedFromUtc, ToUtc = endUtc };
         await using var context = contextFactory();
         var connection = (SqliteConnection)context.Database.GetDbConnection();
@@ -102,8 +108,10 @@ public sealed partial class ActivityPersistence
         var matchesCategory = categoryExpression.Compile();
         var filtered = FilterEvents(context, query with { ShowCategories = ActivityCategories.All }).Where(categoryExpression)
             .Where(x => x.SessionId == null || !deleted.Contains(x.SessionId.Value));
-        var sampleEvents = filtered.Where(x => x.Kind == ActivityEventKind.Damage || x.Kind == ActivityEventKind.Healing ||
-            x.Kind == ActivityEventKind.Gathered || x.Kind == ActivityEventKind.FishingReward || x.Kind == ActivityEventKind.Fame);
+        var sampleEvents = FilterEvents(context, query with { FromUtc = sampleFromUtc, ShowCategories = ActivityCategories.All }).Where(categoryExpression)
+            .Where(x => x.SessionId == null || !deleted.Contains(x.SessionId.Value))
+            .Where(x => x.Kind == ActivityEventKind.Damage || x.Kind == ActivityEventKind.Healing ||
+                x.Kind == ActivityEventKind.Gathered || x.Kind == ActivityEventKind.FishingReward || x.Kind == ActivityEventKind.Fame);
         var dealt = ActivityProjection.ChartExpression(scope, query.ActorKey, ActivityChartMetric.DamageDealt);
         var received = ActivityProjection.ChartExpression(scope, query.ActorKey, ActivityChartMetric.DamageReceived);
         var healed = ActivityProjection.ChartExpression(scope, query.ActorKey, ActivityChartMetric.HealingDone);
@@ -116,8 +124,8 @@ public sealed partial class ActivityPersistence
         var fishingFame = ActivityProjection.ChartExpression(scope, query.ActorKey, ActivityChartMetric.FishingFame);
         var unknownFame = ActivityProjection.ChartExpression(scope, query.ActorKey, ActivityChartMetric.UnclassifiedFame);
         var pendingContribution = string.IsNullOrWhiteSpace(query.ActorKey) ? null : ActivityProjection.ContributionExpression(scope, query.ActorKey).Compile();
-        var firstSecond = fromUtc.Hour * 3600 + fromUtc.Minute * 60 + fromUtc.Second;
-        var firstDate = fromUtc.Date;
+        var firstSecond = gridFromUtc.Hour * 3600 + gridFromUtc.Minute * 60 + gridFromUtc.Second;
+        var firstDate = gridFromUtc.Date;
         // Only whole calendar days use julianday, where midnight differences are exact. Calendar
         // second fields preserve bucket boundaries, including multi-day history and UTC midnight.
         var sampleRows = await sampleEvents.GroupBy(x =>
@@ -139,12 +147,12 @@ public sealed partial class ActivityPersistence
                 UnknownFame = g.AsQueryable().Select(unknownFame).Sum()
             }).Take(sampleCount).ToArrayAsync(cancellationToken);
         var samples = Enumerable.Range(0, sampleCount).Select(i =>
-            new ActivityLiveTimelineSample(fromUtc.AddSeconds(i * sampleSeconds), 0, 0, 0, 0)).ToArray();
+            new ActivityLiveTimelineSample(gridFromUtc.AddSeconds(i * sampleSeconds), 0, 0, 0, 0)).ToArray();
         foreach (var row in sampleRows)
             if (row.Bucket >= 0 && row.Bucket < sampleCount)
             {
-                var seconds = BucketSeconds(row.Bucket);
-                samples[row.Bucket] = new(fromUtc.AddSeconds(row.Bucket * sampleSeconds), row.DamageDealt / seconds,
+                var seconds = sampleSeconds;
+                samples[row.Bucket] = new(gridFromUtc.AddSeconds(row.Bucket * sampleSeconds), row.DamageDealt / seconds,
                     row.DamageReceived / seconds, row.HealingDone / seconds, row.HealingReceived / seconds, row.Gathering / seconds, row.Fishing / seconds,
                     row.PveFame / seconds, row.PvpFame / seconds, row.GatheringFame / seconds, row.FishingFame / seconds, row.UnknownFame / seconds);
             }
@@ -218,11 +226,15 @@ public sealed partial class ActivityPersistence
             (value.SessionId is null || !deleted.Contains(value.SessionId.Value));
         void AddSample(ActivityEvent value, int sign)
         {
-            if (!InWindow(value) || !matchesCategory(value) || !ActivityClassification.IsTemporal(value.Kind)) return;
-            var index = (int)((value.CapturedAtUtc.Ticks - fromUtc.Ticks) / TimeSpan.TicksPerSecond / sampleSeconds);
+            // Pending adjustments use the same span as the sample query, including the leading bucket.
+            if (!MatchesOwner(value, query) || value.CapturedAtUtc < sampleFromUtc || value.CapturedAtUtc >= endUtc ||
+                value.SessionId is { } sessionId && deleted.Contains(sessionId) ||
+                !matchesCategory(value) || !ActivityClassification.IsTemporal(value.Kind)) return;
+            var index = (int)((value.CapturedAtUtc.Ticks - gridFromUtc.Ticks) / TimeSpan.TicksPerSecond / sampleSeconds);
             if (index < 0 || index >= samples.Length) return;
             var contribution = pendingContribution?.Invoke(value) ?? ActivityProjection.Contribution(value, scope);
-            var seconds = BucketSeconds(index);
+            // An in-progress trailing bucket keeps the full divisor, so it rises smoothly instead of spiking.
+            var seconds = sampleSeconds;
             var sample = samples[index];
             samples[index] = sample with
             {
@@ -239,8 +251,6 @@ public sealed partial class ActivityPersistence
                 UnknownFame = sample.UnknownFame + sign * (contribution.UnknownFameAmount ?? 0) / seconds
             };
         }
-        double BucketSeconds(int index) => Math.Max(1, Math.Min(sampleSeconds, windowSeconds - index * sampleSeconds));
-
         void AddProof(ActivityEvent value, int sign)
         {
             if (!MatchesOwner(value, query) || value.EncounterId is not { } encounterId || !proofIds.Contains(encounterId)) return;

@@ -15,7 +15,7 @@ using System.Threading.Tasks;
 namespace AlbionDataAvalonia.Activity;
 
 /// <summary>Bounded correlations for loot sources and the captured character's inventory.</summary>
-internal sealed class ActivityLootCollector : IDisposable
+internal sealed partial class ActivityLootCollector : IDisposable
 {
     private const int EmptyLootChestState = 8;
     private static readonly TimeSpan MetadataLifetime = TimeSpan.FromMinutes(10);
@@ -156,8 +156,11 @@ internal sealed class ActivityLootCollector : IDisposable
                 break;
             case UpdateLootChestEvent updated when updated.ObjectId > 0:
                 IdentifySource(updated.ObjectId, null, "Chest", at);
-                if (updated.PlayerGuids.Count > 0 && (chestRecipients.Count < 1024 || chestRecipients.ContainsKey(updated.ObjectId)))
-                    chestRecipients[updated.ObjectId] = new ChestRecipients(updated.PlayerGuids.ToArray(), at);
+                // Players who still have reserved loot name who can take the next removed stack.
+                var recipients = updated.RemainingLootGuids.Count > 0 ? updated.RemainingLootGuids : updated.PlayerGuids;
+                if (recipients.Count > 0 && (chestRecipients.Count < 1024 || chestRecipients.ContainsKey(updated.ObjectId)))
+                    chestRecipients[updated.ObjectId] = new ChestRecipients(recipients.ToArray(), at);
+                RecordReservedPickups(partyChests.ObserveUpdate(updated, tracker.LocalActor.CharacterId, at), at, packet, record);
                 if (record && updated.State == EmptyLootChestState)
                 {
                     emptyChests[updated.ObjectId] = at;
@@ -173,6 +176,7 @@ internal sealed class ActivityLootCollector : IDisposable
                 if (TryContainer(detach.ContainerId, at, out var detached))
                 {
                     detached.LastSeen = at;
+                    partyChests.ObserveClosed(detached.SourceId);
                     if (record && detached.IsPublic && TrySource(detached.SourceId, at, out var chest) && chest.Kind == "Chest")
                     {
                         detachedChests[detached.SourceId] = new DetachedChest(detached.Slots.Where(x => x > 0).Distinct().ToArray(), at);
@@ -198,10 +202,13 @@ internal sealed class ActivityLootCollector : IDisposable
                 break;
             case PartyLootItemsEvent party:
                 IdentifySource(party.SourceObjectId, null, "Chest", at);
+                RecordReservedPickups(partyChests.ObserveList(party, at), at, packet, record);
                 for (var index = 0; index < party.ItemObjectIds.Count; index++)
                 {
                     if (index >= party.ItemIds.Count || index >= party.Amounts.Count || party.Amounts[index] <= 0) continue;
                     var objectId = party.ItemObjectIds[index];
+                    // Stacks reserved for other members carry no object ID; the ledger tracks them by type.
+                    if (objectId <= 0) continue;
                     var quality = index < party.Qualities.Count && party.Qualities[index] > 0 ? party.Qualities[index] : (int?)null;
                     Metadata(objectId, party.ItemIds[index], quality, party.Amounts[index], null, null, at, record: record);
                     if (TrySource(party.SourceObjectId, at, out _))
@@ -230,8 +237,12 @@ internal sealed class ActivityLootCollector : IDisposable
                 var typeRecipient = chestRecipients.TryGetValue(removed.SourceObjectId, out var allowed) && at - allowed.At <= MetadataLifetime
                     ? tracker.ResolvePartyRecipient(allowed.PlayerGuids) : null;
                 for (var index = 0; index < removed.ItemIds.Count; index++)
-                    TypeRemoval(removed.SourceObjectId, removed.ItemIds[index], IndexedAmount(removed.Amounts, index), typeRecipient, at,
+                {
+                    var amount = IndexedAmount(removed.Amounts, index);
+                    TypeRemoval(removed.SourceObjectId, removed.ItemIds[index], amount, typeRecipient, at,
                         ActivityTrackerService.Origin(packet, "TypeRemoval", index));
+                    partyChests.ObserveTypeRemoval(removed.SourceObjectId, removed.ItemIds[index], amount);
+                }
                 break;
             case OtherGrabbedLootEvent pickup:
                 if (record) Broadcast(pickup, at);
@@ -539,16 +550,21 @@ internal sealed class ActivityLootCollector : IDisposable
             return;
         }
         var item = SourceItem(sourceId, itemId, quantity, at);
+        var objectId = item?.ObjectId;
+        // A stack reserved for another member has no object; the ledger still knows its quality.
+        if (item is null && partyChests.IsReserved(sourceId, itemId))
+            item = new Item(0, itemId, partyChests.Quality(sourceId, itemId), quantity, null, null, at, at);
         if (recipient is not null)
-            RecordAttributed(recipient, sourceId, itemId, quantity, item, item?.ObjectId, at, origin, "PartyLootTypeRemoval");
-        else AmbiguousRemoval(sourceId, itemId, quantity, at, origin, item?.ObjectId, item);
+            RecordAttributed(recipient, sourceId, itemId, quantity, item, objectId, at, origin, "PartyLootTypeRemoval");
+        else AmbiguousRemoval(sourceId, itemId, quantity, at, origin, objectId, item);
     }
 
     // Type-only removals omit object IDs; prefer a known stack of that item with the removed amount.
+    // Only a shared view can hold another player's stack; our private view holds our own loot.
     private Item? SourceItem(long sourceId, int itemId, long quantity, DateTime at) => items.Values
-        .Where(x => x.Id == itemId && at - x.LastSeen <= MetadataLifetime && !WasRecorded(x.ObjectId, at)
+        .Where(x => x.Id == itemId && x.ObjectId > 0 && at - x.LastSeen <= MetadataLifetime && !WasRecorded(x.ObjectId, at)
             && membership.TryGetValue(x.ObjectId, out var bound) && containers.TryGetValue(bound, out var container)
-            && container.SourceId == sourceId)
+            && container.SourceId == sourceId && container.IsPublic)
         .OrderByDescending(x => x.Quantity == quantity).ThenByDescending(x => x.LastSeen).FirstOrDefault();
 
     // Absent amounts mean one item; a single amount applies to every listed type.
@@ -944,6 +960,7 @@ internal sealed class ActivityLootCollector : IDisposable
         foreach (var key in detachedChests.Where(x => at - x.Value.At > MetadataLifetime).Select(x => x.Key).ToArray()) detachedChests.Remove(key);
         foreach (var key in emptyChests.Where(x => at - x.Value > EmptyChestWindow).Select(x => x.Key).ToArray()) emptyChests.Remove(key);
         foreach (var key in recordedObjects.Where(x => at - x.Value.At > MetadataLifetime).Select(x => x.Key).ToArray()) recordedObjects.Remove(key);
+        partyChests.Expire(at, MetadataLifetime);
     }
 
     // Leaving a map, finishing or stopping cannot wait for the correlation window.
@@ -1018,7 +1035,7 @@ internal sealed class ActivityLootCollector : IDisposable
     public void Reset()
     {
         ResetRecordingCorrelations(); items.Clear(); pendingInventoryMetadata.Clear(); sources.Clear(); containers.Clear(); membership.Clear();
-        allocations.Clear(); chestRecipients.Clear(); inventory = null; nonLootMoveUntil = default; lastCacheSweep = default;
+        allocations.Clear(); chestRecipients.Clear(); partyChests.Clear(); inventory = null; nonLootMoveUntil = default; lastCacheSweep = default;
     }
     public void ForgetSession(Guid id) { recent.RemoveAll(x => x.Event.SessionId == id); ResetCandidates(); }
     public void ForgetUnassigned()
