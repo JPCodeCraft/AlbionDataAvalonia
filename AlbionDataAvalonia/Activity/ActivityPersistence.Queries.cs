@@ -449,7 +449,9 @@ public sealed partial class ActivityPersistence
                 MobKills = g.Sum(x => x.MobKills),
                 PlayerKills = g.Sum(x => x.PlayerKills),
                 Deaths = g.Sum(x => x.Deaths),
-                Knockdowns = g.Sum(x => x.Knockdowns)
+                Knockdowns = g.Sum(x => x.Knockdowns),
+                NonLethalPlayerKills = g.Sum(x => x.NonLethalPlayerKills),
+                NonLethalDeaths = g.Sum(x => x.NonLethalDeaths)
             }).SingleOrDefaultAsync(cancellationToken) ?? new();
     }
 
@@ -536,7 +538,14 @@ public sealed partial class ActivityPersistence
                 x.TargetActorId != null && x.TargetKind == ActivityActorKind.Player &&
                 (all || x.TargetRelationship == ActorRelationship.Self || (party && x.TargetRelationship == ActorRelationship.Party)))
             .GroupBy(x => new { x.TargetActorId, x.TargetName, x.TargetRelationship })
-            .Select(g => new { ActorId = g.Key.TargetActorId!, Name = g.Key.TargetName, Relationship = g.Key.TargetRelationship, Count = g.LongCount() })
+            .Select(g => new
+            {
+                ActorId = g.Key.TargetActorId!,
+                Name = g.Key.TargetName,
+                Relationship = g.Key.TargetRelationship,
+                Count = g.LongCount(),
+                NonLethal = g.LongCount(x => ActivityDatabaseFunctions.JsonLong(x.DetailsJson, "$.Lethal") == 0)
+            })
             .Take(250).ToListAsync(cancellationToken);
         foreach (var value in earnings)
             Merge(value.ActorId, value.Name, value.Relationship, total => total with
@@ -549,7 +558,8 @@ public sealed partial class ActivityPersistence
                 GatheredValue = total.GatheredValue + value.GatheredValue
             });
         foreach (var value in deaths)
-            Merge(value.ActorId, value.Name, value.Relationship, total => total with { Deaths = total.Deaths + value.Count });
+            Merge(value.ActorId, value.Name, value.Relationship, total => total with
+            { Deaths = total.Deaths + value.Count, NonLethalDeaths = total.NonLethalDeaths + value.NonLethal });
         // You and party members stay listed without combat, e.g. a member who only looted or
         // joined. Membership comes from any recorded event, independent of the totals scope.
         var membershipFilter = filter with { Scope = ActivityScope.AllObserved, ShowCategories = ActivityCategories.All, ActorKey = null };

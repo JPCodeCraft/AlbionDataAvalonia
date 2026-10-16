@@ -313,7 +313,9 @@ public sealed partial class ActivityPersistence
             MobKills = g.Sum(x => x.MobKills),
             PlayerKills = g.Sum(x => x.PlayerKills),
             Deaths = g.Sum(x => x.Deaths),
-            Knockdowns = g.Sum(x => x.Knockdowns)
+            Knockdowns = g.Sum(x => x.Knockdowns),
+            NonLethalPlayerKills = g.Sum(x => x.NonLethalPlayerKills),
+            NonLethalDeaths = g.Sum(x => x.NonLethalDeaths)
         }).SingleOrDefaultAsync(cancellationToken);
 
     private static async Task<ActivitySummary> AggregateSummaryAsync(IQueryable<ActivityEvent> query, ActivityScope scope,

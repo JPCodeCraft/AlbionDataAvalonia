@@ -108,7 +108,18 @@ public static class ActivityProjection
         AddValue(nameof(ActivitySummary.GatheringValue), nameof(ActivitySummary.GatheringItems));
         AddValue(nameof(ActivitySummary.FishingValue), nameof(ActivitySummary.FishingItems));
         AddValue(nameof(ActivitySummary.UnclassifiedResourceValue), nameof(ActivitySummary.UnclassifiedResourceItems));
+        AddNonLethal(nameof(ActivitySummary.NonLethalPlayerKills), nameof(ActivitySummary.PlayerKills));
+        AddNonLethal(nameof(ActivitySummary.NonLethalDeaths), nameof(ActivitySummary.Deaths));
         return Expression.Lambda<Func<ActivityEvent, ActivitySummary>>(Expression.MemberInit(Expression.New(typeof(ActivitySummary)), bindings), parameter);
+
+        void AddNonLethal(string property, string countProperty)
+        {
+            // Older death rows carry no flag and stay lethal.
+            Expression<Func<ActivityEvent, bool>> nonLethal = e => ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.Lethal") == 0;
+            var predicate = new ParameterSubstitution(nonLethal.Parameters[0], parameter).Visit(nonLethal.Body)!;
+            var count = bindings.Single(x => x.Member.Name == countProperty).Expression;
+            bindings.Add(Expression.Bind(typeof(ActivitySummary).GetProperty(property)!, Expression.Condition(predicate, count, Expression.Constant(0L))));
+        }
 
         void AddCount(string property, Expression<Func<ActivityEvent, bool>> predicate) => bindings.Add(Expression.Bind(typeof(ActivitySummary).GetProperty(property)!,
             Expression.Condition(new ParameterSubstitution(predicate.Parameters[0], parameter).Visit(predicate.Body)!, Expression.Constant(1L), Expression.Constant(0L))));
@@ -196,7 +207,9 @@ public static class ActivityProjection
         MobKills = a.MobKills + sign * b.MobKills,
         PlayerKills = a.PlayerKills + sign * b.PlayerKills,
         Deaths = a.Deaths + sign * b.Deaths,
-        Knockdowns = a.Knockdowns + sign * b.Knockdowns
+        Knockdowns = a.Knockdowns + sign * b.Knockdowns,
+        NonLethalPlayerKills = a.NonLethalPlayerKills + sign * b.NonLethalPlayerKills,
+        NonLethalDeaths = a.NonLethalDeaths + sign * b.NonLethalDeaths
     };
     public static string Serialize(ActivitySummary summary) => JsonSerializer.Serialize(summary);
     public static ActivitySummary Deserialize(string json)

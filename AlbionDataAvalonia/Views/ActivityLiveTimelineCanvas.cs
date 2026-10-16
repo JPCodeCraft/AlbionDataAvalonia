@@ -468,10 +468,10 @@ internal sealed class ActivityLiveTimelineCanvas : Control
                 lines.Add($"Loot: {summary.LootItems:N0} items · " + (summary.LootValue > 0 ? $"{ActivityDisplay.Number(summary.LootValue)} silver" : "value unavailable"));
             var kills = new List<string>();
             if (summary.MobKills > 0) kills.Add($"{summary.MobKills:N0} {(summary.MobKills == 1 ? "mob" : "mobs")}");
-            if (summary.PlayerKills > 0) kills.Add($"{summary.PlayerKills:N0} {(summary.PlayerKills == 1 ? "player" : "players")}");
+            if (summary.PlayerKills > 0) kills.Add($"{summary.PlayerKills:N0} {(summary.PlayerKills == 1 ? "player" : "players")}{ActivityDisplay.NonLethal(summary.NonLethalPlayerKills)}");
             var outcomes = new List<string>();
             if (kills.Count > 0) outcomes.Add("Kills: " + string.Join(" · ", kills));
-            if (summary.Deaths > 0) outcomes.Add($"Deaths: {summary.Deaths:N0}");
+            if (summary.Deaths > 0) outcomes.Add($"Deaths: {summary.Deaths:N0}{ActivityDisplay.NonLethal(summary.NonLethalDeaths)}");
             if (summary.Knockdowns > 0) outcomes.Add($"Knockdowns: {summary.Knockdowns:N0}");
             if (outcomes.Count > 0) lines.Add(string.Join(" · ", outcomes));
         }

@@ -75,12 +75,19 @@ public sealed class ActivitySummaryPresentation
     public string SilverDetailsText => "Silver received after taxes and penalties"
         + (HasUnknownSilver ? $"\n{UnknownSilver}" : "");
     public string MissingLootPrices => $"{Summary.MissingLootPriceCount:N0} items without prices";
+    // Non-lethal kills and deaths count in the totals and are labelled wherever they appear.
+    public string PlayerKillsLabel => Summary.NonLethalPlayerKills <= 0 ? "PvP kills"
+        : Summary.NonLethalPlayerKills == Summary.PlayerKills ? "PvP kills · non-lethal" : $"PvP kills · {Summary.NonLethalPlayerKills:N0} non-lethal";
     public string DeathsAndKnockdowns => Summary.IsLegacyAggregate ? "" : string.Join(" · ", new[]
     {
-        Summary.Deaths > 0 ? $"{Summary.Deaths:N0} {(Summary.Deaths == 1 ? "death" : "deaths")}" : null,
+        Summary.Deaths <= 0 ? null : Summary.NonLethalDeaths == Summary.Deaths
+            ? $"{Summary.Deaths:N0} non-lethal {(Summary.Deaths == 1 ? "death" : "deaths")}"
+            : $"{Summary.Deaths:N0} {(Summary.Deaths == 1 ? "death" : "deaths")}{ActivityDisplay.NonLethal(Summary.NonLethalDeaths)}",
         Summary.Knockdowns > 0 ? $"{Summary.Knockdowns:N0} {(Summary.Knockdowns == 1 ? "knockdown" : "knockdowns")}" : null
     }.Where(value => value is not null));
-    public string OutcomesDetailsText => $"Mob kills: {MobKills}\nPvP kills: {PlayerKills}\nDeaths: {Summary.Deaths:N0}\nKnockdowns: {Summary.Knockdowns:N0}";
+    public string OutcomesDetailsText => $"Mob kills: {MobKills}\nPvP kills: {PlayerKills}{ActivityDisplay.NonLethal(Summary.NonLethalPlayerKills)}" +
+        $"\nDeaths: {Summary.Deaths:N0}{ActivityDisplay.NonLethal(Summary.NonLethalDeaths)}\nKnockdowns: {Summary.Knockdowns:N0}" +
+        (Summary.NonLethalPlayerKills + Summary.NonLethalDeaths > 0 ? "\nNon-lethal: deaths reported without the lethal flag, such as in arenas" : "");
     public bool HasResources => Summary.ResourceItems > 0;
     public string ItemsValue => LootValue;
     public bool HasMissingItemPrices => Summary.MissingPriceItems + Summary.MissingResourcePriceItems > 0;
@@ -228,7 +235,7 @@ public sealed class ActivityPlayerRow(ActivityActorTotal source)
     public string Silver => Source.SilverRaw > 0 ? ActivityDisplay.Number(Source.SilverRaw / 10000d) : "";
     public string Loot => ItemsText(Source.LootItems, Source.LootValue);
     public string Gathered => ItemsText(Source.GatheredItems, Source.GatheredValue);
-    public string Deaths => Source.Deaths > 0 ? Source.Deaths.ToString("N0", CultureInfo.CurrentCulture) : "";
+    public string Deaths => Source.Deaths > 0 ? Source.Deaths.ToString("N0", CultureInfo.CurrentCulture) + ActivityDisplay.NonLethal(Source.NonLethalDeaths) : "";
     private static string ItemsText(long items, long value) => items <= 0 ? ""
         : $"{(value > 0 ? ActivityDisplay.Number(value) : "–")} ({items.ToString("N0", CultureInfo.CurrentCulture)})";
 }
@@ -313,6 +320,7 @@ public sealed class ActivityEventRow(ActivityEvent source)
         ActivityEventKind.LegacyImportMarker => "Imported gathering",
         ActivityEventKind.PartyJoined => ActivityPartyDetails.Parse(source.DetailsJson) is { Roster: true } ? "In party" : "Joined party",
         ActivityEventKind.PartyLeft => "Left party",
+        ActivityEventKind.Death => ActivityDatabaseFunctions.JsonLong(source.DetailsJson, "$.Lethal") == 0 ? "Death (non-lethal)" : "Death",
         _ => source.Kind.ToString()
     };
     public string Source => string.IsNullOrWhiteSpace(source.SourceName) && source.Kind is not (ActivityEventKind.Damage or ActivityEventKind.Healing or ActivityEventKind.PlayerKilled or ActivityEventKind.Death or ActivityEventKind.Knockdown)
@@ -399,6 +407,7 @@ internal static class ActivityDisplay
         var duration = TimeSpan.FromSeconds(Math.Max(0, seconds));
         return duration.TotalDays >= 1 ? $"{(int)duration.TotalDays}d {duration:hh\\:mm\\:ss}" : $"{(int)duration.TotalHours}:{duration:mm\\:ss}";
     }
+    public static string NonLethal(long count) => count > 0 ? $" ({count:N0} non-lethal)" : "";
     public static string Relationship(ActorRelationship value) => value switch { ActorRelationship.Self => "You", ActorRelationship.Party => "Party", ActorRelationship.Other => "Other", _ => "Unknown" };
     public static string State(ActivityState state, ActivityEndReason reason) => state == ActivityState.Open ? "Active"
         : state == ActivityState.Interrupted ? "Interrupted" : reason == ActivityEndReason.Finished ? "Finished" : "Ended";

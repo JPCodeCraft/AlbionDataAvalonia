@@ -202,6 +202,9 @@ public sealed record ActivitySummary
     public long PlayerKills { get; init; }
     public long Deaths { get; init; }
     public long Knockdowns { get; init; }
+    // Included in PlayerKills and Deaths: deaths reported without the lethal flag, such as in arenas.
+    public long NonLethalPlayerKills { get; init; }
+    public long NonLethalDeaths { get; init; }
     public double Silver => SilverRaw / 10000d;
     public double CombatFame => PveFame + PvpFame;
     public double UnclassifiedFame => Math.Max(0, UnknownFameAmount ?? Fame - PveFame - GatheringFame - FishingFame - PvpFame);
@@ -248,7 +251,7 @@ public sealed record ActivityChartPoint(DateTime CapturedAtUtc, double Value);
 public sealed record ActivityActorTotal(string ActorId, string Name, ActorRelationship Relationship,
     double DamageDealt, double DamageReceived, double HealingDone, double HealingReceived,
     double Fame = 0, long SilverRaw = 0, long LootItems = 0, long LootValue = 0,
-    long GatheredItems = 0, long GatheredValue = 0, long Deaths = 0);
+    long GatheredItems = 0, long GatheredValue = 0, long Deaths = 0, long NonLethalDeaths = 0);
 public sealed record ActivityMobTotal(string MobId, string Name, long Kills, long InferredKills = 0);
 public sealed record ActivityRecordingStatus(bool IsSuspended, int PendingChanges, string? Error);
 // LootBasis prices value loot only; quality 0 then fills loot whose quality is unknown.

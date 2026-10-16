@@ -774,18 +774,21 @@ public sealed partial class ActivityTrackerService : IDisposable
         if (!Tracked(killer) && !Tracked(victim)) return;
         EnsureSession(at);
         TouchRelevant(at);
-        var lethal = value.IsLethal == true && !actors.IsTerminal(value.VictimObjectId);
-        var observation = WithTarget(WithSource(Stamp(lethal ? ActivityEventKind.Death : ActivityEventKind.OutcomeEvidence,
+        // Every Died packet is a death; key 17 marks it lethal. Arena deaths omit the flag and are
+        // counted as non-lethal deaths. A repeat packet for a victim already dead is only evidence.
+        var repeated = actors.IsTerminal(value.VictimObjectId);
+        var lethal = value.IsLethal == true;
+        var observation = WithTarget(WithSource(Stamp(repeated ? ActivityEventKind.OutcomeEvidence : ActivityEventKind.Death,
             at, Origin(value, "Died")), killer), victim) with
         {
-            Evidence = lethal ? ActivityEvidence.Confirmed : ActivityEvidence.Supplemental,
-            DetailsJson = JsonSerializer.Serialize(new { Signal = "Died", value.IsLethal, value.LethalityState })
+            Evidence = repeated ? ActivityEvidence.Supplemental : ActivityEvidence.Confirmed,
+            DetailsJson = JsonSerializer.Serialize(new { Signal = "Died", value.IsLethal, value.LethalityState, Lethal = lethal ? 1 : 0 })
         };
         Persist(observation);
         RememberUnidentifiedDeath(value, observation);
-        if (value.IsLethal == true && victim.Relationship == ActorRelationship.Self && session is not null)
+        if (lethal && victim.Relationship == ActorRelationship.Self && session is not null)
         { session = session with { Revision = session.Revision + 1, HasLocalDeath = true }; headersDirty = true; }
-        if (value.IsLethal == true && value.VictimObjectId is { } objectId) actors.MarkTerminal(objectId, at);
+        if (!repeated && value.VictimObjectId is { } objectId) actors.MarkTerminal(objectId, at);
     }
 
     private void Knockdown(KnockedDownEvent value, DateTime at)

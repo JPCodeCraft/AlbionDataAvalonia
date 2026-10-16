@@ -11,7 +11,7 @@
         <DataTemplate x:Key="KillSummaryTemplate" x:DataType="vm:ActivitySummaryPresentation">
             <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="8" ToolTip.Tip="{Binding OutcomesDetailsText}">
                 <TextBlock Classes="UiLabel" Text="Mob kills" />
-                <TextBlock Grid.Column="1" Classes="UiLabel" Text="PvP kills" />
+                <TextBlock Grid.Column="1" Classes="UiLabel" Text="{Binding PlayerKillsLabel}" />
                 <TextBlock Grid.Row="1" Classes="ActivityValue" Text="{Binding MobKills}" />
                 <TextBlock Grid.Row="1" Grid.Column="1" Classes="ActivityValue" Text="{Binding PlayerKills}" Foreground="#EB9C64" />
                 <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Classes="UiLabel" Text="{Binding DeathsAndKnockdowns}" />

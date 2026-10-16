@@ -106,11 +106,14 @@ internal static class ActivityLiveTimeline
         var events = group.Select(x => x.Event).ToArray();
         if (kind == ActivityLiveTimelineMarkerKind.Party) return PartyMarker(events);
         var summary = events.Aggregate(new ActivitySummary(), (sum, value) => ActivityProjection.Add(sum, contribution(value)));
+        // Kills and deaths stay individual markers, so one event decides the label.
+        var nonLethal = kind is ActivityLiveTimelineMarkerKind.PlayerKill or ActivityLiveTimelineMarkerKind.Death
+            && ActivityDatabaseFunctions.JsonLong(first.DetailsJson, "$.Lethal") == 0;
         var label = kind switch
         {
             ActivityLiveTimelineMarkerKind.MobKill => "Mobs killed",
-            ActivityLiveTimelineMarkerKind.PlayerKill => "PvP kill",
-            ActivityLiveTimelineMarkerKind.Death => "Death",
+            ActivityLiveTimelineMarkerKind.PlayerKill => nonLethal ? "PvP kill (non-lethal)" : "PvP kill",
+            ActivityLiveTimelineMarkerKind.Death => nonLethal ? "Death (non-lethal)" : "Death",
             ActivityLiveTimelineMarkerKind.Knockdown => "Knockdown",
             ActivityLiveTimelineMarkerKind.Loot => "Loot picked up",
             ActivityLiveTimelineMarkerKind.Fame => FameLabel(ActivityClassification.GetFameCategory(first)),
