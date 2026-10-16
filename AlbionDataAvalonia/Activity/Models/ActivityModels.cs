@@ -224,12 +224,6 @@ public sealed record ActivitySummary
     // Included in PlayerKills and Deaths: deaths reported without the lethal flag, such as in arenas.
     public long NonLethalPlayerKills { get; init; }
     public long NonLethalDeaths { get; init; }
-    // Bonus fame bought with Quick Learn, included in GatheringFame and FishingFame, and in PveFame and PvpFame.
-    public double GatheringQuickLearnFame { get; init; }
-    public double CombatQuickLearnFame { get; init; }
-    // The game's "bonus Fame from Quick Learn": that bonus once per destiny board node credited. Not character fame.
-    public double GatheringQuickLearnNodeFame { get; init; }
-    public double CombatQuickLearnNodeFame { get; init; }
     public double Silver => SilverRaw / 10000d;
     public double CombatFame => PveFame + PvpFame;
     public double UnclassifiedFame => Math.Max(0, UnknownFameAmount ?? Fame - PveFame - GatheringFame - FishingFame - PvpFame);

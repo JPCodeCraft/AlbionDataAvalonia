@@ -66,18 +66,8 @@ public sealed class ActivitySummaryPresentation
     public string FameRate => Summary.IsLegacyAggregate || !HasRecordedDuration ? "Not recorded" : $"{Rates.FamePerHour:N0} / hour";
     public string CombatFameRate => FameRateText(Summary.CombatFame);
     public string GatheringFameRate => FameRateText(Summary.GatheringFame + Summary.FishingFame);
-    public string CombatFameDetailsText => (HasPvpFame ? $"PvE {ActivityDisplay.Number(Summary.PveFame)} · PvP {ActivityDisplay.Number(Summary.PvpFame)}" : "Your combat fame")
-        + QuickLearnDetails(Summary.CombatQuickLearnFame, Summary.CombatQuickLearnNodeFame);
-    public string GatheringFameDetailsText => (Summary.FishingFame > 0 ? $"Gathering {ActivityDisplay.Number(Summary.GatheringFame)} · Fishing {ActivityDisplay.Number(Summary.FishingFame)}" : "Your gathering fame")
-        + QuickLearnDetails(Summary.GatheringQuickLearnFame, Summary.GatheringQuickLearnNodeFame);
-    public bool HasGatheringQuickLearnFame => Summary.GatheringQuickLearnFame > 0 && !Summary.IsLegacyAggregate;
-    public string GatheringQuickLearnFameText => QuickLearnText(Summary.GatheringQuickLearnFame);
-    public bool HasCombatQuickLearnFame => Summary.CombatQuickLearnFame > 0 && !Summary.IsLegacyAggregate;
-    public string CombatQuickLearnFameText => QuickLearnText(Summary.CombatQuickLearnFame);
-    private static string QuickLearnText(double fame) => $"incl. {ActivityDisplay.Number(fame)} from Quick Learn";
-    // The game also reports the bonus once per destiny board node credited.
-    private string QuickLearnDetails(double fame, double nodeFame) => fame > 0 && !Summary.IsLegacyAggregate
-        ? $"\nQuick Learn: {ActivityDisplay.Number(fame)}" + (nodeFame > fame ? $" ({ActivityDisplay.Number(nodeFame)} across nodes)" : "") : "";
+    public string CombatFameDetailsText => HasPvpFame ? $"PvE {ActivityDisplay.Number(Summary.PveFame)} · PvP {ActivityDisplay.Number(Summary.PvpFame)}" : "Your combat fame";
+    public string GatheringFameDetailsText => Summary.FishingFame > 0 ? $"Gathering {ActivityDisplay.Number(Summary.GatheringFame)} · Fishing {ActivityDisplay.Number(Summary.FishingFame)}" : "Your gathering fame";
     public string CombatFameFooterText => (IsSessionAverage ? CombatFameRate : "")
         + (HasPvpFame ? $"{(IsSessionAverage ? " · " : "")}PvP {ActivityDisplay.Number(Summary.PvpFame)}" : "");
     public string UnknownFameText => $"Unknown fame {UnknownFame}";
@@ -318,7 +308,8 @@ public sealed class ActivityEventRow(ActivityEvent source)
     public string Description => source.Kind switch
     {
         ActivityEventKind.Fame when source.Evidence == ActivityEvidence.Supplemental => "Amount unknown",
-        ActivityEventKind.Damage or ActivityEventKind.Healing or ActivityEventKind.Fame => ActivityDisplay.Number(source.Amount),
+        ActivityEventKind.Fame => ActivityDisplay.Number(ActivityProjection.Contribution(source, ActivityScope.AllObserved).Fame),
+        ActivityEventKind.Damage or ActivityEventKind.Healing => ActivityDisplay.Number(source.Amount),
         ActivityEventKind.Silver => source.HasKnownNetSilver ? $"{source.SilverRaw / 10000d:N0} silver" : "Amount unknown",
         ActivityEventKind.Loot or ActivityEventKind.Gathered or ActivityEventKind.FishingReward or ActivityEventKind.LegacyGatheringAggregate => source.Quantity > 0 ? $"{source.Quantity:N0} × {ActivityDisplay.ItemName(source.ItemName)}" : $"Quantity unknown · {ActivityDisplay.ItemName(source.ItemName)}",
         ActivityEventKind.PartyJoined or ActivityEventKind.PartyLeft => ActivityPartyDetails.Parse(source.DetailsJson) is { PartySize: > 0 } party

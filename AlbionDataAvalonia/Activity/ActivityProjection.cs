@@ -31,9 +31,13 @@ public static class ActivityProjection
             HealingReceived = !e.IsRetracted && e.Kind == ActivityEventKind.Healing &&
                 (actorKey == null || e.TargetActorId == actorKey) &&
                 (all || e.TargetRelationship == ActorRelationship.Self || (party && e.TargetRelationship == ActorRelationship.Party)) ? e.Amount : 0,
+            // Saved awards include Quick Learn's bonus (UPDATE_FAME key 12, fixed point); shown fame leaves it out.
+            // The players table repeats this in ActivityPersistence.Queries.
             Fame = !e.IsRetracted && e.Kind == ActivityEventKind.Fame && e.Evidence != ActivityEvidence.Supplemental &&
                 (actorKey == null || e.SourceActorId == actorKey) &&
-                (all || e.SourceRelationship == ActorRelationship.Self || (party && e.SourceRelationship == ActorRelationship.Party)) ? e.Amount : 0,
+                (all || e.SourceRelationship == ActorRelationship.Self || (party && e.SourceRelationship == ActorRelationship.Party))
+                    ? e.Amount - (ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.UsesEnhancedAward") == 1
+                        ? (ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.RawFixedPointComponents.12") ?? 0) / 10000d : 0) : 0,
             SilverRaw = !e.IsRetracted && e.Kind == ActivityEventKind.Silver && e.Evidence == ActivityEvidence.Confirmed && e.HasKnownNetSilver &&
                 (actorKey == null || e.SourceActorId == actorKey) &&
                 (all || e.SourceRelationship == ActorRelationship.Self || (party && e.SourceRelationship == ActorRelationship.Party)) ? e.SilverRaw : 0,
@@ -111,10 +115,6 @@ public static class ActivityProjection
         AddValue(nameof(ActivitySummary.UnclassifiedResourceValue), nameof(ActivitySummary.UnclassifiedResourceItems));
         AddNonLethal(nameof(ActivitySummary.NonLethalPlayerKills), nameof(ActivitySummary.PlayerKills));
         AddNonLethal(nameof(ActivitySummary.NonLethalDeaths), nameof(ActivitySummary.Deaths));
-        AddQuickLearnFame(nameof(ActivitySummary.GatheringQuickLearnFame), "$.RawFixedPointComponents.12", ActivityFameCategory.Gathering, ActivityFameCategory.Fishing);
-        AddQuickLearnFame(nameof(ActivitySummary.CombatQuickLearnFame), "$.RawFixedPointComponents.12", ActivityFameCategory.Pve, ActivityFameCategory.Pvp);
-        AddQuickLearnFame(nameof(ActivitySummary.GatheringQuickLearnNodeFame), "$.RawFixedPointComponents.13", ActivityFameCategory.Gathering, ActivityFameCategory.Fishing);
-        AddQuickLearnFame(nameof(ActivitySummary.CombatQuickLearnNodeFame), "$.RawFixedPointComponents.13", ActivityFameCategory.Pve, ActivityFameCategory.Pvp);
         return Expression.Lambda<Func<ActivityEvent, ActivitySummary>>(Expression.MemberInit(Expression.New(typeof(ActivitySummary)), bindings), parameter);
 
         void AddNonLethal(string property, string countProperty)
@@ -124,19 +124,6 @@ public static class ActivityProjection
             var predicate = new ParameterSubstitution(nonLethal.Parameters[0], parameter).Visit(nonLethal.Body)!;
             var count = bindings.Single(x => x.Member.Name == countProperty).Expression;
             bindings.Add(Expression.Bind(typeof(ActivitySummary).GetProperty(property)!, Expression.Condition(predicate, count, Expression.Constant(0L))));
-        }
-
-        // A fame row whose award includes Quick Learn keeps the bonus in UPDATE_FAME key 12 and its total
-        // across the destiny board nodes credited in key 13 (fixed point).
-        void AddQuickLearnFame(string property, string path, ActivityFameCategory first, ActivityFameCategory second)
-        {
-            Expression<Func<ActivityEvent, double>> bonus = e => ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.UsesEnhancedAward") == 1 &&
-                (ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.FameCategory") == (long)first || ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.FameCategory") == (long)second)
-                ? (ActivityDatabaseFunctions.JsonLong(e.DetailsJson, path) ?? 0) / 10000d : 0d;
-            var fame = bindings.Single(x => x.Member.Name == nameof(ActivitySummary.Fame)).Expression;
-            bindings.Add(Expression.Bind(typeof(ActivitySummary).GetProperty(property)!, Expression.Condition(
-                Expression.GreaterThan(fame, Expression.Constant(0d)),
-                new ParameterSubstitution(bonus.Parameters[0], parameter).Visit(bonus.Body)!, Expression.Constant(0d))));
         }
 
         void AddCount(string property, Expression<Func<ActivityEvent, bool>> predicate) => bindings.Add(Expression.Bind(typeof(ActivitySummary).GetProperty(property)!,
@@ -227,11 +214,7 @@ public static class ActivityProjection
         Deaths = a.Deaths + sign * b.Deaths,
         Knockdowns = a.Knockdowns + sign * b.Knockdowns,
         NonLethalPlayerKills = a.NonLethalPlayerKills + sign * b.NonLethalPlayerKills,
-        NonLethalDeaths = a.NonLethalDeaths + sign * b.NonLethalDeaths,
-        GatheringQuickLearnFame = a.GatheringQuickLearnFame + sign * b.GatheringQuickLearnFame,
-        CombatQuickLearnFame = a.CombatQuickLearnFame + sign * b.CombatQuickLearnFame,
-        GatheringQuickLearnNodeFame = a.GatheringQuickLearnNodeFame + sign * b.GatheringQuickLearnNodeFame,
-        CombatQuickLearnNodeFame = a.CombatQuickLearnNodeFame + sign * b.CombatQuickLearnNodeFame
+        NonLethalDeaths = a.NonLethalDeaths + sign * b.NonLethalDeaths
     };
     public static string Serialize(ActivitySummary summary) => JsonSerializer.Serialize(summary);
     public static ActivitySummary Deserialize(string json)

@@ -59,7 +59,7 @@ internal sealed partial class ActivityFameCollector(AchievementsService achievem
         return new(category, categorized.Select(x => x.Observation.AchievementIndex).Distinct().ToArray());
     }
 
-    // Quick Learn's bonus counts as fame, as the game reports it; summaries show it separately.
+    // The saved award includes Quick Learn's bonus, as the game reports it; shown fame leaves it out.
     public static double? Award(UpdateFameEvent packet) =>
         packet.QuickLearnFame is { } quickLearn ? packet.ObservedAward + quickLearn : packet.ObservedAward;
 

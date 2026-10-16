@@ -36,7 +36,7 @@ public sealed record ActivityResourceIdentity(string? Family, int? Tier, int? En
 
 public static class ActivityClassification
 {
-    public const int TagVersion = 6;
+    public const int TagVersion = 7;
     public static bool IsResource(ActivityEventKind kind) => kind is ActivityEventKind.Gathered or ActivityEventKind.FishingReward or ActivityEventKind.LegacyGatheringAggregate;
     public static bool IsItem(ActivityEventKind kind) => kind == ActivityEventKind.Loot || IsResource(kind);
     public static bool IsParty(ActivityEventKind kind) => kind is ActivityEventKind.PartyJoined or ActivityEventKind.PartyLeft;

@@ -408,11 +408,7 @@ public sealed partial class ActivityPersistence
                 Deaths = g.Sum(x => x.Deaths),
                 Knockdowns = g.Sum(x => x.Knockdowns),
                 NonLethalPlayerKills = g.Sum(x => x.NonLethalPlayerKills),
-                NonLethalDeaths = g.Sum(x => x.NonLethalDeaths),
-                GatheringQuickLearnFame = g.Sum(x => x.GatheringQuickLearnFame),
-                CombatQuickLearnFame = g.Sum(x => x.CombatQuickLearnFame),
-                GatheringQuickLearnNodeFame = g.Sum(x => x.GatheringQuickLearnNodeFame),
-                CombatQuickLearnNodeFame = g.Sum(x => x.CombatQuickLearnNodeFame)
+                NonLethalDeaths = g.Sum(x => x.NonLethalDeaths)
             }).SingleOrDefaultAsync(cancellationToken) ?? new();
     }
 
@@ -467,7 +463,10 @@ public sealed partial class ActivityPersistence
                 ActorId = g.Key.SourceActorId!,
                 Name = g.Key.SourceName,
                 Relationship = g.Key.SourceRelationship,
-                Fame = g.Sum(x => x.Kind == ActivityEventKind.Fame && x.Evidence != ActivityEvidence.Supplemental ? x.Amount : 0),
+                // Shown fame leaves out Quick Learn's bonus, as in ActivityProjection.
+                Fame = g.Sum(x => x.Kind == ActivityEventKind.Fame && x.Evidence != ActivityEvidence.Supplemental
+                    ? x.Amount - (ActivityDatabaseFunctions.JsonLong(x.DetailsJson, "$.UsesEnhancedAward") == 1
+                        ? (ActivityDatabaseFunctions.JsonLong(x.DetailsJson, "$.RawFixedPointComponents.12") ?? 0) / 10000d : 0) : 0),
                 SilverRaw = g.Sum(x => x.Kind == ActivityEventKind.Silver && x.Evidence == ActivityEvidence.Confirmed && x.HasKnownNetSilver ? x.SilverRaw : 0),
                 LootItems = g.Sum(x => x.Kind == ActivityEventKind.Loot && x.Evidence == ActivityEvidence.Confirmed ? x.Quantity : 0),
                 LootValue = g.Sum(x => x.Kind == ActivityEventKind.Loot && x.Evidence == ActivityEvidence.Confirmed && x.EstimatedUnitValue != null
