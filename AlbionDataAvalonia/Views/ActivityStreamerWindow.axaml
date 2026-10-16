@@ -52,7 +52,7 @@
                 </Grid>
                 <Grid Classes="StreamerRow" IsVisible="{Binding Settings.StreamerShowGathering}">
                     <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" SharedSizeGroup="Label" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
-                    <TextBlock Text="Gathered" Classes="StreamerLabel" />
+                    <TextBlock Text="Gathering EMV" Classes="StreamerLabel" />
                     <TextBlock Grid.Column="1" Text="{Binding Summary.ResourceValueText}" Classes="StreamerValue" />
                     <TextBlock Grid.Column="2" Text="{Binding GatheredPerHourShortText}" Classes="StreamerLabel" />
                 </Grid>
@@ -95,7 +95,7 @@
             <Border Classes="StreamerCard" IsVisible="{Binding Settings.StreamerShowGathering}">
                 <StackPanel Spacing="2">
                     <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                        <StackPanel><TextBlock Text="Gathered value" Classes="StreamerLabel" /><TextBlock Text="{Binding Summary.ResourceValueText}" Classes="StreamerValue" /><TextBlock Text="{Binding Summary.ResourceItemsText}" Classes="StreamerLabel" /></StackPanel>
+                        <StackPanel><TextBlock Text="Gathering EMV" Classes="StreamerLabel" /><TextBlock Text="{Binding Summary.ResourceValueText}" Classes="StreamerValue" /><TextBlock Text="{Binding Summary.ResourceItemsText}" Classes="StreamerLabel" /></StackPanel>
                         <StackPanel Grid.Column="1"><TextBlock Text="Gathering fame" Classes="StreamerLabel" /><TextBlock Text="{Binding Summary.GatheringFame}" Classes="StreamerValue" /><TextBlock Text="{Binding Summary.GatheringFameRate}" Classes="StreamerLabel" /></StackPanel>
                     </Grid>
                     <TextBlock Text="{Binding Summary.ResourceRateText}" Classes="StreamerLabel" IsVisible="{Binding IsLarge}" />

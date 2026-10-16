@@ -79,7 +79,7 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                     foreach (var observation in missing)
                     {
                         var patch = new EventCommand(ActivityItemValuationService.WithPrice(observation, price.UnitValue,
-                            price.ObservedAtUtc, price.Quality), true, true);
+                            price.ObservedAtUtc, price.Quality, price.LootBasis ? price.BlackMarket : null), true, true);
                         while (!Enqueue(patch)) await FlushAsync(cancellationToken).ConfigureAwait(false);
                     }
                     // Let normal ingress interleave between bounded historical chunks.
@@ -278,7 +278,8 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                             previous.ItemUniqueName != observation.ItemUniqueName || previous.Quality != observation.Quality) break;
                         if (previous.Quantity > 0 && observation.EstimatedUnitValue > long.MaxValue / previous.Quantity) break;
                         observation = ActivityItemValuationService.WithPrice(previous, observation.EstimatedUnitValue.Value,
-                            observation.PriceObservedAtUtc ?? DateTime.UtcNow, ActivityItemValuationService.BasisQuality(previous));
+                            observation.PriceObservedAtUtc ?? DateTime.UtcNow, ActivityItemValuationService.BasisQuality(previous),
+                            ActivityItemValuationService.IsBlackMarketEmv(observation));
                     }
                     else if (previous is not null && previous.Revision >= observation.Revision) break;
                     if (previous is not null)
@@ -300,7 +301,8 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                         };
                         if (frozenPrice)
                             observation = ActivityItemValuationService.WithPrice(observation, previous.EstimatedUnitValue!.Value,
-                                previous.PriceObservedAtUtc ?? DateTime.UtcNow, ActivityItemValuationService.BasisQuality(previous)) with
+                                previous.PriceObservedAtUtc ?? DateTime.UtcNow, ActivityItemValuationService.BasisQuality(previous),
+                                ActivityItemValuationService.IsBlackMarketEmv(previous)) with
                             { PriceObservedAtUtc = previous.PriceObservedAtUtc };
                     }
                     else if (observation.OriginKey is { } origin &&

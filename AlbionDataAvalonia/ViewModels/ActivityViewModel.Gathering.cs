@@ -90,7 +90,7 @@ public partial class ActivityViewModel
 
     public string ImportedDetailTooltipText => IsImportedDetail
 
-        ? "Only personal gathering totals are available. Individual pickup times and combat history were not recorded." + (LegacyImportInfo?.HasMismatch == true ? $" Saved totals: {LegacyImportInfo.OriginalTotalAmount:N0} items, value {LegacyImportInfo.OriginalTotalValue:N0}. Item rows differ from these totals." : "") : "";
+        ? "Only personal gathering totals are available. Individual pickup times and combat history were not recorded." + (LegacyImportInfo?.HasMismatch == true ? $" Saved totals: {LegacyImportInfo.OriginalTotalAmount:N0} items, EMV {LegacyImportInfo.OriginalTotalValue:N0}. Item rows differ from these totals." : "") : "";
 
     public bool HasLegacyImportWarning => persistence?.LastLegacyImportResult?.Errors.Count > 0;
     public string LegacyImportWarningText => "Some gathering history could not be imported. Your original records are safe.";

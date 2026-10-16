@@ -278,17 +278,16 @@ public sealed record ActivityMobTotal(string MobId, string Name, long Kills, lon
 public sealed record ActivityRecordingStatus(bool IsSuspended, int PendingChanges, string? Error);
 // LootBasis prices value loot only; quality 0 then fills loot whose quality is unknown.
 public sealed record ActivityLootPrice(string Server, int ItemId, int Quality, long UnitValue, DateTime ObservedAtUtc,
-    bool LootBasis = false);
+    bool LootBasis = false, bool BlackMarket = false);
 public sealed record ActivityRates(double DurationSeconds, double DamagePerSecond,
     double HealingPerSecond, double FamePerHour, double SilverPerHour, double LootValuePerHour,
     double DamageReceivedPerSecond, double HealingReceivedPerSecond, double CombatDurationSeconds = 0,
     double ResourceItemsPerHour = 0, double ResourceValuePerHour = 0);
 
-// Filled journals also total the full and empty journal values behind their known value,
-// and how many of them were valued at market prices rather than the game's values.
+// Filled journals also total the full and empty journal EMVs behind their known value.
 public sealed record ActivityResourceTotal(int? ItemId, int? Quality, string? UniqueName, string Name,
     ActivityResourceMethod Source, long Quantity, long KnownValue, long MissingPriceItems,
-    long FullJournalValue = 0, long EmptyJournalValue = 0, long MarketJournalItems = 0);
+    long FullJournalValue = 0, long EmptyJournalValue = 0);
 public sealed record ActivityImportResult(int ImportedSessions, int SkippedSessions, IReadOnlyList<string> Errors);
 public sealed record ActivityResourceDetails
 {
@@ -308,7 +307,8 @@ public sealed record ActivityResourceDetails
     public int? Enchantment { get; init; }
     public IReadOnlyDictionary<string, string>? ComponentStates { get; init; }
     public ActivityLegacyImportInfo? Legacy { get; init; }
-    // A filled journal's value: the full and empty journal prices and where they came from.
+    // A filled journal's value: the full and empty journal EMVs, and whether they came from the
+    // EMV cache ("Market") or the game's item packets ("GameValue").
     public long? FullJournalUnitValue { get; init; }
     public long? EmptyJournalUnitValue { get; init; }
     public string? ValueBasis { get; init; }

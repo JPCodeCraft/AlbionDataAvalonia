@@ -41,7 +41,7 @@ public sealed partial class ActivityStreamerViewModel : ViewModelBase, IDisposab
     public ActivityTimelineChartMode ChartMode => (ActivityTimelineChartMode)Math.Clamp(Settings.StreamerChartModeIndex, 0, 2);
     public IBrush WindowBackground => Settings.StreamerChromaKey ? ChromaKeyBackground : DarkBackground;
     public string ScopeText => Settings.StreamerPartyTotals ? "Party" : "Personal";
-    public string SilverBreakdownText => $"Silver {Summary.Silver} · Loot {Summary.LootValue} · Gathering {Summary.ResourceValueText}";
+    public string SilverBreakdownText => $"Silver {Summary.Silver} · Loot EMV {Summary.LootValue} · Gathering EMV {Summary.ResourceValueText}";
     public string KillsText => $"Mobs {Summary.MobKills} · PvP {Summary.PlayerKills}" +
         (string.IsNullOrEmpty(Summary.DeathsAndKnockdowns) ? "" : $" · {Summary.DeathsAndKnockdowns}");
     // Small shows one card of headline numbers; large adds the session name and breakdown lines.

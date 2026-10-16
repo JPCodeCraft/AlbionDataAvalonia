@@ -465,7 +465,7 @@ internal sealed class ActivityLiveTimelineCanvas : Control
             Add("Combat fame", summary.CombatFame, summary.PvpFame > 0 ? $" (PvP {ActivityDisplay.Number(summary.PvpFame)})" : "");
             Add("Silver", summary.Silver);
             if (summary.LootItems > 0)
-                lines.Add($"Loot: {summary.LootItems:N0} items · " + (summary.LootValue > 0 ? $"{ActivityDisplay.Number(summary.LootValue)} silver" : "value unavailable"));
+                lines.Add($"Loot: {summary.LootItems:N0} items · " + (summary.LootValue > 0 ? $"EMV {ActivityDisplay.Number(summary.LootValue)} silver" : "EMV unavailable"));
             var kills = new List<string>();
             if (summary.MobKills > 0) kills.Add($"{summary.MobKills:N0} {(summary.MobKills == 1 ? "mob" : "mobs")}");
             if (summary.PlayerKills > 0) kills.Add($"{summary.PlayerKills:N0} {(summary.PlayerKills == 1 ? "player" : "players")}{ActivityDisplay.NonLethal(summary.NonLethalPlayerKills)}");

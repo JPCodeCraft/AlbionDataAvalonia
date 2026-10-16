@@ -868,10 +868,12 @@ internal sealed partial class ActivityLootCollector : IDisposable
         var changedBasis = observation.Quality is null && quality is > 0;
         var price = changedBasis ? null : observation.EstimatedUnitValue;
         var priceObservedAt = changedBasis ? null : observation.PriceObservedAtUtc;
-        if (price is null && int.TryParse(observation.Server, out var server))
-            price = ActivityItemValuationService.LootEstimate(values, server, item.Id, quality, item.BlackMarketEmv, item.Emv);
-        // The game's own estimate for a reserved party stack is used only without a market price.
-        if (price is null && item.GameValue is > 0) price = item.GameValue;
+        var blackMarket = changedBasis ? null : ActivityItemValuationService.IsBlackMarketEmv(observation);
+        if (price is null && int.TryParse(observation.Server, out var server) &&
+            ActivityItemValuationService.LootEstimate(values, server, item.Id, quality, item.BlackMarketEmv, item.Emv) is { } estimate)
+            (price, blackMarket) = (estimate.Price, estimate.BlackMarket);
+        // The game's own EMV for a reserved party stack is used only without another EMV.
+        if (price is null && item.GameValue is > 0) (price, blackMarket) = (item.GameValue, false);
         var enriched = observation with
         {
             ItemId = item.Id,
@@ -883,7 +885,7 @@ internal sealed partial class ActivityLootCollector : IDisposable
         };
         enriched = Describe(enriched, item.Id);
         return price is > 0 ? ActivityItemValuationService.WithPrice(enriched, price.Value,
-            enriched.PriceObservedAtUtc!.Value, quality ?? 0) : enriched;
+            enriched.PriceObservedAtUtc!.Value, quality ?? 0, blackMarket) : enriched;
     }
 
     private void PricesChanged(IReadOnlyCollection<ItemEstimatedMarketValueKey> keys)
@@ -895,12 +897,12 @@ internal sealed partial class ActivityLootCollector : IDisposable
             var server = key.ServerId.ToString(CultureInfo.InvariantCulture);
             if (values.Get(key.ServerId, key.ItemId, key.Quality) is { NormalEmv: > 0 } price)
                 updates.Add(new ActivityLootPrice(server, key.ItemId, key.Quality, price.NormalEmv, now));
-            if (ActivityItemValuationService.LootEstimate(values, key.ServerId, key.ItemId, key.Quality) is long loot and > 0)
-                updates.Add(new ActivityLootPrice(server, key.ItemId, key.Quality, loot, now, LootBasis: true));
+            if (ActivityItemValuationService.LootEstimate(values, key.ServerId, key.ItemId, key.Quality) is { } loot)
+                updates.Add(new ActivityLootPrice(server, key.ItemId, key.Quality, loot.Price, now, LootBasis: true, loot.BlackMarket));
         }
         foreach (var (serverId, itemId) in keys.Select(key => (key.ServerId, key.ItemId)).Distinct())
-            if (ActivityItemValuationService.LootEstimate(values, serverId, itemId, null) is long average and > 0)
-                updates.Add(new ActivityLootPrice(serverId.ToString(CultureInfo.InvariantCulture), itemId, 0, average, now, LootBasis: true));
+            if (ActivityItemValuationService.LootEstimate(values, serverId, itemId, null) is { } average)
+                updates.Add(new ActivityLootPrice(serverId.ToString(CultureInfo.InvariantCulture), itemId, 0, average.Price, now, LootBasis: true, average.BlackMarket));
         if (updates.Count > 0) _ = FillPricesAsync(updates.ToArray());
     }
 

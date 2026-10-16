@@ -30,7 +30,7 @@
                 <Border Classes="UiCard ActivityMetricCard" Margin="3"><StackPanel><TextBlock Classes="UiLabel" Text="Healing received" /><TextBlock Classes="ActivityValue" Text="{Binding HealingReceived}" /><TextBlock Classes="UiLabel" Text="{Binding HealingReceivedRate}" /></StackPanel></Border>
                 <Border Classes="UiCard ActivityMetricCard" Margin="3" ToolTip.Tip="{Binding CombatFameDetailsText}"><StackPanel><Grid ColumnDefinitions="Auto,*"><TextBlock Classes="UiLabel" Text="Combat Fame" /><TextBlock Grid.Column="1" Margin="6,0,0,0" Classes="UiLabel" Text="{Binding CombatQuickLearnFameText}" IsVisible="{Binding HasCombatQuickLearnFame}" Foreground="{DynamicResource AFMOrange}" /></Grid><TextBlock Classes="ActivityValue" Text="{Binding CombatFame}" /><TextBlock Classes="UiLabel" Text="{Binding CombatFameFooterText}" /></StackPanel></Border>
                 <Border Classes="UiCard ActivityMetricCard" Margin="3" ToolTip.Tip="{Binding SilverDetailsText}"><StackPanel><TextBlock Classes="UiLabel" Text="Silver picked up" /><TextBlock Classes="ActivityValue" Text="{Binding Silver}" /><TextBlock Classes="UiLabel" Text="{Binding SilverFooterText}" /></StackPanel></Border>
-                <Border Classes="UiCard ActivityMetricCard" Margin="3" ToolTip.Tip="{Binding ItemsDetailsText}"><StackPanel><TextBlock Classes="UiLabel" Text="Loot value" /><TextBlock Classes="ActivityValue" Text="{Binding LootValue}" /><TextBlock Classes="UiLabel" Text="{Binding ItemsFooterText}" /></StackPanel></Border>
+                <Border Classes="UiCard ActivityMetricCard" Margin="3" ToolTip.Tip="{Binding ItemsDetailsText}"><StackPanel><TextBlock Classes="UiLabel" Text="Loot EMV" /><TextBlock Classes="ActivityValue" Text="{Binding LootValue}" /><TextBlock Classes="UiLabel" Text="{Binding ItemsFooterText}" /></StackPanel></Border>
                 <Border Classes="UiCard ActivityMetricCard" Margin="3"><ContentControl Content="{Binding}" ContentTemplate="{StaticResource KillSummaryTemplate}" /></Border>
                 </views:ResponsiveUniformGrid>
                 <Border IsVisible="{Binding !IsImported}" Margin="0,6,0,0" Classes="UiCard" ToolTip.Tip="{Binding ResourceValueDetailsText}">
@@ -43,7 +43,7 @@
             <TextBlock Classes="UiLabel" Text="{Binding UnknownFameText}" IsVisible="{Binding HasUnknownFame}" Margin="0,6,0,0" ToolTip.Tip="Fame without a known activity" />
             <Grid IsVisible="{Binding IsImported}" ColumnDefinitions="*,*" ColumnSpacing="6">
                 <Border Classes="UiCard ActivityMetricCard" ToolTip.Tip="{Binding ResourceBreakdownText}"><StackPanel><TextBlock Classes="UiLabel" Text="Items gathered" /><TextBlock Classes="ActivityValue" Text="{Binding ResourceQuantityText}" /><TextBlock Classes="UiLabel" Text="{Binding ResourceBreakdownText}" /></StackPanel></Border>
-                <Border Grid.Column="1" Classes="UiCard ActivityMetricCard" ToolTip.Tip="{Binding ResourceValueDetailsText}"><StackPanel><TextBlock Classes="UiLabel" Text="Estimated gathering value" /><TextBlock Classes="ActivityValue" Text="{Binding ResourceValueText}" /><TextBlock Classes="UiLabel" Text="{Binding ResourceRateText}" /></StackPanel></Border>
+                <Border Grid.Column="1" Classes="UiCard ActivityMetricCard" ToolTip.Tip="{Binding ResourceValueDetailsText}"><StackPanel><TextBlock Classes="UiLabel" Text="Gathering EMV" /><TextBlock Classes="ActivityValue" Text="{Binding ResourceValueText}" /><TextBlock Classes="UiLabel" Text="{Binding ResourceRateText}" /></StackPanel></Border>
             </Grid>
             </StackPanel>
         </DataTemplate>
@@ -256,7 +256,7 @@
                                         <DataGridTextColumn Header="Time" Binding="{Binding TimeText}" />
                                         <DataGridTemplateColumn Header="Item" Width="*" MinWidth="200" CellTemplate="{StaticResource LootTemplate}" />
                                         <DataGridTextColumn Header="Quantity" Binding="{Binding AmountText}" />
-                                        <DataGridTextColumn Header="Estimated value" Binding="{Binding ValueText}" />
+                                        <DataGridTextColumn Header="EMV" Binding="{Binding ValueText}" />
                                         <DataGridTemplateColumn Header="Recipient" MinWidth="110">
                                             <DataGridTemplateColumn.CellTemplate>
                                                 <DataTemplate x:DataType="vm:ActivityLootRow">
@@ -274,7 +274,7 @@
                                 <WrapPanel Margin="4,0,4,6" IsVisible="{Binding HasCurrentLoot}">
                                     <TextBlock Text="{Binding CurrentSummary.LootItemsText}" Classes="UiLabel" Margin="0,0,14,0" VerticalAlignment="Center" />
                                     <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,14,0" VerticalAlignment="Center">
-                                        <TextBlock Text="Estimated value" Classes="UiLabel" />
+                                        <TextBlock Text="Loot EMV" Classes="UiLabel" />
                                         <TextBlock Text="{Binding CurrentSummary.LootValue}" FontWeight="DemiBold" />
                                         <TextBlock Text="silver" Classes="UiLabel" />
                                     </StackPanel>
@@ -416,7 +416,7 @@
                                             <DataGridTextColumn Header="Time" Binding="{Binding TimeText}" />
                                             <DataGridTemplateColumn Header="Item" Width="*" MinWidth="200" CellTemplate="{StaticResource LootItemTemplate}" />
                                             <DataGridTextColumn Header="Quantity" Binding="{Binding AmountText}" />
-                                            <DataGridTextColumn Header="Estimated value" Binding="{Binding ValueText}" />
+                                            <DataGridTextColumn Header="EMV" Binding="{Binding ValueText}" />
                                             <DataGridTextColumn Header="Recipient" Binding="{Binding Recipient}" MinWidth="110" />
                                             <DataGridTextColumn Header="Guild" Binding="{Binding Guild}" />
                                             <DataGridTextColumn Header="Alliance" Binding="{Binding Alliance}" />
@@ -544,7 +544,7 @@
                             <DataGridTextColumn Header="Time" Binding="{Binding DateTimeText}" />
                             <DataGridTemplateColumn Header="Item" Width="*" MinWidth="220" CellTemplate="{StaticResource LootTemplate}" />
                             <DataGridTextColumn Header="Quantity" Binding="{Binding AmountText}" />
-                            <DataGridTextColumn Header="Estimated value" Binding="{Binding ValueText}" />
+                            <DataGridTextColumn Header="EMV" Binding="{Binding ValueText}" />
                             <DataGridTemplateColumn Header="Recipient" MinWidth="130"><DataGridTemplateColumn.CellTemplate><DataTemplate x:DataType="vm:ActivityLootRow"><TextBlock Text="{Binding Recipient}" ToolTip.Tip="{Binding RecipientDetails}" VerticalAlignment="Center" /></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn>
                             <DataGridTextColumn Header="Guild" Binding="{Binding Guild}" />
                             <DataGridTextColumn Header="Alliance" Binding="{Binding Alliance}" />

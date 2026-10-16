@@ -118,7 +118,8 @@ public sealed partial class ActivityPersistence
                         previous.ItemUniqueName != value.ItemUniqueName || previous.Quality != value.Quality) continue;
                     if (previous.Quantity > 0 && value.EstimatedUnitValue > long.MaxValue / previous.Quantity) continue;
                     value = ActivityItemValuationService.WithPrice(previous, value.EstimatedUnitValue.Value,
-                        value.PriceObservedAtUtc ?? DateTime.UtcNow, ActivityItemValuationService.BasisQuality(previous));
+                        value.PriceObservedAtUtc ?? DateTime.UtcNow, ActivityItemValuationService.BasisQuality(previous),
+                        ActivityItemValuationService.IsBlackMarketEmv(value));
                 }
                 else if (previous is not null)
                 {
@@ -139,7 +140,8 @@ public sealed partial class ActivityPersistence
                     };
                     if (frozenPrice)
                         value = ActivityItemValuationService.WithPrice(value, previous.EstimatedUnitValue!.Value,
-                            previous.PriceObservedAtUtc ?? DateTime.UtcNow, ActivityItemValuationService.BasisQuality(previous)) with
+                            previous.PriceObservedAtUtc ?? DateTime.UtcNow, ActivityItemValuationService.BasisQuality(previous),
+                            ActivityItemValuationService.IsBlackMarketEmv(previous)) with
                         { PriceObservedAtUtc = previous.PriceObservedAtUtc };
                 }
                 else if (value.OriginKey is { } origin && !origins.TryAdd(origin, value.Id)) continue;
@@ -198,13 +200,11 @@ public sealed partial class ActivityPersistence
                 FullJournalValue = g.Sum(x => x.EstimatedUnitValue != null && x.ItemUniqueName != null && x.ItemUniqueName.EndsWith("_FULL")
                     ? x.Quantity * (ActivityDatabaseFunctions.JsonLong(x.DetailsJson, "$.FullJournalUnitValue") ?? 0) : 0),
                 EmptyJournalValue = g.Sum(x => x.EstimatedUnitValue != null && x.ItemUniqueName != null && x.ItemUniqueName.EndsWith("_FULL")
-                    ? x.Quantity * (ActivityDatabaseFunctions.JsonLong(x.DetailsJson, "$.EmptyJournalUnitValue") ?? 0) : 0),
-                MarketJournalItems = g.Sum(x => x.EstimatedUnitValue != null && x.ItemUniqueName != null && x.ItemUniqueName.EndsWith("_FULL") &&
-                    x.DetailsJson.Contains("\"ValueBasis\":\"Market\"") ? x.Quantity : 0)
+                    ? x.Quantity * (ActivityDatabaseFunctions.JsonLong(x.DetailsJson, "$.EmptyJournalUnitValue") ?? 0) : 0)
             }).ToArrayAsync(cancellationToken);
         var resources = rows.Select(x => new ActivityResourceTotal(x.ItemId, x.Quality, x.ItemUniqueName, x.Name ?? "",
             x.Kind == ActivityEventKind.Gathered ? ActivityResourceMethod.Gathering : ActivityResourceMethod.Fishing,
-            x.Quantity, x.KnownValue, x.Missing, x.FullJournalValue, x.EmptyJournalValue, x.MarketJournalItems)).ToDictionary(ResourceKey);
+            x.Quantity, x.KnownValue, x.Missing, x.FullJournalValue, x.EmptyJournalValue)).ToDictionary(ResourceKey);
         var contribution = ActivityProjection.ContributionExpression(query.Scope).Compile();
         foreach (var value in after.Values)
         {
@@ -275,8 +275,7 @@ public sealed partial class ActivityPersistence
             var journal = ActivityJournals.Values(value);
             var total = new ActivityResourceTotal(value.ItemId, value.Quality, value.ItemUniqueName, value.ItemName,
                 ActivityClassification.ResourceMethod(value), amount.ResourceItems, amount.ResourceValue, amount.MissingResourcePriceItems,
-                (journal?.Full ?? 0) * amount.ResourceItems, (journal?.Empty ?? 0) * amount.ResourceItems,
-                journal?.Market == true ? amount.ResourceItems : 0);
+                (journal?.Full ?? 0) * amount.ResourceItems, (journal?.Empty ?? 0) * amount.ResourceItems);
             var key = ResourceKey(total);
             var prior = resources.GetValueOrDefault(key) ?? total with { Quantity = 0, KnownValue = 0, MissingPriceItems = 0 };
             resources[key] = prior with
@@ -286,8 +285,7 @@ public sealed partial class ActivityPersistence
                 KnownValue = prior.KnownValue + sign * total.KnownValue,
                 MissingPriceItems = prior.MissingPriceItems + sign * total.MissingPriceItems,
                 FullJournalValue = prior.FullJournalValue + sign * total.FullJournalValue,
-                EmptyJournalValue = prior.EmptyJournalValue + sign * total.EmptyJournalValue,
-                MarketJournalItems = prior.MarketJournalItems + sign * total.MarketJournalItems
+                EmptyJournalValue = prior.EmptyJournalValue + sign * total.EmptyJournalValue
             };
         }
     }

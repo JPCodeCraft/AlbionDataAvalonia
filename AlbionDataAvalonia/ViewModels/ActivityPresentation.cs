@@ -53,9 +53,9 @@ public sealed class ActivitySummaryPresentation
     public string TotalSilver => ActivityDisplay.Number(Summary.Silver + Summary.LootValue + Summary.ResourceValue);
     public string TotalSilverPerHour => HasRecordedDuration ? ActivityDisplay.Number(Rates.SilverPerHour + Rates.LootValuePerHour + Rates.ResourceValuePerHour) : "Unavailable";
     public string TotalSilverDetailsText => (IsImported
-        ? "Imported gathering and fishing value; silver pickups and loot were not recorded."
-        : "Silver picked up + estimated loot, gathering and fishing value.")
-        + (HasMissingItemPrices || HasUnknownSilver ? "\nItems without prices and silver pickups with unknown amounts are excluded." : "");
+        ? "Imported gathering and fishing EMV; silver pickups and loot were not recorded."
+        : "Silver picked up + loot, gathering and fishing EMV.\nLoot uses the Black Market EMV when there is one.")
+        + (HasMissingItemPrices || HasUnknownSilver ? "\nItems without EMV and silver pickups with unknown amounts are excluded." : "");
     public string Silver => Summary.IsLegacyAggregate ? "Unavailable" : ActivityDisplay.Number(Summary.Silver);
     public string LootValue => Summary.LootValue == 0 && Summary.MissingLootPriceCount > 0 ? "Unavailable" : ActivityDisplay.Number(Summary.LootValue);
     public string LootItemsText => $"{Summary.LootItems:N0} items picked up";
@@ -91,7 +91,7 @@ public sealed class ActivitySummaryPresentation
         + (HasUnknownSilver ? $"{(IsSessionAverage ? " · " : "")}{Summary.UnknownSilverCount:N0} unknown" : "");
     public string SilverDetailsText => "Silver received after taxes and penalties"
         + (HasUnknownSilver ? $"\n{UnknownSilver}" : "");
-    public string MissingLootPrices => $"{Summary.MissingLootPriceCount:N0} items without prices";
+    public string MissingLootPrices => $"{Summary.MissingLootPriceCount:N0} items without EMV";
     // Non-lethal kills and deaths count in the totals and are labelled wherever they appear.
     public string PlayerKillsLabel => Summary.NonLethalPlayerKills <= 0 ? "PvP kills"
         : Summary.NonLethalPlayerKills == Summary.PlayerKills ? "PvP kills · non-lethal" : $"PvP kills · {Summary.NonLethalPlayerKills:N0} non-lethal";
@@ -106,25 +106,20 @@ public sealed class ActivitySummaryPresentation
         $"\nDeaths: {Summary.Deaths:N0}{ActivityDisplay.NonLethal(Summary.NonLethalDeaths)}\nKnockdowns: {Summary.Knockdowns:N0}" +
         (Summary.NonLethalPlayerKills + Summary.NonLethalDeaths > 0 ? "\nNon-lethal: deaths reported without the lethal flag, such as in arenas" : "");
     public bool HasResources => Summary.ResourceItems > 0;
-    public string ItemsValue => LootValue;
     public bool HasMissingItemPrices => Summary.MissingPriceItems + Summary.MissingResourcePriceItems > 0;
-    public string MissingItemPrices => $"{Summary.MissingPriceItems + Summary.MissingResourcePriceItems:N0} items without prices";
     public string ResourceItemsText => $"{Summary.ResourceItems:N0} items gathered";
     public string ResourceQuantityText => ActivityDisplay.Number(Summary.ResourceItems);
     public string ResourceBreakdownText => $"Gathering {Summary.GatheringItems:N0} · Fishing {Summary.FishingItems:N0}" + (Summary.UnclassifiedResourceItems > 0 ? $" · Other {Summary.UnclassifiedResourceItems:N0}" : "");
     public string ResourceValueText => Summary.ResourceValue == 0 && Summary.MissingResourcePriceItems > 0 ? "Unavailable" : ActivityDisplay.Number(Summary.ResourceValue);
     public string ResourceRateText => HasRecordedDuration ? $"{Rates.ResourceItemsPerHour:N0} items / hour · {ValueRateText(Summary.ResourceValue, Summary.MissingResourcePriceItems, Rates.ResourceValuePerHour)}" : "Hourly rate unavailable";
-    public string ItemsValueRate => HasRecordedDuration ? ValueRateText(Summary.LootValue + Summary.ResourceValue, Summary.MissingPriceItems + Summary.MissingResourcePriceItems, Rates.LootValuePerHour + Rates.ResourceValuePerHour) : "Hourly rate unavailable";
     public string ItemsCountText => $"{Summary.LootItems + Summary.ResourceItems:N0} items acquired";
-    public string ItemsBreakdownText => Summary.IsLegacyAggregate ? "Imported gathering" : $"Loot {LootValue} · Gathering {ResourceValueText}";
-    public string ItemsEstimateText => "Loot value";
     public string ItemsFooterText => $"{Summary.LootItems:N0} items"
         + (IsSessionAverage && HasRecordedDuration && (Summary.LootValue > 0 || !HasMissingLootPrices) ? $" · {Rates.LootValuePerHour:N0} / h" : "")
         + (HasMissingLootPrices ? " *" : "");
-    public string ItemsDetailsText => "Estimated value of loot only" + (HasMissingLootPrices ? $"\n{MissingLootPrices}" : "");
-    public string ResourceValueDetailsText => ResourceRateText + (Summary.MissingResourcePriceItems > 0 ? $"\n{Summary.MissingResourcePriceItems:N0} items without prices" : "");
+    public string ItemsDetailsText => "Loot only: the Black Market EMV when there is one, otherwise the EMV" + (HasMissingLootPrices ? $"\n{MissingLootPrices}" : "");
+    public string ResourceValueDetailsText => ResourceRateText + (Summary.MissingResourcePriceItems > 0 ? $"\n{Summary.MissingResourcePriceItems:N0} items without EMV" : "");
     private static string ValueRateText(long knownValue, long missingItems, double rate) => missingItems > 0 && knownValue == 0
-        ? "Value / hour unavailable" : $"{rate:N0} estimated silver / hour";
+        ? "EMV / hour unavailable" : $"{rate:N0} EMV / hour";
     private string FameRateText(double amount) => Summary.IsLegacyAggregate || !HasRecordedDuration ? "Not recorded" : $"{ActivityProjection.GetFameRate(amount, Rates):N0} / hour";
 
 }
@@ -262,7 +257,16 @@ public sealed class ActivityLootRow(ActivityEvent source)
     public string Quality => ItemQuality.Format(source.Quality);
     public string AmountText => source.Quantity > 0 ? ActivityDisplay.Number(source.Quantity) : source.Evidence == ActivityEvidence.Supplemental ? "Pending" : "Unknown";
     public string UnitValueText => source.EstimatedUnitValue is { } value ? ActivityDisplay.Number(value) : "Unavailable";
-    public string ValueText => source.Quantity <= 0 ? source.Evidence == ActivityEvidence.Supplemental ? "Quantity pending" : "Unknown quantity" : ActivityProjection.GetLootValue(source) is { } value ? ActivityDisplay.Number(value) : "Unavailable";
+    public string ValueText => source.Quantity <= 0 ? source.Evidence == ActivityEvidence.Supplemental ? "Quantity pending" : "Unknown quantity" : ActivityProjection.GetLootValue(source) is { } value
+        ? ActivityDisplay.Number(value) + (EmvName == BlackMarketEmv ? $" ({BlackMarketEmv})" : "") : "Unavailable";
+    private const string BlackMarketEmv = "Black Market EMV";
+    // Loot prefers the Black Market EMV; rows priced before the kind was recorded cannot tell which.
+    private string EmvName => source.Kind != ActivityEventKind.Loot ? "EMV" : ActivityItemValuationService.IsBlackMarketEmv(source) switch
+    {
+        true => BlackMarketEmv,
+        false => "EMV",
+        null => "Black Market EMV or EMV"
+    };
     public string Source => source.Kind switch
     {
         ActivityEventKind.Gathered => "Gathering",
@@ -273,9 +277,9 @@ public sealed class ActivityLootRow(ActivityEvent source)
     public string Location => string.IsNullOrWhiteSpace(source.LocationName) ? "Unavailable" : source.LocationName;
     public string Evidence => IsImported ? "Imported summary" : source.Evidence == ActivityEvidence.Supplemental ? "Pending" : source.Evidence.ToString();
     public string ItemDetails => $"{ItemName} · {Quality}\n" + (source.EstimatedUnitValue is null
-        ? "Price unavailable" : $"Estimated value each: {UnitValueText} silver")
+        ? "EMV unavailable" : $"{EmvName} each: {UnitValueText} silver")
         + (source.EstimatedUnitValue is not null && source.Quality is null
-            ? source.Kind == ActivityEventKind.Loot ? "\nAverage estimate across qualities 1-4" : "\nNormal-quality estimate" : "")
+            ? source.Kind == ActivityEventKind.Loot ? $"\nAverage {EmvName} across qualities 1-4" : "\nNormal-quality EMV" : "")
         + (source.Evidence != ActivityEvidence.Confirmed ? "\nNot included in totals" : "");
     public string RecipientDetails => $"{Recipient} · {Relationship}{(string.IsNullOrWhiteSpace(Guild) ? "" : $"\nGuild: {Guild}")}{(string.IsNullOrWhiteSpace(Alliance) ? "" : $"\nAlliance: {Alliance}")}";
     public string ContextDetails => Location;
@@ -430,8 +434,8 @@ public sealed class ActivityResourceRow(ActivityResourceTotal source)
     public string ValueText => source.KnownValue == 0 && source.MissingPriceItems > 0 ? "Unavailable" : ActivityDisplay.Number(source.KnownValue);
     public bool HasMissingPrices => source.MissingPriceItems > 0;
     public string ValueLabel => "Total EMV";
-    public string MissingPricesText => source.MissingPriceItems > 0 ? $"{source.MissingPriceItems:N0} without prices" : "";
-    public string Details => $"{ItemName} · {ItemQuality.Format(source.Quality)}\n{QuantityText} items · estimated value {ValueText} silver" +
+    public string MissingPricesText => source.MissingPriceItems > 0 ? $"{source.MissingPriceItems:N0} without EMV" : "";
+    public string Details => $"{ItemName} · {ItemQuality.Format(source.Quality)}\n{QuantityText} items · EMV {ValueText} silver" +
         (JournalValueText is { } journal ? $"\n{journal}" : "") +
         (HasMissingPrices ? $"\n{MissingPricesText}" : "");
 
@@ -441,12 +445,9 @@ public sealed class ActivityResourceRow(ActivityResourceTotal source)
         get
         {
             if (source.FullJournalValue <= 0) return null;
-            var priced = source.Quantity - source.MissingPriceItems;
-            var journals = priced == 1 ? "journal" : "journals";
-            var basis = source.MarketJournalItems >= priced ? "market prices"
-                : source.MarketJournalItems == 0 ? "game values" : "market prices and game values";
-            return $"Full {journals} {ActivityDisplay.Number(source.FullJournalValue)} − empty {journals} {ActivityDisplay.Number(source.EmptyJournalValue)}" +
-                $" = {ActivityDisplay.Number(source.KnownValue)} silver ({basis})";
+            var journals = source.Quantity - source.MissingPriceItems == 1 ? "journal" : "journals";
+            return $"Full {journals} EMV {ActivityDisplay.Number(source.FullJournalValue)} − empty {journals} EMV {ActivityDisplay.Number(source.EmptyJournalValue)}" +
+                $" = {ActivityDisplay.Number(source.KnownValue)} silver";
         }
     }
 }
