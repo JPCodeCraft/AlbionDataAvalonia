@@ -439,7 +439,8 @@
                                                 </Button.Flyout>
                                             </Button>
                                             <Button Classes="UiAction UiSecondary" Content="Cancel export" Command="{Binding CancelLootExportCommand}" IsVisible="{Binding IsLootExporting}" Margin="0,0,8,0" />
-                                            <ProgressBar Minimum="0" Maximum="100" Value="{Binding LootExportProgress}" IsIndeterminate="{Binding IsPreparingLootExport}" IsVisible="{Binding IsLootExporting}" Width="140" Height="6" VerticalAlignment="Center" />
+                                            <ProgressBar Minimum="0" Maximum="100" Value="{Binding LootExportProgress}" IsIndeterminate="{Binding IsPreparingLootExport}" IsVisible="{Binding IsLootExporting}" Width="140" Height="6" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                            <Button Classes="link" Content="Open AFM Loot Logger" Click="OpenAfmLootLogger_Click" VerticalAlignment="Center" ToolTip.Tip="View your AFM CSV export on the website" />
                                         </WrapPanel>
                                         <TextBlock Grid.Row="1" Classes="UiLabel" Text="{Binding LootExportStatusText}" IsVisible="{Binding HasLootExportStatus}" TextWrapping="Wrap" />
                                     </Grid>

@@ -94,6 +94,17 @@ public partial class ActivityView : UserControl
     private void ExportSessionLoot_Click(object? sender, RoutedEventArgs args)
         => ExportLoot(sender, viewModel => viewModel.CaptureSessionLootExportQuery());
 
+    private const string AfmLootLoggerUrl = "https://albionfreemarket.com/loot-logger";
+
+    private async void OpenAfmLootLogger_Click(object? sender, RoutedEventArgs args)
+    {
+        try
+        {
+            if (TopLevel.GetTopLevel(this) is { } topLevel) await topLevel.Launcher.LaunchUriAsync(new Uri(AfmLootLoggerUrl));
+        }
+        catch (Exception error) { Log.Warning(error, "Could not open the AFM Loot Logger."); }
+    }
+
     private void ExportCurrentLoot_Click(object? sender, RoutedEventArgs args)
         => ExportLoot(sender, viewModel => viewModel.CaptureCurrentLootExportQuery());
 
