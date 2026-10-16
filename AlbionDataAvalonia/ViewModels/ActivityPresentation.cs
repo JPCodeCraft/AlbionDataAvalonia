@@ -52,10 +52,8 @@ public sealed class ActivitySummaryPresentation
     public bool HasPvpFame => Summary.PvpFame > 0;
     public string TotalSilver => ActivityDisplay.Number(Summary.Silver + Summary.LootValue + Summary.ResourceValue);
     public string TotalSilverPerHour => HasRecordedDuration ? ActivityDisplay.Number(Rates.SilverPerHour + Rates.LootValuePerHour + Rates.ResourceValuePerHour) : "Unavailable";
-    public string TotalSilverDetailsText => (IsImported
-        ? "Imported gathering and fishing EMV; silver pickups and loot were not recorded."
-        : "Silver picked up + loot, gathering and fishing EMV.\nLoot uses the Black Market EMV when there is one.")
-        + (HasMissingItemPrices || HasUnknownSilver ? "\nItems without EMV and silver pickups with unknown amounts are excluded." : "");
+    public string TotalSilverDetailsText => (IsImported ? "Imported gathering EMV only" : "Silver + loot EMV + gathering EMV")
+        + (HasMissingItemPrices || HasUnknownSilver ? "\nExcludes items without EMV and unknown silver" : "");
     public string Silver => Summary.IsLegacyAggregate ? "Unavailable" : ActivityDisplay.Number(Summary.Silver);
     public string LootValue => Summary.LootValue == 0 && Summary.MissingLootPriceCount > 0 ? "Unavailable" : ActivityDisplay.Number(Summary.LootValue);
     public string LootItemsText => $"{Summary.LootItems:N0} items picked up";
@@ -69,16 +67,17 @@ public sealed class ActivitySummaryPresentation
     public string CombatFameRate => FameRateText(Summary.CombatFame);
     public string GatheringFameRate => FameRateText(Summary.GatheringFame + Summary.FishingFame);
     public string CombatFameDetailsText => (HasPvpFame ? $"PvE {ActivityDisplay.Number(Summary.PveFame)} · PvP {ActivityDisplay.Number(Summary.PvpFame)}" : "Your combat fame")
-        + QuickLearnDetails(Summary.CombatQuickLearnFame);
+        + QuickLearnDetails(Summary.CombatQuickLearnFame, Summary.CombatQuickLearnNodeFame);
     public string GatheringFameDetailsText => (Summary.FishingFame > 0 ? $"Gathering {ActivityDisplay.Number(Summary.GatheringFame)} · Fishing {ActivityDisplay.Number(Summary.FishingFame)}" : "Your gathering fame")
-        + QuickLearnDetails(Summary.GatheringQuickLearnFame);
+        + QuickLearnDetails(Summary.GatheringQuickLearnFame, Summary.GatheringQuickLearnNodeFame);
     public bool HasGatheringQuickLearnFame => Summary.GatheringQuickLearnFame > 0 && !Summary.IsLegacyAggregate;
     public string GatheringQuickLearnFameText => QuickLearnText(Summary.GatheringQuickLearnFame);
     public bool HasCombatQuickLearnFame => Summary.CombatQuickLearnFame > 0 && !Summary.IsLegacyAggregate;
     public string CombatQuickLearnFameText => QuickLearnText(Summary.CombatQuickLearnFame);
     private static string QuickLearnText(double fame) => $"incl. {ActivityDisplay.Number(fame)} from Quick Learn";
-    private string QuickLearnDetails(double fame) => fame > 0 && !Summary.IsLegacyAggregate
-        ? $"\nIncludes {ActivityDisplay.Number(fame)} bonus fame bought with Quick Learn" : "";
+    // The game also reports the bonus once per destiny board node credited.
+    private string QuickLearnDetails(double fame, double nodeFame) => fame > 0 && !Summary.IsLegacyAggregate
+        ? $"\nQuick Learn: {ActivityDisplay.Number(fame)}" + (nodeFame > fame ? $" ({ActivityDisplay.Number(nodeFame)} across nodes)" : "") : "";
     public string CombatFameFooterText => (IsSessionAverage ? CombatFameRate : "")
         + (HasPvpFame ? $"{(IsSessionAverage ? " · " : "")}PvP {ActivityDisplay.Number(Summary.PvpFame)}" : "");
     public string UnknownFameText => $"Unknown fame {UnknownFame}";
@@ -89,7 +88,7 @@ public sealed class ActivitySummaryPresentation
     public string UnknownSilver => $"{Summary.UnknownSilverCount:N0} pickups with an unknown amount";
     public string SilverFooterText => (IsSessionAverage ? SilverRate : "")
         + (HasUnknownSilver ? $"{(IsSessionAverage ? " · " : "")}{Summary.UnknownSilverCount:N0} unknown" : "");
-    public string SilverDetailsText => "Silver received after taxes and penalties"
+    public string SilverDetailsText => "After taxes and penalties"
         + (HasUnknownSilver ? $"\n{UnknownSilver}" : "");
     public string MissingLootPrices => $"{Summary.MissingLootPriceCount:N0} items without EMV";
     // Non-lethal kills and deaths count in the totals and are labelled wherever they appear.
@@ -104,7 +103,7 @@ public sealed class ActivitySummaryPresentation
     }.Where(value => value is not null));
     public string OutcomesDetailsText => $"Mob kills: {MobKills}\nPvP kills: {PlayerKills}{ActivityDisplay.NonLethal(Summary.NonLethalPlayerKills)}" +
         $"\nDeaths: {Summary.Deaths:N0}{ActivityDisplay.NonLethal(Summary.NonLethalDeaths)}\nKnockdowns: {Summary.Knockdowns:N0}" +
-        (Summary.NonLethalPlayerKills + Summary.NonLethalDeaths > 0 ? "\nNon-lethal: deaths reported without the lethal flag, such as in arenas" : "");
+        (Summary.NonLethalPlayerKills + Summary.NonLethalDeaths > 0 ? "\nNon-lethal: no lethal flag, e.g. arenas" : "");
     public bool HasResources => Summary.ResourceItems > 0;
     public bool HasMissingItemPrices => Summary.MissingPriceItems + Summary.MissingResourcePriceItems > 0;
     public string ResourceItemsText => $"{Summary.ResourceItems:N0} items gathered";
@@ -116,7 +115,7 @@ public sealed class ActivitySummaryPresentation
     public string ItemsFooterText => $"{Summary.LootItems:N0} items"
         + (IsSessionAverage && HasRecordedDuration && (Summary.LootValue > 0 || !HasMissingLootPrices) ? $" · {Rates.LootValuePerHour:N0} / h" : "")
         + (HasMissingLootPrices ? " *" : "");
-    public string ItemsDetailsText => "Loot only: the Black Market EMV when there is one, otherwise the EMV" + (HasMissingLootPrices ? $"\n{MissingLootPrices}" : "");
+    public string ItemsDetailsText => "Black Market EMV when available, otherwise EMV" + (HasMissingLootPrices ? $"\n{MissingLootPrices}" : "");
     public string ResourceValueDetailsText => ResourceRateText + (Summary.MissingResourcePriceItems > 0 ? $"\n{Summary.MissingResourcePriceItems:N0} items without EMV" : "");
     private static string ValueRateText(long knownValue, long missingItems, double rate) => missingItems > 0 && knownValue == 0
         ? "EMV / hour unavailable" : $"{rate:N0} EMV / hour";

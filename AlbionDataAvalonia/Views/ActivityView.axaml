@@ -21,7 +21,7 @@
             <StackPanel>
             <Grid ColumnDefinitions="*,*" ColumnSpacing="6" Margin="0,0,0,6" ToolTip.Tip="{Binding TotalSilverDetailsText}">
                 <Border Classes="UiCard ActivityIncomeCard"><StackPanel><TextBlock Classes="UiLabel" Text="Total Silver" /><TextBlock Classes="ActivityIncomeValue" Text="{Binding TotalSilver}" /></StackPanel></Border>
-                <Border Grid.Column="1" Classes="UiCard ActivityIncomeCard"><StackPanel><TextBlock Classes="UiLabel" Text="Total Silver / Hour" /><TextBlock Classes="ActivityIncomeValue" Text="{Binding TotalSilverPerHour}" /><TextBlock Classes="UiLabel" Text="{Binding TotalSilverPerRunHourText}" IsVisible="{Binding HasRunRate}" ToolTip.Tip="Silver per hour spent in runs, without the time between them" /></StackPanel></Border>
+                <Border Grid.Column="1" Classes="UiCard ActivityIncomeCard"><StackPanel><TextBlock Classes="UiLabel" Text="Total Silver / Hour" /><TextBlock Classes="ActivityIncomeValue" Text="{Binding TotalSilverPerHour}" /><TextBlock Classes="UiLabel" Text="{Binding TotalSilverPerRunHourText}" IsVisible="{Binding HasRunRate}" ToolTip.Tip="Per hour in runs only" /></StackPanel></Border>
             </Grid>
             <views:ResponsiveUniformGrid IsVisible="{Binding !IsImported}" MaximumColumns="4" MinimumItemWidth="156" Margin="-3">
                 <Border Classes="UiCard ActivityMetricCard" Margin="3"><StackPanel><TextBlock Classes="UiLabel" Text="Damage dealt" /><TextBlock Classes="ActivityValue" Text="{Binding DamageDealt}" /><TextBlock Classes="UiLabel" Text="{Binding DamageRate}" /></StackPanel></Border>
@@ -141,10 +141,10 @@
                 <WrapPanel VerticalAlignment="Center">
                     <views:ActivitySegmentedSelector ItemsSource="{Binding ScopeOptions}" SelectedItem="{Binding SelectedScope, Mode=TwoWay}" IsVisible="{Binding ShowActivityScope}" AutomationProperties.Name="Activity scope" Margin="0,0,12,0" />
                     <Button Classes="UiAction UiSecondary" Content="{Binding StreamerWindowButtonText}" Command="{Binding ToggleStreamerWindowCommand}" IsVisible="{Binding CanOpenStreamerWindow}"
-                            ToolTip.Tip="A compact window with the current session for streaming. Choose what it shows in Settings → Activity." Margin="0,0,10,4" />
+                            ToolTip.Tip="Compact window for streaming. Set it up in Settings → Activity." Margin="0,0,10,4" />
                     <Button Classes="UiAction UiSecondary" Content="{Binding RecordingButtonText}" Command="{Binding ToggleRecordingCommand}" Margin="0,0,10,4" />
                     <Button Classes="UiAction" Content="New session" Click="NewSession_Click" IsEnabled="{Binding HasCurrentPlaySession}" Margin="0,0,0,4"
-                            ToolTip.Tip="End this session at your last activity. Your next activity starts a new one." />
+                            ToolTip.Tip="Ends at your last activity. Your next activity starts a new session." />
                 </WrapPanel>
             </WrapPanel>
             <TextBlock Text="{Binding LegacyImportWarningText}" IsVisible="{Binding HasLegacyImportWarning}" Foreground="#FFB74D" TextWrapping="Wrap" />
@@ -176,11 +176,11 @@
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                     <WrapPanel ToolTip.Tip="{Binding CurrentPeriodWarning}" Margin="0,0,0,-4">
                                         <TextBlock Text="{Binding CurrentDurationText}" Margin="0,0,18,4" />
-                                        <TextBlock Text="{Binding CurrentRunTimeText}" IsVisible="{Binding HasCurrentRunTime}" Margin="0,0,18,4" ToolTip.Tip="Time spent in runs, without the time between them" />
+                                        <TextBlock Text="{Binding CurrentRunTimeText}" IsVisible="{Binding HasCurrentRunTime}" Margin="0,0,18,4" ToolTip.Tip="Time in runs only" />
                                         <TextBlock Text="{Binding CurrentCombatDurationText}" Margin="0,0,18,4" />
                                         <TextBlock Text="{Binding CurrentTagsText}" Foreground="#A0D477" Margin="0,0,18,4" IsVisible="{Binding CurrentTagsText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" />
                                         <TextBlock Text="{Binding CurrentStateText}" IsVisible="{Binding HasCurrentState}" Foreground="{DynamicResource AFMOrange}" Margin="0,0,0,4"
-                                                   ToolTip.Tip="Time between runs counts once you play again within 30 minutes" />
+                                                   ToolTip.Tip="Gaps under 30 minutes count" />
                                     </WrapPanel>
                                     <Button Grid.Column="1" Classes="ActivityPartyChip" IsVisible="{Binding HasCurrentParty}" ToolTip.Tip="{Binding CurrentPartyDetailsText}"
                                             HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-5,0,0" AutomationProperties.Name="Current party">
@@ -279,7 +279,7 @@
                                         <TextBlock Text="silver" Classes="UiLabel" />
                                     </StackPanel>
                                     <Button Classes="UiAction UiSecondary" Content="Load more" Command="{Binding LoadMoreCurrentLootCommand}" IsVisible="{Binding HasMoreCurrentLoot}" Margin="0,0,8,0" />
-                                    <Button Classes="UiAction UiSecondary" Content="Export loot…" IsEnabled="{Binding CanStartLootExport}" ToolTip.Tip="Export the loot shown here across all pages" Margin="0,0,8,0">
+                                    <Button Classes="UiAction UiSecondary" Content="Export loot…" IsEnabled="{Binding CanStartLootExport}" ToolTip.Tip="Export all pages" Margin="0,0,8,0">
                                         <Button.Flyout>
                                             <MenuFlyout>
                                                 <MenuItem Header="AFM CSV" Tag="{x:Static vm:LootExportFormat.AfmCsv}" Click="ExportCurrentLoot_Click" />
@@ -430,7 +430,7 @@
                                     <Grid Grid.Row="3" RowDefinitions="Auto,Auto" RowSpacing="6">
                                         <WrapPanel>
                                             <Button Classes="UiAction UiSecondary" Content="Load more" Command="{Binding LoadMoreSessionLootCommand}" IsVisible="{Binding HasMoreSessionLoot}" Margin="0,0,8,0" />
-                                            <Button x:Name="ExportSessionLootButton" Classes="UiAction UiSecondary" Content="Export loot…" IsEnabled="{Binding CanExportSessionLoot}" ToolTip.Tip="Export the loot shown here across all pages" Margin="0,0,8,0">
+                                            <Button x:Name="ExportSessionLootButton" Classes="UiAction UiSecondary" Content="Export loot…" IsEnabled="{Binding CanExportSessionLoot}" ToolTip.Tip="Export all pages" Margin="0,0,8,0">
                                                 <Button.Flyout>
                                                     <MenuFlyout>
                                                         <MenuItem Header="AFM CSV" Tag="{x:Static vm:LootExportFormat.AfmCsv}" Click="ExportSessionLoot_Click" />
@@ -559,7 +559,7 @@
                         <TextBlock Text="{Binding GlobalLootTotalsText}" FontWeight="DemiBold" VerticalAlignment="Center" TextWrapping="Wrap" ToolTip.Tip="{Binding GlobalLootDetailsText}" />
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
                             <Button Classes="UiAction UiSecondary" Content="Load more" Command="{Binding LoadMoreGlobalLootCommand}" IsVisible="{Binding HasMoreGlobalLoot}" />
-                            <Button Classes="UiAction UiSecondary" Content="Export loot…" IsEnabled="{Binding CanStartLootExport}" IsVisible="{Binding ShowGlobalLootPanel}" ToolTip.Tip="Export the loot shown here across all pages">
+                            <Button Classes="UiAction UiSecondary" Content="Export loot…" IsEnabled="{Binding CanStartLootExport}" IsVisible="{Binding ShowGlobalLootPanel}" ToolTip.Tip="Export all pages">
                                 <Button.Flyout>
                                     <MenuFlyout>
                                         <MenuItem Header="AFM CSV" Tag="{x:Static vm:LootExportFormat.AfmCsv}" Click="ExportGlobalLoot_Click" />

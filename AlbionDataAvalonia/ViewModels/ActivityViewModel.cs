@@ -127,7 +127,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         ShowGlobalLootPanel ? $"Loot {GlobalLootSummary.Summary.LootItems:N0} items · EMV {GlobalLootSummary.LootValue}" : null,
         SelectedItemSource.Value != ActivityItemSources.Loot ? $"Gathered {GlobalLootSummary.ResourceQuantityText} · EMV {GlobalLootSummary.ResourceValueText}" : null
     }.Where(value => value is not null));
-    public string GlobalLootDetailsText => "Item EMVs in silver. Loot uses the Black Market EMV when there is one.";
+    public string GlobalLootDetailsText => "Loot uses the Black Market EMV when available";
     public string ChartDescription => SelectedEncounter is not null ? $"Encounter {SelectedEncounter.Number}" : SelectedSession is not null ? "Run" : "Whole session";
 
     public ActivityViewModel()
