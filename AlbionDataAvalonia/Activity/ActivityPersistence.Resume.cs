@@ -60,8 +60,15 @@ public sealed partial class ActivityPersistence
                 var resumed = command.Prepare(previous);
                 var lastNumber = context.ActivityEncounters.Where(x => x.SessionId == saved.Id)
                     .Select(x => (int?)x.Number).Max() ?? 0;
+                var previousPlaySession = saved.PlaySessionId;
                 context.Entry(saved).CurrentValues.SetValues(resumed);
                 context.SaveChanges();
+                // The resumed run moves into the current play session; its old one may now be empty.
+                if (previousPlaySession is { } playSessionId && playSessionId != resumed.PlaySessionId)
+                {
+                    RefreshPlaySessionsAsync(context, [playSessionId], new CommittedChanges(), CancellationToken.None).GetAwaiter().GetResult();
+                    command.PreviousPlaySessionId = playSessionId;
+                }
                 transaction.Commit();
                 Interlocked.Increment(ref readVersion);
                 result = new(resumed, lastNumber);
@@ -84,6 +91,7 @@ public sealed partial class ActivityPersistence
         }
         var changes = new CommittedChanges();
         changes.Sessions.Add(command.SessionId);
+        if (command.PreviousPlaySessionId is { } movedFrom) changes.PlaySessions.Add(movedFrom);
         NotifyCommitted(changes);
     }
 
@@ -91,6 +99,7 @@ public sealed partial class ActivityPersistence
         Func<ActivitySession, ActivitySession> Prepare, Action<ActivitySessionResumeResult> Apply,
         TaskCompletionSource Done) : ControlCommand(Done)
     {
+        public Guid? PreviousPlaySessionId { get; set; }
         public bool Completed { get; set; }
         public string? Error { get; set; }
         public Exception? Failure { get; set; }

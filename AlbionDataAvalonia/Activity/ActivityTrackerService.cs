@@ -25,7 +25,6 @@ namespace AlbionDataAvalonia.Activity;
 public sealed partial class ActivityTrackerService : IDisposable
 {
     private static readonly TimeSpan EncounterIdle = TimeSpan.FromSeconds(7);
-    private static readonly TimeSpan SessionIdle = TimeSpan.FromMinutes(30);
     private static readonly TimeSpan ReentryGrace = TimeSpan.FromMinutes(2);
     // A capture restart within this time continues on the same map and character.
     private static readonly TimeSpan CaptureResumeGrace = TimeSpan.FromMinutes(1);
@@ -132,7 +131,7 @@ public sealed partial class ActivityTrackerService : IDisposable
                 if (captureSuspended) return "Capture stopped.";
                 if (awaitingContext) return "Waiting for character and map confirmation. Nearby loot can still be observed.";
                 return encounter is not null ? "Recording encounter and session activity."
-                    : session is not null ? "Recording session activity." : "Ready. A session begins with relevant activity.";
+                    : session is not null ? "Recording session activity." : "Ready. A session counts from your first activity.";
             }
         }
     }
@@ -147,7 +146,8 @@ public sealed partial class ActivityTrackerService : IDisposable
             if (!value) ResolvePending(DateTime.UtcNow);
             enabled = value;
             if (value && map is not null) { mapEnteredAt = DateTime.UtcNow; partialEntry = true; }
-            if (!value) CloseSession(DateTime.UtcNow, ActivityEndReason.Disabled);
+            if (value) playOpenedAt = DateTime.UtcNow;
+            if (!value) ClosePlaySession(DateTime.UtcNow, ActivityEndReason.Disabled);
             loot.ResetRecordingCorrelations();
             locations.ClearPending();
             ClearPendingActorMetadata();
@@ -157,28 +157,6 @@ public sealed partial class ActivityTrackerService : IDisposable
             pendingTerminals.Clear();
             SaveHeaders();
         }
-        Changed?.Invoke(this, EventArgs.Empty);
-    }
-
-    public void FinishSession(Guid? expectedSessionId = null)
-    {
-        lock (sync)
-        {
-            if (expectedSessionId is { } expected && session?.Id != expected) return;
-            ResolvePending(DateTime.UtcNow);
-            CloseSession(DateTime.UtcNow, ActivityEndReason.Finished);
-            resumable = null;
-            loot.ResetCandidates();
-            locations.ClearPending();
-            ClearPendingActorMetadata();
-            gathering.Reset();
-            fameCollector.Reset();
-            mobParticipation.Clear();
-            pendingTerminals.Clear();
-            mapEnteredAt = DateTime.UtcNow;
-            SaveHeaders();
-        }
-        _ = persistence.FlushAsync();
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
@@ -416,7 +394,7 @@ public sealed partial class ActivityTrackerService : IDisposable
             || session.CharacterId != (packet.userGuid?.ToString() ?? "")
             || session.CharacterId.Length == 0 && session.CharacterName != packet.playerName);
         CloseEncounter(at, switched ? ActivityEndReason.CharacterChanged : ActivityEndReason.MapTransition);
-        if (switched) CloseSession(at, ActivityEndReason.CharacterChanged);
+        if (switched) ClosePlaySession(at, ActivityEndReason.CharacterChanged);
         else if (session is not null)
         {
             if (IsInstance(next.Kind))
@@ -439,6 +417,7 @@ public sealed partial class ActivityTrackerService : IDisposable
         ReplayPendingActorMetadata(packet, at);
         confirmedOwner = actors.HasIdentity ? new ActivityOwner(actors.ServerId!.Value.ToString(CultureInfo.InvariantCulture),
             actors.CharacterId, actors.CharacterName) : null;
+        OpenPlaySessionFor(confirmedOwner, at);
         map = next;
         mapMetadata = nextMetadata;
         locationObservation = null;
@@ -481,7 +460,14 @@ public sealed partial class ActivityTrackerService : IDisposable
         return true;
     }
 
+    // Every recorded activity passes here: it opens a run when needed and keeps the play session alive.
     private void EnsureSession(DateTime at)
+    {
+        EnsureRun(at);
+        if (session is not null) MarkPlayActivity(at);
+    }
+
+    private void EnsureRun(DateTime at)
     {
         if (session is not null || !CanRecord || map is null) return;
         var visitStartedAt = at;
@@ -493,6 +479,7 @@ public sealed partial class ActivityTrackerService : IDisposable
             session = old with
             {
                 Revision = old.Revision + 2,
+                PlaySessionId = ActivatePlaySession(mapEnteredAt, at)?.Id ?? old.PlaySessionId,
                 State = ActivityState.Open,
                 ClosedAtUtc = null,
                 EndReason = ActivityEndReason.None,
@@ -512,11 +499,14 @@ public sealed partial class ActivityTrackerService : IDisposable
             visits.Clear();
             knownInstances.Clear();
             encounterNumber = 0;
-            var start = IsInstance(map.Kind) ? mapEnteredAt : at;
+            // An instance run counts from its entrance, but never from before its play session opened.
+            var entered = mapEnteredAt > playOpenedAt ? mapEnteredAt : playOpenedAt;
+            var start = IsInstance(map.Kind) && entered < at ? entered : at;
             visitStartedAt = start;
             session = new ActivitySession
             {
                 Id = Guid.NewGuid(),
+                PlaySessionId = ActivatePlaySession(start, at)?.Id,
                 Server = actors.ServerId?.ToString(CultureInfo.InvariantCulture) ?? "",
                 CharacterId = actors.CharacterId,
                 CharacterName = actors.CharacterName,
@@ -1046,6 +1036,7 @@ public sealed partial class ActivityTrackerService : IDisposable
         fameCollector.Reset();
         if (session is null) return null;
         CloseObservation(at);
+        lastRunClosedAt = at;
         var ended = session with
         {
             Revision = session.Revision + 1,
@@ -1070,8 +1061,7 @@ public sealed partial class ActivityTrackerService : IDisposable
         if (!fromTimer) RestoreTimedOutEncounter(at);
         if (encounter is not null && at >= encounter.LastCombatAtUtc + EncounterIdle)
             CloseEncounter(encounter.LastCombatAtUtc + EncounterIdle, ActivityEndReason.Inactivity, provisional: fromTimer);
-        if (session is { Kind: ActivitySessionKind.Roaming } && !awaitingContext && at >= session.LastRelevantAtUtc + SessionIdle)
-            CloseSession(session.LastRelevantAtUtc + SessionIdle, ActivityEndReason.Inactivity);
+        ExpirePlaySession(at);
         if (!reentryConfirmed && resumable?.ClosedAtUtc is { } exited && at - exited > ReentryGrace) resumable = null;
         pendingTerminals.RemoveAll(x => x.ExpiresAt < at);
         // Loot and fishing correlations follow the captured timeline. A wall-clock tick during
@@ -1127,6 +1117,8 @@ public sealed partial class ActivityTrackerService : IDisposable
 
     private void SaveHeaders()
     {
+        // A new play session is saved before the first run that refers to it.
+        SavePlaySession();
         if (session is not null) QueueSession(session);
         if (encounter is not null) QueueEncounter(encounter);
         headersDirty = false;
@@ -1228,6 +1220,7 @@ public sealed partial class ActivityTrackerService : IDisposable
             else
             {
                 storageSuspended = false;
+                ResumeDeferredPlaySessions();
                 foreach (var header in deferredSessions.Values.ToArray())
                     if (persistence.EnqueueSession(header)) deferredSessions.Remove(header.Id);
                 foreach (var header in deferredEncounters.Values.ToArray())
@@ -1291,7 +1284,8 @@ public sealed partial class ActivityTrackerService : IDisposable
         {
             ResolvePending(DateTime.UtcNow);
             gathering.Reset();
-            CloseSession(DateTime.UtcNow, ActivityEndReason.Interrupted);
+            ClosePlaySession(DateTime.UtcNow, ActivityEndReason.Interrupted);
+            SaveHeaders();
             captureSuspended = true;
         }
         await persistence.FlushAsync(cancellationToken).ConfigureAwait(false);

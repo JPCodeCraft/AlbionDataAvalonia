@@ -19,7 +19,7 @@ public partial class ActivityViewModel
     [ObservableProperty] private ActivityLiveTimelineSnapshot? historyReplayTimeline;
 
     private static string HistoryTimelineContextKey(ActivityQuery query, ActivityCategories categories) =>
-        $"history:{query.SessionId}:{query.EncounterId}:{query.Scope}:{query.ActorKey}:{categories}";
+        $"history:{query.PlaySessionId}:{query.SessionId}:{query.EncounterId}:{query.Scope}:{query.ActorKey}:{categories}";
 
     partial void OnHistoryLiveTimelineChanged(ActivityLiveTimelineSnapshot? oldValue, ActivityLiveTimelineSnapshot? newValue)
     {

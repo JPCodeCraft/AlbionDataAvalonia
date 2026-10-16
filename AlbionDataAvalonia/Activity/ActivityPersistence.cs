@@ -225,6 +225,14 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
         {
             switch (command)
             {
+                case PlaySessionCommand play:
+                    var oldPlay = await context.ActivityPlaySessions.FindAsync([play.Value.Id], cancellationToken);
+                    // The tracker reopening a play session wins over bounds refreshed after a merge or deletion.
+                    if (oldPlay is not null && oldPlay.Revision >= play.Value.Revision &&
+                        !(play.Value.State == ActivityState.Open && oldPlay.State != ActivityState.Open)) break;
+                    if (oldPlay is null) context.ActivityPlaySessions.Add(play.Value);
+                    else context.Entry(oldPlay).CurrentValues.SetValues(play.Value with { Revision = Math.Max(play.Value.Revision, oldPlay.Revision + 1) });
+                    break;
                 case SessionCommand header when !deletedSessions.Contains(header.Value.Id):
                     var oldSession = await context.ActivitySessions.FindAsync([header.Value.Id], cancellationToken);
                     if (oldSession is not null && oldSession.Revision >= header.Value.Revision) break;
@@ -378,6 +386,7 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
         if (command is ImportLegacyCommand import) { import.Result = await ImportLegacyRunsAsync(cancellationToken); return; }
         if (command is RebuildTagsCommand) { await RebuildTagsAsync(cancellationToken); return; }
         if (command is CleanupCommand cleanup) { await ExecuteCleanupAsync(cleanup, cancellationToken); return; }
+        if (command is DeletePlaySessionCommand deletePlay) { await ExecuteDeletePlaySessionAsync(deletePlay, cancellationToken); return; }
         await using var context = contextFactory();
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);
         var changes = new CommittedChanges();
@@ -387,7 +396,13 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                 changes.Sessions.Add(delete.Id);
                 changes.Items = await context.ActivityEvents.AnyAsync(x => x.SessionId == delete.Id &&
                     (x.Kind == ActivityEventKind.Loot || x.Kind == ActivityEventKind.Gathered || x.Kind == ActivityEventKind.FishingReward || x.Kind == ActivityEventKind.LegacyGatheringAggregate), cancellationToken);
+                var deletedPlaySession = await context.ActivitySessions.Where(x => x.Id == delete.Id).Select(x => x.PlaySessionId).SingleOrDefaultAsync(cancellationToken);
                 await context.ActivitySessions.Where(x => x.Id == delete.Id).ExecuteDeleteAsync(cancellationToken);
+                if (deletedPlaySession is { } playSessionId)
+                {
+                    changes.PlaySessions.Add(playSessionId);
+                    await RefreshPlaySessionsAsync(context, [playSessionId], changes, cancellationToken);
+                }
                 break;
             case DeleteLootCommand:
                 changes.Items = await context.ActivityEvents.Where(x => x.SessionId == null && x.Kind == ActivityEventKind.Loot).ExecuteDeleteAsync(cancellationToken) > 0;
@@ -429,6 +444,7 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                     context.ChangeTracker.Clear();
                 }
                 await RestoreKnownFameAwardsAsync(context, changes, cancellationToken);
+                await RecoverPlaySessionsAsync(context, changes, cancellationToken);
                 break;
         }
         await transaction.CommitAsync(cancellationToken);

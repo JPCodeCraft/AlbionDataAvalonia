@@ -39,11 +39,30 @@ public enum ActivityEndReason
     CharacterChanged, Death, Interrupted
 }
 
+// One sitting of play. It opens at login, counts from its first run, and ends at its last
+// activity after 30 minutes without activity, New session, a character switch, recording
+// turning off, or the app closing without reopening within 30 minutes. Runs belong to one.
+public sealed record ActivityPlaySession
+{
+    public Guid Id { get; init; }
+    public int Revision { get; init; } = 1;
+    public string Server { get; init; } = "";
+    public string CharacterId { get; init; } = "";
+    public string CharacterName { get; init; } = "";
+    public DateTime StartedAtUtc { get; init; }
+    public DateTime LastActivityAtUtc { get; init; }
+    public DateTime? EndedAtUtc { get; init; }
+    public ActivityState State { get; init; }
+    public ActivityEndReason EndReason { get; init; }
+}
+
+// A run: one dungeon, Mists visit, open-world stretch and so on, inside a play session.
 // Immutable snapshots are safe to pass from packet handlers to the persistence worker.
 public sealed record ActivitySession
 {
     public Guid Id { get; init; }
     public int Revision { get; init; } = 1;
+    public Guid? PlaySessionId { get; init; }
     public string Server { get; init; } = "";
     public string CharacterId { get; init; } = "";
     public string CharacterName { get; init; } = "";
@@ -219,6 +238,7 @@ public sealed record ActivitySummary
 
 public sealed record ActivityQuery
 {
+    public Guid? PlaySessionId { get; init; }
     public Guid? SessionId { get; init; }
     public Guid? EncounterId { get; init; }
     public ActivityScope Scope { get; init; } = ActivityScope.Personal;

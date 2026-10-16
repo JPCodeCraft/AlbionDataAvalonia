@@ -9,9 +9,10 @@ using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.Activity;
 
-public sealed record ActivityDataChange(long Version, IReadOnlyList<Guid> SessionIds, bool ItemsChanged)
+public sealed record ActivityDataChange(long Version, IReadOnlyList<Guid> SessionIds, bool ItemsChanged,
+    IReadOnlyList<Guid>? PlaySessionIds = null)
 {
-    public bool HistoryChanged => SessionIds.Count > 0;
+    public bool HistoryChanged => SessionIds.Count > 0 || PlaySessionIds is { Count: > 0 };
 }
 
 public sealed partial class ActivityPersistence
@@ -64,6 +65,8 @@ public sealed partial class ActivityPersistence
     }
     public Task<ActivityPage<ActivityEncounter>> GetEncountersAsync(Guid sessionId, int page = 0, CancellationToken cancellationToken = default) =>
         ReadAsync(ct => GetEncountersCoreAsync(sessionId, page, ct), cancellationToken);
+    public Task<ActivityPage<ActivityEncounter>> GetPlaySessionEncountersAsync(Guid playSessionId, int page = 0, CancellationToken cancellationToken = default) =>
+        ReadAsync(ct => GetPlaySessionEncountersCoreAsync(playSessionId, page, ct), cancellationToken);
     public Task<ActivityPage<ActivityEvent>> GetEventsAsync(ActivityQuery filter, int page = 0, CancellationToken cancellationToken = default) =>
         ReadAsync(ct => GetEventsCoreAsync(filter, page, ct), cancellationToken);
     internal Task<ActivityPage<ActivityEvent>> GetEventsThroughPageAsync(ActivityQuery filter, int lastPage, CancellationToken cancellationToken = default) =>
@@ -86,8 +89,8 @@ public sealed partial class ActivityPersistence
     }
     public Task<IReadOnlyList<ActivityActorTotal>> GetPlayersAsync(ActivityQuery filter, CancellationToken cancellationToken = default) =>
         ReadAsync(ct => GetPlayersCoreAsync(filter, ct), cancellationToken);
-    internal Task<IReadOnlyList<ActivityEvent>> GetPartyEventsAsync(Guid sessionId, CancellationToken cancellationToken = default) =>
-        ReadAsync(ct => GetPartyEventsCoreAsync(sessionId, ct), cancellationToken);
+    internal Task<IReadOnlyList<ActivityEvent>> GetPartyEventsAsync(ActivityQuery filter, CancellationToken cancellationToken = default) =>
+        ReadAsync(ct => GetPartyEventsCoreAsync(filter, ct), cancellationToken);
     internal Task<IReadOnlyDictionary<Guid, IReadOnlyList<string>>> GetSessionPartyMembersAsync(IEnumerable<Guid> sessionIds, CancellationToken cancellationToken = default)
     {
         var requested = sessionIds.Distinct().Select(id => (Guid?)id).ToArray();
@@ -105,13 +108,19 @@ public sealed partial class ActivityPersistence
     private sealed class CommittedChanges
     {
         public HashSet<Guid> Sessions { get; } = [];
+        public HashSet<Guid> PlaySessions { get; } = [];
         public bool Items;
         public void Include(LocalContext context)
         {
             context.ChangeTracker.DetectChanges();
             foreach (var entry in context.ChangeTracker.Entries().Where(x => x.State is EntityState.Added or EntityState.Modified or EntityState.Deleted))
             {
-                if (entry.Entity is ActivitySession session) Sessions.Add(session.Id);
+                if (entry.Entity is ActivityPlaySession playSession) PlaySessions.Add(playSession.Id);
+                else if (entry.Entity is ActivitySession session)
+                {
+                    Sessions.Add(session.Id);
+                    if (session.PlaySessionId is { } playSessionId) PlaySessions.Add(playSessionId);
+                }
                 else if (entry.Entity is ActivityEncounter encounter) Sessions.Add(encounter.SessionId);
                 else if (entry.Entity is ActivityEvent observation)
                 {
@@ -126,9 +135,10 @@ public sealed partial class ActivityPersistence
 
     private void NotifyCommitted(CommittedChanges changes)
     {
-        if (changes.Sessions.Count == 0 && !changes.Items) return;
+        if (changes.Sessions.Count == 0 && changes.PlaySessions.Count == 0 && !changes.Items) return;
         Interlocked.Increment(ref readVersion);
-        var change = new ActivityDataChange(Interlocked.Increment(ref dataVersion), changes.Sessions.ToArray(), changes.Items);
+        var change = new ActivityDataChange(Interlocked.Increment(ref dataVersion), changes.Sessions.ToArray(), changes.Items,
+            changes.PlaySessions.ToArray());
         try { DataChanged?.Invoke(change); }
         catch { /* A presentation subscriber cannot interrupt committed journal writes. */ }
     }

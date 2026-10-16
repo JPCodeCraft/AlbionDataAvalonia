@@ -45,12 +45,9 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     private int statusUpdatePending;
     private Guid? statusSessionId;
     private bool statusLegacyImportWarning;
-    private readonly HashSet<Guid> changedHistorySessions = [];
-    private ActivityQuery? loadedHistoryQuery;
     private long detailDataVersion;
     private ActivityQuery? cachedDetailQuery;
     private long cachedDetailDataVersion = -1;
-    private ActivitySession? cachedDetailSession;
     private ActivityEncounter? cachedDetailEncounter;
     private ActivitySummary? cachedDetailSummary;
     private double cachedDetailCombatSeconds;
@@ -107,18 +104,25 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     public bool HasError => !string.IsNullOrWhiteSpace(ErrorText);
     public bool ShowActivityScope => SelectedTabIndex is 0 or 1;
     public Guid? CurrentSessionId => tracker?.CurrentSessionId;
+    public Guid? CurrentPlaySessionId => tracker?.CurrentPlaySessionId;
     public string RecordingButtonText => IsRecordingEnabled ? "Disable recording" : "Enable recording";
     public bool HasSelectedSession => SelectedSession is not null;
     public bool HasSelectedEncounter => SelectedEncounter is not null;
     public bool HasSelectedPlayer => SelectedPlayer is not null;
-    public bool CanDeleteSelectedSession => SelectedSession is { Source.State: not ActivityState.Open } && SelectedSession.Id != tracker?.CurrentSessionId;
+    public bool CanDeleteSelectedSession => SelectedSession is { } run
+        ? run.Source.State != ActivityState.Open && run.Id != tracker?.CurrentSessionId
+        : SelectedPlaySession is { IsOpen: false } playSession && playSession.Id != tracker?.CurrentPlaySessionId;
     public string CurrentCombatDurationText => $"Combat time: {ActivityDisplay.Duration(CurrentSummary.Rates.CombatDurationSeconds)}";
-    public string DetailTitle => IsShowingMap ? SelectedMap!.Name : SelectedEncounter is { } encounter ? $"Encounter {encounter.Number} · {encounter.Classification}" : SelectedSession?.Title ?? "Select a session";
+    public string DetailTitle => IsShowingMap ? SelectedMap!.Name : SelectedEncounter is { } encounter ? $"Encounter {encounter.Number} · {encounter.Classification}"
+        : SelectedSession?.Title ?? SelectedPlaySession?.Title ?? "Select a session";
     public string DetailDurationText => IsShowingMap ? $"Recorded time: {SelectedMap!.DurationText} · Combat time: {ActivityDisplay.Duration(DetailSummary.Rates.CombatDurationSeconds)}"
-        : IsImportedDetail ? $"Duration: {SelectedSession?.DurationText}" : SelectedEncounter is { } encounter ? $"Combat time: {encounter.DurationText}"
-        : $"Session time: {SelectedSession?.DurationText ?? "0:00"} · Combat time: {ActivityDisplay.Duration(DetailSummary.Rates.CombatDurationSeconds)}";
-    public string DetailScopeText => $"{SelectedPlayer?.Name ?? ""}{(SelectedSession?.Source.IsPartial == true ? $"{(SelectedPlayer is null ? "" : " · ")}Incomplete recording" : "")}";
-    public string HistoryCountText => $"{Sessions.Count:N0} sessions";
+        : IsImportedDetail ? $"Duration: {ActivityDisplay.Duration(DetailSummary.Rates.DurationSeconds)}" : SelectedEncounter is { } encounter ? $"Combat time: {encounter.DurationText}"
+        : SelectedSession is { } run ? $"Run time: {run.DurationText} · Combat time: {ActivityDisplay.Duration(DetailSummary.Rates.CombatDurationSeconds)}"
+        : $"Session time: {ActivityDisplay.Duration(DetailSummary.Rates.DurationSeconds)}" +
+            (DetailSummary.RunSeconds is { } runSeconds ? $" · In runs: {ActivityDisplay.Duration(runSeconds)}" : "") +
+            $" · Combat time: {ActivityDisplay.Duration(DetailSummary.Rates.CombatDurationSeconds)}";
+    public string DetailScopeText => $"{SelectedPlayer?.Name ?? ""}{((SelectedSession?.Source.IsPartial ?? SelectedPlaySession?.IsPartial) == true ? $"{(SelectedPlayer is null ? "" : " · ")}Incomplete recording" : "")}";
+    public string HistoryCountText => $"{PlaySessions.Count:N0} sessions";
     public string LootCountText => $"{GlobalLoot.Count:N0} pickups";
     public string GlobalLootTotalsText => string.Join(" · ", new[]
     {
@@ -126,7 +130,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         SelectedItemSource.Value != ActivityItemSources.Loot ? $"Gathered {GlobalLootSummary.ResourceQuantityText} · EMV {GlobalLootSummary.ResourceValueText}" : null
     }.Where(value => value is not null));
     public string GlobalLootDetailsText => "Estimated item values in silver";
-    public string ChartDescription => SelectedEncounter is null ? "Whole session" : $"Encounter {SelectedEncounter.Number}";
+    public string ChartDescription => SelectedEncounter is not null ? $"Encounter {SelectedEncounter.Number}" : SelectedSession is not null ? "Run" : "Whole session";
 
     public ActivityViewModel()
     {
@@ -193,21 +197,10 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     {
         if (isDisposed) return;
         var changedIds = change.SessionIds.ToHashSet();
-        if (change.HistoryChanged)
-        {
-            ++historyChangeVersion;
-            // New/imported headers can fall inside the cached date range. Retain their
-            // IDs too, with a bounded fallback to canonical paging after large changes.
-            changedHistorySessions.UnionWith(changedIds);
-            if (changedHistorySessions.Count > 1000)
-            {
-                changedHistorySessions.Clear();
-                loadedHistoryQuery = null;
-                ++sessionListVersion;
-            }
-        }
+        if (change.HistoryChanged) ++historyChangeVersion;
         if (change.ItemsChanged) ++itemChangeVersion;
-        if (SelectedSession is { } selected && changedIds.Contains(selected.Id))
+        if (SelectedPlaySession is { } selected && (change.PlaySessionIds?.Contains(selected.Id) == true ||
+            selected.Runs.Any(run => changedIds.Contains(run.Id))))
         { ++detailChangeVersion; ++detailDataVersion; }
         if (tracker?.CurrentSessionId is { } currentId && changedIds.Contains(currentId) ||
             currentCombatQuery?.SessionId is { } cachedId && changedIds.Contains(cachedId)) ++currentCombatChangeVersion;
@@ -217,23 +210,25 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     {
         if (isDisposed || !isActive || refreshing || loadingCount > 0) return;
         UpdateStatus();
-        if (currentSession is not null && SelectedPeriod.Value == ActivityPeriodMode.CurrentSession)
-            CurrentDurationText = $"Session time: {ActivityDisplay.Duration(ActivityProjection.GetDurationSeconds(currentSession, DateTime.UtcNow))}";
-        else if (SelectedPeriod.Value != ActivityPeriodMode.CurrentSession)
+        if (tracker is not null) UpdateCurrentPlayState(tracker.GetCurrentContext(), DateTime.UtcNow);
+        if (currentSession is not null && SelectedPeriod.Value == ActivityPeriodMode.CurrentRun)
+            CurrentDurationText = $"Run time: {ActivityDisplay.Duration(ActivityProjection.GetDurationSeconds(currentSession, DateTime.UtcNow))}";
+        else if (SelectedPeriod.Value != ActivityPeriodMode.CurrentRun)
             ApplyCurrentPeriodPresentation(DateTime.UtcNow);
         if (SelectedTabIndex == 1)
         {
+            foreach (var row in PlaySessions.Where(x => x.IsOpen)) row.RefreshDuration();
             foreach (var row in Sessions.Where(x => x.Source.State == ActivityState.Open)) row.RefreshDuration();
             foreach (var row in Maps.Where(x => x.Source.ObservationStartedAtUtc is not null)) row.RefreshDuration();
             if (IsShowingMap)
                 DetailSummary = new(DetailSummary.Summary, ActivityProjection.GetRates(DetailSummary.Summary,
                     SelectedMap!.DurationSeconds, DetailSummary.Rates.CombatDurationSeconds), true, SelectedMap.Source.Visits > 0);
-            else if (SelectedSession is { Source.State: ActivityState.Open } open && SelectedEncounter is null)
-                DetailSummary = new(DetailSummary.Summary, ActivityProjection.GetRates(DetailSummary.Summary, open.Source,
-                    DetailSummary.Rates.CombatDurationSeconds, DateTime.UtcNow), true);
+            else if (SelectedEncounter is null && cachedDetailHeader is { } header && header.PlaySession.Id == SelectedPlaySession?.Id &&
+                (SelectedSession?.Source.State ?? header.PlaySession.State) == ActivityState.Open)
+                DetailSummary = DetailPresentation(DetailSummary.Summary, header, SelectedSession?.Source, null, DetailSummary.Rates.CombatDurationSeconds);
         }
         if (SelectedTabIndex == 1 && historyReadVersion == historyChangeVersion &&
-            (SelectedSession is null || detailReadVersion == detailChangeVersion)) return;
+            (SelectedPlaySession is null || detailReadVersion == detailChangeVersion)) return;
         if (SelectedTabIndex == 2 && itemReadVersion == itemChangeVersion) return;
         await RunSafelyAsync(RefreshVisibleAsync);
     }
@@ -243,6 +238,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         if (tracker is null || persistence is null) return;
         IsRecordingEnabled = tracker.IsRecordingEnabled;
         HasCurrentSession = tracker.CurrentSessionId is not null;
+        HasCurrentPlaySession = tracker.CurrentPlaySessionId is not null;
         HasCurrentEncounter = tracker.CurrentEncounterId is not null;
         var status = persistence.Status;
         StatusText = status.IsSuspended ? "Recording paused"
@@ -275,8 +271,8 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
             }
             else if (SelectedTabIndex == 1)
             {
-                if (historyReadVersion != historyChangeVersion) await LoadSessionsAsync(false, true);
-                if (SelectedSession is not null && detailReadVersion != detailChangeVersion) await RefreshDetailsAsync();
+                if (historyReadVersion != historyChangeVersion) await LoadPlaySessionsAsync(false, true);
+                if (SelectedPlaySession is not null && detailReadVersion != detailChangeVersion) await RefreshDetailsAsync();
             }
             else if (SelectedTabIndex == 2 && itemReadVersion != itemChangeVersion) await LoadGlobalLootAsync(false, true);
             else if (SelectedTabIndex == 3) await RefreshCleanupAsync();
@@ -293,9 +289,9 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         var period = SelectedPeriod.Value;
         var hours = LastHours;
         var cancellationToken = BeginRead(ref currentQueryCancellation);
-        var sessionTask = period == ActivityPeriodMode.CurrentSession && sessionId is { } currentSessionId
+        var sessionTask = period == ActivityPeriodMode.CurrentRun && sessionId is { } currentSessionId
             ? persistence.GetSessionAsync(currentSessionId, cancellationToken) : Task.FromResult<ActivitySession?>(null);
-        var combatQuery = period == ActivityPeriodMode.CurrentSession && sessionId is { } combatSessionId
+        var combatQuery = period == ActivityPeriodMode.CurrentRun && sessionId is { } combatSessionId
             ? new ActivityQuery { SessionId = combatSessionId, Scope = scope } : null;
         var combatVersion = currentCombatChangeVersion;
         var combatTask = combatQuery is null ? Task.FromResult(0d) : combatQuery == currentCombatQuery && combatVersion == currentCombatReadVersion
@@ -320,15 +316,22 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         CurrentTitle = currentSession is { } currentTitle ? ActivityDisplay.SessionTitle(currentTitle) : "No active session";
         CurrentDescription = currentSession is { } session ? $"{session.CharacterName} · {ActivityDisplay.Server(session.Server)}{(session.IsPartial ? " · incomplete recording" : "")}"
             : tracker.IsAwaitingContext ? "" : "Start playing to record activity.";
-        if (period == ActivityPeriodMode.CurrentSession && context.Owner is not null && currentSession is { } current)
+        if (period == ActivityPeriodMode.PlaySession)
+        {
+            await RefreshCurrentRunsAsync(context, cancellationToken);
+            ApplyCurrentPlayHeader(context);
+        }
+        UpdateCurrentPlayState(tracker.GetCurrentContext(), DateTime.UtcNow);
+        if (period == ActivityPeriodMode.CurrentRun && context.Owner is not null && currentSession is { } current)
         {
             var summary = ActivityProjection.GetSummary(current, scope);
             CurrentSummary = new(summary, ActivityProjection.GetRates(summary, current, combatTask.Result, DateTime.UtcNow), true);
-            CurrentDurationText = $"Session time: {ActivityDisplay.Duration(ActivityProjection.GetDurationSeconds(current, DateTime.UtcNow))}";
+            CurrentDurationText = $"Run time: {ActivityDisplay.Duration(ActivityProjection.GetDurationSeconds(current, DateTime.UtcNow))}";
+            CurrentRunTimeText = "";
             CurrentPeriodDescription = $"Since {ActivityDisplay.LocalDate(current.StartedAtUtc)}";
         }
-        else if (period == ActivityPeriodMode.CurrentSession) ClearCurrentPeriod();
-        if (period == ActivityPeriodMode.CurrentSession)
+        else if (period == ActivityPeriodMode.CurrentRun) ClearCurrentPeriod();
+        if (period == ActivityPeriodMode.CurrentRun)
         {
             CurrentPeriodWarning = "";
             await RefreshCurrentResourcesAsync(context.Owner is null ? null : sessionId, scope, cancellationToken);
@@ -341,6 +344,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
 
     private ActivityQuery DetailQuery(bool lootOnly = false) => new()
     {
+        PlaySessionId = SelectedPlaySession?.Id,
         SessionId = SelectedSession?.Id,
         EncounterId = SelectedEncounter?.Id,
         ActorKey = SelectedPlayer?.ActorId,
@@ -349,90 +353,39 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         ItemSources = lootOnly ? SelectedSessionItemSource.Value : ActivityItemSources.All
     };
 
-    private async Task LoadSessionsAsync(bool append, bool refresh = false)
-    {
-        if (persistence is null) return;
-        var version = ++sessionListVersion;
-        var dataVersion = historyChangeVersion;
-        var cancellationToken = BeginRead(ref historyQueryCancellation);
-        var query = HistoryQuery();
-        var page = append ? sessionPage + 1 : 0;
-        var changedIds = changedHistorySessions.ToArray();
-        var targetedRefresh = refresh && !append && query == loadedHistoryQuery && Sessions.Count > 0;
-        ActivityPage<ActivitySession> result;
-        if (targetedRefresh)
-        {
-            var firstPageTask = persistence.GetSessionsAsync(query, 0, cancellationToken);
-            var changedTask = persistence.GetSessionsByIdsAsync(query, changedIds, cancellationToken);
-            var tailPage = (Sessions.Count - 1) / 100;
-            var tailTask = !HasMoreSessions && Sessions.Count > 100 ? persistence.GetSessionsAsync(query, tailPage, cancellationToken) : null;
-            var reads = new List<Task> { firstPageTask, changedTask };
-            if (tailTask is not null) reads.Add(tailTask);
-            await Task.WhenAll(reads);
-            cancellationToken.ThrowIfCancellationRequested();
-            var refreshed = firstPageTask.Result.Items.Concat(changedTask.Result);
-            var invalidatedIds = changedIds.ToHashSet();
-            var retained = Sessions.Where(row => !invalidatedIds.Contains(row.Id)).Select(row => row.Source);
-            var capacity = Math.Max(Sessions.Count, 100);
-            var merged = refreshed.Concat(retained).DistinctBy(source => source.Id)
-                .OrderByDescending(source => source.StartedAtUtc).ThenBy(source => source.Id).ToArray();
-            var hasMore = HasMoreSessions || merged.Length > capacity || Sessions.Count <= 100 && firstPageTask.Result.HasMore ||
-                tailTask?.Result is { } tail && (tail.HasMore || tailPage * 100 + tail.Items.Count > capacity);
-            result = new(merged.Take(capacity).ToArray(), hasMore);
-        }
-        else result = await persistence.GetSessionsAsync(query, page, cancellationToken);
-        if (isDisposed || version != sessionListVersion || HistoryQuery() != query) return;
-        var selectedId = SelectedSession?.Id;
-        applyingSelection = true;
-        try
-        {
-            ApplyHeaderRows(Sessions, result.Items, row => row.Id, source => source.Id,
-                source => new ActivitySessionRow(source, query.Scope), (row, source) => row.Update(source, query.Scope), append);
-            SelectedSession = selectedId is { } id ? Sessions.FirstOrDefault(row => row.Id == id) : null;
-            // A targeted deletion/filter change can shorten the cached tail. Allow the
-            // next offset page to overlap rather than skip rows not yet displayed.
-            sessionPage = Math.Max(0, Sessions.Count / 100 - 1);
-            HasMoreSessions = result.HasMore;
-            loadedHistoryQuery = query;
-            OnPropertyChanged(nameof(HistoryCountText));
-            NotifyDetailProperties();
-            if (!append)
-            {
-                historyReadVersion = dataVersion;
-                if (historyChangeVersion == dataVersion) changedHistorySessions.ExceptWith(changedIds);
-            }
-        }
-        finally { applyingSelection = false; }
-        await LoadSessionPartiesAsync(cancellationToken);
-    }
-
     private async Task RefreshDetailsAsync()
     {
-        if (persistence is null || SelectedSession is null) return;
+        if (persistence is null || SelectedPlaySession is null) return;
         var version = ++detailVersion;
         var dataVersion = detailChangeVersion;
         var cancellationToken = BeginRead(ref detailQueryCancellation);
-        var sessionId = SelectedSession.Id;
+        var playSessionId = SelectedPlaySession.Id;
+        var runId = SelectedSession?.Id;
         var encounterId = SelectedEncounter?.Id;
         var scope = SelectedScope.Value;
         var query = DetailQuery();
         var detailTab = SelectedDetailTabIndex;
-        var isImported = IsImportedDetail;
         var cacheVersion = detailDataVersion;
-        var useCache = cachedDetailQuery == query && cachedDetailDataVersion == cacheVersion && cachedDetailSummary is not null;
-        var sessionTask = useCache ? Task.FromResult(cachedDetailSession) : persistence.GetSessionAsync(sessionId, cancellationToken);
+        var useCache = cachedDetailQuery == query && cachedDetailDataVersion == cacheVersion && cachedDetailSummary is not null && cachedDetailHeader is not null;
+        var headerTask = useCache ? Task.FromResult(cachedDetailHeader) : persistence.GetPlaySessionAsync(playSessionId, cancellationToken);
         var encounterTask = useCache ? Task.FromResult(cachedDetailEncounter) : encounterId is { } id
             ? persistence.GetEncounterAsync(id, cancellationToken) : Task.FromResult<ActivityEncounter?>(null);
-        await Task.WhenAll(sessionTask, encounterTask);
-        if (!IsCurrentDetail(version, sessionId) || DetailQuery() != query || SelectedDetailTabIndex != detailTab || sessionTask.Result is not { } selected) return;
+        await Task.WhenAll(headerTask, encounterTask);
+        if (!IsCurrentDetail(version, playSessionId) || DetailQuery() != query || SelectedDetailTabIndex != detailTab) return;
+        if (headerTask.Result is not { } header)
+        {
+            // The session was deleted, or its runs were merged into another one.
+            SelectedPlaySession = null;
+            await LoadPlaySessionsAsync(false);
+            return;
+        }
         var encounter = encounterTask.Result;
         applyingSelection = true;
         try
         {
-            var sessionRow = Sessions.FirstOrDefault(row => row.Id == sessionId) ?? SelectedSession ?? new ActivitySessionRow(selected, scope);
-            sessionRow.Update(selected, scope);
-            if (!Sessions.Contains(sessionRow)) Sessions.Insert(0, sessionRow);
-            SelectedSession = sessionRow;
+            SelectedPlaySession.Update(header, scope);
+            ApplyRunRows(header);
+            SelectedSession = runId is { } selectedRun ? Sessions.FirstOrDefault(row => row.Id == selectedRun) : null;
             if (encounter is not null)
             {
                 var encounterRow = Encounters.FirstOrDefault(row => row.Id == encounter.Id) ?? SelectedEncounter ?? new ActivityEncounterRow(encounter, scope);
@@ -443,42 +396,47 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
             else SelectedEncounter = null;
         }
         finally { applyingSelection = false; }
+        // A run that was merged or deleted leaves the whole session on view.
+        if (runId is not null && SelectedSession is null) { ++detailChangeVersion; NotifyDetailProperties(); return; }
+        var run = SelectedSession?.Source;
+        cachedDetailHeader = header;
         if (detailTab == MapsDetailTabIndex)
         {
-            await RefreshMapsAsync(version, selected, cancellationToken);
-            if (IsCurrentDetail(version, sessionId) && SelectedDetailTabIndex == detailTab)
+            await RefreshMapsAsync(version, header, run, cancellationToken);
+            if (IsCurrentDetail(version, playSessionId) && SelectedDetailTabIndex == detailTab)
                 detailReadVersion = dataVersion;
             return;
         }
-        // Cached scope summaries describe all events assigned to this header. Actor,
-        // time, item, and category filters must still use the event projection.
-        var wholeHeader = query == new ActivityQuery { SessionId = sessionId, EncounterId = encounterId, Scope = scope };
+        // Saved scope totals describe all events of the session or run. Actor, time, item,
+        // and category filters must still use the event projection.
+        var wholeHeader = query == new ActivityQuery { PlaySessionId = playSessionId, SessionId = runId, EncounterId = encounterId, Scope = scope };
         var summaryTask = useCache ? Task.FromResult(cachedDetailSummary!) : wholeHeader
-            ? Task.FromResult(encounter is null ? ActivityProjection.GetSummary(selected, scope) : ActivityProjection.GetSummary(encounter, scope))
+            ? Task.FromResult(encounter is not null ? ActivityProjection.GetSummary(encounter, scope)
+                : run is not null ? ActivityProjection.GetSummary(run, scope) : ActivityPlaySessionProjection.Summary(header.Runs, scope))
             : persistence.GetSummaryAsync(query, cancellationToken);
         var combatTask = useCache ? Task.FromResult(cachedDetailCombatSeconds) : encounter is null
             ? persistence.GetCombatDurationSecondsAsync(query, cancellationToken) : Task.FromResult(encounter.CombatDurationSeconds);
-        var legacyTask = useCache ? Task.FromResult(cachedDetailLegacyInfo) : isImported
-            ? persistence.GetLegacyImportInfoAsync(sessionId, cancellationToken) : Task.FromResult<ActivityLegacyImportInfo?>(null);
+        var importedRun = ImportedRun;
+        var legacyTask = useCache ? Task.FromResult(cachedDetailLegacyInfo) : importedRun is not null
+            ? persistence.GetLegacyImportInfoAsync(importedRun.Id, cancellationToken) : Task.FromResult<ActivityLegacyImportInfo?>(null);
         await Task.WhenAll(summaryTask, combatTask, legacyTask);
-        if (!IsCurrentDetail(version, selected.Id) || DetailQuery() != query || SelectedDetailTabIndex != detailTab) return;
+        if (!IsCurrentDetail(version, playSessionId) || DetailQuery() != query || SelectedDetailTabIndex != detailTab) return;
         var summary = summaryTask.Result;
         cachedDetailQuery = query;
         cachedDetailDataVersion = cacheVersion;
-        cachedDetailSession = selected;
         cachedDetailEncounter = encounter;
         cachedDetailSummary = summary;
         cachedDetailCombatSeconds = combatTask.Result;
         cachedDetailLegacyInfo = legacyTask.Result;
         LegacyImportInfo = legacyTask.Result;
-        DetailSummary = new(summary, encounter is null ? ActivityProjection.GetRates(summary, selected, combatTask.Result, DateTime.UtcNow) : ActivityProjection.GetRates(summary, encounter), encounter is null);
+        DetailSummary = DetailPresentation(summary, header, run, encounter, combatTask.Result);
         NotifyDetailProperties();
         if (detailTab == 0) await LoadEncountersAsync(false, true);
         else if (detailTab == 1) await LoadChartAsync(version, query);
         else if (detailTab == 2)
         {
             var totals = await persistence.GetPlayersAsync(query with { ActorKey = null }, cancellationToken);
-            if (!IsCurrentDetail(version, selected.Id) || DetailQuery() != query || SelectedDetailTabIndex != detailTab) return;
+            if (!IsCurrentDetail(version, playSessionId) || DetailQuery() != query || SelectedDetailTabIndex != detailTab) return;
             var actorId = SelectedPlayer?.ActorId;
             applyingSelection = true;
             try
@@ -492,27 +450,50 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         else if (detailTab == 3)
         {
             var totals = await persistence.GetMobsAsync(query, cancellationToken);
-            if (IsCurrentDetail(version, selected.Id) && DetailQuery() == query && SelectedDetailTabIndex == detailTab) Mobs = new(totals.Select(total => new ActivityMobRow(total)));
+            if (IsCurrentDetail(version, playSessionId) && DetailQuery() == query && SelectedDetailTabIndex == detailTab) Mobs = new(totals.Select(total => new ActivityMobRow(total)));
         }
         else if (detailTab == 4) await LoadSessionLootAsync(false, version, true);
         else if (detailTab == 5) await LoadTimelineAsync(false, version, true);
-        else if (detailTab == PartyDetailTabIndex) await LoadPartyHistoryAsync(version, selected, cancellationToken);
-        if (IsCurrentDetail(version, sessionId) && DetailQuery() == query && SelectedDetailTabIndex == detailTab)
+        else if (detailTab == PartyDetailTabIndex) await LoadPartyHistoryAsync(version, header, run, cancellationToken);
+        if (IsCurrentDetail(version, playSessionId) && DetailQuery() == query && SelectedDetailTabIndex == detailTab)
             detailReadVersion = dataVersion;
     }
 
-    private bool IsCurrentDetail(long version, Guid sessionId) => !isDisposed && detailVersion == version && SelectedSession?.Id == sessionId;
+    // A whole play session counts the time between its runs up to the idle limit; one run counts only itself.
+    private ActivitySummaryPresentation DetailPresentation(ActivitySummary summary, ActivityPlaySessionHeader header,
+        ActivitySession? run, ActivityEncounter? encounter, double combatSeconds)
+    {
+        var nowUtc = DateTime.UtcNow;
+        if (encounter is not null) return new(summary, ActivityProjection.GetRates(summary, encounter));
+        run ??= header.Runs.Count == 1 ? header.Runs[0] : null;
+        var live = tracker?.GetCurrentContext().Session;
+        if (run is not null)
+            return new(summary, ActivityProjection.GetRates(summary, live?.Id == run.Id ? live : run, combatSeconds, nowUtc), true);
+        var durations = ActivityPlaySessionProjection.Durations(header.PlaySession, header.Runs,
+            live?.PlaySessionId == header.PlaySession.Id ? live : null, nowUtc);
+        return new(summary, ActivityProjection.GetRates(summary, durations.PlaySeconds, combatSeconds), true, true, durations.RunSeconds);
+    }
+
+    private static DateTime PlaySessionStart(ActivityPlaySessionHeader header) =>
+        header.Runs.Count == 0 ? header.PlaySession.StartedAtUtc : header.Runs.Min(x => x.StartedAtUtc);
+
+    private static DateTime PlaySessionEnd(ActivityPlaySessionHeader header) => header.PlaySession.EndedAtUtc ??
+        (header.Runs.Count == 0 ? header.PlaySession.LastActivityAtUtc : header.Runs.Max(x => x.ClosedAtUtc ?? x.LastObservedAtUtc));
+
+    private bool IsCurrentDetail(long version, Guid playSessionId) => !isDisposed && detailVersion == version && SelectedPlaySession?.Id == playSessionId;
 
     private async Task LoadEncountersAsync(bool append, bool refresh = false)
     {
-        if (persistence is null || SelectedSession is null) return;
-        var sessionId = SelectedSession.Id;
+        if (persistence is null || SelectedPlaySession is null) return;
+        var playSessionId = SelectedPlaySession.Id;
+        var runId = SelectedSession?.Id;
         var version = detailVersion;
         var scope = SelectedScope.Value;
         var cancellationToken = detailQueryCancellation.Token;
         var page = append ? encounterPage + 1 : refresh ? encounterPage : 0;
-        var result = await ReadPagesAsync(index => persistence.GetEncountersAsync(sessionId, index, cancellationToken), page, append);
-        if (!IsCurrentDetail(version, sessionId) || SelectedScope.Value != scope) return;
+        var result = await ReadPagesAsync(index => runId is { } run ? persistence.GetEncountersAsync(run, index, cancellationToken)
+            : persistence.GetPlaySessionEncountersAsync(playSessionId, index, cancellationToken), page, append);
+        if (!IsCurrentDetail(version, playSessionId) || SelectedSession?.Id != runId || SelectedScope.Value != scope) return;
         var selectedEncounter = SelectedEncounter;
         var selectedId = selectedEncounter?.Id;
         applyingSelection = true;
@@ -531,29 +512,29 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
 
     private async Task LoadChartAsync(long version, ActivityQuery query)
     {
-        if (persistence is null || query.SessionId is not { } sessionId) return;
+        if (persistence is null || query.PlaySessionId is not { } playSessionId || cachedDetailHeader is not { } header ||
+            header.PlaySession.Id != playSessionId) return;
         var categories = VisibleCategories;
         var selectedEncounter = SelectedEncounter?.Source;
-        var selectedSession = SelectedSession?.Source;
-        if (selectedSession is null) return;
-        var fromUtc = selectedEncounter?.StartedAtUtc ?? selectedSession.StartedAtUtc;
+        var run = SelectedSession?.Source;
+        var fromUtc = selectedEncounter?.StartedAtUtc ?? run?.StartedAtUtc ?? PlaySessionStart(header);
         var toUtc = selectedEncounter is not null ? selectedEncounter.ClosedAtUtc ?? selectedEncounter.LastObservedAtUtc :
-            selectedSession.ClosedAtUtc ?? selectedSession.LastObservedAtUtc;
+            run is not null ? run.ClosedAtUtc ?? run.LastObservedAtUtc : PlaySessionEnd(header);
         var snapshot = await persistence.GetTimelineAsync(query with { ShowCategories = categories },
             fromUtc, toUtc, detailQueryCancellation.Token);
-        if (!IsCurrentDetail(version, sessionId) || VisibleCategories != categories || DetailQuery() != query) return;
+        if (!IsCurrentDetail(version, playSessionId) || VisibleCategories != categories || DetailQuery() != query) return;
         HistoryLiveTimeline = snapshot with { ContextKey = HistoryTimelineContextKey(query, categories) };
     }
 
     private async Task LoadSessionLootAsync(bool append, long? version = null, bool refresh = false)
     {
-        if (persistence is null || SelectedSession is null) return;
+        if (persistence is null || SelectedPlaySession is null) return;
         var query = DetailQuery(true);
         var cancellationToken = detailQueryCancellation.Token;
-        var sessionId = SelectedSession.Id;
+        var playSessionId = SelectedPlaySession.Id;
         var page = append ? sessionLootPage + 1 : refresh ? sessionLootPage : 0;
         var result = await ReadEventRowsAsync(query with { LootOnly = true }, page, append, cancellationToken);
-        if (isDisposed || SelectedSession?.Id != sessionId || DetailQuery(true) != query || version is { } expected && detailVersion != expected) return;
+        if (isDisposed || SelectedPlaySession?.Id != playSessionId || DetailQuery(true) != query || version is { } expected && detailVersion != expected) return;
         ApplyEventRows(SessionLoot, result.Items.Select(observation => new ActivityLootRow(observation)).ToArray(), row => row.SourceEvent, append);
         valuations?.RequestMissing(result.Items);
         sessionLootPage = page;
@@ -563,13 +544,13 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
 
     private async Task LoadTimelineAsync(bool append, long? version = null, bool refresh = false)
     {
-        if (persistence is null || SelectedSession is null) return;
-        var sessionId = SelectedSession.Id;
+        if (persistence is null || SelectedPlaySession is null) return;
+        var playSessionId = SelectedPlaySession.Id;
         var page = append ? timelinePage + 1 : refresh ? timelinePage : 0;
         var query = DetailQuery() with { ShowCategories = VisibleCategories };
         var cancellationToken = detailQueryCancellation.Token;
         var result = await ReadEventRowsAsync(query, page, append, cancellationToken);
-        if (isDisposed || SelectedSession?.Id != sessionId || (DetailQuery() with { ShowCategories = VisibleCategories }) != query || version is { } expected && detailVersion != expected) return;
+        if (isDisposed || SelectedPlaySession?.Id != playSessionId || (DetailQuery() with { ShowCategories = VisibleCategories }) != query || version is { } expected && detailVersion != expected) return;
         ApplyEventRows(Timeline, result.Items.Where(observation => observation.Kind is not (ActivityEventKind.OutcomeEvidence or ActivityEventKind.LegacyImportMarker))
             .Select(observation => new ActivityEventRow(observation)).ToArray(), row => row.SourceEvent, append);
         timelinePage = page;
@@ -717,6 +698,11 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     private void NotifyDetailProperties()
     {
         OnPropertyChanged(nameof(HasSelectedSession));
+        OnPropertyChanged(nameof(HasSelectedPlaySession));
+        OnPropertyChanged(nameof(HasMultipleRuns));
+        OnPropertyChanged(nameof(DeleteButtonText));
+        OnPropertyChanged(nameof(DeleteTargetText));
+        OnPropertyChanged(nameof(ClearSelectionText));
         OnPropertyChanged(nameof(HasSelectedEncounter));
         OnPropertyChanged(nameof(HasSelectedDetailSelection));
         OnPropertyChanged(nameof(HasSelectedPlayer));
@@ -819,8 +805,9 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         DetailSummary = ActivitySummaryPresentation.Empty;
         SessionResources = new();
         LegacyImportInfo = null;
+        cachedDetailQuery = null;
         ++detailVersion;
-        if (value is not null) _ = RunSafelyAsync(RefreshDetailsAsync);
+        if (SelectedPlaySession is not null) _ = RunSafelyAsync(RefreshDetailsAsync);
     }
     partial void OnSelectedEncounterChanged(ActivityEncounterRow? value)
     { NotifyDetailProperties(); if (!applyingSelection) { ++detailChangeVersion; ++detailVersion; ResetEventPages(); _ = RunSafelyAsync(RefreshDetailsAsync); } }
@@ -835,56 +822,25 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     }
 
     [RelayCommand] private void ToggleRecording() { tracker?.SetRecordingEnabled(!IsRecordingEnabled); UpdateStatus(); }
-    public void FinishCurrentSession(Guid? expectedSessionId = null) { tracker?.FinishSession(expectedSessionId); UpdateStatus(); }
-    [RelayCommand] private void FinishSession() => FinishCurrentSession();
     [RelayCommand]
     private async Task OpenCurrentSessionAsync()
     {
-        if (tracker?.CurrentSessionId is { } id) await RunSafelyAsync(() => OpenSessionDetailsAsync(id));
+        if (tracker?.CurrentPlaySessionId is { } id) await RunSafelyAsync(() => OpenPlaySessionDetailsAsync(id));
     }
 
+    // A run opens inside its play session. From a chart, an encounter keeps showing the whole session.
     private async Task OpenSessionDetailsAsync(Guid id, Guid? encounterId = null)
     {
         if (persistence is null) return;
-        var session = await persistence.GetSessionAsync(id);
-        if (isDisposed || session is null) return;
-        applyingSelection = true;
-        try
-        {
-            SelectedTabIndex = 1;
-        }
-        finally { applyingSelection = false; }
-        await LoadSessionsAsync(false);
-        var row = Sessions.FirstOrDefault(existing => existing.Id == id);
-        if (row is null) { row = new(session, SelectedScope.Value); Sessions.Insert(0, row); }
-        var encounter = encounterId is { } selectedEncounterId ? await persistence.GetEncounterAsync(selectedEncounterId) : null;
-        if (isDisposed) return;
-        applyingSelection = true;
-        try
-        {
-            SelectedSession = row;
-            SelectedPlayer = null;
-            ResetMaps();
-            Encounters.Clear(); Players.Clear(); Mobs.Clear(); SessionLoot.Clear(); Timeline.Clear(); HistoryLiveTimeline = null;
-            encounterPage = timelinePage = sessionLootPage = 0;
-            HasMoreEncounters = HasMoreSessionLoot = HasMoreTimeline = false;
-            SessionResources = new();
-            LegacyImportInfo = null;
-            SelectedEncounter = encounter is null ? null : new ActivityEncounterRow(encounter, SelectedScope.Value);
-            if (SelectedEncounter is not null) Encounters.Add(SelectedEncounter);
-            if (SelectedEncounter is not null && SelectedDetailTabIndex == MapsDetailTabIndex) SelectedDetailTabIndex = 0;
-            if (IsImportedDetail) SelectedDetailTabIndex = 4;
-            ++detailChangeVersion;
-            ++detailVersion;
-            cachedDetailQuery = null;
-        }
-        finally { applyingSelection = false; }
-        await RefreshDetailsAsync();
+        var run = await persistence.GetSessionAsync(id);
+        if (isDisposed || run?.PlaySessionId is not { } playSessionId) return;
+        var keepWholeSession = encounterId is not null && SelectedPlaySession?.Id == playSessionId && SelectedSession is null;
+        await OpenPlaySessionDetailsAsync(playSessionId, keepWholeSession ? null : id, encounterId);
     }
     [RelayCommand]
     private async Task ApplyLootFiltersAsync() => await RunSafelyAsync(() =>
     { ++itemChangeVersion; return LoadGlobalLootAsync(false); });
-    [RelayCommand] private async Task LoadMoreSessionsAsync() => await RunSafelyAsync(() => LoadSessionsAsync(true));
+    [RelayCommand] private async Task LoadMoreSessionsAsync() => await RunSafelyAsync(() => LoadPlaySessionsAsync(true));
     [RelayCommand] private async Task LoadMoreEncountersAsync() => await RunSafelyAsync(() => LoadEncountersAsync(true));
     [RelayCommand] private async Task LoadMoreTimelineAsync() => await RunSafelyAsync(() => LoadTimelineAsync(true));
     [RelayCommand] private async Task LoadMoreSessionLootAsync() => await RunSafelyAsync(() => LoadSessionLootAsync(true));
@@ -897,15 +853,25 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     }
     [RelayCommand] private void ClearPlayer() => SelectedPlayer = null;
 
+    // With a run chosen only that run is deleted; otherwise the whole play session.
     public async Task DeleteSelectedSessionAsync()
     {
-        if (persistence is null || SelectedSession is null || !CanDeleteSelectedSession) return;
-        var id = SelectedSession.Id;
+        if (persistence is null || !CanDeleteSelectedSession) return;
+        var runId = SelectedSession?.Id;
+        var playSessionId = SelectedPlaySession?.Id;
         await RunSafelyAsync(async () =>
         {
-            await persistence.DeleteSessionAsync(id);
-            SelectedSession = null;
-            await LoadSessionsAsync(false);
+            if (runId is { } run)
+            {
+                await persistence.DeleteSessionAsync(run);
+                SelectedSession = null;
+            }
+            else if (playSessionId is { } playSession)
+            {
+                await persistence.DeletePlaySessionAsync(playSession);
+                SelectedPlaySession = null;
+            }
+            await LoadPlaySessionsAsync(false);
         });
     }
 

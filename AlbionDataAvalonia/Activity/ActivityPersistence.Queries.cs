@@ -65,6 +65,7 @@ public sealed partial class ActivityPersistence
         if (liveSession is not null && MatchesOwner(liveSession, query) && !deleted.Contains(liveSession.Id) &&
             (!headers.TryGetValue(liveSession.Id, out var savedHeader) || liveSession.Revision >= savedHeader.Revision)) headers[liveSession.Id] = liveSession;
         var headerIds = headers.Keys.ToArray();
+        var playRuns = await PlayRunsAsync(context, query, pendingRead, liveSession, cancellationToken);
 
         // Read only the identities touched by the bounded pending queue. In particular, health
         // history stays aggregated in SQL rather than materializing every party hit.
@@ -182,7 +183,7 @@ public sealed partial class ActivityPersistence
             if (InWindow(value) && !value.IsRetracted && ActivityClassification.IsTemporal(value.Kind) &&
                 matchesCategory(value) && !ActivityLiveTimeline.IsCombat(value)) markerEvents[value.Id] = value;
             gapEvents.Remove(value.Id);
-            if (MatchesOwner(value, query) && value.Kind == ActivityEventKind.CaptureGap && !value.IsRetracted && value.CapturedAtUtc < endUtc)
+            if (MatchesOwner(value, query, playRuns) && value.Kind == ActivityEventKind.CaptureGap && !value.IsRetracted && value.CapturedAtUtc < endUtc)
                 gapEvents[value.Id] = value;
         }
 
@@ -218,16 +219,16 @@ public sealed partial class ActivityPersistence
             gaps, headers.Values.Any(x => x.IsPartial), truncated || markersTruncated, categories)
         {
             HasContext = true,
-            ContextKey = $"{id}:{query.EncounterId}:{scope}:{query.ActorKey}:{query.Server}:{query.CharacterId}:{query.CharacterName}:{categories}:{windowSeconds}",
+            ContextKey = $"{query.PlaySessionId}:{id}:{query.EncounterId}:{scope}:{query.ActorKey}:{query.Server}:{query.CharacterId}:{query.CharacterName}:{categories}:{windowSeconds}",
             SampleSeconds = sampleSeconds
         };
 
-        bool InWindow(ActivityEvent value) => MatchesOwner(value, query) && value.CapturedAtUtc >= selectedFromUtc && value.CapturedAtUtc < endUtc &&
+        bool InWindow(ActivityEvent value) => MatchesOwner(value, query, playRuns) && value.CapturedAtUtc >= selectedFromUtc && value.CapturedAtUtc < endUtc &&
             (value.SessionId is null || !deleted.Contains(value.SessionId.Value));
         void AddSample(ActivityEvent value, int sign)
         {
             // Pending adjustments use the same span as the sample query, including the leading bucket.
-            if (!MatchesOwner(value, query) || value.CapturedAtUtc < sampleFromUtc || value.CapturedAtUtc >= endUtc ||
+            if (!MatchesOwner(value, query, playRuns) || value.CapturedAtUtc < sampleFromUtc || value.CapturedAtUtc >= endUtc ||
                 value.SessionId is { } sessionId && deleted.Contains(sessionId) ||
                 !matchesCategory(value) || !ActivityClassification.IsTemporal(value.Kind)) return;
             var index = (int)((value.CapturedAtUtc.Ticks - gridFromUtc.Ticks) / TimeSpan.TicksPerSecond / sampleSeconds);
@@ -253,7 +254,7 @@ public sealed partial class ActivityPersistence
         }
         void AddProof(ActivityEvent value, int sign)
         {
-            if (!MatchesOwner(value, query) || value.EncounterId is not { } encounterId || !proofIds.Contains(encounterId)) return;
+            if (!MatchesOwner(value, query, playRuns) || value.EncounterId is not { } encounterId || !proofIds.Contains(encounterId)) return;
             var contribution = ActivityProjection.Contribution(value, scope);
             var previous = proofCounts.GetValueOrDefault(encounterId);
             proofCounts[encounterId] = (previous.Pve + sign * contribution.PveEvents, previous.Pvp + sign * contribution.PvpEvents,
@@ -278,6 +279,8 @@ public sealed partial class ActivityPersistence
             (x.Kind == ActivityEventKind.Damage || x.Kind == ActivityEventKind.Healing));
         var participatingIds = combatEvents.Select(x => x.EncounterId!.Value).Distinct();
         var encounters = context.ActivityEncounters.AsNoTracking().AsQueryable();
+        if (filter.PlaySessionId is { } playSessionId)
+            encounters = encounters.Where(x => context.ActivitySessions.Any(s => s.Id == x.SessionId && s.PlaySessionId == playSessionId));
         if (filter.SessionId is { } sessionId) encounters = encounters.Where(x => x.SessionId == sessionId);
         if (filter.EncounterId is { } encounterId) encounters = encounters.Where(x => x.Id == encounterId);
         // Encounter boundaries are shared, but an encounter contributes time only when this scope participated.
@@ -309,6 +312,7 @@ public sealed partial class ActivityPersistence
     private static IQueryable<ActivitySession> FilterSessions(LocalContext context, ActivityQuery filter)
     {
         var query = context.ActivitySessions.AsNoTracking().AsQueryable();
+        if (filter.PlaySessionId is { } playSessionId) query = query.Where(x => x.PlaySessionId == playSessionId);
         if (filter.SessionId is { } id) query = query.Where(x => x.Id == id);
         if (filter.FromUtc is { } from) query = query.Where(x => x.StartedAtUtc >= from);
         if (filter.ToUtc is { } to) query = query.Where(x => x.StartedAtUtc < to);
@@ -344,6 +348,16 @@ public sealed partial class ActivityPersistence
             .OrderBy(x => x.Number).Skip(Math.Max(0, page) * 100).Take(101).ToListAsync(cancellationToken);
         return new(rows.Take(100).ToArray(), rows.Count > 100);
     }
+
+    // A play session lists the encounters of all its runs in the order they happened.
+    private async Task<ActivityPage<ActivityEncounter>> GetPlaySessionEncountersCoreAsync(Guid playSessionId, int page, CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory();
+        var rows = await context.ActivityEncounters.AsNoTracking()
+            .Where(x => context.ActivitySessions.Any(s => s.Id == x.SessionId && s.PlaySessionId == playSessionId))
+            .OrderBy(x => x.StartedAtUtc).ThenBy(x => x.Number).Skip(Math.Max(0, page) * 100).Take(101).ToListAsync(cancellationToken);
+        return new(rows.Take(100).ToArray(), rows.Count > 100);
+    }
     private async Task<ActivityPage<ActivityEvent>> GetEventsCoreAsync(ActivityQuery filter, int page = 0, CancellationToken cancellationToken = default, int pageCount = 1)
     {
         await using var context = contextFactory();
@@ -359,6 +373,7 @@ public sealed partial class ActivityPersistence
     private static IQueryable<ActivityEvent> FilterEvents(LocalContext context, ActivityQuery filter)
     {
         var query = context.ActivityEvents.AsNoTracking().Where(x => !x.IsRetracted && x.Kind != ActivityEventKind.LegacyImportMarker);
+        if (filter.PlaySessionId is { } playSessionId) query = InPlaySession(context, query, playSessionId);
         if (filter.SessionId is { } session) query = query.Where(x => x.SessionId == session);
         if (filter.EncounterId is { } encounter) query = query.Where(x => x.EncounterId == encounter);
         if (filter.FromUtc is { } from) query = query.Where(x => x.CapturedAtUtc >= from);
@@ -589,12 +604,14 @@ public sealed partial class ActivityPersistence
         }
     }
 
-    private async Task<IReadOnlyList<ActivityEvent>> GetPartyEventsCoreAsync(Guid sessionId, CancellationToken cancellationToken = default)
+    private async Task<IReadOnlyList<ActivityEvent>> GetPartyEventsCoreAsync(ActivityQuery filter, CancellationToken cancellationToken = default)
     {
         await using var context = contextFactory();
-        return await context.ActivityEvents.AsNoTracking().Where(x => x.SessionId == sessionId && !x.IsRetracted &&
-                (x.Kind == ActivityEventKind.PartyJoined || x.Kind == ActivityEventKind.PartyLeft))
-            .OrderBy(x => x.CapturedAtUtc).ThenBy(x => x.CaptureOrder).Take(5000).ToArrayAsync(cancellationToken);
+        var events = context.ActivityEvents.AsNoTracking().Where(x => !x.IsRetracted &&
+            (x.Kind == ActivityEventKind.PartyJoined || x.Kind == ActivityEventKind.PartyLeft));
+        if (filter.PlaySessionId is { } playSessionId) events = InPlaySession(context, events, playSessionId);
+        if (filter.SessionId is { } sessionId) events = events.Where(x => x.SessionId == sessionId);
+        return await events.OrderBy(x => x.CapturedAtUtc).ThenBy(x => x.CaptureOrder).Take(5000).ToArrayAsync(cancellationToken);
     }
 
     private async Task<IReadOnlyDictionary<Guid, IReadOnlyList<string>>> GetSessionPartyMembersCoreAsync(Guid?[] sessionIds, CancellationToken cancellationToken = default)

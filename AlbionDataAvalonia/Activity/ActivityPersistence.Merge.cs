@@ -50,8 +50,9 @@ public sealed partial class ActivityPersistence
             ActivitySessionMergeResult? result;
             try
             {
-                result = MergeSessionsCore(command.SourceId, current, out var error);
+                result = MergeSessionsCore(command.SourceId, current, out var error, out var sourcePlaySessionId);
                 command.Error = error;
+                command.SourcePlaySessionId = sourcePlaySessionId;
             }
             catch (Exception error)
             {
@@ -69,6 +70,7 @@ public sealed partial class ActivityPersistence
         {
             var changes = new CommittedChanges { Items = true };
             changes.Sessions.UnionWith([command.SourceId, command.TargetId]);
+            if (command.SourcePlaySessionId is { } playSessionId) changes.PlaySessions.Add(playSessionId);
             NotifyCommitted(changes);
         }
     }
@@ -76,9 +78,11 @@ public sealed partial class ActivityPersistence
     // This runs on the serialized writer, briefly holding recording's lock. No
     // asynchronous callbacks run inside the transaction; capture resumes with
     // the new headers before another packet or writer batch can overwrite them.
-    private ActivitySessionMergeResult? MergeSessionsCore(Guid sourceId, ActivitySession current, out string? error)
+    private ActivitySessionMergeResult? MergeSessionsCore(Guid sourceId, ActivitySession current, out string? error,
+        out Guid? sourcePlaySessionId)
     {
         error = null;
+        sourcePlaySessionId = null;
         using var context = contextFactory();
         using var transaction = context.Database.BeginTransaction();
         var source = context.ActivitySessions.Find(sourceId);
@@ -153,8 +157,12 @@ public sealed partial class ActivityPersistence
             ObservedSummaryJson = Summary(ActivityScope.AllObserved)
         };
         context.Entry(savedTarget).CurrentValues.SetValues(merged);
+        sourcePlaySessionId = source.PlaySessionId;
         context.ActivitySessions.Remove(source);
         context.SaveChanges();
+        // The source's play session loses that run; it may now be empty.
+        if (sourcePlaySessionId is { } playSessionId && playSessionId != current.PlaySessionId)
+            RefreshPlaySessionsAsync(context, [playSessionId], new CommittedChanges(), CancellationToken.None).GetAwaiter().GetResult();
         lock (acceptedSync)
         {
             transaction.Commit();
@@ -204,6 +212,7 @@ public sealed partial class ActivityPersistence
     private sealed record MergeSessionCommand(Guid SourceId, Guid TargetId, object RecordingSync,
         Func<ActivitySession?> Snapshot, Action<ActivitySessionMergeResult> Apply, TaskCompletionSource Completion) : ControlCommand(Completion)
     {
+        public Guid? SourcePlaySessionId { get; set; }
         public bool Completed { get; set; }
         public string? Error { get; set; }
         public Exception? Failure { get; set; }

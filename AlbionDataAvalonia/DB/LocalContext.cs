@@ -22,6 +22,7 @@ namespace AlbionDataAvalonia.DB
         public DbSet<GatheringUnfinishedSessionCheckpoint> GatheringUnfinishedSessionCheckpoints { get; set; }
         public DbSet<LegendaryItem> LegendaryItems { get; set; }
         public DbSet<LegendaryItemTrait> LegendaryItemTraits { get; set; }
+        public DbSet<ActivityPlaySession> ActivityPlaySessions { get; set; }
         public DbSet<ActivitySession> ActivitySessions { get; set; }
         public DbSet<ActivityEncounter> ActivityEncounters { get; set; }
         public DbSet<ActivityEvent> ActivityEvents { get; set; }
@@ -33,6 +34,16 @@ namespace AlbionDataAvalonia.DB
                 .HasName("julianday").IsBuiltIn();
             modelBuilder.HasDbFunction(typeof(ActivityDatabaseFunctions).GetMethod(nameof(ActivityDatabaseFunctions.JsonLong))!)
                 .HasName("json_extract").IsBuiltIn();
+            modelBuilder.Entity<ActivityPlaySession>(entity =>
+            {
+                entity.ToTable("ActivityPlaySessions");
+                entity.HasKey(x => x.Id);
+                entity.HasIndex(x => new { x.Server, x.CharacterId, x.StartedAtUtc });
+                entity.HasIndex(x => x.StartedAtUtc);
+                entity.HasIndex(x => x.State);
+            });
+            // Runs refer to their play session without a constraint; the journal writer
+            // keeps the two consistent and removes play sessions left without runs.
             modelBuilder.Entity<ActivitySession>(entity =>
             {
                 entity.ToTable("ActivitySessions");
@@ -40,6 +51,7 @@ namespace AlbionDataAvalonia.DB
                 entity.HasIndex(x => new { x.Server, x.CharacterId, x.StartedAtUtc });
                 entity.HasIndex(x => x.StartedAtUtc);
                 entity.HasIndex(x => x.State);
+                entity.HasIndex(x => x.PlaySessionId);
             });
             modelBuilder.Entity<ActivityEncounter>(entity =>
             {
@@ -69,7 +81,7 @@ namespace AlbionDataAvalonia.DB
             // so historical chart ranges and event times are not shifted a second time.
             var utcDateTime = new ValueConverter<DateTime, DateTime>(
                 value => value, value => DateTime.SpecifyKind(value, DateTimeKind.Utc));
-            foreach (var activityType in new[] { typeof(ActivitySession), typeof(ActivityEncounter), typeof(ActivityEvent) })
+            foreach (var activityType in new[] { typeof(ActivityPlaySession), typeof(ActivitySession), typeof(ActivityEncounter), typeof(ActivityEvent) })
             {
                 foreach (var property in modelBuilder.Entity(activityType).Metadata.GetProperties())
                 {

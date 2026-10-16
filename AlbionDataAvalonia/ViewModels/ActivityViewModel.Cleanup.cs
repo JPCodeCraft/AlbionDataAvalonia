@@ -113,6 +113,7 @@ public partial class ActivityViewModel
             var result = await persistence.CleanupAsync(preview.Request);
             if (isDisposed) return;
             if (SelectedSession is { } selected && result.DeletedSessionIds.Contains(selected.Id)) SelectedSession = null;
+            if (SelectedPlaySession is { } playSession && playSession.Runs.All(run => result.DeletedSessionIds.Contains(run.Id))) SelectedPlaySession = null;
             ++historyChangeVersion; ++detailChangeVersion; ++itemChangeVersion;
             CleanupPreview = null;
             CleanupStatusText = $"Deleted {result.Deleted.Sessions:N0} sessions and {result.Deleted.Events:N0} events.";

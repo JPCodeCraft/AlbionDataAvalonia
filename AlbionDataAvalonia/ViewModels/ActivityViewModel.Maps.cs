@@ -58,9 +58,9 @@ public partial class ActivityViewModel
 {
     private const int MapsDetailTabIndex = 6;
     private int mapPage;
-    private Guid? mapsSessionId;
+    private (Guid PlaySessionId, Guid? RunId)? mapsOwner;
     private long mapsDataVersion = -1;
-    private (Guid SessionId, string? MapId, ActivityScope Scope, long Version)? mapSummaryKey;
+    private (Guid PlaySessionId, Guid? RunId, string? MapId, ActivityScope Scope, long Version)? mapSummaryKey;
     private ActivityMapSummary? cachedMapSummary;
 
     [ObservableProperty] private ObservableCollection<ActivityMapRow> maps = new();
@@ -72,26 +72,30 @@ public partial class ActivityViewModel
     public string DetailMapMetadataText => IsShowingMap ? SelectedMap!.DetailsText : string.Empty;
     public bool HasDetailMapMetadata => DetailMapMetadataText.Length > 0;
 
-    private async Task RefreshMapsAsync(long version, ActivitySession session, CancellationToken cancellationToken)
+    // Maps cover the chosen run, or every run of the play session.
+    private async Task RefreshMapsAsync(long version, ActivityPlaySessionHeader header, ActivitySession? run, CancellationToken cancellationToken)
     {
+        var playSessionId = header.PlaySession.Id;
         await LoadMapsAsync(false, version);
-        if (!IsCurrentDetail(version, session.Id) || SelectedDetailTabIndex != MapsDetailTabIndex || persistence is null) return;
+        if (!IsCurrentDetail(version, playSessionId) || SelectedDetailTabIndex != MapsDetailTabIndex || persistence is null) return;
         var map = SelectedMap;
         var scope = SelectedScope.Value;
-        var key = (session.Id, map?.RawMapId, scope, detailDataVersion);
+        var owner = new ActivityQuery { PlaySessionId = playSessionId, SessionId = run?.Id, Scope = scope };
+        var key = (playSessionId, run?.Id, map?.RawMapId, scope, detailDataVersion);
         var totals = cachedMapSummary;
         if (totals is null || mapSummaryKey != key)
         {
             totals = map is null
-                ? new ActivityMapSummary(ActivityProjection.GetSummary(session, scope),
-                    await persistence.GetCombatDurationSecondsAsync(new ActivityQuery { SessionId = session.Id, Scope = scope }, cancellationToken))
-                : await persistence.GetMapSummaryAsync(session.Id, map.RawMapId, scope, cancellationToken);
+                ? new ActivityMapSummary(run is null ? ActivityPlaySessionProjection.Summary(header.Runs, scope) : ActivityProjection.GetSummary(run, scope),
+                    await persistence.GetCombatDurationSecondsAsync(owner, cancellationToken))
+                : await persistence.GetMapSummaryAsync(owner, map.RawMapId, scope, cancellationToken);
         }
-        if (!IsCurrentDetail(version, session.Id) || SelectedDetailTabIndex != MapsDetailTabIndex ||
+        if (!IsCurrentDetail(version, playSessionId) || SelectedDetailTabIndex != MapsDetailTabIndex ||
             SelectedMap?.RawMapId != map?.RawMapId || SelectedScope.Value != scope) return;
         cachedMapSummary = totals;
         mapSummaryKey = key;
-        var duration = map?.DurationSeconds ?? ActivityProjection.GetDurationSeconds(session, DateTime.UtcNow);
+        var duration = map?.DurationSeconds ?? (run is not null ? ActivityProjection.GetDurationSeconds(run, DateTime.UtcNow)
+            : ActivityPlaySessionProjection.Durations(header.PlaySession, header.Runs, null, DateTime.UtcNow).PlaySeconds);
         DetailSummary = new(totals.Summary, ActivityProjection.GetRates(totals.Summary, duration, totals.CombatDurationSeconds),
             true, map is null || map.Source.Visits > 0);
         NotifyDetailProperties();
@@ -99,15 +103,19 @@ public partial class ActivityViewModel
 
     private async Task LoadMapsAsync(bool append, long version)
     {
-        if (persistence is null || SelectedSession is not { } selected || SelectedDetailTabIndex != MapsDetailTabIndex) return;
-        var sessionId = selected.Id;
+        if (persistence is null || SelectedPlaySession is not { } playSession || SelectedDetailTabIndex != MapsDetailTabIndex) return;
+        var run = SelectedSession;
+        var owner = (playSession.Id, run?.Id);
         var dataVersion = detailDataVersion;
-        if (!append && mapsSessionId == sessionId && mapsDataVersion == dataVersion) return;
+        if (!append && mapsOwner == owner && mapsDataVersion == dataVersion) return;
         var page = append ? mapPage + 1 : mapPage;
-        var result = await ReadPagesAsync(index => persistence.GetMapsAsync(sessionId, index, detailQueryCancellation.Token), page, append);
-        if (!IsCurrentDetail(version, sessionId) || SelectedDetailTabIndex != MapsDetailTabIndex) return;
+        var query = new ActivityQuery { PlaySessionId = playSession.Id, SessionId = run?.Id };
+        var result = await ReadPagesAsync(index => persistence.GetMapsAsync(query, index, detailQueryCancellation.Token), page, append);
+        if (!IsCurrentDetail(version, playSession.Id) || SelectedSession?.Id != run?.Id || SelectedDetailTabIndex != MapsDetailTabIndex) return;
         var selectedId = SelectedMap?.RawMapId;
-        var durationEndUtc = tracker?.CurrentSessionId == sessionId ? (DateTime?)null : selected.Source.LastObservedAtUtc;
+        // A visit still open keeps counting; a closed run or session ends at its last observation.
+        var live = run is not null ? tracker?.CurrentSessionId == run.Id : playSession.IsOpen;
+        var durationEndUtc = live ? (DateTime?)null : run?.Source.LastObservedAtUtc ?? playSession.Source.EndedAtUtc ?? playSession.Source.LastActivityAtUtc;
         applyingSelection = true;
         try
         {
@@ -116,7 +124,7 @@ public partial class ActivityViewModel
             SelectedMap = selectedId is null ? null : Maps.FirstOrDefault(row => row.RawMapId == selectedId);
             mapPage = page;
             HasMoreMaps = result.HasMore;
-            mapsSessionId = sessionId;
+            mapsOwner = owner;
             mapsDataVersion = dataVersion;
         }
         finally { applyingSelection = false; }
@@ -140,7 +148,7 @@ public partial class ActivityViewModel
         Maps.Clear();
         HasMoreMaps = false;
         mapPage = 0;
-        mapsSessionId = null;
+        mapsOwner = null;
         mapsDataVersion = -1;
         mapSummaryKey = null;
         cachedMapSummary = null;

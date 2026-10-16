@@ -76,9 +76,13 @@ public partial class ActivityViewModel
     public string CurrentTagsText => ActivityDisplay.Tags(CurrentSummary.Summary.Tags);
 
     public string DetailTagsText => IsShowingMap ? ActivityDisplay.Tags(DetailSummary.Summary.Tags)
-        : SelectedSession is { } row ? ActivityDisplay.Tags(Activity.ActivityProjection.GetSummary(row.Source, SelectedScope.Value).Tags) : "";
+        : SelectedSession is { } row ? ActivityDisplay.Tags(Activity.ActivityProjection.GetSummary(row.Source, SelectedScope.Value).Tags)
+        : SelectedPlaySession?.TagsText ?? "";
 
-    public bool IsImportedDetail => SelectedSession is { } row && Activity.ActivityProjection.GetSummary(row.Source, SelectedScope.Value).IsLegacyAggregate;
+    // Imported gathering summaries form their own single-run sessions.
+    private ActivitySession? ImportedRun => (SelectedSession?.Source ?? (SelectedPlaySession?.Runs is { Count: 1 } runs ? runs[0] : null)) is { } run &&
+        Activity.ActivityProjection.GetSummary(run, SelectedScope.Value).IsLegacyAggregate ? run : null;
+    public bool IsImportedDetail => ImportedRun is not null;
 
     public bool HasDetailedHistory => !IsImportedDetail;
 

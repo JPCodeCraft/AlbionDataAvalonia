@@ -26,11 +26,13 @@ public sealed partial class ActivityPersistence
         ReadAsync(ct => GetLiveTimelineCoreAsync(query, endUtc, liveSession, liveEncounter, ct,
             Math.Clamp(windowSeconds, 300, 7200)), cancellationToken);
 
-    private static bool HasQueryContext(ActivityQuery query) => query.SessionId is not null ||
+    private static bool HasQueryContext(ActivityQuery query) => query.SessionId is not null || query.PlaySessionId is not null ||
         !string.IsNullOrWhiteSpace(query.Server) && (!string.IsNullOrWhiteSpace(query.CharacterId) ||
             query.MatchCharacterNameExactly && !string.IsNullOrWhiteSpace(query.CharacterName));
 
-    private static bool MatchesOwner(ActivityEvent value, ActivityQuery query) =>
+    // A play session query also needs the set of its runs, as one read sees them.
+    private static bool MatchesOwner(ActivityEvent value, ActivityQuery query, IReadOnlySet<Guid>? playRuns) =>
+        (query.PlaySessionId is null || value.SessionId is { } run && playRuns?.Contains(run) == true) &&
         (query.SessionId is null || value.SessionId == query.SessionId) &&
         (query.EncounterId is null || value.EncounterId == query.EncounterId) &&
         (string.IsNullOrWhiteSpace(query.Server) || value.Server == query.Server) &&
@@ -39,6 +41,7 @@ public sealed partial class ActivityPersistence
             ? value.CharacterName == query.CharacterName : value.CharacterName.Contains(query.CharacterName, StringComparison.Ordinal)));
 
     private static bool MatchesOwner(ActivitySession value, ActivityQuery query) =>
+        (query.PlaySessionId is null || value.PlaySessionId == query.PlaySessionId) &&
         (query.SessionId is null || value.Id == query.SessionId) &&
         (string.IsNullOrWhiteSpace(query.Server) || value.Server == query.Server) &&
         (string.IsNullOrWhiteSpace(query.CharacterId) || value.CharacterId == query.CharacterId) &&
@@ -48,6 +51,7 @@ public sealed partial class ActivityPersistence
     private static IQueryable<ActivitySession> FilterSessionOwners(LocalContext context, ActivityQuery query)
     {
         var result = context.ActivitySessions.AsNoTracking().AsQueryable();
+        if (query.PlaySessionId is { } playSessionId) result = result.Where(x => x.PlaySessionId == playSessionId);
         if (query.SessionId is { } sessionId) result = result.Where(x => x.Id == sessionId);
         if (!string.IsNullOrWhiteSpace(query.Server)) result = result.Where(x => x.Server == query.Server);
         if (!string.IsNullOrWhiteSpace(query.CharacterId)) result = result.Where(x => x.CharacterId == query.CharacterId);
@@ -60,6 +64,7 @@ public sealed partial class ActivityPersistence
     private static IQueryable<ActivityEvent> FilterEventOwners(LocalContext context, ActivityQuery query)
     {
         var result = context.ActivityEvents.AsNoTracking().AsQueryable();
+        if (query.PlaySessionId is { } playSessionId) result = InPlaySession(context, result, playSessionId);
         if (query.SessionId is { } sessionId) result = result.Where(x => x.SessionId == sessionId);
         if (query.EncounterId is { } encounterId) result = result.Where(x => x.EncounterId == encounterId);
         if (!string.IsNullOrWhiteSpace(query.Server)) result = result.Where(x => x.Server == query.Server);
@@ -168,6 +173,7 @@ public sealed partial class ActivityPersistence
         await context.Database.UseTransactionAsync(transaction, cancellationToken);
         var (before, after) = await CanonicalPendingAsync(context, pendingRead, cancellationToken);
         var deleted = pendingRead.Deleted;
+        var playRuns = await PlayRunsAsync(context, query, pendingRead, liveSession, cancellationToken);
         var events = FilterEvents(context, query).Where(x => x.Kind != ActivityEventKind.LegacyGatheringAggregate &&
             (x.SessionId == null || !deleted.Contains(x.SessionId.Value)));
         var summary = await AggregateSummaryAsync(events, query.Scope, cancellationToken);
@@ -247,7 +253,7 @@ public sealed partial class ActivityPersistence
             headers.Values.Any(x => x.IsPartial), hasImports);
 
         bool InPeriod(ActivityEvent value) => !value.IsRetracted && ActivityClassification.IsTemporal(value.Kind) &&
-            MatchesOwner(value, query) && value.CapturedAtUtc >= fromUtc && value.CapturedAtUtc < toUtc &&
+            MatchesOwner(value, query, playRuns) && value.CapturedAtUtc >= fromUtc && value.CapturedAtUtc < toUtc &&
             (value.SessionId is null || !deleted.Contains(value.SessionId.Value));
         void AddHeader(ActivitySession header)
         {

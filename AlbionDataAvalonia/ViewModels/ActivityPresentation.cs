@@ -19,13 +19,21 @@ public sealed class ActivitySummaryPresentation
 {
     public static ActivitySummaryPresentation Empty { get; } = new(new(), ActivityProjection.GetRates(new(), 0));
 
-    public ActivitySummaryPresentation(ActivitySummary summary, ActivityRates rates, bool isSessionAverage = false, bool hasRecordedDuration = true)
+    public ActivitySummaryPresentation(ActivitySummary summary, ActivityRates rates, bool isSessionAverage = false, bool hasRecordedDuration = true,
+        double? runSeconds = null)
     {
         Summary = summary;
         Rates = rates;
         IsSessionAverage = isSessionAverage;
         HasRecordedDuration = hasRecordedDuration;
+        RunSeconds = runSeconds;
     }
+
+    // A play session also reports its rate over time spent in runs, without the time between them.
+    public double? RunSeconds { get; }
+    public bool HasRunRate => RunSeconds is > 0 && HasRecordedDuration && !IsImported;
+    public string TotalSilverPerRunHourText => HasRunRate
+        ? $"{ActivityDisplay.Number((Summary.Silver + Summary.LootValue + Summary.ResourceValue) * 3600 / RunSeconds!.Value)} / h in runs" : "";
 
     public ActivitySummary Summary { get; }
     public bool IsImported => Summary.IsLegacyAggregate;
@@ -146,6 +154,13 @@ public sealed class ActivitySessionRow : ObservableObject
     public string LootValueText { get; private set; } = "0";
     public string MetadataText => $"{StartedText} · {Character} · {Server}";
     public string TagsText => ActivityDisplay.Tags(summary?.Tags ?? ActivityTags.None);
+    public string RunLabel => ActivityDisplay.RunLabel(Source);
+    public string TotalSilverText => ActivityDisplay.Number((summary?.Silver ?? 0) + (summary?.LootValue ?? 0) + (summary?.ResourceValue ?? 0));
+    public string RunSummaryText => $"{DurationText} · {TotalSilverText} silver";
+    public string RunDetailsText => $"{Title}\n{ActivityDisplay.LocalTime(Source.StartedAtUtc)} · {DurationText}\nSilver and items {TotalSilverText}";
+    // The run the tracker has open now.
+    private bool isLive;
+    public bool IsLive { get => isLive; set => SetProperty(ref isLive, value); }
     private ActivityScope scope;
     private ActivitySummary? summary;
     public bool IsImported => summary?.IsLegacyAggregate == true;
@@ -362,6 +377,30 @@ internal static class ActivityDisplay
         return string.IsNullOrWhiteSpace(value.LocationName) || string.Equals(kind, value.LocationName, StringComparison.OrdinalIgnoreCase)
             ? kind : $"{kind} · {value.LocationName}";
     }
+    // Short run names for chips and play session titles: the zone for open world, the activity otherwise.
+    public static string RunLabel(ActivitySession value)
+    {
+        if (ActivityProjection.GetSummary(value, ActivityScope.Personal).IsLegacyAggregate) return "Imported gathering";
+        if (value.Kind == ActivitySessionKind.Roaming) return string.IsNullOrWhiteSpace(value.LocationName) ? "Open world" : value.LocationName;
+        return value.Kind switch
+        {
+            ActivitySessionKind.Corrupted => "Corrupted",
+            ActivitySessionKind.MistsDungeon => "Mists dungeon",
+            ActivitySessionKind.StaticDungeon => "Static dungeon",
+            _ => SessionKind(value.Kind)
+        };
+    }
+
+    // "Wyre Forest · Mists ×2 · Dungeon", in the order first visited.
+    public static string PlaySessionTitle(IReadOnlyList<ActivitySession> runs)
+    {
+        if (runs.Count == 0) return "Session";
+        if (runs.Count == 1) return SessionTitle(runs[0]);
+        var labels = runs.OrderBy(x => x.StartedAtUtc).GroupBy(RunLabel, StringComparer.OrdinalIgnoreCase)
+            .Select(g => g.Count() > 1 ? $"{g.Key} ×{g.Count()}" : g.Key).ToArray();
+        return labels.Length <= 3 ? string.Join(" · ", labels) : $"{string.Join(" · ", labels.Take(3))} · +{labels.Length - 3} more";
+    }
+
     public static string SessionKind(ActivitySessionKind value) => value switch
     {
         ActivitySessionKind.Roaming => "Open world",

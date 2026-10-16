@@ -30,7 +30,7 @@ public partial class ActivityViewModel
 
     public bool CanStartLootExport => !isDisposed && !IsLootExporting && persistence is not null && csvExportService is not null;
     public bool CanExportSessionLoot => CanStartLootExport
-        && SelectedSession is not null && !IsImportedDetail && (SelectedSessionItemSource.Value & ActivityItemSources.Loot) != 0;
+        && SelectedPlaySession is not null && !IsImportedDetail && (SelectedSessionItemSource.Value & ActivityItemSources.Loot) != 0;
     public bool HasLootExportStatus => !string.IsNullOrEmpty(LootExportStatusText);
 
     // Each export uses the exact query of the loot list it is opened from, across all pages.

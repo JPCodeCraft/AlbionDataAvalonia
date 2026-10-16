@@ -140,13 +140,18 @@ public partial class ActivityView : UserControl
         finally { choosingLootExport = false; }
     }
 
-    private async void FinishSession_Click(object? sender, RoutedEventArgs args)
+    private async void NewSession_Click(object? sender, RoutedEventArgs args)
     {
-        if (DataContext is not ActivityViewModel viewModel || !viewModel.HasCurrentSession || TopLevel.GetTopLevel(this) is not Window owner) return;
-        var id = viewModel.CurrentSessionId;
-        if (await ConfirmAsync(owner, "Finish session?", "New activity will start a new session. This session stays in History.", "Finish session")
-            && viewModel.CurrentSessionId == id)
-            viewModel.FinishCurrentSession(id);
+        if (DataContext is not ActivityViewModel viewModel || !viewModel.HasCurrentPlaySession || TopLevel.GetTopLevel(this) is not Window owner) return;
+        var id = viewModel.CurrentPlaySessionId;
+        if (await ConfirmAsync(owner, "Start a new session?", "This session ends at your last activity and stays in History. Your next activity starts the new session.", "New session")
+            && viewModel.CurrentPlaySessionId == id)
+            viewModel.StartNewSession(id);
+    }
+
+    private void RunChip_Click(object? sender, RoutedEventArgs args)
+    {
+        if (DataContext is ActivityViewModel viewModel && (sender as Control)?.DataContext is ActivitySessionRow run) viewModel.OpenRun(run.Id);
     }
 
     private async void MergeSession_Click(object? sender, RoutedEventArgs args)
@@ -166,9 +171,10 @@ public partial class ActivityView : UserControl
     private async void DeleteSession_Click(object? sender, RoutedEventArgs args)
     {
         if (DataContext is not ActivityViewModel viewModel || !viewModel.CanDeleteSelectedSession || TopLevel.GetTopLevel(this) is not Window owner) return;
-        var id = viewModel.SelectedSession?.Id;
-        if (await ConfirmAsync(owner, "Delete session?", $"Delete “{viewModel.SelectedSession?.Title}” and all activity in it? This cannot be undone.", "Delete session")
-            && viewModel.SelectedSession?.Id == id)
+        var id = (viewModel.SelectedPlaySession?.Id, viewModel.SelectedSession?.Id);
+        var label = viewModel.SelectedSession is null ? "session" : "run";
+        if (await ConfirmAsync(owner, $"Delete {label}?", $"Delete the {viewModel.DeleteTargetText} and all activity in it? This cannot be undone.", $"Delete {label}")
+            && (viewModel.SelectedPlaySession?.Id, viewModel.SelectedSession?.Id) == id)
             await viewModel.DeleteSelectedSessionAsync();
     }
 

@@ -46,7 +46,7 @@ public static class ActivityPeriodProjection
                 DateTime? end = open ? null : visit.EndedAtUtc ?? session.ClosedAtUtc ?? session.LastObservedAtUtc;
                 if (session.State == ActivityState.Interrupted && end > session.LastObservedAtUtc)
                     end = session.LastObservedAtUtc;
-                if (end is null || end >= visit.StartedAtUtc) result.Add(new(visit.StartedAtUtc, end));
+                if (end is null || end >= visit.StartedAtUtc) result.Add(new(visit.StartedAtUtc, end, session.Id));
             }
             if (visits.Length == 0)
             {
@@ -54,7 +54,7 @@ public static class ActivityPeriodProjection
                 DateTime? end = open ? null : session.ClosedAtUtc ?? session.LastObservedAtUtc;
                 if (session.State == ActivityState.Interrupted && end > session.LastObservedAtUtc)
                     end = session.LastObservedAtUtc;
-                result.Add(new(session.ObservationStartedAtUtc ?? session.StartedAtUtc, end));
+                result.Add(new(session.ObservationStartedAtUtc ?? session.StartedAtUtc, end, session.Id));
             }
         }
         return result;

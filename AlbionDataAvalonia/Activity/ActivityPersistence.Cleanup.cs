@@ -103,10 +103,13 @@ public sealed partial class ActivityPersistence
         var removedSessions = new List<Guid>();
         var removedEvents = new List<Guid>();
         var changes = new CommittedChanges();
+        var touchedPlaySessions = new HashSet<Guid>();
         while (true)
         {
             var ids = await CleanupSessions(context, command.Request).OrderBy(s => s.Id).Select(s => s.Id).Take(100).ToArrayAsync(cancellationToken);
             if (ids.Length == 0) break;
+            touchedPlaySessions.UnionWith(await context.ActivitySessions.Where(s => ids.Contains(s.Id) && s.PlaySessionId != null)
+                .Select(s => s.PlaySessionId!.Value).ToArrayAsync(cancellationToken));
             await context.ActivitySessions.Where(s => ids.Contains(s.Id)).ExecuteDeleteAsync(cancellationToken);
             removedSessions.AddRange(ids);
             foreach (var id in ids) changes.Sessions.Add(id);
@@ -129,6 +132,8 @@ public sealed partial class ActivityPersistence
             await context.SaveChangesAsync(cancellationToken);
             context.ChangeTracker.Clear();
         }
+        changes.PlaySessions.UnionWith(touchedPlaySessions);
+        await RefreshPlaySessionsAsync(context, touchedPlaySessions, changes, cancellationToken);
         changes.Items |= preview.ItemPickups > 0;
         await transaction.CommitAsync(cancellationToken);
         lock (acceptedSync)

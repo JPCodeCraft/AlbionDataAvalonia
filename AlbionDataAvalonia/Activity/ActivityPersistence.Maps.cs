@@ -13,28 +13,31 @@ namespace AlbionDataAvalonia.Activity;
 
 public sealed partial class ActivityPersistence
 {
-    public Task<ActivityPage<ActivityMap>> GetMapsAsync(Guid sessionId, int page = 0,
+    // The owner selects one run (SessionId) or all runs of a play session (PlaySessionId).
+    public Task<ActivityPage<ActivityMap>> GetMapsAsync(ActivityQuery owner, int page = 0,
         CancellationToken cancellationToken = default) =>
-        ReadAsync(ct => GetMapsCoreAsync(sessionId, page, ct), cancellationToken);
+        ReadAsync(ct => GetMapsCoreAsync(owner, page, ct), cancellationToken);
 
-    public Task<ActivityMapSummary> GetMapSummaryAsync(Guid sessionId, string rawMapId, ActivityScope scope,
+    public Task<ActivityMapSummary> GetMapSummaryAsync(ActivityQuery owner, string rawMapId, ActivityScope scope,
         CancellationToken cancellationToken = default) =>
-        ReadAsync(ct => GetMapSummaryCoreAsync(sessionId, rawMapId, scope, ct), cancellationToken);
+        ReadAsync(ct => GetMapSummaryCoreAsync(owner, rawMapId, scope, ct), cancellationToken);
 
-    private async Task<ActivityPage<ActivityMap>> GetMapsCoreAsync(Guid sessionId, int page,
+    private async Task<ActivityPage<ActivityMap>> GetMapsCoreAsync(ActivityQuery owner, int page,
         CancellationToken cancellationToken)
     {
+        if (owner.SessionId is null && owner.PlaySessionId is null) return new([], false);
         await using var context = contextFactory();
         var connection = (SqliteConnection)context.Database.GetDbConnection();
         await connection.OpenAsync(cancellationToken);
         await using var transaction = connection.BeginTransaction(deferred: true);
         await context.Database.UseTransactionAsync(transaction, cancellationToken);
-        var session = await context.ActivitySessions.AsNoTracking().SingleOrDefaultAsync(x => x.Id == sessionId, cancellationToken);
-        if (session is null) return new([], false);
+        var sessions = await FilterSessionOwners(context, owner).ToArrayAsync(cancellationToken);
+        if (sessions.Length == 0) return new([], false);
+        var sessionIds = sessions.Select(x => (Guid?)x.Id).ToArray();
 
         // Read one small row per map, not its event history. This also retains maps from
         // imported/older recordings which have events but no visit metadata.
-        var events = await FilterEvents(context, new ActivityQuery { SessionId = sessionId, Scope = ActivityScope.AllObserved })
+        var events = await FilterEvents(context, owner with { Scope = ActivityScope.AllObserved })
             .GroupBy(x => x.RawMapId).Select(g => new
             {
                 RawMapId = g.Key,
@@ -45,7 +48,7 @@ public sealed partial class ActivityPersistence
         // Older visits only stored their name and identity. Their small location
         // payloads can supply the entrance without loading combat/item history.
         var locations = await context.ActivityEvents.AsNoTracking()
-            .Where(x => x.SessionId == sessionId && !x.IsRetracted && x.Kind == ActivityEventKind.Location)
+            .Where(x => sessionIds.Contains(x.SessionId) && !x.IsRetracted && x.Kind == ActivityEventKind.Location)
             .OrderBy(x => x.CapturedAtUtc).ThenBy(x => x.CaptureOrder)
             .Select(x => new { x.RawMapId, x.ParentMapId, x.DetailsJson }).ToArrayAsync(cancellationToken);
         await transaction.CommitAsync(cancellationToken);
@@ -64,22 +67,27 @@ public sealed partial class ActivityPersistence
 
         var maps = events.ToDictionary(x => x.RawMapId, x => new ActivityMap(x.RawMapId,
             MapName(x.Name), x.StartedAtUtc, x.LastObservedAtUtc, 0, 0, null), StringComparer.Ordinal);
-        var end = session.ClosedAtUtc ?? session.LastObservedAtUtc;
-        if (session.State == ActivityState.Interrupted && end > session.LastObservedAtUtc) end = session.LastObservedAtUtc;
-        var visits = ReadArray<ActivityVisit>(session.VisitsJson).Select(x => x with
+        // Each run closes its own visits at its recording boundary.
+        var visits = sessions.SelectMany(session =>
         {
-            EndedAtUtc = session.State == ActivityState.Interrupted && (x.EndedAtUtc is null || x.EndedAtUtc > end) ? end :
-                x.EndedAtUtc ?? (session.State == ActivityState.Open && session.ObservationStartedAtUtc is not null ? null : end)
-        }).Where(x => x.EndedAtUtc is null || x.EndedAtUtc >= x.StartedAtUtc);
-        foreach (var group in visits.GroupBy(x => x.RawMapId, StringComparer.Ordinal))
+            var end = session.ClosedAtUtc ?? session.LastObservedAtUtc;
+            if (session.State == ActivityState.Interrupted && end > session.LastObservedAtUtc) end = session.LastObservedAtUtc;
+            return ReadArray<ActivityVisit>(session.VisitsJson).Select(x => x with
+            {
+                EndedAtUtc = session.State == ActivityState.Interrupted && (x.EndedAtUtc is null || x.EndedAtUtc > end) ? end :
+                    x.EndedAtUtc ?? (session.State == ActivityState.Open && session.ObservationStartedAtUtc is not null ? null : end)
+            }).Where(x => x.EndedAtUtc is null || x.EndedAtUtc >= x.StartedAtUtc)
+                .Select(x => (Visit: x, session.LastObservedAtUtc));
+        }).ToArray();
+        foreach (var group in visits.GroupBy(x => x.Visit.RawMapId, StringComparer.Ordinal))
         {
-            var ordered = group.OrderBy(x => x.StartedAtUtc).ToArray();
+            var ordered = group.Select(x => x.Visit).OrderBy(x => x.StartedAtUtc).ToArray();
             var intervals = MergeMapIntervals(ordered);
             var openStart = intervals.FirstOrDefault(x => x.EndedAtUtc is null)?.StartedAtUtc;
             var duration = intervals.Where(x => x.EndedAtUtc is not null)
                 .Sum(x => Math.Max(0, (x.EndedAtUtc!.Value - x.StartedAtUtc).TotalSeconds));
-            var lastObserved = ordered.Max(x => x.EndedAtUtc ??
-                (session.LastObservedAtUtc > x.StartedAtUtc ? session.LastObservedAtUtc : x.StartedAtUtc));
+            var lastObserved = group.Max(x => x.Visit.EndedAtUtc ??
+                (x.LastObservedAtUtc > x.Visit.StartedAtUtc ? x.LastObservedAtUtc : x.Visit.StartedAtUtc));
             maps.TryGetValue(group.Key, out var fallback);
             var name = ordered.LastOrDefault(x => !string.IsNullOrWhiteSpace(x.LocationName) && x.LocationName != x.RawMapId)?.LocationName;
             metadata.TryGetValue(group.Key, out var visitMetadata);
@@ -113,7 +121,7 @@ public sealed partial class ActivityPersistence
         return new(rows.Take(100).ToArray(), rows.Length > 100);
     }
 
-    private async Task<ActivityMapSummary> GetMapSummaryCoreAsync(Guid sessionId, string rawMapId, ActivityScope scope,
+    private async Task<ActivityMapSummary> GetMapSummaryCoreAsync(ActivityQuery owner, string rawMapId, ActivityScope scope,
         CancellationToken cancellationToken)
     {
         await using var context = contextFactory();
@@ -121,15 +129,18 @@ public sealed partial class ActivityPersistence
         await connection.OpenAsync(cancellationToken);
         await using var transaction = connection.BeginTransaction(deferred: true);
         await context.Database.UseTransactionAsync(transaction, cancellationToken);
-        var events = FilterEvents(context, new ActivityQuery { SessionId = sessionId, Scope = scope })
+        var events = FilterEvents(context, owner with { Scope = scope })
             .Where(x => x.RawMapId == rawMapId);
         var summary = await AggregateSummaryAsync(events, scope, cancellationToken);
         var participating = events.Where(ActivityClassification.CombatExpression(scope)).Where(x => x.EncounterId != null)
             .Select(x => x.EncounterId!.Value).Distinct();
         // Scope selects participation; shared encounter boundaries supply the same
         // first-to-last combat span used by the session's other summaries.
-        var combatSeconds = await context.ActivityEncounters.AsNoTracking()
-            .Where(x => x.SessionId == sessionId && x.RawMapId == rawMapId && participating.Contains(x.Id))
+        var encounters = context.ActivityEncounters.AsNoTracking().Where(x => x.RawMapId == rawMapId && participating.Contains(x.Id));
+        if (owner.SessionId is { } sessionId) encounters = encounters.Where(x => x.SessionId == sessionId);
+        if (owner.PlaySessionId is { } playSessionId)
+            encounters = encounters.Where(x => context.ActivitySessions.Any(s => s.Id == x.SessionId && s.PlaySessionId == playSessionId));
+        var combatSeconds = await encounters
             .SumAsync(x => Math.Max(1, (ActivityDatabaseFunctions.JulianDay(x.LastCombatAtUtc) -
                 ActivityDatabaseFunctions.JulianDay(x.StartedAtUtc)) * 86400), cancellationToken);
         await transaction.CommitAsync(cancellationToken);

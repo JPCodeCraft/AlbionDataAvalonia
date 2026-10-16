@@ -14,7 +14,7 @@ public sealed partial class ActivityTrackerService
 
     public ActivityCurrentContext GetCurrentContext()
     {
-        lock (sync) return new(confirmedOwner, session, encounter);
+        lock (sync) return new(confirmedOwner, session, encounter, playSession);
     }
 
     private void PeriodOwnerChanged(object? sender, EventArgs args)

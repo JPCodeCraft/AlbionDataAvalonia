@@ -275,6 +275,53 @@ namespace AlbionDataAvalonia.Migrations
                     b.ToTable("ActivityEvents", (string)null);
                 });
 
+            modelBuilder.Entity("AlbionDataAvalonia.Activity.Models.ActivityPlaySession", b =>
+                {
+                    b.Property<Guid>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CharacterId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<string>("CharacterName")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("EndReason")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime?>("EndedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("LastActivityAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("Revision")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<string>("Server")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("StartedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("State")
+                        .HasColumnType("INTEGER");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("StartedAtUtc");
+
+                    b.HasIndex("State");
+
+                    b.HasIndex("Server", "CharacterId", "StartedAtUtc");
+
+                    b.ToTable("ActivityPlaySessions", (string)null);
+                });
+
             modelBuilder.Entity("AlbionDataAvalonia.Activity.Models.ActivitySession", b =>
                 {
                     b.Property<Guid>("Id")
@@ -339,6 +386,9 @@ namespace AlbionDataAvalonia.Migrations
                         .IsRequired()
                         .HasColumnType("TEXT");
 
+                    b.Property<Guid?>("PlaySessionId")
+                        .HasColumnType("TEXT");
+
                     b.Property<int>("Revision")
                         .HasColumnType("INTEGER");
 
@@ -365,6 +415,8 @@ namespace AlbionDataAvalonia.Migrations
                         .HasColumnType("TEXT");
 
                     b.HasKey("Id");
+
+                    b.HasIndex("PlaySessionId");
 
                     b.HasIndex("StartedAtUtc");
 

@@ -19,21 +19,21 @@ public partial class ActivityViewModel
     private DateTime currentPeriodToUtc;
 
     public IReadOnlyList<ActivityOption<ActivityPeriodMode>> PeriodOptions { get; } =
-        [new(ActivityPeriodMode.CurrentSession, "Current session"),
-         new(ActivityPeriodMode.SinceAppStarted, "Since app started"),
+        [new(ActivityPeriodMode.PlaySession, "Session"),
+         new(ActivityPeriodMode.CurrentRun, "Current run"),
          new(ActivityPeriodMode.LastHours, "Last X hours")];
 
-    [ObservableProperty] private ActivityOption<ActivityPeriodMode> selectedPeriod = new(ActivityPeriodMode.CurrentSession, "Current session");
+    [ObservableProperty] private ActivityOption<ActivityPeriodMode> selectedPeriod = new(ActivityPeriodMode.PlaySession, "Session");
     [ObservableProperty] private decimal lastHours = 1;
     [ObservableProperty] private string currentPeriodDescription = "Waiting for activity";
     [ObservableProperty] private string currentPeriodWarning = "";
 
     public bool IsLastHoursPeriod => SelectedPeriod.Value == ActivityPeriodMode.LastHours;
-    public string CurrentTotalsHeading => SelectedPeriod.Value == ActivityPeriodMode.CurrentSession ? "Session totals" : "Totals";
+    public bool IsPlaySessionPeriod => SelectedPeriod.Value == ActivityPeriodMode.PlaySession;
     public bool HasCurrentPeriodWarning => !string.IsNullOrEmpty(CurrentPeriodWarning);
 
     private sealed record CurrentPeriodKey(ActivityPeriodMode Mode, decimal Hours, ActivityScope Scope,
-        string Server, string CharacterId, string CharacterName, Guid? SessionId);
+        string Server, string CharacterId, string CharacterName, Guid? SessionId, Guid? PlaySessionId = null);
     private sealed record CurrentObservationKey(Guid? SessionId, DateTime? ObservationStartedAtUtc,
         DateTime? LastObservedAtUtc, ActivityState? State, string? VisitsJson);
 
@@ -48,15 +48,19 @@ public partial class ActivityViewModel
         if (tracker is null) return null;
         var context = tracker.GetCurrentContext();
         if (context.Owner is not { } owner) return null;
-        if (SelectedPeriod.Value == ActivityPeriodMode.CurrentSession && context.Session is null) return null;
-        return new(SelectedPeriod.Value, IsLastHoursPeriod ? LastHours : 0, SelectedScope.Value,
+        var mode = SelectedPeriod.Value;
+        if (mode == ActivityPeriodMode.CurrentRun && context.Session is null) return null;
+        // A play session waiting for its first activity has nothing to total yet.
+        if (mode == ActivityPeriodMode.PlaySession && context.PlaySession is null) return null;
+        return new(mode, IsLastHoursPeriod ? LastHours : 0, SelectedScope.Value,
             owner.Server, owner.CharacterId, owner.CharacterName,
-            SelectedPeriod.Value == ActivityPeriodMode.CurrentSession ? context.Session?.Id : null);
+            mode == ActivityPeriodMode.CurrentRun ? context.Session?.Id : null,
+            mode == ActivityPeriodMode.PlaySession ? context.PlaySession?.Id : null);
     }
 
     private DateTime CurrentPeriodStartUtc(DateTime nowUtc) => SelectedPeriod.Value switch
     {
-        ActivityPeriodMode.SinceAppStarted => ActivityPeriodClock.AppStartedAtUtc,
+        ActivityPeriodMode.PlaySession => currentPlayFromUtc ?? tracker?.GetCurrentContext().PlaySession?.StartedAtUtc ?? nowUtc,
         ActivityPeriodMode.LastHours => nowUtc.AddHours(-(double)LastHours),
         _ => currentSession?.StartedAtUtc ?? nowUtc
     };
@@ -67,6 +71,7 @@ public partial class ActivityViewModel
         if (key is null) return null;
         return new()
         {
+            PlaySessionId = key.PlaySessionId,
             SessionId = key.SessionId,
             Server = key.Server,
             CharacterId = string.IsNullOrWhiteSpace(key.CharacterId) ? null : key.CharacterId,
@@ -104,7 +109,9 @@ public partial class ActivityViewModel
             currentObservationKey != observationKey ||
             currentPeriodSnapshot?.Version != tracker.CurrentReadVersion ||
             IsLastHoursPeriod && currentPeriodSnapshot?.NextEventExpiryUtc is { } expiry && nowUtc >= expiry;
-        if (changed && (contextChanged || nowUtc - currentPeriodReadAtUtc >= TimeSpan.FromSeconds(5)))
+        // A play session refreshes more often than a long time range, so its totals keep pace with play.
+        var interval = key.Mode == ActivityPeriodMode.PlaySession ? TimeSpan.FromSeconds(2) : TimeSpan.FromSeconds(5);
+        if (changed && (contextChanged || nowUtc - currentPeriodReadAtUtc >= interval))
         {
             var snapshot = await tracker.GetPeriodSnapshotAsync(query, nowUtc, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
@@ -124,12 +131,26 @@ public partial class ActivityViewModel
     {
         if (currentPeriodSnapshot is not { } snapshot || currentPeriodKey is not { } key || key != GetCurrentPeriodKey() ||
             currentObservationKey?.SessionId != GetCurrentObservationKey().SessionId) return;
+        if (key.Mode == ActivityPeriodMode.PlaySession && tracker?.GetCurrentContext().PlaySession is { } playSession)
+        {
+            // Time pauses one grace period after the last activity; a run within the idle limit adds the gap back.
+            var end = ActivityPlaySessionProjection.LiveEnd(playSession, nowUtc);
+            var durations = ActivityPlaySessionProjection.Durations(snapshot.ObservationIntervals, currentPeriodFromUtc, end);
+            var combat = ActivityPeriodProjection.GetRates(snapshot, currentPeriodFromUtc, end).CombatDurationSeconds;
+            CurrentSummary = new(snapshot.Summary, ActivityProjection.GetRates(snapshot.Summary, durations.PlaySeconds, combat), true, true, durations.RunSeconds);
+            CurrentDurationText = $"Session time: {ActivityDisplay.Duration(durations.PlaySeconds)}";
+            CurrentRunTimeText = $"In runs: {ActivityDisplay.Duration(durations.RunSeconds)}";
+            CurrentPeriodDescription = $"Started {ActivityDisplay.LocalDate(playSession.StartedAtUtc)} · ends after 30 minutes without activity";
+            CurrentPeriodWarning = "";
+            if (snapshot.IsPartial) CurrentPeriodDescription += " · incomplete recording";
+            return;
+        }
         // Sliding-range totals and rates share the saved cutoff until their next refresh.
-        // Since-app-start duration can advance within the existing open observation visit.
         var presentationEndUtc = key.Mode == ActivityPeriodMode.LastHours ? currentPeriodToUtc : nowUtc;
         var rates = ActivityPeriodProjection.GetRates(snapshot, currentPeriodFromUtc, presentationEndUtc);
         CurrentSummary = new(snapshot.Summary, rates, true);
         CurrentDurationText = $"Tracked time: {ActivityDisplay.Duration(rates.DurationSeconds)}";
+        CurrentRunTimeText = "";
         var fromUtc = currentPeriodFromUtc;
         CurrentPeriodDescription = currentSession is not null
             ? $"Since {ActivityDisplay.LocalDate(fromUtc)}"
@@ -149,8 +170,14 @@ public partial class ActivityViewModel
         currentPeriodReadAtUtc = DateTime.MinValue;
         CurrentSummary = ActivitySummaryPresentation.Empty;
         if (CurrentResources.Count > 0) CurrentResources = new();
-        CurrentDurationText = SelectedPeriod.Value == ActivityPeriodMode.CurrentSession ? "Session time: 0:00" : "Tracked time: 0:00";
-        CurrentPeriodDescription = SelectedPeriod.Value == ActivityPeriodMode.CurrentSession ? "Waiting for activity" : "Waiting for your character";
+        CurrentDurationText = SelectedPeriod.Value switch
+        {
+            ActivityPeriodMode.PlaySession => "Session time: 0:00",
+            ActivityPeriodMode.CurrentRun => "Run time: 0:00",
+            _ => "Tracked time: 0:00"
+        };
+        CurrentRunTimeText = "";
+        CurrentPeriodDescription = SelectedPeriod.Value == ActivityPeriodMode.LastHours ? "Waiting for your character" : "Waiting for activity";
         CurrentPeriodWarning = "";
     }
 
@@ -162,7 +189,8 @@ public partial class ActivityViewModel
         ClearCurrentPeriod();
         CurrentLiveTimeline = null;
         OnPropertyChanged(nameof(IsLastHoursPeriod));
-        OnPropertyChanged(nameof(CurrentTotalsHeading));
+        OnPropertyChanged(nameof(IsPlaySessionPeriod));
+        OnPropertyChanged(nameof(ShowCurrentRuns));
         if (isActive && SelectedTabIndex == 0) _ = RunSafelyAsync(RefreshVisibleAsync);
     }
 

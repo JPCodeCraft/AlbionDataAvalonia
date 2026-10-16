@@ -2,7 +2,8 @@ namespace AlbionDataAvalonia.ViewModels;
 
 public partial class ActivityViewModel
 {
-    public string SessionActionText => HasCurrentSession ? "Merge session…" : "Resume session…";
+    // Merging and resuming work on runs inside the play session.
+    public string SessionActionText => HasCurrentSession ? "Merge run…" : "Resume run…";
 
     partial void OnHasCurrentSessionChanged(bool value) => OnPropertyChanged(nameof(SessionActionText));
 
@@ -19,8 +20,8 @@ public partial class ActivityViewModel
                 if (isDisposed) return;
                 // Reload whole-session views after IDs and encounter numbers change.
                 if (SelectedSession?.Id == sourceId) SelectedSession = null;
-                loadedHistoryQuery = null;
                 cachedDetailQuery = null;
+                currentRunsPlaySessionId = null;
                 ++historyChangeVersion;
                 ++detailChangeVersion;
                 ++detailDataVersion;

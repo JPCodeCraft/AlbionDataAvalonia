@@ -226,7 +226,7 @@
                     <CheckBox Content="Record activity"
                               IsChecked="{Binding UserSettings.ActivityRecordingEnabled}" />
                     <TextBlock Text="{Binding ActivityRecordingStatus}" TextWrapping="Wrap" />
-                    <TextBlock Text="Combat, gathering, fishing, and loot are saved together in local sessions. Turning recording off finishes the current session and keeps your history. Records remain until you delete them in Activity."
+                    <TextBlock Text="Combat, gathering, fishing, and loot are saved together in local sessions. A session opens when you log in and counts from your first activity. It ends at your last activity after 30 minutes without activity, when you press New session, switch character, turn recording off, or close the app for more than 30 minutes. Each dungeon, Mists visit or stretch of open world is a run inside it. Records remain until you delete them in Activity."
                                TextWrapping="Wrap" Opacity="0.65" />
                     <TextBlock Text="Party filters change what is shown. All observed loot pickups are recorded while recording is enabled."
                                TextWrapping="Wrap" Opacity="0.65" />

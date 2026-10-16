@@ -21,7 +21,7 @@
             <StackPanel>
             <Grid ColumnDefinitions="*,*" ColumnSpacing="6" Margin="0,0,0,6" ToolTip.Tip="{Binding TotalSilverDetailsText}">
                 <Border Classes="UiCard ActivityIncomeCard"><StackPanel><TextBlock Classes="UiLabel" Text="Total Silver" /><TextBlock Classes="ActivityIncomeValue" Text="{Binding TotalSilver}" /></StackPanel></Border>
-                <Border Grid.Column="1" Classes="UiCard ActivityIncomeCard"><StackPanel><TextBlock Classes="UiLabel" Text="Total Silver / Hour" /><TextBlock Classes="ActivityIncomeValue" Text="{Binding TotalSilverPerHour}" /></StackPanel></Border>
+                <Border Grid.Column="1" Classes="UiCard ActivityIncomeCard"><StackPanel><TextBlock Classes="UiLabel" Text="Total Silver / Hour" /><TextBlock Classes="ActivityIncomeValue" Text="{Binding TotalSilverPerHour}" /><TextBlock Classes="UiLabel" Text="{Binding TotalSilverPerRunHourText}" IsVisible="{Binding HasRunRate}" ToolTip.Tip="Silver per hour spent in runs, without the time between them" /></StackPanel></Border>
             </Grid>
             <views:ResponsiveUniformGrid IsVisible="{Binding !IsImported}" MaximumColumns="4" MinimumItemWidth="156" Margin="-3">
                 <Border Classes="UiCard ActivityMetricCard" Margin="3"><StackPanel><TextBlock Classes="UiLabel" Text="Damage dealt" /><TextBlock Classes="ActivityValue" Text="{Binding DamageDealt}" /><TextBlock Classes="UiLabel" Text="{Binding DamageRate}" /></StackPanel></Border>
@@ -97,7 +97,7 @@
     <UserControl.Styles>
         <Style Selector="Expander"><Setter Property="MinHeight" Value="40" /></Style>
         <Style Selector="TextBlock.ActivityValue"><Setter Property="FontSize" Value="18" /><Setter Property="FontWeight" Value="DemiBold" /><Setter Property="Margin" Value="0,2,0,2" /></Style>
-        <Style Selector="Border.ActivityIncomeCard"><Setter Property="Height" Value="64" /><Setter Property="BorderBrush" Value="{DynamicResource UiBorderBrush}" /><Setter Property="BorderThickness" Value="1" /></Style>
+        <Style Selector="Border.ActivityIncomeCard"><Setter Property="MinHeight" Value="64" /><Setter Property="BorderBrush" Value="{DynamicResource UiBorderBrush}" /><Setter Property="BorderThickness" Value="1" /></Style>
         <Style Selector="Border.ActivityIncomeCard TextBlock"><Setter Property="TextWrapping" Value="NoWrap" /><Setter Property="TextTrimming" Value="CharacterEllipsis" /><Setter Property="MaxLines" Value="1" /></Style>
         <Style Selector="TextBlock.ActivityIncomeValue"><Setter Property="FontSize" Value="22" /><Setter Property="LineHeight" Value="28" /><Setter Property="FontWeight" Value="DemiBold" /><Setter Property="Foreground" Value="{DynamicResource AFMOrange}" /><Setter Property="Margin" Value="0,2,0,0" /></Style>
         <Style Selector="Border.ActivityMetricCard"><Setter Property="Height" Value="76" /></Style>
@@ -113,6 +113,13 @@
         <Style Selector="Button.ActivityPartyChip:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource UiInputBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource AFMOrange}" /></Style>
         <Style Selector="Border.ActivityPartyMember"><Setter Property="Background" Value="{DynamicResource UiInputBrush}" /><Setter Property="CornerRadius" Value="10" /><Setter Property="Padding" Value="8,2" /><Setter Property="Margin" Value="0,0,4,4" /></Style>
         <Style Selector="Border.ActivityPartyMember.You"><Setter Property="Background" Value="{DynamicResource AFMBrown}" /><Setter Property="BorderBrush" Value="{DynamicResource AFMOrange}" /><Setter Property="BorderThickness" Value="1" /></Style>
+        <Style Selector="Button.ActivityRunChip"><Setter Property="Background" Value="{DynamicResource UiSurfaceBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource UiBorderBrush}" /><Setter Property="BorderThickness" Value="1" /><Setter Property="CornerRadius" Value="6" /><Setter Property="Padding" Value="10,4" /><Setter Property="Margin" Value="0,0,6,6" /></Style>
+        <Style Selector="Button.ActivityRunChip.Live"><Setter Property="BorderBrush" Value="{DynamicResource AFMOrange}" /></Style>
+        <Style Selector="Button.ActivityRunChip:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource UiInputBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource AFMOrange}" /></Style>
+        <Style Selector="ListBox.ActivityRunChips"><Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" /><Setter Property="Padding" Value="0" /></Style>
+        <Style Selector="ListBox.ActivityRunChips ListBoxItem"><Setter Property="Background" Value="{DynamicResource UiSurfaceBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource UiBorderBrush}" /><Setter Property="BorderThickness" Value="1" /><Setter Property="CornerRadius" Value="6" /><Setter Property="Padding" Value="10,4" /><Setter Property="Margin" Value="0,0,6,6" /><Setter Property="MinHeight" Value="0" /></Style>
+        <Style Selector="ListBox.ActivityRunChips ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource UiInputBrush}" /></Style>
+        <Style Selector="ListBox.ActivityRunChips ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource AFMBrown}" /><Setter Property="BorderBrush" Value="{DynamicResource AFMOrange}" /></Style>
         <Style Selector="TextBlock.PartyChange"><Setter Property="Foreground" Value="#F47D7D" /></Style>
         <Style Selector="TextBlock.PartyChange.Joined"><Setter Property="Foreground" Value="#A0D477" /></Style>
         <Style Selector="TabControl.ActivityDetails TabItem /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="FontSize" Value="16" /></Style>
@@ -136,7 +143,8 @@
                     <Button Classes="UiAction UiSecondary" Content="{Binding StreamerWindowButtonText}" Command="{Binding ToggleStreamerWindowCommand}" IsVisible="{Binding CanOpenStreamerWindow}"
                             ToolTip.Tip="A compact window with the current session for streaming. Choose what it shows in Settings → Activity." Margin="0,0,10,4" />
                     <Button Classes="UiAction UiSecondary" Content="{Binding RecordingButtonText}" Command="{Binding ToggleRecordingCommand}" Margin="0,0,10,4" />
-                    <Button Classes="UiAction" Content="Finish session" Click="FinishSession_Click" IsEnabled="{Binding HasCurrentSession}" Margin="0,0,0,4" />
+                    <Button Classes="UiAction" Content="New session" Click="NewSession_Click" IsEnabled="{Binding HasCurrentPlaySession}" Margin="0,0,0,4"
+                            ToolTip.Tip="End this session at your last activity. Your next activity starts a new one." />
                 </WrapPanel>
             </WrapPanel>
             <TextBlock Text="{Binding LegacyImportWarningText}" IsVisible="{Binding HasLegacyImportWarning}" Foreground="#FFB74D" TextWrapping="Wrap" />
@@ -153,8 +161,9 @@
                                     <TextBlock Text="{Binding CurrentDescription}" IsVisible="{Binding CurrentDescription, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" TextWrapping="Wrap" Opacity="0.75" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                    <Button Classes="UiAction UiSecondary" Content="{Binding SessionActionText}" Click="MergeSession_Click" />
-                                    <Button Classes="UiAction UiSecondary" Content="View session" Command="{Binding OpenCurrentSessionCommand}" IsEnabled="{Binding HasCurrentSession}" />
+                                    <Button Classes="UiAction UiSecondary" Content="{Binding SessionActionText}" Click="MergeSession_Click"
+                                            ToolTip.Tip="Combine an earlier run with the current one, or continue an earlier run" />
+                                    <Button Classes="UiAction UiSecondary" Content="View session" Command="{Binding OpenCurrentSessionCommand}" IsEnabled="{Binding HasCurrentPlaySession}" />
                                 </StackPanel>
                             </Grid>
                             <WrapPanel Margin="0,0,0,-4">
@@ -169,8 +178,11 @@
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                     <WrapPanel ToolTip.Tip="{Binding CurrentPeriodWarning}" Margin="0,0,0,-4">
                                         <TextBlock Text="{Binding CurrentDurationText}" Margin="0,0,18,4" />
+                                        <TextBlock Text="{Binding CurrentRunTimeText}" IsVisible="{Binding HasCurrentRunTime}" Margin="0,0,18,4" ToolTip.Tip="Time spent in runs, without the time between them" />
                                         <TextBlock Text="{Binding CurrentCombatDurationText}" Margin="0,0,18,4" />
-                                        <TextBlock Text="{Binding CurrentTagsText}" Foreground="#A0D477" Margin="0,0,0,4" IsVisible="{Binding CurrentTagsText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" />
+                                        <TextBlock Text="{Binding CurrentTagsText}" Foreground="#A0D477" Margin="0,0,18,4" IsVisible="{Binding CurrentTagsText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" />
+                                        <TextBlock Text="{Binding CurrentStateText}" IsVisible="{Binding HasCurrentState}" Foreground="{DynamicResource AFMOrange}" Margin="0,0,0,4"
+                                                   ToolTip.Tip="Time between runs counts once you play again within 30 minutes" />
                                     </WrapPanel>
                                     <Button Grid.Column="1" Classes="ActivityPartyChip" IsVisible="{Binding HasCurrentParty}" ToolTip.Tip="{Binding CurrentPartyDetailsText}"
                                             HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-5,0,0" AutomationProperties.Name="Current party">
@@ -216,6 +228,22 @@
                                         </Button.Flyout>
                                     </Button>
                                 </Grid>
+                            </StackPanel>
+                            <StackPanel Spacing="4" IsVisible="{Binding ShowCurrentRuns}">
+                                <TextBlock Text="Runs in this session" Classes="UiLabel" />
+                                <ItemsControl ItemsSource="{Binding CurrentRuns}">
+                                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:ActivitySessionRow">
+                                            <Button Classes="ActivityRunChip" Classes.Live="{Binding IsLive}" Click="RunChip_Click" ToolTip.Tip="{Binding RunDetailsText}">
+                                                <StackPanel Spacing="1">
+                                                    <TextBlock Text="{Binding RunLabel}" FontSize="12" FontWeight="DemiBold" MaxWidth="180" TextTrimming="CharacterEllipsis" />
+                                                    <TextBlock Text="{Binding RunSummaryText}" Classes="UiLabel" />
+                                                </StackPanel>
+                                            </Button>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
                             </StackPanel>
                         </StackPanel>
                         <ContentControl Content="{Binding CurrentSummary}" ContentTemplate="{StaticResource SummaryTemplate}" />
@@ -283,13 +311,13 @@
                     <Grid RowDefinitions="Auto,*,Auto" RowSpacing="12">
                     <TextBlock Text="Sessions" FontSize="16" FontWeight="DemiBold" />
                     <Border Grid.Row="1" Background="{DynamicResource UiSurfaceBrush}" CornerRadius="6">
-                        <ListBox x:Name="SessionList" Classes="ActivitySessionList" ItemsSource="{Binding Sessions}" SelectedItem="{Binding SelectedSession, Mode=TwoWay}" SelectionMode="Single">
+                        <ListBox x:Name="SessionList" Classes="ActivitySessionList" ItemsSource="{Binding PlaySessions}" SelectedItem="{Binding SelectedPlaySession, Mode=TwoWay}" SelectionMode="Single">
                             <ListBox.ItemTemplate>
-                                <DataTemplate x:DataType="vm:ActivitySessionRow">
+                                <DataTemplate x:DataType="vm:ActivityPlaySessionRow">
                                     <StackPanel Spacing="6">
                                         <TextBlock Text="{Binding Title}" FontSize="14" FontWeight="DemiBold" TextWrapping="Wrap" />
                                         <TextBlock Text="{Binding MetadataText}" Classes="UiLabel" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding MetadataText}" />
-                                        <WrapPanel><TextBlock Text="{Binding DurationText}" Margin="0,0,12,0" /><TextBlock Text="{Binding TagsText}" Foreground="#A0D477" Margin="0,0,12,0" /><TextBlock Text="{Binding StateText}" Classes="UiLabel" /></WrapPanel>
+                                        <WrapPanel><TextBlock Text="{Binding DurationText}" Margin="0,0,12,0" /><TextBlock Text="{Binding RunsText}" Classes="UiLabel" VerticalAlignment="Center" Margin="0,0,12,0" /><TextBlock Text="{Binding TagsText}" Foreground="#A0D477" Margin="0,0,12,0" /><TextBlock Text="{Binding StateText}" Classes="UiLabel" VerticalAlignment="Center" /></WrapPanel>
                                         <TextBlock Text="{Binding PartyText}" IsVisible="{Binding HasParty}" ToolTip.Tip="{Binding PartyDetailsText}" Classes="UiLabel" TextTrimming="CharacterEllipsis" />
                                     </StackPanel>
                                 </DataTemplate>
@@ -297,20 +325,35 @@
                         </ListBox>
                     </Border>
                     <StackPanel Grid.Row="2" Spacing="8">
-                        <WrapPanel><Button Classes="UiAction UiSecondary" Content="Load more" Command="{Binding LoadMoreSessionsCommand}" IsVisible="{Binding HasMoreSessions}" Margin="0,0,8,6" /><Button Classes="UiAction UiSecondary" Content="Delete session…" Click="DeleteSession_Click" IsEnabled="{Binding CanDeleteSelectedSession}" Margin="0,0,0,6" /></WrapPanel>
+                        <WrapPanel><Button Classes="UiAction UiSecondary" Content="Load more" Command="{Binding LoadMoreSessionsCommand}" IsVisible="{Binding HasMoreSessions}" Margin="0,0,8,6" /><Button Classes="UiAction UiSecondary" Content="{Binding DeleteButtonText}" Click="DeleteSession_Click" IsEnabled="{Binding CanDeleteSelectedSession}" Margin="0,0,0,6" /></WrapPanel>
                     </StackPanel>
                     </Grid>
                     <GridSplitter Grid.Column="1" Width="1" HorizontalAlignment="Center" />
-                    <TextBlock Grid.Column="2" Text="Choose a session to view its activity" IsVisible="{Binding !HasSelectedSession}" VerticalAlignment="Center" HorizontalAlignment="Center" TextWrapping="Wrap" Opacity="0.7" FontSize="16" Margin="20" />
-                    <ScrollViewer x:Name="HistorySessionDetailScroll" Grid.Column="2" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding HasSelectedSession}">
+                    <TextBlock Grid.Column="2" Text="Choose a session to view its activity" IsVisible="{Binding !HasSelectedPlaySession}" VerticalAlignment="Center" HorizontalAlignment="Center" TextWrapping="Wrap" Opacity="0.7" FontSize="16" Margin="20" />
+                    <ScrollViewer x:Name="HistorySessionDetailScroll" Grid.Column="2" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding HasSelectedPlaySession}">
                     <StackPanel Spacing="12">
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                            <StackPanel Spacing="4"><TextBlock Text="{Binding DetailTitle}" FontSize="20" FontWeight="DemiBold" TextWrapping="Wrap" /><TextBlock Text="{Binding DetailMapMetadataText}" IsVisible="{Binding HasDetailMapMetadata}" Classes="UiLabel" /><TextBlock Text="{Binding DetailDurationText}" TextWrapping="Wrap" /><TextBlock Text="{Binding SelectedSession.PartyText, FallbackValue=''}" IsVisible="{Binding SelectedSession.HasParty, FallbackValue=False}" ToolTip.Tip="{Binding SelectedSession.PartyDetailsText, FallbackValue=''}" TextWrapping="Wrap" Foreground="{DynamicResource AFMOrange}" /><TextBlock Text="{Binding DetailScopeText}" IsVisible="{Binding DetailScopeText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" Classes="UiLabel" /><TextBlock Text="{Binding DetailTagsText}" IsVisible="{Binding DetailTagsText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" Foreground="#A0D477" /><TextBlock Text="{Binding ImportedDetailText}" IsVisible="{Binding IsImportedDetail}" Classes="UiLabel" ToolTip.Tip="{Binding ImportedDetailTooltipText}" /></StackPanel>
+                            <StackPanel Spacing="4"><TextBlock Text="{Binding DetailTitle}" FontSize="20" FontWeight="DemiBold" TextWrapping="Wrap" /><TextBlock Text="{Binding DetailMapMetadataText}" IsVisible="{Binding HasDetailMapMetadata}" Classes="UiLabel" /><TextBlock Text="{Binding DetailDurationText}" TextWrapping="Wrap" /><TextBlock Text="{Binding SelectedPlaySession.PartyText, FallbackValue=''}" IsVisible="{Binding SelectedPlaySession.HasParty, FallbackValue=False}" ToolTip.Tip="{Binding SelectedPlaySession.PartyDetailsText, FallbackValue=''}" TextWrapping="Wrap" Foreground="{DynamicResource AFMOrange}" /><TextBlock Text="{Binding DetailScopeText}" IsVisible="{Binding DetailScopeText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" Classes="UiLabel" /><TextBlock Text="{Binding DetailTagsText}" IsVisible="{Binding DetailTagsText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" Foreground="#A0D477" /><TextBlock Text="{Binding ImportedDetailText}" IsVisible="{Binding IsImportedDetail}" Classes="UiLabel" ToolTip.Tip="{Binding ImportedDetailTooltipText}" /></StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                <Button Classes="UiAction UiSecondary" Content="Whole session" Command="{Binding ClearEncounterCommand}" IsVisible="{Binding HasSelectedDetailSelection}" />
+                                <Button Classes="UiAction UiSecondary" Content="All runs" Command="{Binding ClearRunCommand}" IsVisible="{Binding HasSelectedSession}" />
+                                <Button Classes="UiAction UiSecondary" Content="{Binding ClearSelectionText}" Command="{Binding ClearEncounterCommand}" IsVisible="{Binding HasSelectedDetailSelection}" />
                                 <Button Classes="UiAction UiSecondary" Content="All players" Command="{Binding ClearPlayerCommand}" IsVisible="{Binding HasSelectedPlayer}" />
                             </StackPanel>
                         </Grid>
+                        <StackPanel Spacing="4" IsVisible="{Binding HasMultipleRuns}">
+                            <TextBlock Text="Runs · choose one to see only that run" Classes="UiLabel" />
+                            <ListBox Classes="ActivityRunChips" ItemsSource="{Binding Sessions}" SelectedItem="{Binding SelectedSession, Mode=TwoWay}" SelectionMode="Single" AutomationProperties.Name="Runs in this session">
+                                <ListBox.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ListBox.ItemsPanel>
+                                <ListBox.ItemTemplate>
+                                    <DataTemplate x:DataType="vm:ActivitySessionRow">
+                                        <StackPanel Spacing="1" ToolTip.Tip="{Binding RunDetailsText}">
+                                            <TextBlock Text="{Binding RunLabel}" FontSize="12" FontWeight="DemiBold" MaxWidth="180" TextTrimming="CharacterEllipsis" />
+                                            <TextBlock Text="{Binding RunSummaryText}" Classes="UiLabel" />
+                                        </StackPanel>
+                                    </DataTemplate>
+                                </ListBox.ItemTemplate>
+                            </ListBox>
+                        </StackPanel>
                         <ContentControl Content="{Binding DetailSummary}" ContentTemplate="{StaticResource SummaryTemplate}" />
                         <TabControl Classes="ActivityDetails" SelectedIndex="{Binding SelectedDetailTabIndex, Mode=TwoWay}">
                             <TabItem Header="Encounters" IsEnabled="{Binding HasDetailedHistory}">

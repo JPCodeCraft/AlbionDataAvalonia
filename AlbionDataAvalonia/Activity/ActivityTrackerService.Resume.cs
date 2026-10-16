@@ -38,9 +38,11 @@ public sealed partial class ActivityTrackerService
                 .Append(new(map!.RawLocationId, map.DisplayName, now, null, map.InstanceId?.ToString(), mapMetadata));
             var instances = (JsonSerializer.Deserialize<string[]>(previous.KnownInstancesJson) ?? []).AsEnumerable();
             if (IsInstance(map.Kind)) instances = instances.Append(InstanceKey(map));
+            // A resumed run joins the current play session.
             return previous with
             {
                 Revision = previous.Revision + 1,
+                PlaySessionId = ActivatePlaySession(now, now)?.Id ?? previous.PlaySessionId,
                 State = ActivityState.Open,
                 EndReason = ActivityEndReason.None,
                 ClosedAtUtc = null,

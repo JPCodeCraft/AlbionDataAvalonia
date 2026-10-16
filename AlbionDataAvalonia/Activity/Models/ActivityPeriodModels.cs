@@ -3,11 +3,14 @@ using System.Collections.Generic;
 
 namespace AlbionDataAvalonia.Activity.Models;
 
-public enum ActivityPeriodMode { CurrentSession, SinceAppStarted, LastHours }
+public enum ActivityPeriodMode { PlaySession, CurrentRun, LastHours }
 
 public sealed record ActivityOwner(string Server, string CharacterId, string CharacterName);
-public sealed record ActivityCurrentContext(ActivityOwner? Owner, ActivitySession? Session, ActivityEncounter? Encounter);
-public sealed record ActivityObservationInterval(DateTime StartedAtUtc, DateTime? EndedAtUtc);
+// Session is the open run. PlaySession is null while the play session waits for its first activity.
+public sealed record ActivityCurrentContext(ActivityOwner? Owner, ActivitySession? Session, ActivityEncounter? Encounter,
+    ActivityPlaySession? PlaySession = null);
+// RunId groups a run's visits, so play time adds only the gaps between runs, not capture gaps inside one.
+public sealed record ActivityObservationInterval(DateTime StartedAtUtc, DateTime? EndedAtUtc, Guid? RunId = null);
 public sealed record ActivityCombatInterval(Guid EncounterId, DateTime StartedAtUtc, DateTime EndedAtUtc);
 
 // All period totals and interval metadata describe one persistence snapshot.

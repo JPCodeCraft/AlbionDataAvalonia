@@ -1,3 +1,4 @@
+using AlbionDataAvalonia.Activity;
 using AlbionDataAvalonia.Activity.Models;
 using AlbionDataAvalonia.Party;
 using AlbionDataAvalonia.Party.Models;
@@ -109,28 +110,27 @@ public partial class ActivityViewModel
         else CurrentPartyChanges.Insert(0, new(at, joined, names, size));
     }
 
-    // Party members are derived from the session's recorded events, so they stay accurate
-    // for history without storing a roster on the session header.
-    private async Task LoadSessionPartiesAsync(CancellationToken cancellationToken)
+    // Party members are derived from the recorded events, so they stay accurate for history
+    // without storing a roster. A whole play session spans all of its runs.
+    private async Task LoadPartyHistoryAsync(long version, ActivityPlaySessionHeader header, ActivitySession? run,
+        CancellationToken cancellationToken)
     {
         if (persistence is null) return;
-        var pending = Sessions.Where(row => row.NeedsParty).Take(1000).ToArray();
-        if (pending.Length == 0) return;
-        var requested = pending.ToDictionary(row => row.Id, row => row.Source);
-        var members = await persistence.GetSessionPartyMembersAsync(requested.Keys, cancellationToken);
-        if (isDisposed) return;
-        foreach (var row in Sessions)
-            if (requested.TryGetValue(row.Id, out var source))
-                row.SetParty(source, members.TryGetValue(row.Id, out var names) ? names : []);
-    }
-
-    private async Task LoadPartyHistoryAsync(long version, ActivitySession session, CancellationToken cancellationToken)
-    {
-        if (persistence is null) return;
-        var events = await persistence.GetPartyEventsAsync(session.Id, cancellationToken);
-        var members = await persistence.GetSessionPartyMembersAsync([session.Id], cancellationToken);
-        if (!IsCurrentDetail(version, session.Id) || SelectedDetailTabIndex != PartyDetailTabIndex) return;
-        PartyHistory = ActivityPartyHistory.Build(events, session, members.TryGetValue(session.Id, out var names) ? names : [], DateTime.UtcNow);
+        var playSessionId = header.PlaySession.Id;
+        var runs = run is null ? header.Runs : [run];
+        var events = await persistence.GetPartyEventsAsync(new ActivityQuery { PlaySessionId = playSessionId, SessionId = run?.Id }, cancellationToken);
+        var members = await persistence.GetSessionPartyMembersAsync(runs.Select(x => x.Id), cancellationToken);
+        if (!IsCurrentDetail(version, playSessionId) || SelectedDetailTabIndex != PartyDetailTabIndex) return;
+        var names = runs.SelectMany(x => members.TryGetValue(x.Id, out var found) ? found : [])
+            .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToArray();
+        var span = run ?? new ActivitySession
+        {
+            StartedAtUtc = PlaySessionStart(header),
+            ClosedAtUtc = header.PlaySession.State == ActivityState.Open ? null : PlaySessionEnd(header),
+            LastObservedAtUtc = PlaySessionEnd(header),
+            State = header.PlaySession.State
+        };
+        PartyHistory = ActivityPartyHistory.Build(events, span, names, DateTime.UtcNow);
     }
 
     private void DisposeParty()

@@ -12,7 +12,7 @@ using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.ViewModels;
 
-/// <summary>Current-session totals for the streamer window, read on its own timer while the window is open.</summary>
+/// <summary>Totals of the open play session for the streamer window, read on its own timer while the window is open.</summary>
 public sealed partial class ActivityStreamerViewModel : ViewModelBase, IDisposable
 {
     private const int ChartWindowSeconds = 5 * 60;
@@ -22,10 +22,9 @@ public sealed partial class ActivityStreamerViewModel : ViewModelBase, IDisposab
     private readonly ActivityPersistence? persistence;
     private readonly DispatcherTimer refreshTimer = new() { Interval = TimeSpan.FromSeconds(1) };
     private readonly CancellationTokenSource cancellation = new();
-    private long dataChangeVersion = 1;
-    private long combatReadVersion;
-    private ActivityQuery? combatQuery;
-    private double combatSeconds;
+    private ActivityPeriodSnapshot? snapshot;
+    private ActivityQuery? snapshotQuery;
+    private DateTime snapshotReadAtUtc;
     private int tickCount;
     private bool refreshing;
     private bool readFailed;
@@ -66,7 +65,6 @@ public sealed partial class ActivityStreamerViewModel : ViewModelBase, IDisposab
         this.persistence = persistence;
         Settings = settings;
         refreshTimer.Tick += OnRefreshTick;
-        persistence.DataChanged += OnDataChanged;
         settings.PropertyChanged += OnSettingsChanged;
     }
 
@@ -90,9 +88,6 @@ public sealed partial class ActivityStreamerViewModel : ViewModelBase, IDisposab
     private string PerHourShort(double rate) => Summary.HasRecordedDuration ? $"{ActivityDisplay.Number(rate)} / h" : "";
 
     partial void OnHasSessionChanged(bool value) => OnPropertyChanged(nameof(ShowChart));
-
-    // Combat time only changes when the journal commits, so it is reread after a commit.
-    private void OnDataChanged(ActivityDataChange change) => Interlocked.Increment(ref dataChangeVersion);
 
     private void OnSettingsChanged(object? sender, PropertyChangedEventArgs args)
     {
@@ -148,58 +143,54 @@ public sealed partial class ActivityStreamerViewModel : ViewModelBase, IDisposab
         if (tracker is null || persistence is null) return;
         var nowUtc = DateTime.UtcNow;
         var context = tracker.GetCurrentContext();
-        if (context.Owner is not { } owner || context.Session is not { } live)
+        if (context.Owner is not { } owner || context.PlaySession is not { } playSession)
         {
             HasSession = false;
-            TitleText = SessionTimeText = tracker.IsAwaitingContext ? "Waiting for character" : "Waiting for activity";
+            TitleText = SessionTimeText = context.Owner is null ? "Waiting for character" : "Waiting for activity";
             DurationText = "";
             Summary = ActivitySummaryPresentation.Empty;
             Timeline = null;
+            snapshot = null;
             return;
         }
 
         var scope = Settings.StreamerPartyTotals ? ActivityScope.Party : ActivityScope.Personal;
-        var query = new ActivityQuery { SessionId = live.Id, Scope = scope };
-        var version = Interlocked.Read(ref dataChangeVersion);
-        var sessionTask = persistence.GetSessionAsync(live.Id, cancellationToken);
-        var combatTask = query == combatQuery && version == combatReadVersion
-            ? Task.FromResult(combatSeconds) : persistence.GetCombatDurationSecondsAsync(query, cancellationToken);
-        await Task.WhenAll(sessionTask, combatTask);
-        if (isDisposed || tracker.CurrentSessionId != live.Id) return;
-        combatQuery = query;
-        combatReadVersion = version;
-        combatSeconds = combatTask.Result;
-
-        // The tracker owns live boundaries; the journal writer owns the saved totals.
-        var current = sessionTask.Result is { } saved ? live with
+        var query = new ActivityQuery
         {
-            PersonalSummaryJson = saved.PersonalSummaryJson,
-            PartySummaryJson = saved.PartySummaryJson,
-            ObservedSummaryJson = saved.ObservedSummaryJson
-        } : live;
-        var totals = ActivityProjection.GetSummary(current, scope);
-        Summary = new(totals, ActivityProjection.GetRates(totals, current, combatSeconds, nowUtc), true);
-        HasSession = true;
-        TitleText = ActivityDisplay.SessionTitle(current);
-        SessionTimeText = $"Session {ActivityDisplay.Duration(ActivityProjection.GetDurationSeconds(current, nowUtc))}";
-        DurationText = $"{SessionTimeText} · Combat {ActivityDisplay.Duration(combatSeconds)}";
-
-        // The chart scrolls between reads, so it is read every other tick.
-        if (!ShowChart || tickCount++ % 2 != 0) return;
-        var timelineQuery = new ActivityQuery
-        {
-            SessionId = live.Id,
+            PlaySessionId = playSession.Id,
             Server = owner.Server,
             CharacterId = string.IsNullOrWhiteSpace(owner.CharacterId) ? null : owner.CharacterId,
             CharacterName = owner.CharacterName,
             MatchCharacterNameExactly = true,
             Scope = scope,
-            FromUtc = current.StartedAtUtc,
-            ToUtc = nowUtc
+            FromUtc = playSession.StartedAtUtc
         };
-        var snapshot = await tracker.GetLiveTimelineAsync(timelineQuery, nowUtc, cancellationToken, ChartWindowSeconds);
-        if (isDisposed || tracker.CurrentSessionId != live.Id || !ShowChart) return;
-        Timeline = snapshot with { ContextKey = $"{snapshot.ContextKey}|streamer|{scope}" };
+        // Totals follow the journal; the clock and rates move every tick from the last read.
+        if (snapshot is null || snapshotQuery != query ||
+            snapshot.Version != tracker.CurrentReadVersion && nowUtc - snapshotReadAtUtc >= TimeSpan.FromSeconds(2))
+        {
+            var read = await tracker.GetPeriodSnapshotAsync(query with { ToUtc = nowUtc }, nowUtc, cancellationToken);
+            if (isDisposed || tracker.CurrentPlaySessionId != playSession.Id) return;
+            snapshot = read;
+            snapshotQuery = query;
+            snapshotReadAtUtc = nowUtc;
+        }
+        var end = ActivityPlaySessionProjection.LiveEnd(playSession, nowUtc);
+        var durations = ActivityPlaySessionProjection.Durations(snapshot.ObservationIntervals, playSession.StartedAtUtc, end);
+        var combatSeconds = ActivityPeriodProjection.GetRates(snapshot, playSession.StartedAtUtc, end).CombatDurationSeconds;
+        Summary = new(snapshot.Summary, ActivityProjection.GetRates(snapshot.Summary, durations.PlaySeconds, combatSeconds), true, true, durations.RunSeconds);
+        HasSession = true;
+        TitleText = ActivityPlaySessionProjection.IsIdle(playSession, nowUtc)
+            ? $"Idle {ActivityDisplay.Duration((nowUtc - playSession.LastActivityAtUtc).TotalSeconds)}"
+            : context.Session is { } run ? ActivityDisplay.SessionTitle(run) : "Between runs";
+        SessionTimeText = $"Session {ActivityDisplay.Duration(durations.PlaySeconds)}";
+        DurationText = $"{SessionTimeText} · Combat {ActivityDisplay.Duration(combatSeconds)}";
+
+        // The chart scrolls between reads, so it is read every other tick.
+        if (!ShowChart || tickCount++ % 2 != 0) return;
+        var timeline = await tracker.GetLiveTimelineAsync(query with { ToUtc = nowUtc }, nowUtc, cancellationToken, ChartWindowSeconds);
+        if (isDisposed || tracker.CurrentPlaySessionId != playSession.Id || !ShowChart) return;
+        Timeline = timeline with { ContextKey = $"{timeline.ContextKey}|streamer|{scope}" };
     }
 
     public void Dispose()
@@ -210,7 +201,6 @@ public sealed partial class ActivityStreamerViewModel : ViewModelBase, IDisposab
         refreshTimer.Tick -= OnRefreshTick;
         cancellation.Cancel();
         cancellation.Dispose();
-        if (persistence is not null) persistence.DataChanged -= OnDataChanged;
         Settings.PropertyChanged -= OnSettingsChanged;
     }
 }
