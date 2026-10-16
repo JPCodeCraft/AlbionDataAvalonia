@@ -12,13 +12,6 @@ namespace AlbionDataAvalonia.Activity;
 
 public sealed partial class ActivityPersistence
 {
-    private Task<ActivityLiveTimelineSnapshot> GetLiveTimelineCoreAsync(Guid? sessionId, ActivityScope scope,
-        DateTime endUtc, ActivitySession? liveSession, ActivityEncounter? liveEncounter, CancellationToken cancellationToken,
-        ActivityCategories categories = ActivityCategories.All)
-        => sessionId is null ? Task.FromResult(ActivityLiveTimeline.Empty(null, scope, ActivityLiveTimeline.WindowEnd(endUtc)) with { Categories = categories }) :
-            GetLiveTimelineCoreAsync(new ActivityQuery { SessionId = sessionId, Scope = scope, ShowCategories = categories }, endUtc,
-                liveSession, liveEncounter, cancellationToken);
-
     private async Task<ActivityLiveTimelineSnapshot> GetLiveTimelineCoreAsync(ActivityQuery query,
         DateTime endUtc, ActivitySession? liveSession, ActivityEncounter? liveEncounter, CancellationToken cancellationToken,
         double windowSeconds = ActivityLiveTimeline.WindowSeconds)
@@ -290,11 +283,6 @@ public sealed partial class ActivityPersistence
             .SumAsync(x => Math.Max(1, (ActivityDatabaseFunctions.JulianDay(x.LastCombatAtUtc) -
                 ActivityDatabaseFunctions.JulianDay(x.StartedAtUtc)) * 86400), cancellationToken);
     }
-    private async Task<ActivityEvent?> GetEventCoreAsync(Guid id, CancellationToken cancellationToken = default)
-    {
-        await using var context = contextFactory();
-        return await context.ActivityEvents.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
-    }
     private async Task<ActivityPage<ActivityEncounter>> GetEncountersCoreAsync(Guid sessionId, int page = 0, CancellationToken cancellationToken = default)
     {
         await using var context = contextFactory();
@@ -422,24 +410,6 @@ public sealed partial class ActivityPersistence
                 NonLethalPlayerKills = g.Sum(x => x.NonLethalPlayerKills),
                 NonLethalDeaths = g.Sum(x => x.NonLethalDeaths)
             }).SingleOrDefaultAsync(cancellationToken) ?? new();
-    }
-
-    private async Task<IReadOnlyList<ActivityChartPoint>> GetChartsCoreAsync(ActivityQuery filter, ActivityChartMetric metric, CancellationToken cancellationToken = default)
-    {
-        await using var context = contextFactory();
-        var query = FilterEvents(context, filter).Where(x => x.Kind != ActivityEventKind.LegacyGatheringAggregate);
-        var range = await query.GroupBy(_ => 1).Select(g => new { Start = g.Min(x => x.CapturedAtUtc), End = g.Max(x => x.CapturedAtUtc) })
-            .SingleOrDefaultAsync(cancellationToken);
-        if (range is null) return [];
-        var seconds = Math.Max(1, (int)Math.Ceiling(((range.End - range.Start).TotalSeconds + 1) / 600));
-        var expression = ActivityProjection.ChartExpression(filter.Scope, filter.ActorKey, metric);
-        var rows = await query.GroupBy(x => (long)Math.Max(0, (ActivityDatabaseFunctions.JulianDay(x.CapturedAtUtc) -
-                ActivityDatabaseFunctions.JulianDay(range.Start)) * 86400 / seconds))
-            .Select(g => new { Bucket = g.Key, Value = g.AsQueryable().Select(expression).Sum() }).OrderBy(x => x.Bucket)
-            .Take(600).ToListAsync(cancellationToken);
-        var values = rows.ToDictionary(x => x.Bucket, x => x.Value);
-        var count = Math.Min(600, (int)Math.Floor((range.End - range.Start).TotalSeconds / seconds) + 1);
-        return Enumerable.Range(0, count).Select(i => new ActivityChartPoint(range.Start.AddSeconds((long)i * seconds), values.GetValueOrDefault(i))).ToArray();
     }
 
     private async Task<IReadOnlyList<ActivityActorTotal>> GetPlayersCoreAsync(ActivityQuery filter, CancellationToken cancellationToken = default)
@@ -583,9 +553,6 @@ public sealed partial class ActivityPersistence
             .ToDictionary(g => g.Key, g => (IReadOnlyList<string>)g.Select(x => x.Name.Trim())
                 .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToArray());
     }
-
-    public Task<ActivityPage<ActivityEvent>> GetItemsAsync(ActivityQuery filter, int page = 0, CancellationToken cancellationToken = default) =>
-        GetEventsAsync(filter with { ItemsOnly = true, LootOnly = false }, page, cancellationToken);
 
     private async Task<IReadOnlyList<ActivityResourceTotal>> GetResourceTotalsCoreAsync(ActivityQuery filter, CancellationToken cancellationToken = default)
     {

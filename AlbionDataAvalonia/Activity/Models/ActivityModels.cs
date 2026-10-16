@@ -267,7 +267,6 @@ public enum ActivityChartMetric
     GatheringItems, FishingItems, ResourceItems, ResourceValue,
     CombatFame, PveFame, GatheringFame, FishingFame, PvpFame, ResourceFame, UnclassifiedFame
 }
-public sealed record ActivityChartPoint(DateTime CapturedAtUtc, double Value);
 public sealed record ActivityActorTotal(string ActorId, string Name, ActorRelationship Relationship,
     double DamageDealt, double DamageReceived, double HealingDone, double HealingReceived,
     double Fame = 0, long SilverRaw = 0, long LootItems = 0, long LootValue = 0,

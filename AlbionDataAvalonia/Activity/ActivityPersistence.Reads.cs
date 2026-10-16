@@ -42,18 +42,12 @@ public sealed partial class ActivityPersistence
         finally { readGate.Release(); }
     }
 
-    internal Task<ActivityLiveTimelineSnapshot> GetLiveTimelineAsync(Guid? sessionId, ActivityScope scope,
-        DateTime endUtc, ActivitySession? liveSession, ActivityEncounter? liveEncounter, CancellationToken cancellationToken,
-        ActivityCategories categories = ActivityCategories.All) =>
-        ReadAsync(ct => GetLiveTimelineCoreAsync(sessionId, scope, endUtc, liveSession, liveEncounter, ct, categories), cancellationToken);
     public Task<ActivitySession?> GetSessionAsync(Guid id, CancellationToken cancellationToken = default) =>
         ReadAsync(ct => GetSessionCoreAsync(id, ct), cancellationToken);
     public Task<ActivityEncounter?> GetEncounterAsync(Guid id, CancellationToken cancellationToken = default) =>
         ReadAsync(ct => GetEncounterCoreAsync(id, ct), cancellationToken);
     public Task<double> GetCombatDurationSecondsAsync(ActivityQuery filter, CancellationToken cancellationToken = default) =>
         ReadAsync(ct => GetCombatDurationSecondsCoreAsync(filter, ct), cancellationToken);
-    public Task<ActivityEvent?> GetEventAsync(Guid id, CancellationToken cancellationToken = default) =>
-        ReadAsync(ct => GetEventCoreAsync(id, ct), cancellationToken);
     public Task<ActivityPage<ActivityEncounter>> GetEncountersAsync(Guid sessionId, int page = 0, CancellationToken cancellationToken = default) =>
         ReadAsync(ct => GetEncountersCoreAsync(sessionId, page, ct), cancellationToken);
     public Task<ActivityPage<ActivityEncounter>> GetPlaySessionEncountersAsync(Guid playSessionId, int page = 0, CancellationToken cancellationToken = default) =>
@@ -64,8 +58,6 @@ public sealed partial class ActivityPersistence
         ReadAsync(ct => GetEventsCoreAsync(filter, 0, ct, (int)Math.Min(int.MaxValue, Math.Max(0L, lastPage) + 1)), cancellationToken);
     public Task<ActivitySummary> GetSummaryAsync(ActivityQuery filter, CancellationToken cancellationToken = default) =>
         ReadAsync(ct => GetSummaryCoreAsync(filter, ct), cancellationToken);
-    public Task<IReadOnlyList<ActivityChartPoint>> GetChartsAsync(ActivityQuery filter, ActivityChartMetric metric, CancellationToken cancellationToken = default) =>
-        ReadAsync(ct => GetChartsCoreAsync(filter, metric, ct), cancellationToken);
     public Task<ActivityLiveTimelineSnapshot> GetTimelineAsync(ActivityQuery query, DateTime fromUtc, DateTime toUtc,
         CancellationToken cancellationToken = default)
     {

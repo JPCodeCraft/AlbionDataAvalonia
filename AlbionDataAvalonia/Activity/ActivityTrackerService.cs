@@ -108,18 +108,6 @@ public sealed partial class ActivityTrackerService : IDisposable
     public bool IsRecordingEnabled { get { lock (sync) return enabled; } }
     public bool IsAwaitingContext { get { lock (sync) return awaitingContext; } }
     public bool IsCaptureSuspended { get { lock (sync) return captureSuspended; } }
-    public Task<ActivityLiveTimelineSnapshot> GetLiveTimelineAsync(Guid? sessionId, ActivityScope scope, DateTime endUtc,
-        CancellationToken cancellationToken = default, ActivityCategories categories = ActivityCategories.All)
-    {
-        ActivitySession? liveSession;
-        ActivityEncounter? liveEncounter;
-        lock (sync)
-        {
-            liveSession = session?.Id == sessionId ? session : null;
-            liveEncounter = encounter?.SessionId == sessionId ? encounter : null;
-        }
-        return persistence.GetLiveTimelineAsync(sessionId, scope, endUtc, liveSession, liveEncounter, cancellationToken, categories);
-    }
     public string StatusText
     {
         get
