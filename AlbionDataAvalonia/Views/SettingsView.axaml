@@ -250,8 +250,6 @@
                     </StackPanel>
                     <CheckBox Content="Show party totals instead of personal"
                               IsChecked="{Binding UserSettings.StreamerPartyTotals}" />
-                    <CheckBox Content="Keep the streamer window on top"
-                              IsChecked="{Binding UserSettings.StreamerAlwaysOnTop}" />
                     <CheckBox Content="Green background for chroma key"
                               IsChecked="{Binding UserSettings.StreamerChromaKey}" />
                     <Button Classes="UiAction" Content="{Binding StreamerWindowButtonText}" Command="{Binding ToggleStreamerWindowCommand}"

@@ -7,7 +7,6 @@
         Title="AFM Streamer" Icon="/Assets/logo.ico"
         Width="380" MinWidth="300" SizeToContent="Height" CanResize="True"
         WindowStartupLocation="CenterScreen"
-        Topmost="{Binding Settings.StreamerAlwaysOnTop}"
         Background="{Binding WindowBackground}">
     <Window.Styles>
         <Style Selector="Border.StreamerCard">

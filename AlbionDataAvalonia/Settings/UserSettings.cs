@@ -290,9 +290,6 @@ public class UserSettings : INotifyPropertyChanged
     private bool streamerPartyTotals;
     public bool StreamerPartyTotals { get => streamerPartyTotals; set => SetStreamerOption(ref streamerPartyTotals, value, nameof(StreamerPartyTotals)); }
 
-    private bool streamerAlwaysOnTop;
-    public bool StreamerAlwaysOnTop { get => streamerAlwaysOnTop; set => SetStreamerOption(ref streamerAlwaysOnTop, value, nameof(StreamerAlwaysOnTop)); }
-
     private bool streamerChromaKey;
     public bool StreamerChromaKey { get => streamerChromaKey; set => SetStreamerOption(ref streamerChromaKey, value, nameof(StreamerChromaKey)); }
 
