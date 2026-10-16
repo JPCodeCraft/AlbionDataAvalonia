@@ -89,6 +89,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     [ObservableProperty] private ObservableCollection<ActivitySessionRow> sessions = new();
     [ObservableProperty] private ObservableCollection<ActivityEncounterRow> encounters = new();
     [ObservableProperty] private ObservableCollection<ActivityPlayerRow> players = new();
+    [ObservableProperty] private ActivityPlayerColumns playerColumns = ActivityPlayerColumns.None;
     [ObservableProperty] private ObservableCollection<ActivityMobRow> mobs = new();
     [ObservableProperty] private ObservableCollection<ActivityLootRow> sessionLoot = new();
     [ObservableProperty] private ObservableCollection<ActivityLootRow> globalLoot = new();
@@ -116,7 +117,6 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         : IsImportedDetail ? $"Duration: {SelectedSession?.DurationText}" : SelectedEncounter is { } encounter ? $"Combat time: {encounter.DurationText}"
         : $"Session time: {SelectedSession?.DurationText ?? "0:00"} · Combat time: {ActivityDisplay.Duration(DetailSummary.Rates.CombatDurationSeconds)}";
     public string DetailScopeText => $"{SelectedPlayer?.Name ?? ""}{(SelectedSession?.Source.IsPartial == true ? $"{(SelectedPlayer is null ? "" : " · ")}Incomplete recording" : "")}";
-    public string DetailEarningsText => SelectedEncounter is not null ? "Items picked up while this encounter was open" : "";
     public string HistoryCountText => $"{Sessions.Count:N0} sessions";
     public string LootCountText => $"{GlobalLoot.Count:N0} pickups";
     public string GlobalLootTotalsText => string.Join(" · ", new[]
@@ -480,6 +480,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
             applyingSelection = true;
             try
             {
+                PlayerColumns = ActivityPlayerColumns.From(totals);
                 Players = new(totals.Select(total => new ActivityPlayerRow(total)));
                 SelectedPlayer = actorId is null ? null : Players.FirstOrDefault(player => player.ActorId == actorId);
             }
@@ -724,7 +725,6 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(ShowSessionLootPanel));
         OnPropertyChanged(nameof(DetailDurationText));
         OnPropertyChanged(nameof(DetailScopeText));
-        OnPropertyChanged(nameof(DetailEarningsText));
         OnPropertyChanged(nameof(ChartDescription));
         OnPropertyChanged(nameof(DetailTagsText));
         OnPropertyChanged(nameof(IsImportedDetail));

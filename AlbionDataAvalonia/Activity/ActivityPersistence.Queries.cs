@@ -511,6 +511,45 @@ public sealed partial class ActivityPersistence
             .Select(g => new ActivityActorTotal(g.Key.ActorId, g.Key.Name, g.Key.Relationship,
                 g.Sum(x => x.DamageDealt), g.Sum(x => x.DamageReceived), g.Sum(x => x.HealingDone), g.Sum(x => x.HealingReceived)))
             .OrderByDescending(x => x.DamageDealt + x.HealingDone).Take(250).ToList();
+        // Earnings use the same evidence rules as the session totals.
+        var earnings = await FilterEvents(context, filter).Where(x => x.SourceActorId != null && x.SourceKind == ActivityActorKind.Player &&
+                (all || x.SourceRelationship == ActorRelationship.Self || (party && x.SourceRelationship == ActorRelationship.Party)) &&
+                (x.Kind == ActivityEventKind.Fame || x.Kind == ActivityEventKind.Silver || x.Kind == ActivityEventKind.Loot ||
+                    x.Kind == ActivityEventKind.Gathered || x.Kind == ActivityEventKind.FishingReward))
+            .GroupBy(x => new { x.SourceActorId, x.SourceName, x.SourceRelationship })
+            .Select(g => new
+            {
+                ActorId = g.Key.SourceActorId!,
+                Name = g.Key.SourceName,
+                Relationship = g.Key.SourceRelationship,
+                Fame = g.Sum(x => x.Kind == ActivityEventKind.Fame && x.Evidence != ActivityEvidence.Supplemental ? x.Amount : 0),
+                SilverRaw = g.Sum(x => x.Kind == ActivityEventKind.Silver && x.Evidence == ActivityEvidence.Confirmed && x.HasKnownNetSilver ? x.SilverRaw : 0),
+                LootItems = g.Sum(x => x.Kind == ActivityEventKind.Loot && x.Evidence == ActivityEvidence.Confirmed ? x.Quantity : 0),
+                LootValue = g.Sum(x => x.Kind == ActivityEventKind.Loot && x.Evidence == ActivityEvidence.Confirmed && x.EstimatedUnitValue != null
+                    ? x.EstimatedUnitValue.Value * x.Quantity : 0),
+                GatheredItems = g.Sum(x => (x.Kind == ActivityEventKind.Gathered || x.Kind == ActivityEventKind.FishingReward) &&
+                    x.Evidence == ActivityEvidence.Confirmed ? x.Quantity : 0),
+                GatheredValue = g.Sum(x => (x.Kind == ActivityEventKind.Gathered || x.Kind == ActivityEventKind.FishingReward) &&
+                    x.Evidence == ActivityEvidence.Confirmed && x.EstimatedUnitValue != null ? x.EstimatedUnitValue.Value * x.Quantity : 0)
+            }).Take(250).ToListAsync(cancellationToken);
+        var deaths = await FilterEvents(context, filter).Where(x => x.Kind == ActivityEventKind.Death && x.Evidence == ActivityEvidence.Confirmed &&
+                x.TargetActorId != null && x.TargetKind == ActivityActorKind.Player &&
+                (all || x.TargetRelationship == ActorRelationship.Self || (party && x.TargetRelationship == ActorRelationship.Party)))
+            .GroupBy(x => new { x.TargetActorId, x.TargetName, x.TargetRelationship })
+            .Select(g => new { ActorId = g.Key.TargetActorId!, Name = g.Key.TargetName, Relationship = g.Key.TargetRelationship, Count = g.LongCount() })
+            .Take(250).ToListAsync(cancellationToken);
+        foreach (var value in earnings)
+            Merge(value.ActorId, value.Name, value.Relationship, total => total with
+            {
+                Fame = total.Fame + value.Fame,
+                SilverRaw = total.SilverRaw + value.SilverRaw,
+                LootItems = total.LootItems + value.LootItems,
+                LootValue = total.LootValue + value.LootValue,
+                GatheredItems = total.GatheredItems + value.GatheredItems,
+                GatheredValue = total.GatheredValue + value.GatheredValue
+            });
+        foreach (var value in deaths)
+            Merge(value.ActorId, value.Name, value.Relationship, total => total with { Deaths = total.Deaths + value.Count });
         // You and party members stay listed without combat, e.g. a member who only looted or
         // joined. Membership comes from any recorded event, independent of the totals scope.
         var membershipFilter = filter with { Scope = ActivityScope.AllObserved, ShowCategories = ActivityCategories.All, ActorKey = null };
@@ -529,6 +568,15 @@ public sealed partial class ActivityPersistence
             if (listed.Add(member.Name) && totals.Count < 250)
                 totals.Add(new ActivityActorTotal(member.ActorId, member.Name, member.Relationship, 0, 0, 0, 0));
         return totals;
+
+        // A pickup resolved by name may use another actor key than the same player's combat rows.
+        void Merge(string actorId, string name, ActorRelationship relationship, Func<ActivityActorTotal, ActivityActorTotal> add)
+        {
+            var index = totals.FindIndex(x => x.ActorId == actorId);
+            if (index < 0) index = totals.FindIndex(x => string.Equals(x.Name, name, StringComparison.OrdinalIgnoreCase));
+            if (index >= 0) totals[index] = add(totals[index]);
+            else if (totals.Count < 250) totals.Add(add(new ActivityActorTotal(actorId, name, relationship, 0, 0, 0, 0)));
+        }
     }
 
     private async Task<IReadOnlyList<ActivityEvent>> GetPartyEventsCoreAsync(Guid sessionId, CancellationToken cancellationToken = default)

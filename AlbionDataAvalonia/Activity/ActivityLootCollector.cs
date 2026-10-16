@@ -553,7 +553,8 @@ internal sealed partial class ActivityLootCollector : IDisposable
         var objectId = item?.ObjectId;
         // A stack reserved for another member has no object; the ledger still knows its quality.
         if (item is null && partyChests.IsReserved(sourceId, itemId))
-            item = new Item(0, itemId, partyChests.Quality(sourceId, itemId), quantity, null, null, at, at);
+            item = new Item(0, itemId, partyChests.Quality(sourceId, itemId), quantity, null, null, at, at,
+                GameValue: partyChests.UnitValue(sourceId, itemId));
         if (recipient is not null)
             RecordAttributed(recipient, sourceId, itemId, quantity, item, objectId, at, origin, "PartyLootTypeRemoval");
         else AmbiguousRemoval(sourceId, itemId, quantity, at, origin, objectId, item);
@@ -869,6 +870,8 @@ internal sealed partial class ActivityLootCollector : IDisposable
         var priceObservedAt = changedBasis ? null : observation.PriceObservedAtUtc;
         if (price is null && int.TryParse(observation.Server, out var server))
             price = ActivityItemValuationService.LootEstimate(values, server, item.Id, quality, item.BlackMarketEmv, item.Emv);
+        // The game's own estimate for a reserved party stack is used only without a market price.
+        if (price is null && item.GameValue is > 0) price = item.GameValue;
         var enriched = observation with
         {
             ItemId = item.Id,
@@ -1043,7 +1046,8 @@ internal sealed partial class ActivityLootCollector : IDisposable
     public void Dispose() => values.EstimatedMarketValuesChanged -= PricesChanged;
 
     private sealed record Item(long ObjectId, int Id, int? Quality, long Quantity, string? UniqueName, string? Name,
-        DateTime LastSeen, DateTime QuantitySeenAt, bool ValidAcquisitionQuantity = false, long? Emv = null, long? BlackMarketEmv = null);
+        DateTime LastSeen, DateTime QuantitySeenAt, bool ValidAcquisitionQuantity = false, long? Emv = null, long? BlackMarketEmv = null,
+        long? GameValue = null);
     private readonly record struct PendingInventoryItemKey(string Connection, Guid? ReceiverGeneration, short? PeerId,
         int? Challenge, long ObjectId);
     private sealed record Source(long Id, string Name, string Kind, DateTime LastSeen);

@@ -64,9 +64,33 @@ public partial class ActivityView : UserControl
         if (activeViewModel != DataContext)
         {
             activeViewModel?.SetActive(false);
+            if (activeViewModel is not null) activeViewModel.PropertyChanged -= ViewModelPropertyChanged;
             activeViewModel = DataContext as ActivityViewModel;
+            if (activeViewModel is not null) activeViewModel.PropertyChanged += ViewModelPropertyChanged;
+            ApplyPlayerColumns();
         }
         activeViewModel?.SetActive(isAttached);
+    }
+
+    private void ViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+    {
+        if (args.PropertyName == nameof(ActivityViewModel.PlayerColumns)) ApplyPlayerColumns();
+    }
+
+    // DataGrid columns are outside the visual tree, so their visibility follows the model here.
+    private void ApplyPlayerColumns()
+    {
+        var columns = activeViewModel?.PlayerColumns ?? ActivityPlayerColumns.None;
+        foreach (var column in HistoryPlayersTable.Columns)
+            column.IsVisible = column.Tag switch
+            {
+                "Fame" => columns.Fame,
+                "Silver" => columns.Silver,
+                "Loot" => columns.Loot,
+                "Gathered" => columns.Gathered,
+                "Deaths" => columns.Deaths,
+                _ => column.IsVisible
+            };
     }
 
     private void ExportSessionLoot_Click(object? sender, RoutedEventArgs args)

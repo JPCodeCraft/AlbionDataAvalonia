@@ -6,7 +6,7 @@ using System.Linq;
 namespace AlbionDataAvalonia.Activity;
 
 internal sealed record ActivityReservedPickup(long SourceId, int ItemId, int? Quality, long Amount,
-    IReadOnlyCollection<Guid> Owners, string Proof);
+    IReadOnlyCollection<Guid> Owners, string Proof, long? UnitValue = null);
 
 // Party chests reserve each member's loot until the chest turns public. Other members'
 // reserved stacks arrive only as item types and amounts, and their removals are only sent
@@ -26,8 +26,9 @@ internal sealed class ActivityPartyChestLedger
             var amount = index < party.Amounts.Count ? party.Amounts[index] : 0;
             if (party.ItemIds[index] <= 0 || amount <= 0) continue;
             var quality = index < party.Qualities.Count && party.Qualities[index] > 0 ? party.Qualities[index] : (int?)null;
+            var unitValue = index < party.UnitValues.Count && party.UnitValues[index] > 0 ? party.UnitValues[index] : (long?)null;
             listed[party.ItemIds[index]] = listed.TryGetValue(party.ItemIds[index], out var stack)
-                ? stack with { Amount = stack.Amount + amount } : new Stack(amount, quality);
+                ? stack with { Amount = stack.Amount + amount, UnitValue = stack.UnitValue ?? unitValue } : new Stack(amount, quality, unitValue);
         }
         var chest = ChestFor(party.SourceObjectId, at);
         var taken = Array.Empty<ActivityReservedPickup>();
@@ -35,7 +36,7 @@ internal sealed class ActivityPartyChestLedger
         if (!chest.Viewing && !chest.IsPublic && chest.Reserved.Count > 0)
             taken = chest.Reserved.Select(x => new ActivityReservedPickup(party.SourceObjectId, x.Key, x.Value.Quality,
                     x.Value.Amount - (listed.TryGetValue(x.Key, out var still) ? still.Amount : 0), chest.ClosedWith.ToArray(),
-                    "PartyLootMissingOnReopen"))
+                    "PartyLootMissingOnReopen", x.Value.UnitValue))
                 .Where(x => x.Amount > 0).ToArray();
         chest.Reserved = listed;
         chest.Viewing = true;
@@ -81,7 +82,7 @@ internal sealed class ActivityPartyChestLedger
             {
                 var owners = (chest.Finished.Count > 0 ? chest.Finished : chest.ClosedWith).ToArray();
                 taken = chest.Reserved.Select(x => new ActivityReservedPickup(updated.ObjectId, x.Key, x.Value.Quality, x.Value.Amount,
-                    owners, "PartyLootTakenWhileClosed")).ToArray();
+                    owners, "PartyLootTakenWhileClosed", x.Value.UnitValue)).ToArray();
                 chest.Reserved.Clear();
             }
         }
@@ -91,6 +92,9 @@ internal sealed class ActivityPartyChestLedger
 
     public int? Quality(long sourceId, int itemId) =>
         chests.TryGetValue(sourceId, out var chest) && chest.Reserved.TryGetValue(itemId, out var stack) ? stack.Quality : null;
+
+    public long? UnitValue(long sourceId, int itemId) =>
+        chests.TryGetValue(sourceId, out var chest) && chest.Reserved.TryGetValue(itemId, out var stack) ? stack.UnitValue : null;
 
     public bool IsReserved(long sourceId, int itemId) =>
         chests.TryGetValue(sourceId, out var chest) && chest.Reserved.ContainsKey(itemId);
@@ -113,7 +117,8 @@ internal sealed class ActivityPartyChestLedger
         return chest;
     }
 
-    private sealed record Stack(long Amount, int? Quality);
+    // UnitValue is the game's estimate of one item, used only when no market price is known.
+    private sealed record Stack(long Amount, int? Quality, long? UnitValue = null);
 
     private sealed class Chest
     {

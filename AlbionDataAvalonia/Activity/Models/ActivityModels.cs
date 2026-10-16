@@ -246,7 +246,9 @@ public enum ActivityChartMetric
 }
 public sealed record ActivityChartPoint(DateTime CapturedAtUtc, double Value);
 public sealed record ActivityActorTotal(string ActorId, string Name, ActorRelationship Relationship,
-    double DamageDealt, double DamageReceived, double HealingDone, double HealingReceived);
+    double DamageDealt, double DamageReceived, double HealingDone, double HealingReceived,
+    double Fame = 0, long SilverRaw = 0, long LootItems = 0, long LootValue = 0,
+    long GatheredItems = 0, long GatheredValue = 0, long Deaths = 0);
 public sealed record ActivityMobTotal(string MobId, string Name, long Kills, long InferredKills = 0);
 public sealed record ActivityRecordingStatus(bool IsSuspended, int PendingChanges, string? Error);
 // LootBasis prices value loot only; quality 0 then fills loot whose quality is unknown.

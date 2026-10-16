@@ -223,6 +223,26 @@ public sealed class ActivityPlayerRow(ActivityActorTotal source)
     public string DamageReceived => ActivityDisplay.Number(Source.DamageReceived);
     public string HealingDone => ActivityDisplay.Number(Source.HealingDone);
     public string HealingReceived => ActivityDisplay.Number(Source.HealingReceived);
+    // Earnings stay blank when nothing was recorded; the game reports fame only for you.
+    public string Fame => Source.Fame > 0 ? ActivityDisplay.Number(Source.Fame) : "";
+    public string Silver => Source.SilverRaw > 0 ? ActivityDisplay.Number(Source.SilverRaw / 10000d) : "";
+    public string Loot => ItemsText(Source.LootItems, Source.LootValue);
+    public string Gathered => ItemsText(Source.GatheredItems, Source.GatheredValue);
+    public string Deaths => Source.Deaths > 0 ? Source.Deaths.ToString("N0", CultureInfo.CurrentCulture) : "";
+    private static string ItemsText(long items, long value) => items <= 0 ? ""
+        : $"{(value > 0 ? ActivityDisplay.Number(value) : "–")} ({items.ToString("N0", CultureInfo.CurrentCulture)})";
+}
+
+// Players-table columns with at least one recorded value.
+public sealed record ActivityPlayerColumns(bool Fame, bool Silver, bool Loot, bool Gathered, bool Deaths)
+{
+    public static readonly ActivityPlayerColumns None = new(false, false, false, false, false);
+    public static ActivityPlayerColumns From(IEnumerable<ActivityActorTotal> totals)
+    {
+        var rows = totals.ToArray();
+        return new(rows.Any(x => x.Fame > 0), rows.Any(x => x.SilverRaw > 0), rows.Any(x => x.LootItems > 0),
+            rows.Any(x => x.GatheredItems > 0), rows.Any(x => x.Deaths > 0));
+    }
 }
 
 public sealed class ActivityMobRow(ActivityMobTotal source)
