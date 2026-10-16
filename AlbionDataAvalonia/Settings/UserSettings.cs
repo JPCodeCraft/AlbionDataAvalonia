@@ -308,6 +308,21 @@ public class UserSettings : INotifyPropertyChanged
         }
     }
 
+    // 0 small (headline numbers only), 1 medium, 2 large (with breakdowns).
+    private int streamerSizeIndex = 1;
+    public int StreamerSizeIndex
+    {
+        get => streamerSizeIndex;
+        set
+        {
+            var clamped = Math.Clamp(value, 0, 2);
+            if (streamerSizeIndex == clamped) return;
+            streamerSizeIndex = clamped;
+            OnPropertyChanged(nameof(StreamerSizeIndex));
+            Log.Information("Streamer size set to {StreamerSizeIndex}", streamerSizeIndex);
+        }
+    }
+
     private void SetStreamerOption(ref bool field, bool value, string propertyName)
     {
         if (field == value) return;

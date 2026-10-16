@@ -19,13 +19,20 @@ public partial class ActivityStreamerWindow : Window
         base.OnDataContextChanged(e);
         if (viewModel is not null) viewModel.PropertyChanged -= ViewModelPropertyChanged;
         viewModel = DataContext as ActivityStreamerViewModel;
-        if (viewModel is not null) viewModel.PropertyChanged += ViewModelPropertyChanged;
+        if (viewModel is null) return;
+        viewModel.PropertyChanged += ViewModelPropertyChanged;
+        Width = viewModel.WindowWidth;
     }
 
-    // Resizing by hand turns off automatic height; showing or hiding a section fits it again.
+    // Resizing by hand turns off automatic height; changing the size or a section fits the window again.
     private void ViewModelPropertyChanged(object? sender, PropertyChangedEventArgs args)
     {
-        if (args.PropertyName is nameof(ActivityStreamerViewModel.HasSession) or nameof(ActivityStreamerViewModel.ShowChart)
+        if (args.PropertyName == nameof(ActivityStreamerViewModel.WindowWidth) && viewModel is not null)
+        {
+            Width = viewModel.WindowWidth;
+            SizeToContent = SizeToContent.Height;
+        }
+        else if (args.PropertyName is nameof(ActivityStreamerViewModel.HasSession) or nameof(ActivityStreamerViewModel.ShowChart)
             or nameof(ActivityStreamerViewModel.ShowNothingSelected))
             SizeToContent = SizeToContent.Height;
     }

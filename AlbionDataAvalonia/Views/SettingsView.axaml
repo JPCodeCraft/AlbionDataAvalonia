@@ -234,6 +234,16 @@
                     <TextBlock Text="Streamer window" FontSize="16" FontWeight="DemiBold" Margin="0,8,0,0" />
                     <TextBlock Text="A compact window with the current session. Capture it as a window source in your streaming app."
                                TextWrapping="Wrap" Opacity="0.65" />
+                    <StackPanel Orientation="Horizontal" Spacing="8">
+                        <TextBlock Text="Size" VerticalAlignment="Center" />
+                        <ComboBox SelectedIndex="{Binding UserSettings.StreamerSizeIndex}" Width="140">
+                            <ComboBoxItem Content="Small" />
+                            <ComboBoxItem Content="Medium" />
+                            <ComboBoxItem Content="Large" />
+                        </ComboBox>
+                    </StackPanel>
+                    <TextBlock Text="Small shows only the main numbers, without the chart. Large adds breakdowns and the session name."
+                               TextWrapping="Wrap" Opacity="0.65" />
                     <WrapPanel>
                         <CheckBox Content="Silver totals" IsChecked="{Binding UserSettings.StreamerShowSilver}" Margin="0,0,18,4" />
                         <CheckBox Content="Combat" IsChecked="{Binding UserSettings.StreamerShowCombat}" Margin="0,0,18,4" />

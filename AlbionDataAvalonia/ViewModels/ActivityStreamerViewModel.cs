@@ -34,6 +34,7 @@ public sealed partial class ActivityStreamerViewModel : ViewModelBase, IDisposab
     [ObservableProperty] private bool hasSession;
     [ObservableProperty] private string titleText = "Waiting for activity";
     [ObservableProperty] private string durationText = "";
+    [ObservableProperty] private string sessionTimeText = "Waiting for activity";
     [ObservableProperty] private ActivitySummaryPresentation summary = ActivitySummaryPresentation.Empty;
     [ObservableProperty] private ActivityLiveTimelineSnapshot? timeline;
 
@@ -44,7 +45,16 @@ public sealed partial class ActivityStreamerViewModel : ViewModelBase, IDisposab
     public string SilverBreakdownText => $"Silver {Summary.Silver} · Loot {Summary.LootValue} · Gathering {Summary.ResourceValueText}";
     public string KillsText => $"Mobs {Summary.MobKills} · PvP {Summary.PlayerKills}" +
         (string.IsNullOrEmpty(Summary.DeathsAndKnockdowns) ? "" : $" · {Summary.DeathsAndKnockdowns}");
-    public bool ShowChart => Settings.StreamerShowChart && HasSession;
+    // Small shows one card of headline numbers; large adds the session name and breakdown lines.
+    public bool IsSmall => Settings.StreamerSizeIndex == 0;
+    public bool IsLarge => Settings.StreamerSizeIndex == 2;
+    public bool ShowCards => !IsSmall;
+    public double WindowWidth => Settings.StreamerSizeIndex switch { 0 => 250, 1 => 330, _ => 380 };
+    public string SilverPerHourShortText => PerHourShort(Summary.Rates.SilverPerHour + Summary.Rates.LootValuePerHour + Summary.Rates.ResourceValuePerHour);
+    public string CombatFamePerHourShortText => PerHourShort(ActivityProjection.GetFameRate(Summary.Summary.CombatFame, Summary.Rates));
+    public string DpsShortText => Summary.IsImported ? "" : $"{Summary.Rates.DamagePerSecond:N0} DPS";
+    public string GatheredPerHourShortText => PerHourShort(Summary.Rates.ResourceValuePerHour);
+    public bool ShowChart => Settings.StreamerShowChart && HasSession && !IsSmall;
     public bool ShowNothingSelected => !Settings.StreamerShowSilver && !Settings.StreamerShowCombat &&
         !Settings.StreamerShowGathering && !Settings.StreamerShowChart;
 
@@ -71,7 +81,13 @@ public sealed partial class ActivityStreamerViewModel : ViewModelBase, IDisposab
     {
         OnPropertyChanged(nameof(SilverBreakdownText));
         OnPropertyChanged(nameof(KillsText));
+        OnPropertyChanged(nameof(SilverPerHourShortText));
+        OnPropertyChanged(nameof(CombatFamePerHourShortText));
+        OnPropertyChanged(nameof(DpsShortText));
+        OnPropertyChanged(nameof(GatheredPerHourShortText));
     }
+
+    private string PerHourShort(double rate) => Summary.HasRecordedDuration ? $"{ActivityDisplay.Number(rate)} / h" : "";
 
     partial void OnHasSessionChanged(bool value) => OnPropertyChanged(nameof(ShowChart));
 
@@ -89,9 +105,13 @@ public sealed partial class ActivityStreamerViewModel : ViewModelBase, IDisposab
             OnPropertyChanged(nameof(ScopeText));
             OnPropertyChanged(nameof(ShowChart));
             OnPropertyChanged(nameof(ShowNothingSelected));
-            if (name is nameof(UserSettings.StreamerPartyTotals) or nameof(UserSettings.StreamerShowChart))
+            OnPropertyChanged(nameof(IsSmall));
+            OnPropertyChanged(nameof(IsLarge));
+            OnPropertyChanged(nameof(ShowCards));
+            OnPropertyChanged(nameof(WindowWidth));
+            if (name is nameof(UserSettings.StreamerPartyTotals) or nameof(UserSettings.StreamerShowChart) or nameof(UserSettings.StreamerSizeIndex))
             {
-                if (!Settings.StreamerShowChart) Timeline = null;
+                if (!ShowChart) Timeline = null;
                 tickCount = 0;
                 _ = RefreshSafelyAsync();
             }
@@ -131,7 +151,7 @@ public sealed partial class ActivityStreamerViewModel : ViewModelBase, IDisposab
         if (context.Owner is not { } owner || context.Session is not { } live)
         {
             HasSession = false;
-            TitleText = tracker.IsAwaitingContext ? "Waiting for character" : "Waiting for activity";
+            TitleText = SessionTimeText = tracker.IsAwaitingContext ? "Waiting for character" : "Waiting for activity";
             DurationText = "";
             Summary = ActivitySummaryPresentation.Empty;
             Timeline = null;
@@ -161,11 +181,11 @@ public sealed partial class ActivityStreamerViewModel : ViewModelBase, IDisposab
         Summary = new(totals, ActivityProjection.GetRates(totals, current, combatSeconds, nowUtc), true);
         HasSession = true;
         TitleText = ActivityDisplay.SessionTitle(current);
-        DurationText = $"Session {ActivityDisplay.Duration(ActivityProjection.GetDurationSeconds(current, nowUtc))} · " +
-            $"Combat {ActivityDisplay.Duration(combatSeconds)}";
+        SessionTimeText = $"Session {ActivityDisplay.Duration(ActivityProjection.GetDurationSeconds(current, nowUtc))}";
+        DurationText = $"{SessionTimeText} · Combat {ActivityDisplay.Duration(combatSeconds)}";
 
         // The chart scrolls between reads, so it is read every other tick.
-        if (!Settings.StreamerShowChart || tickCount++ % 2 != 0) return;
+        if (!ShowChart || tickCount++ % 2 != 0) return;
         var timelineQuery = new ActivityQuery
         {
             SessionId = live.Id,
@@ -178,7 +198,7 @@ public sealed partial class ActivityStreamerViewModel : ViewModelBase, IDisposab
             ToUtc = nowUtc
         };
         var snapshot = await tracker.GetLiveTimelineAsync(timelineQuery, nowUtc, cancellationToken, ChartWindowSeconds);
-        if (isDisposed || tracker.CurrentSessionId != live.Id || !Settings.StreamerShowChart) return;
+        if (isDisposed || tracker.CurrentSessionId != live.Id || !ShowChart) return;
         Timeline = snapshot with { ContextKey = $"{snapshot.ContextKey}|streamer|{scope}" };
     }
 
