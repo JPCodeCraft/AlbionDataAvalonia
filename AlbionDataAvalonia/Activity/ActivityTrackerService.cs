@@ -696,6 +696,9 @@ public sealed partial class ActivityTrackerService : IDisposable
                 Participants = participation.Participants.Values.Take(40).ToArray()
             })
         }, mob));
+        if (!participation.Self && !participation.Party) return;
+        foreach (var award in fameCollector.ObserveMobKill(health.CapturedAtUtc))
+            if (!persistence.Amend(award)) { storageSuspended = true; fameCollector.Reset(); return; }
     }
 
     private void ResolvePendingTerminals(long objectId, DateTime at)
@@ -833,7 +836,7 @@ public sealed partial class ActivityTrackerService : IDisposable
                 Award = award
             })
         };
-        Persist(fameCollector.ObserveAward(packet, observation));
+        Persist(fameCollector.ObserveUnmatchedAward(packet, match, fameCollector.ObserveAward(packet, observation)));
     }
 
     internal ActivityEvent Stamp(ActivityEventKind kind, DateTime at, string? origin) => new()

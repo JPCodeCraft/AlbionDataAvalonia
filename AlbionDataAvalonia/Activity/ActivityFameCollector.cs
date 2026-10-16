@@ -8,7 +8,8 @@ using System.Linq;
 
 namespace AlbionDataAvalonia.Activity;
 
-internal sealed record ActivityFameMatch(ActivityFameCategory Category, IReadOnlyList<int> AchievementIndexes)
+// HasFameProgress: fame achievements moved with the award, whether or not they decided its category.
+internal sealed record ActivityFameMatch(ActivityFameCategory Category, IReadOnlyList<int> AchievementIndexes, bool HasFameProgress = false)
 {
     public static ActivityFameMatch Unknown { get; } = new(ActivityFameCategory.Unknown, []);
 }
@@ -17,7 +18,8 @@ internal sealed record ActivityFameMatch(ActivityFameCategory Category, IReadOnl
 internal sealed partial class ActivityFameCollector(AchievementsService achievements)
 {
     private static readonly TimeSpan MatchWindow = TimeSpan.FromMilliseconds(250);
-    private const int MaximumSequenceGap = 4;
+    // Each credited achievement takes two reliable messages before the award; spear and shield reach five.
+    private const int MaximumSequenceGap = 16;
     private const int MaximumPendingProgress = 64;
     private readonly List<ProgressObservation> pending = new();
 
@@ -46,17 +48,20 @@ internal sealed partial class ActivityFameCollector(AchievementsService achievem
         // One progression observation must never classify a later second award.
         pending.RemoveAll(x => x.ActorObjectId == actorObjectId && SameStream(x.Identity, identity) &&
             SequenceGap(x.Identity, identity) is > 0 and < 0x80000000);
+        var hasFameProgress = candidates.Any(x => achievements.GetAchievementInfoByIndex(x.AchievementIndex).MissionTypes
+            .Any(type => type.EndsWith("fame", StringComparison.OrdinalIgnoreCase)));
+        var unmatched = new ActivityFameMatch(ActivityFameCategory.Unknown, [], hasFameProgress);
         if (candidates.Any(x => achievements.GetAchievementInfoByIndex(x.AchievementIndex).MissionTypes
             .Any(type => type.EndsWith("fame", StringComparison.OrdinalIgnoreCase) &&
                 type.ToLowerInvariant() is not ("gatherfame" or "fishingfame" or "killmobfame"))))
-            return ActivityFameMatch.Unknown;
+            return unmatched;
         var categorized = candidates.Select(x => (Observation: x, Category: Classify(x.AchievementIndex)))
             .Where(x => x.Category != ActivityFameCategory.Unknown).ToArray();
         var categories = categorized.Select(x => x.Category).Distinct().ToArray();
-        if (categories.Length != 1) return ActivityFameMatch.Unknown;
+        if (categories.Length != 1) return unmatched;
         var category = categories[0];
-        if (packet.ComponentStates.GetValueOrDefault((byte)12) == PacketFieldState.Invalid) return ActivityFameMatch.Unknown;
-        return new(category, categorized.Select(x => x.Observation.AchievementIndex).Distinct().ToArray());
+        if (packet.ComponentStates.GetValueOrDefault((byte)12) == PacketFieldState.Invalid) return unmatched;
+        return new(category, categorized.Select(x => x.Observation.AchievementIndex).Distinct().ToArray(), true);
     }
 
     // The saved award includes Quick Learn's bonus, as the game reports it; shown fame leaves it out.
@@ -81,6 +86,8 @@ internal sealed partial class ActivityFameCollector(AchievementsService achievem
         pending.RemoveAll(x => at - x.CapturedAtUtc > MatchWindow);
         pendingAwards.RemoveAll(x => at - x.Value.CapturedAtUtc > MatchWindow);
         pendingKills.RemoveAll(x => at - x.CapturedAtUtc > MatchWindow);
+        killAwards.RemoveAll(x => at - x.CapturedAtUtc > MobKillWindow);
+        mobKills.RemoveAll(x => at - x > MobKillWindow);
     }
 
     public void Reset()
@@ -88,6 +95,8 @@ internal sealed partial class ActivityFameCollector(AchievementsService achievem
         pending.Clear();
         pendingAwards.Clear();
         pendingKills.Clear();
+        killAwards.Clear();
+        mobKills.Clear();
     }
 
     private static uint SequenceGap(PhotonMessageIdentity earlier, PhotonMessageIdentity later) =>

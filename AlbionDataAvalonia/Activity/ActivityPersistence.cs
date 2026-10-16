@@ -445,6 +445,7 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                 }
                 await RestoreKnownFameAwardsAsync(context, changes, cancellationToken);
                 await RestoreQuickLearnFameAsync(context, changes, cancellationToken);
+                await RestoreMobKillFameAsync(context, changes, cancellationToken);
                 await RecoverPlaySessionsAsync(context, changes, cancellationToken);
                 break;
         }

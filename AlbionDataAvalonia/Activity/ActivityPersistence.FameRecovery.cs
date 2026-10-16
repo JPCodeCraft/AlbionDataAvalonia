@@ -165,6 +165,42 @@ public sealed partial class ActivityPersistence
         catch (NotSupportedException) { return false; }
     }
 
+    private static async Task RestoreMobKillFameAsync(LocalContext context, CommittedChanges changes, CancellationToken cancellationToken)
+    {
+        // Kill fame the game reported without achievement progress was saved as unknown fame. A mob kill by
+        // you or your party within a second of a zone-fame award makes it PvE, as live tracking does.
+        var skipped = 0;
+        while (true)
+        {
+            var rows = await context.ActivityEvents.Where(x => !x.IsRetracted && x.Kind == ActivityEventKind.Fame &&
+                    x.Evidence == ActivityEvidence.Confirmed && x.SessionId != null &&
+                    (ActivityDatabaseFunctions.JsonLong(x.DetailsJson, "$.FameCategory") ?? 0) == (long)ActivityFameCategory.Unknown &&
+                    ActivityDatabaseFunctions.JsonLong(x.DetailsJson, "$.RawFixedPointComponents.3") > 0)
+                .OrderBy(x => x.CapturedAtUtc).ThenBy(x => x.Id).Skip(skipped).Take(250).ToListAsync(cancellationToken);
+            if (rows.Count == 0) return;
+            var sessions = new Dictionary<Guid, ActivitySession>();
+            var encounters = new Dictionary<Guid, ActivityEncounter>();
+            foreach (var observation in rows)
+            {
+                var from = observation.CapturedAtUtc - ActivityFameCollector.MobKillWindow;
+                var to = observation.CapturedAtUtc + ActivityFameCollector.MobKillWindow;
+                var killed = await context.ActivityEvents.AnyAsync(x => !x.IsRetracted && x.Kind == ActivityEventKind.MobKilled &&
+                    x.SessionId == observation.SessionId && (x.ParticipatedSelf || x.ParticipatedParty) &&
+                    x.CapturedAtUtc >= from && x.CapturedAtUtc <= to, cancellationToken);
+                var replacement = killed ? ActivityFameCollector.ClassifyPve(observation, amendment: true) : observation;
+                if (replacement == observation) { skipped++; continue; }
+                Validate(replacement);
+                await ValidateGroupingAsync(context, replacement, cancellationToken);
+                await ApplyContributionAsync(context, observation, -1, sessions, encounters, cancellationToken);
+                await ApplyContributionAsync(context, replacement, 1, sessions, encounters, cancellationToken);
+                context.Entry(observation).CurrentValues.SetValues(replacement);
+            }
+            changes.Include(context);
+            await context.SaveChangesAsync(cancellationToken);
+            context.ChangeTracker.Clear();
+        }
+    }
+
     private static bool SameAward(double a, double b) => double.IsFinite(a) && double.IsFinite(b) &&
         Math.Abs(a - b) <= Math.Max(1, Math.Max(Math.Abs(a), Math.Abs(b))) * 1e-10;
 
