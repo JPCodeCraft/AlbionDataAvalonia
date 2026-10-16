@@ -80,8 +80,7 @@ public sealed partial class ActivityPersistence
     {
         lock (acceptedSync)
         {
-            var accepted = acceptedWrites.Select(x => x is EventCommand mutation
-                ? mutation with { Value = RedirectMergedEvent(mutation.Value) } : x).ToArray();
+            var accepted = acceptedWrites.ToArray();
             var eventTombstones = accepted.OfType<EventCommand>().Select(command => command.Value.Id)
                 .Where(deletedEvents.Contains).Distinct().ToArray();
             return new(accepted, deletedSessions.ToArray(), CurrentReadVersion, eventTombstones);

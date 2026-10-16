@@ -295,52 +295,6 @@ public sealed partial class ActivityPersistence
         await using var context = contextFactory();
         return await context.ActivityEvents.AsNoTracking().SingleOrDefaultAsync(x => x.Id == id, cancellationToken);
     }
-    private async Task<ActivityPage<ActivitySession>> GetSessionsCoreAsync(ActivityQuery filter, int page = 0, CancellationToken cancellationToken = default)
-    {
-        await using var context = contextFactory();
-        var rows = await FilterSessions(context, filter).OrderByDescending(x => x.StartedAtUtc).ThenBy(x => x.Id)
-            .Skip(Math.Max(0, page) * 100).Take(101).ToListAsync(cancellationToken);
-        return new(rows.Take(100).ToArray(), rows.Count > 100);
-    }
-
-    private async Task<IReadOnlyList<ActivitySession>> GetSessionsByIdsCoreAsync(ActivityQuery filter, Guid[] ids, CancellationToken cancellationToken)
-    {
-        await using var context = contextFactory();
-        return await FilterSessions(context, filter).Where(x => ids.Contains(x.Id)).ToArrayAsync(cancellationToken);
-    }
-
-    private static IQueryable<ActivitySession> FilterSessions(LocalContext context, ActivityQuery filter)
-    {
-        var query = context.ActivitySessions.AsNoTracking().AsQueryable();
-        if (filter.PlaySessionId is { } playSessionId) query = query.Where(x => x.PlaySessionId == playSessionId);
-        if (filter.SessionId is { } id) query = query.Where(x => x.Id == id);
-        if (filter.FromUtc is { } from) query = query.Where(x => x.StartedAtUtc >= from);
-        if (filter.ToUtc is { } to) query = query.Where(x => x.StartedAtUtc < to);
-        if (!string.IsNullOrWhiteSpace(filter.Server)) query = query.Where(x => x.Server == filter.Server);
-        if (!string.IsNullOrWhiteSpace(filter.CharacterId)) query = query.Where(x => x.CharacterId == filter.CharacterId);
-        if (!string.IsNullOrWhiteSpace(filter.CharacterName)) query = filter.MatchCharacterNameExactly
-            ? query.Where(x => x.CharacterName == filter.CharacterName)
-            : query.Where(x => x.CharacterName.Contains(filter.CharacterName));
-        if (!string.IsNullOrWhiteSpace(filter.Location)) query = query.Where(x => x.LocationName.Contains(filter.Location) || x.RootMapId.Contains(filter.Location));
-        if (filter.SessionKind is { } kind) query = query.Where(x => x.Kind == kind);
-        if ((filter.ContainsTags & ActivityTags.Gathering) != 0)
-        {
-            var evidence = context.ActivityEvents.Where(ActivityClassification.GatheringExpression(filter.Scope));
-            query = query.Where(s => evidence.Any(e => e.SessionId == s.Id));
-        }
-        if ((filter.ContainsTags & ActivityTags.Pve) != 0)
-        {
-            var evidence = context.ActivityEvents.Where(ActivityClassification.PveExpression(filter.Scope));
-            query = query.Where(s => evidence.Any(e => e.SessionId == s.Id));
-        }
-        if ((filter.ContainsTags & ActivityTags.Pvp) != 0)
-        {
-            var evidence = context.ActivityEvents.Where(ActivityClassification.PvpExpression(filter.Scope));
-            query = query.Where(s => evidence.Any(e => e.SessionId == s.Id));
-        }
-        if (!string.IsNullOrWhiteSpace(filter.Search)) query = query.Where(x => x.Title.Contains(filter.Search) || x.CharacterName.Contains(filter.Search));
-        return query;
-    }
     private async Task<ActivityPage<ActivityEncounter>> GetEncountersCoreAsync(Guid sessionId, int page = 0, CancellationToken cancellationToken = default)
     {
         await using var context = contextFactory();

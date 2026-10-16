@@ -89,8 +89,6 @@ public sealed partial class ActivityTrackerService
             };
             lastRunClosedAt = null;
         }
-        else if (runStartedAt < playSession.StartedAtUtc)
-            playSession = playSession with { StartedAtUtc = runStartedAt, Revision = playSession.Revision + 1 };
         playSessionDirty = true;
         headersDirty = true;
         return playSession;

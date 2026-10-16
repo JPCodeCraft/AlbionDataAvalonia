@@ -28,8 +28,6 @@ public partial class ActivityView : UserControl
     private ActivityViewModel? activeViewModel;
     private bool isAttached;
     private bool choosingLootExport;
-    private bool choosingSessionMerge;
-
     public ActivityView()
     {
         InitializeComponent();
@@ -152,20 +150,6 @@ public partial class ActivityView : UserControl
     private void RunChip_Click(object? sender, RoutedEventArgs args)
     {
         if (DataContext is ActivityViewModel viewModel && (sender as Control)?.DataContext is ActivitySessionRow run) viewModel.OpenRun(run.Id);
-    }
-
-    private async void MergeSession_Click(object? sender, RoutedEventArgs args)
-    {
-        if (choosingSessionMerge || DataContext is not ActivityViewModel viewModel
-            || TopLevel.GetTopLevel(this) is not Window owner
-            || viewModel.CreateSessionMerge() is not { } merge) return;
-        choosingSessionMerge = true;
-        try
-        {
-            using (merge)
-                await new ActivitySessionMergeWindow(merge).ShowDialog(owner);
-        }
-        finally { choosingSessionMerge = false; }
     }
 
     private async void DeleteSession_Click(object? sender, RoutedEventArgs args)

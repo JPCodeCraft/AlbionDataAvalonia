@@ -134,9 +134,6 @@ public sealed class ActivitySessionRow : ObservableObject
         Source = source;
         this.scope = scope;
         summary = ActivityProjection.GetSummary(source, scope);
-        FameText = ActivityDisplay.Number(summary.Fame);
-        SilverText = ActivityDisplay.Number(summary.Silver);
-        LootValueText = ActivityDisplay.Number(summary.LootValue);
         OnPropertyChanged(string.Empty);
     }
 
@@ -145,15 +142,7 @@ public sealed class ActivitySessionRow : ObservableObject
     public ActivitySession Source { get; private set; }
     public Guid Id => Source.Id;
     public string Title => ActivityDisplay.SessionTitle(Source);
-    public string Character => Source.CharacterName;
-    public string Server => ActivityDisplay.Server(Source.Server);
-    public string StartedText => ActivityDisplay.LocalDate(Source.StartedAtUtc);
     public string DurationText => ActivityDisplay.Duration(ActivityProjection.GetDurationSeconds(Source, Source.State == ActivityState.Open ? DateTime.UtcNow : null));
-    public string FameText { get; private set; } = "0";
-    public string SilverText { get; private set; } = "0";
-    public string LootValueText { get; private set; } = "0";
-    public string MetadataText => $"{StartedText} · {Character} · {Server}";
-    public string TagsText => ActivityDisplay.Tags(summary?.Tags ?? ActivityTags.None);
     public string RunLabel => ActivityDisplay.RunLabel(Source);
     public string TotalSilverText => ActivityDisplay.Number((summary?.Silver ?? 0) + (summary?.LootValue ?? 0) + (summary?.ResourceValue ?? 0));
     public string RunSummaryText => $"{DurationText} · {TotalSilverText} silver";
@@ -163,36 +152,6 @@ public sealed class ActivitySessionRow : ObservableObject
     public bool IsLive { get => isLive; set => SetProperty(ref isLive, value); }
     private ActivityScope scope;
     private ActivitySummary? summary;
-    public bool IsImported => summary?.IsLegacyAggregate == true;
-    public string EarningsText
-    {
-        get
-        {
-            var value = summary ?? new ActivitySummary();
-            var amounts = new ActivitySummaryPresentation(value, ActivityProjection.GetRates(value, 0));
-            return IsImported ? $"{value.ResourceItems:N0} items · estimated value {amounts.ResourceValueText}"
-                : $"Fame {FameText} · silver {SilverText} · item value {amounts.ItemsValue}{(amounts.HasMissingItemPrices ? " *" : "")}";
-        }
-    }
-    public string StateText => $"{ActivityDisplay.State(Source.State, Source.EndReason)}{(Source.IsPartial && Source.State != ActivityState.Interrupted ? " · incomplete" : "")}{(IsImported ? " · imported" : "")}";
-
-    // Party members are read separately; a changed header re-reads them.
-    private ActivitySession? partySource;
-    private IReadOnlyList<string> partyMembers = [];
-    public bool NeedsParty => partySource != Source && !IsImported;
-    public bool HasParty => partyMembers.Count > 0;
-    public string PartyText => ActivityPartyText.With(partyMembers);
-    public string PartyDetailsText => HasParty ? $"Party members in this session ({partyMembers.Count:N0})\n{ActivityPartyText.Members(partyMembers)}" : "";
-
-    public void SetParty(ActivitySession source, IReadOnlyList<string> members)
-    {
-        partySource = source;
-        if (partyMembers.SequenceEqual(members)) return;
-        partyMembers = members;
-        OnPropertyChanged(nameof(HasParty));
-        OnPropertyChanged(nameof(PartyText));
-        OnPropertyChanged(nameof(PartyDetailsText));
-    }
 }
 
 public sealed class ActivityEncounterRow : ObservableObject

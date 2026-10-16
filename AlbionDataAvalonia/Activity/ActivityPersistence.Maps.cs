@@ -149,6 +149,12 @@ public sealed partial class ActivityPersistence
 
     private static string MapName(string? name) => string.IsNullOrWhiteSpace(name) ? "Unknown map" : name;
 
+    private static T[] ReadArray<T>(string json)
+    {
+        try { return JsonSerializer.Deserialize<T[]>(json) ?? []; }
+        catch (JsonException) { return []; }
+    }
+
     private sealed record MapLocationDetails(ActivityMapMetadata? MapMetadata = null, string? SourceClusterId = null,
         string? ParentClusterId = null);
 

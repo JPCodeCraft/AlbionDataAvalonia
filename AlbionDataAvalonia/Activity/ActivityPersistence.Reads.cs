@@ -54,15 +54,6 @@ public sealed partial class ActivityPersistence
         ReadAsync(ct => GetCombatDurationSecondsCoreAsync(filter, ct), cancellationToken);
     public Task<ActivityEvent?> GetEventAsync(Guid id, CancellationToken cancellationToken = default) =>
         ReadAsync(ct => GetEventCoreAsync(id, ct), cancellationToken);
-    public Task<ActivityPage<ActivitySession>> GetSessionsAsync(ActivityQuery filter, int page = 0, CancellationToken cancellationToken = default) =>
-        ReadAsync(ct => GetSessionsCoreAsync(filter, page, ct), cancellationToken);
-    internal Task<IReadOnlyList<ActivitySession>> GetSessionsByIdsAsync(ActivityQuery filter, IReadOnlyCollection<Guid> ids, CancellationToken cancellationToken = default)
-    {
-        ArgumentOutOfRangeException.ThrowIfGreaterThan(ids.Count, 1000);
-        var requested = ids.Distinct().ToArray();
-        return requested.Length == 0 ? Task.FromResult<IReadOnlyList<ActivitySession>>([]) :
-            ReadAsync(ct => GetSessionsByIdsCoreAsync(filter, requested, ct), cancellationToken);
-    }
     public Task<ActivityPage<ActivityEncounter>> GetEncountersAsync(Guid sessionId, int page = 0, CancellationToken cancellationToken = default) =>
         ReadAsync(ct => GetEncountersCoreAsync(sessionId, page, ct), cancellationToken);
     public Task<ActivityPage<ActivityEncounter>> GetPlaySessionEncountersAsync(Guid playSessionId, int page = 0, CancellationToken cancellationToken = default) =>

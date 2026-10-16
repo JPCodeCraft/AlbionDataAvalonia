@@ -227,7 +227,7 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
             {
                 case PlaySessionCommand play:
                     var oldPlay = await context.ActivityPlaySessions.FindAsync([play.Value.Id], cancellationToken);
-                    // The tracker reopening a play session wins over bounds refreshed after a merge or deletion.
+                    // The tracker reopening a play session wins over bounds refreshed after a deletion.
                     if (oldPlay is not null && oldPlay.Revision >= play.Value.Revision &&
                         !(play.Value.State == ActivityState.Open && oldPlay.State != ActivityState.Open)) break;
                     if (oldPlay is null) context.ActivityPlaySessions.Add(play.Value);
@@ -264,7 +264,7 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                     encounters[encounter.Id] = encounter;
                     break;
                 case EventCommand mutation:
-                    var observation = RedirectMergedEvent(mutation.Value);
+                    var observation = mutation.Value;
                     if (deletedEvents.Contains(observation.Id)) break;
                     if (observation.SessionId is { } deleted && deletedSessions.Contains(deleted)) break;
                     Validate(observation);
@@ -381,8 +381,6 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
     private async Task ExecuteControlAsync(ControlCommand command, CancellationToken cancellationToken)
     {
         if (command is FlushCommand) return;
-        if (command is MergeSessionCommand merge) { ExecuteMerge(merge); return; }
-        if (command is ResumeSessionCommand resume) { ExecuteResume(resume); return; }
         if (command is ImportLegacyCommand import) { import.Result = await ImportLegacyRunsAsync(cancellationToken); return; }
         if (command is RebuildTagsCommand) { await RebuildTagsAsync(cancellationToken); return; }
         if (command is CleanupCommand cleanup) { await ExecuteCleanupAsync(cleanup, cancellationToken); return; }

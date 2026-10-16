@@ -1,16 +1,10 @@
 using AlbionDataAvalonia.Activity.Models;
 using System;
 using System.Collections.Generic;
-using System.Diagnostics;
 using System.Linq;
 using System.Text.Json;
 
 namespace AlbionDataAvalonia.Activity;
-
-public static class ActivityPeriodClock
-{
-    public static DateTime AppStartedAtUtc { get; } = Process.GetCurrentProcess().StartTime.ToUniversalTime();
-}
 
 public static class ActivityPeriodProjection
 {

@@ -79,7 +79,6 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     [ObservableProperty] private string currentTitle = "No active session";
     [ObservableProperty] private string currentDescription = "Start playing to record activity.";
     [ObservableProperty] private string currentDurationText = "Session time: 0:00";
-    [ObservableProperty] private bool hasCurrentSession;
     [ObservableProperty] private bool hasCurrentEncounter;
     [ObservableProperty] private ActivitySummaryPresentation currentSummary = ActivitySummaryPresentation.Empty;
     [ObservableProperty] private ActivitySummaryPresentation detailSummary = ActivitySummaryPresentation.Empty;
@@ -103,7 +102,6 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
 
     public bool HasError => !string.IsNullOrWhiteSpace(ErrorText);
     public bool ShowActivityScope => SelectedTabIndex is 0 or 1;
-    public Guid? CurrentSessionId => tracker?.CurrentSessionId;
     public Guid? CurrentPlaySessionId => tracker?.CurrentPlaySessionId;
     public string RecordingButtonText => IsRecordingEnabled ? "Disable recording" : "Enable recording";
     public bool HasSelectedSession => SelectedSession is not null;
@@ -237,7 +235,6 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     {
         if (tracker is null || persistence is null) return;
         IsRecordingEnabled = tracker.IsRecordingEnabled;
-        HasCurrentSession = tracker.CurrentSessionId is not null;
         HasCurrentPlaySession = tracker.CurrentPlaySessionId is not null;
         HasCurrentEncounter = tracker.CurrentEncounterId is not null;
         var status = persistence.Status;
@@ -248,7 +245,6 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         if (statusSessionId != tracker.CurrentSessionId)
         {
             statusSessionId = tracker.CurrentSessionId;
-            OnPropertyChanged(nameof(CurrentSessionId));
             OnPropertyChanged(nameof(CanDeleteSelectedSession));
         }
         if (statusLegacyImportWarning != HasLegacyImportWarning)

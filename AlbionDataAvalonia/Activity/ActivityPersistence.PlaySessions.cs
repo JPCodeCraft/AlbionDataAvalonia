@@ -52,7 +52,7 @@ public sealed partial class ActivityPersistence
         CancellationToken cancellationToken)
     {
         await using var context = contextFactory();
-        // A play session whose runs all moved away waits for its refresh; it has nothing to show.
+        // A play session whose runs were all deleted waits for its refresh; it has nothing to show.
         var query = context.ActivityPlaySessions.AsNoTracking().Where(x => context.ActivitySessions.Any(s => s.PlaySessionId == x.Id));
         if (filter.PlaySessionId is { } id) query = query.Where(x => x.Id == id);
         if (!string.IsNullOrWhiteSpace(filter.Server)) query = query.Where(x => x.Server == filter.Server);
@@ -166,7 +166,7 @@ public sealed partial class ActivityPersistence
         context.ChangeTracker.Clear();
     }
 
-    // After runs move or disappear, closed play sessions take their bounds from the runs left,
+    // After runs are deleted, closed play sessions take their bounds from the runs left,
     // and a play session left without runs is removed. The open one belongs to the tracker.
     private static async Task RefreshPlaySessionsAsync(LocalContext context, IEnumerable<Guid> playSessionIds,
         CommittedChanges changes, CancellationToken cancellationToken)
