@@ -55,6 +55,10 @@ public class DebugEventProbeEventHandler : EventPacketHandler<DebugEventProbeEve
         (int)EventCodes.FishingFinished,
         (int)EventCodes.FishingCancel,
         (int)EventCodes.RewardGranted,
+        // Journal fills and gathering bonus drops (tomes) are not decoded yet; capture their shape.
+        (int)EventCodes.JournalGotFull,
+        (int)EventCodes.JournalFillError,
+        (int)EventCodes.NewMultiRewardObject,
         (int)EventCodes.TakeSilver,
         (int)EventCodes.NewSilverObject,
         (int)EventCodes.RemoveSilver,
