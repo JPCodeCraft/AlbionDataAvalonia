@@ -2,6 +2,7 @@ using AlbionDataAvalonia.Activity;
 using AlbionDataAvalonia.Activity.Models;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Party;
+using AlbionDataAvalonia.Views;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -134,7 +135,8 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     }
 
     public ActivityViewModel(ActivityTrackerService tracker, ActivityPersistence persistence, CsvExportService csvExportService,
-        ActivityItemValuationService? valuations = null, PartyTrackerService? partyTracker = null) : this()
+        ActivityItemValuationService? valuations = null, PartyTrackerService? partyTracker = null,
+        ActivityStreamerWindowService? streamerWindow = null) : this()
     {
         this.tracker = tracker;
         this.persistence = persistence;
@@ -144,6 +146,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         persistence.StatusChanged += OnPersistenceStatusChanged;
         persistence.DataChanged += OnCommittedDataChanged;
         AttachPartyTracker(partyTracker);
+        AttachStreamerWindow(streamerWindow);
         UpdateStatus();
     }
 
@@ -931,6 +934,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         refreshTimer.Tick -= OnRefreshTick;
         if (tracker is not null) tracker.Changed -= OnActivityChanged;
         DisposeParty();
+        DisposeStreamerWindow();
         if (persistence is not null)
         {
             persistence.StatusChanged -= OnPersistenceStatusChanged;

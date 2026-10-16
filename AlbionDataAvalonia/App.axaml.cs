@@ -541,6 +541,7 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<ActivityPersistence>();
         collection.AddSingleton<ActivityItemValuationService>();
         collection.AddSingleton<ActivityTrackerService>();
+        collection.AddSingleton<ActivityStreamerWindowService>();
         collection.AddSingleton<LegendaryDefinitionsService>();
         collection.AddSingleton<LegendaryItemTrackerService>();
         collection.AddSingleton<LegendarySaleService>();

@@ -133,6 +133,8 @@
                 </StackPanel>
                 <WrapPanel VerticalAlignment="Center">
                     <views:ActivitySegmentedSelector ItemsSource="{Binding ScopeOptions}" SelectedItem="{Binding SelectedScope, Mode=TwoWay}" IsVisible="{Binding ShowActivityScope}" AutomationProperties.Name="Activity scope" Margin="0,0,12,0" />
+                    <Button Classes="UiAction UiSecondary" Content="{Binding StreamerWindowButtonText}" Command="{Binding ToggleStreamerWindowCommand}" IsVisible="{Binding CanOpenStreamerWindow}"
+                            ToolTip.Tip="A compact window with the current session for streaming. Choose what it shows in Settings → Activity." Margin="0,0,10,4" />
                     <Button Classes="UiAction UiSecondary" Content="{Binding RecordingButtonText}" Command="{Binding ToggleRecordingCommand}" Margin="0,0,10,4" />
                     <Button Classes="UiAction" Content="Finish session" Click="FinishSession_Click" IsEnabled="{Binding HasCurrentSession}" Margin="0,0,0,4" />
                 </WrapPanel>

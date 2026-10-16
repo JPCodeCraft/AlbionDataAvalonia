@@ -230,6 +230,32 @@
                                TextWrapping="Wrap" Opacity="0.65" />
                     <TextBlock Text="Party filters change what is shown. All observed loot pickups are recorded while recording is enabled."
                                TextWrapping="Wrap" Opacity="0.65" />
+
+                    <TextBlock Text="Streamer window" FontSize="16" FontWeight="DemiBold" Margin="0,8,0,0" />
+                    <TextBlock Text="A compact window with the current session. Capture it as a window source in your streaming app."
+                               TextWrapping="Wrap" Opacity="0.65" />
+                    <WrapPanel>
+                        <CheckBox Content="Silver totals" IsChecked="{Binding UserSettings.StreamerShowSilver}" Margin="0,0,18,4" />
+                        <CheckBox Content="Combat" IsChecked="{Binding UserSettings.StreamerShowCombat}" Margin="0,0,18,4" />
+                        <CheckBox Content="Gathering" IsChecked="{Binding UserSettings.StreamerShowGathering}" Margin="0,0,18,4" />
+                        <CheckBox Content="Chart" IsChecked="{Binding UserSettings.StreamerShowChart}" Margin="0,0,18,4" />
+                    </WrapPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding UserSettings.StreamerShowChart}">
+                        <TextBlock Text="Chart shows" VerticalAlignment="Center" />
+                        <ComboBox SelectedIndex="{Binding UserSettings.StreamerChartModeIndex}" Width="140">
+                            <ComboBoxItem Content="Combat" />
+                            <ComboBoxItem Content="Gathering" />
+                            <ComboBoxItem Content="Fame" />
+                        </ComboBox>
+                    </StackPanel>
+                    <CheckBox Content="Show party totals instead of personal"
+                              IsChecked="{Binding UserSettings.StreamerPartyTotals}" />
+                    <CheckBox Content="Keep the streamer window on top"
+                              IsChecked="{Binding UserSettings.StreamerAlwaysOnTop}" />
+                    <CheckBox Content="Green background for chroma key"
+                              IsChecked="{Binding UserSettings.StreamerChromaKey}" />
+                    <Button Classes="UiAction" Content="{Binding StreamerWindowButtonText}" Command="{Binding ToggleStreamerWindowCommand}"
+                            IsVisible="{Binding CanOpenStreamerWindow}" HorizontalAlignment="Left" />
                 </StackPanel>
             </ScrollViewer>
         </TabItem>

@@ -273,6 +273,52 @@ public class UserSettings : INotifyPropertyChanged
             Log.Information("Activity recording enabled set to {ActivityRecordingEnabled}", activityRecordingEnabled);
         }
     }
+
+    // The streamer window shows only the sections chosen here.
+    private bool streamerShowSilver = true;
+    public bool StreamerShowSilver { get => streamerShowSilver; set => SetStreamerOption(ref streamerShowSilver, value, nameof(StreamerShowSilver)); }
+
+    private bool streamerShowCombat = true;
+    public bool StreamerShowCombat { get => streamerShowCombat; set => SetStreamerOption(ref streamerShowCombat, value, nameof(StreamerShowCombat)); }
+
+    private bool streamerShowGathering;
+    public bool StreamerShowGathering { get => streamerShowGathering; set => SetStreamerOption(ref streamerShowGathering, value, nameof(StreamerShowGathering)); }
+
+    private bool streamerShowChart;
+    public bool StreamerShowChart { get => streamerShowChart; set => SetStreamerOption(ref streamerShowChart, value, nameof(StreamerShowChart)); }
+
+    private bool streamerPartyTotals;
+    public bool StreamerPartyTotals { get => streamerPartyTotals; set => SetStreamerOption(ref streamerPartyTotals, value, nameof(StreamerPartyTotals)); }
+
+    private bool streamerAlwaysOnTop;
+    public bool StreamerAlwaysOnTop { get => streamerAlwaysOnTop; set => SetStreamerOption(ref streamerAlwaysOnTop, value, nameof(StreamerAlwaysOnTop)); }
+
+    private bool streamerChromaKey;
+    public bool StreamerChromaKey { get => streamerChromaKey; set => SetStreamerOption(ref streamerChromaKey, value, nameof(StreamerChromaKey)); }
+
+    // 0 combat, 1 gathering, 2 fame, matching the activity chart modes.
+    private int streamerChartModeIndex;
+    public int StreamerChartModeIndex
+    {
+        get => streamerChartModeIndex;
+        set
+        {
+            var clamped = Math.Clamp(value, 0, 2);
+            if (streamerChartModeIndex == clamped) return;
+            streamerChartModeIndex = clamped;
+            OnPropertyChanged(nameof(StreamerChartModeIndex));
+            Log.Information("Streamer chart mode set to {StreamerChartModeIndex}", streamerChartModeIndex);
+        }
+    }
+
+    private void SetStreamerOption(ref bool field, bool value, string propertyName)
+    {
+        if (field == value) return;
+        field = value;
+        OnPropertyChanged(propertyName);
+        Log.Information("{Setting} set to {Value}", propertyName, value);
+    }
+
     private bool disableAwakeningItemsTracker;
     public bool DisableAwakeningItemsTracker
     {

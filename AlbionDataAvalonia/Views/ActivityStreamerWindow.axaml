@@ -1,0 +1,70 @@
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
+        xmlns:views="clr-namespace:AlbionDataAvalonia.Views"
+        x:Class="AlbionDataAvalonia.Views.ActivityStreamerWindow" Classes="AppPage"
+        x:DataType="vm:ActivityStreamerViewModel"
+        Title="AFM Streamer" Icon="/Assets/logo.ico"
+        Width="380" MinWidth="300" SizeToContent="Height" CanResize="True"
+        WindowStartupLocation="CenterScreen"
+        Topmost="{Binding Settings.StreamerAlwaysOnTop}"
+        Background="{Binding WindowBackground}">
+    <Window.Styles>
+        <Style Selector="Border.StreamerCard">
+            <Setter Property="Background" Value="#E6303030" />
+            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Padding" Value="10,8" />
+        </Style>
+        <Style Selector="TextBlock.StreamerLabel"><Setter Property="FontSize" Value="12" /><Setter Property="Opacity" Value="0.8" /></Style>
+        <Style Selector="TextBlock.StreamerValue"><Setter Property="FontSize" Value="18" /><Setter Property="FontWeight" Value="DemiBold" /></Style>
+        <Style Selector="TextBlock.StreamerSilver"><Setter Property="FontSize" Value="24" /><Setter Property="FontWeight" Value="DemiBold" /><Setter Property="Foreground" Value="{DynamicResource AFMOrange}" /></Style>
+        <Style Selector="TextBlock"><Setter Property="TextTrimming" Value="CharacterEllipsis" /></Style>
+    </Window.Styles>
+    <StackPanel Margin="8" Spacing="6">
+        <Border Classes="StreamerCard">
+            <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                <StackPanel Spacing="2">
+                    <TextBlock Text="{Binding TitleText}" FontSize="15" FontWeight="DemiBold" />
+                    <TextBlock Text="{Binding DurationText}" Classes="StreamerLabel" IsVisible="{Binding HasSession}" />
+                </StackPanel>
+                <TextBlock Grid.Column="1" Text="{Binding ScopeText}" Classes="StreamerLabel" VerticalAlignment="Top" />
+            </Grid>
+        </Border>
+
+        <Border Classes="StreamerCard" IsVisible="{Binding Settings.StreamerShowSilver}">
+            <StackPanel Spacing="2">
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                    <StackPanel><TextBlock Text="Total silver" Classes="StreamerLabel" /><TextBlock Text="{Binding Summary.TotalSilver}" Classes="StreamerSilver" /></StackPanel>
+                    <StackPanel Grid.Column="1"><TextBlock Text="Silver / hour" Classes="StreamerLabel" /><TextBlock Text="{Binding Summary.TotalSilverPerHour}" Classes="StreamerSilver" /></StackPanel>
+                </Grid>
+                <TextBlock Text="{Binding SilverBreakdownText}" Classes="StreamerLabel" />
+            </StackPanel>
+        </Border>
+
+        <Border Classes="StreamerCard" IsVisible="{Binding Settings.StreamerShowCombat}">
+            <StackPanel Spacing="2">
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                    <StackPanel><TextBlock Text="Damage dealt" Classes="StreamerLabel" /><TextBlock Text="{Binding Summary.DamageDealt}" Classes="StreamerValue" /><TextBlock Text="{Binding Summary.DamageRate}" Classes="StreamerLabel" /></StackPanel>
+                    <StackPanel Grid.Column="1"><TextBlock Text="Combat fame" Classes="StreamerLabel" /><TextBlock Text="{Binding Summary.CombatFame}" Classes="StreamerValue" /><TextBlock Text="{Binding Summary.CombatFameRate}" Classes="StreamerLabel" /></StackPanel>
+                </Grid>
+                <TextBlock Text="{Binding KillsText}" Classes="StreamerLabel" />
+            </StackPanel>
+        </Border>
+
+        <Border Classes="StreamerCard" IsVisible="{Binding Settings.StreamerShowGathering}">
+            <StackPanel Spacing="2">
+                <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                    <StackPanel><TextBlock Text="Gathered value" Classes="StreamerLabel" /><TextBlock Text="{Binding Summary.ResourceValueText}" Classes="StreamerValue" /><TextBlock Text="{Binding Summary.ResourceItemsText}" Classes="StreamerLabel" /></StackPanel>
+                    <StackPanel Grid.Column="1"><TextBlock Text="Gathering fame" Classes="StreamerLabel" /><TextBlock Text="{Binding Summary.GatheringFame}" Classes="StreamerValue" /><TextBlock Text="{Binding Summary.GatheringFameRate}" Classes="StreamerLabel" /></StackPanel>
+                </Grid>
+                <TextBlock Text="{Binding Summary.ResourceRateText}" Classes="StreamerLabel" />
+            </StackPanel>
+        </Border>
+
+        <views:ActivityLiveTimelineView IsVisible="{Binding ShowChart}" IsCompact="True" ShowWindowSelector="False"
+                                        ChartMode="{Binding ChartMode}" Snapshot="{Binding Timeline}" />
+
+        <TextBlock Text="Choose what to show in Settings → Activity." IsVisible="{Binding ShowNothingSelected}"
+                   Classes="StreamerLabel" TextWrapping="Wrap" Margin="2" />
+    </StackPanel>
+</Window>

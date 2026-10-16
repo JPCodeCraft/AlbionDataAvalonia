@@ -40,6 +40,8 @@ public sealed class ActivityLiveTimelineView : UserControl
         AvaloniaProperty.Register<ActivityLiveTimelineView, ActivityLiveTimelineSnapshot?>(nameof(ReplaySnapshot));
     public static readonly StyledProperty<ICommand?> ReplayWindowCommandProperty =
         AvaloniaProperty.Register<ActivityLiveTimelineView, ICommand?>(nameof(ReplayWindowCommand));
+    public static readonly StyledProperty<bool> IsCompactProperty =
+        AvaloniaProperty.Register<ActivityLiveTimelineView, bool>(nameof(IsCompact));
     private readonly ActivityLiveTimelineCanvas canvas = new();
     private readonly Canvas tooltipLayer = new() { IsHitTestVisible = false, ClipToBounds = false };
     private readonly Border tooltipPanel = new()
@@ -104,6 +106,13 @@ public sealed class ActivityLiveTimelineView : UserControl
     private readonly TextBlock replayPosition = new() { FontSize = 12, VerticalAlignment = VerticalAlignment.Center, MinWidth = 105, TextAlignment = TextAlignment.Right };
     private readonly Grid replaySeekRow = new() { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 10 };
     private readonly StackPanel replayControls = new() { Spacing = 5, IsVisible = false };
+    private readonly Grid heading = new() { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
+    private readonly Border frame = new()
+    {
+        Background = new SolidColorBrush(Color.Parse("#383838")),
+        CornerRadius = new CornerRadius(6),
+        Padding = new Thickness(12)
+    };
     private ActivityLiveTimelineSnapshot? latest;
     private ActivityLiveTimelineSnapshot? replayFrame;
     private ActivityTimelineReplayRequest? lastReplayRequest;
@@ -124,6 +133,8 @@ public sealed class ActivityLiveTimelineView : UserControl
     public bool ShowReplayControls { get => GetValue(ShowReplayControlsProperty); set => SetValue(ShowReplayControlsProperty, value); }
     public ActivityLiveTimelineSnapshot? ReplaySnapshot { get => GetValue(ReplaySnapshotProperty); set => SetValue(ReplaySnapshotProperty, value); }
     public ICommand? ReplayWindowCommand { get => GetValue(ReplayWindowCommandProperty); set => SetValue(ReplayWindowCommandProperty, value); }
+    // Compact charts drop the heading controls, as in the streamer window. The plot keeps its fixed geometry.
+    public bool IsCompact { get => GetValue(IsCompactProperty); set => SetValue(IsCompactProperty, value); }
 
     public ActivityLiveTimelineView()
     {
@@ -178,7 +189,6 @@ public sealed class ActivityLiveTimelineView : UserControl
         Grid.SetColumn(replayPosition, 1);
         replayControls.Children.Add(replayActions);
         replayControls.Children.Add(replaySeekRow);
-        var heading = new Grid { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
         var headingContent = new WrapPanel { Orientation = Orientation.Horizontal };
         headingContent.Children.Add(new StackPanel
         {
@@ -202,13 +212,8 @@ public sealed class ActivityLiveTimelineView : UserControl
         // the entire overlay out of hit testing lets pointer movement continue through it.
         tooltipLayer.Children.Add(tooltipPanel);
         var chartHost = new Grid { ClipToBounds = false, Children = { canvas, tooltipLayer } };
-        Content = new Border
-        {
-            Background = new SolidColorBrush(Color.Parse("#383838")),
-            CornerRadius = new CornerRadius(6),
-            Padding = new Thickness(12),
-            Child = new StackPanel { Spacing = 6, Children = { heading, replayControls, legends, chartHost } }
-        };
+        frame.Child = new StackPanel { Spacing = 6, Children = { heading, replayControls, legends, chartHost } };
+        Content = frame;
         canvas.InspectionChanged += ShowTooltip;
         canvas.EncounterSelected += id => { if (OpenEncounterCommand?.CanExecute(id) == true) OpenEncounterCommand.Execute(id); };
         renderTimer.Tick += (_, _) => RenderTick();
@@ -247,6 +252,12 @@ public sealed class ActivityLiveTimelineView : UserControl
     {
         base.OnPropertyChanged(change);
         if (change.Property == ChartModeProperty) { UpdateMode(); return; }
+        if (change.Property == IsCompactProperty)
+        {
+            heading.IsVisible = !IsCompact;
+            frame.Padding = new Thickness(IsCompact ? 8 : 12);
+            return;
+        }
         if (change.Property == ReplaySnapshotProperty)
         {
             var value = ReplaySnapshot;

@@ -13,6 +13,7 @@ using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
+using AlbionDataAvalonia.Views;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -29,6 +30,7 @@ public partial class SettingsViewModel : ViewModelBase
     private readonly AuthService? authService;
     private readonly AFMUploader? afmUploader;
     private readonly DatabaseBackupService? databaseBackupService;
+    private readonly ActivityStreamerWindowService? streamerWindow;
 
     [ObservableProperty]
     private UserSettings userSettings;
@@ -89,6 +91,11 @@ public partial class SettingsViewModel : ViewModelBase
 
     public ObservableCollection<PrivateOrderShareEntryViewModel> SharedUsers { get; } = new();
 
+    public bool CanOpenStreamerWindow => streamerWindow is not null;
+    public string StreamerWindowButtonText => streamerWindow?.IsOpen == true ? "Close streamer window" : "Open streamer window";
+
+    [RelayCommand] private void ToggleStreamerWindow() => streamerWindow?.Toggle();
+
     public SettingsViewModel()
     {
         UserSettings = new UserSettings();
@@ -100,7 +107,8 @@ public partial class SettingsViewModel : ViewModelBase
         ActivityTrackerService activityTracker,
         AuthService authService,
         AFMUploader afmUploader,
-        DatabaseBackupService databaseBackupService)
+        DatabaseBackupService databaseBackupService,
+        ActivityStreamerWindowService? streamerWindow = null)
     {
         _settingsManager = settingsManager;
         _playerState = playerState;
@@ -108,6 +116,9 @@ public partial class SettingsViewModel : ViewModelBase
         this.authService = authService;
         this.afmUploader = afmUploader;
         this.databaseBackupService = databaseBackupService;
+        this.streamerWindow = streamerWindow;
+        if (streamerWindow is not null)
+            streamerWindow.IsOpenChanged += (_, _) => OnPropertyChanged(nameof(StreamerWindowButtonText));
 
         UserSettings = _settingsManager.UserSettings;
         UserSettings.PropertyChanged += OnUserSettingsPropertyChanged;
