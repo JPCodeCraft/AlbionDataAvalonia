@@ -320,7 +320,8 @@ public sealed partial class ActivityPersistence
             Deaths = g.Sum(x => x.Deaths),
             Knockdowns = g.Sum(x => x.Knockdowns),
             NonLethalPlayerKills = g.Sum(x => x.NonLethalPlayerKills),
-            NonLethalDeaths = g.Sum(x => x.NonLethalDeaths)
+            NonLethalDeaths = g.Sum(x => x.NonLethalDeaths),
+            QuickLearnFame = g.Sum(x => x.QuickLearnFame)
         }).SingleOrDefaultAsync(cancellationToken);
 
     private static async Task<ActivitySummary> AggregateSummaryAsync(IQueryable<ActivityEvent> query, ActivityScope scope,

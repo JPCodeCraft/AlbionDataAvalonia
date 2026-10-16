@@ -408,7 +408,8 @@ public sealed partial class ActivityPersistence
                 Deaths = g.Sum(x => x.Deaths),
                 Knockdowns = g.Sum(x => x.Knockdowns),
                 NonLethalPlayerKills = g.Sum(x => x.NonLethalPlayerKills),
-                NonLethalDeaths = g.Sum(x => x.NonLethalDeaths)
+                NonLethalDeaths = g.Sum(x => x.NonLethalDeaths),
+                QuickLearnFame = g.Sum(x => x.QuickLearnFame)
             }).SingleOrDefaultAsync(cancellationToken) ?? new();
     }
 
@@ -621,7 +622,14 @@ public static class ActivityDatabaseFunctions
             var value = document.RootElement;
             foreach (var part in path.TrimStart('$', '.').Split('.'))
                 if (value.ValueKind != System.Text.Json.JsonValueKind.Object || !value.TryGetProperty(part, out value)) return null;
-            return value.ValueKind == System.Text.Json.JsonValueKind.Number && value.TryGetInt64(out var number) ? number : null;
+            // Matches SQLite's json_extract, which returns 1 and 0 for true and false.
+            return value.ValueKind switch
+            {
+                System.Text.Json.JsonValueKind.Number when value.TryGetInt64(out var number) => number,
+                System.Text.Json.JsonValueKind.True => 1,
+                System.Text.Json.JsonValueKind.False => 0,
+                _ => null
+            };
         }
         catch (System.Text.Json.JsonException) { return null; }
     }

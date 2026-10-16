@@ -69,7 +69,10 @@ public sealed class ActivitySummaryPresentation
     public string CombatFameRate => FameRateText(Summary.CombatFame);
     public string GatheringFameRate => FameRateText(Summary.GatheringFame + Summary.FishingFame);
     public string CombatFameDetailsText => HasPvpFame ? $"PvE {ActivityDisplay.Number(Summary.PveFame)} · PvP {ActivityDisplay.Number(Summary.PvpFame)}" : "Your combat fame";
-    public string GatheringFameDetailsText => Summary.FishingFame > 0 ? $"Gathering {ActivityDisplay.Number(Summary.GatheringFame)} · Fishing {ActivityDisplay.Number(Summary.FishingFame)}" : "Your gathering fame";
+    public string GatheringFameDetailsText => (Summary.FishingFame > 0 ? $"Gathering {ActivityDisplay.Number(Summary.GatheringFame)} · Fishing {ActivityDisplay.Number(Summary.FishingFame)}" : "Your gathering fame")
+        + (HasQuickLearnFame ? $"\nIncludes {ActivityDisplay.Number(Summary.QuickLearnFame)} bonus fame bought with Quick Learn" : "");
+    public bool HasQuickLearnFame => Summary.QuickLearnFame > 0 && !Summary.IsLegacyAggregate;
+    public string QuickLearnFameText => $"incl. {ActivityDisplay.Number(Summary.QuickLearnFame)} from Quick Learn";
     public string CombatFameFooterText => (IsSessionAverage ? CombatFameRate : "")
         + (HasPvpFame ? $"{(IsSessionAverage ? " · " : "")}PvP {ActivityDisplay.Number(Summary.PvpFame)}" : "");
     public string UnknownFameText => $"Unknown fame {UnknownFame}";

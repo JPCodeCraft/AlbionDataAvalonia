@@ -111,6 +111,7 @@ public static class ActivityProjection
         AddValue(nameof(ActivitySummary.UnclassifiedResourceValue), nameof(ActivitySummary.UnclassifiedResourceItems));
         AddNonLethal(nameof(ActivitySummary.NonLethalPlayerKills), nameof(ActivitySummary.PlayerKills));
         AddNonLethal(nameof(ActivitySummary.NonLethalDeaths), nameof(ActivitySummary.Deaths));
+        AddQuickLearnFame();
         return Expression.Lambda<Func<ActivityEvent, ActivitySummary>>(Expression.MemberInit(Expression.New(typeof(ActivitySummary)), bindings), parameter);
 
         void AddNonLethal(string property, string countProperty)
@@ -120,6 +121,17 @@ public static class ActivityProjection
             var predicate = new ParameterSubstitution(nonLethal.Parameters[0], parameter).Visit(nonLethal.Body)!;
             var count = bindings.Single(x => x.Member.Name == countProperty).Expression;
             bindings.Add(Expression.Bind(typeof(ActivitySummary).GetProperty(property)!, Expression.Condition(predicate, count, Expression.Constant(0L))));
+        }
+
+        // A fame row whose award includes Quick Learn keeps the bonus in UPDATE_FAME key 12 (fixed point).
+        void AddQuickLearnFame()
+        {
+            Expression<Func<ActivityEvent, double>> bonus = e => ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.UsesEnhancedAward") == 1
+                ? (ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.RawFixedPointComponents.12") ?? 0) / 10000d : 0d;
+            var fame = bindings.Single(x => x.Member.Name == nameof(ActivitySummary.Fame)).Expression;
+            bindings.Add(Expression.Bind(typeof(ActivitySummary).GetProperty(nameof(ActivitySummary.QuickLearnFame))!, Expression.Condition(
+                Expression.GreaterThan(fame, Expression.Constant(0d)),
+                new ParameterSubstitution(bonus.Parameters[0], parameter).Visit(bonus.Body)!, Expression.Constant(0d))));
         }
 
         void AddCount(string property, Expression<Func<ActivityEvent, bool>> predicate) => bindings.Add(Expression.Bind(typeof(ActivitySummary).GetProperty(property)!,
@@ -210,7 +222,8 @@ public static class ActivityProjection
         Deaths = a.Deaths + sign * b.Deaths,
         Knockdowns = a.Knockdowns + sign * b.Knockdowns,
         NonLethalPlayerKills = a.NonLethalPlayerKills + sign * b.NonLethalPlayerKills,
-        NonLethalDeaths = a.NonLethalDeaths + sign * b.NonLethalDeaths
+        NonLethalDeaths = a.NonLethalDeaths + sign * b.NonLethalDeaths,
+        QuickLearnFame = a.QuickLearnFame + sign * b.QuickLearnFame
     };
     public static string Serialize(ActivitySummary summary) => JsonSerializer.Serialize(summary);
     public static ActivitySummary Deserialize(string json)

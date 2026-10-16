@@ -65,12 +65,12 @@ internal sealed partial class ActivityFameCollector(AchievementsService achievem
                 return ActivityFameMatch.Unknown;
             var hasEnhancedEvidence = packet.RawFixedPointComponents.GetValueOrDefault((byte)12) is > 0
                 || packet.RawFixedPointComponents.GetValueOrDefault((byte)13) is > 0;
+            // Quick Learn's bonus counts as fame, as the game reports it; summaries show it separately.
             if (hasEnhancedEvidence)
             {
-                if (packet.ObservedProgressionAward is not { } enhancedAward
-                    || packet.ObservedAward is { } ordinaryAward && enhancedAward < ordinaryAward)
+                if (packet.ObservedAward is not { } ordinaryAward || packet.QuickLearnFame is not { } quickLearn)
                     return ActivityFameMatch.Unknown;
-                return new(category, indexes, enhancedAward, UsesEnhancedAward: true);
+                return new(category, indexes, ordinaryAward + quickLearn, UsesEnhancedAward: true);
             }
         }
         return new(category, indexes, packet.ObservedAward);

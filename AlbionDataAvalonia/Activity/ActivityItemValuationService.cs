@@ -21,6 +21,8 @@ public sealed class ActivityItemValuationService(ItemEstimatedMarketValueService
             value.EstimatedUnitValue is not null || value.ItemId is not > 0 ||
             value.Quality is not null and not (>= 1 and <= 5) ||
             string.IsNullOrWhiteSpace(value.ItemUniqueName) || !int.TryParse(value.Server, out var server)) return value;
+        // A filled journal is worth the full journal minus the empty one; its own price would overstate it.
+        if (ActivityJournals.IsFull(value.ItemUniqueName)) return value;
         // Pickups without quality use an explicitly labelled estimate without inventing
         // the quality of the actual item: loot averages qualities 1-4, resources use normal quality.
         var quality = BasisQuality(value);
@@ -31,6 +33,12 @@ public sealed class ActivityItemValuationService(ItemEstimatedMarketValueService
             return WithPrice(value, estimate.Value, DateTime.UtcNow, quality);
         loader.QueueMissingEstimatedMarketValue(server, value.ItemId.Value, value.ItemUniqueName, quality > 0 ? quality : null);
         return value;
+    }
+
+    public void Request(int server, int itemId, string uniqueName, int quality)
+    {
+        if (values.Get(server, itemId, quality)?.NormalEmv is not > 0)
+            loader.QueueMissingEstimatedMarketValue(server, itemId, uniqueName, quality);
     }
 
     public void RequestMissing(IEnumerable<ActivityEvent> events)

@@ -224,6 +224,8 @@ public sealed record ActivitySummary
     // Included in PlayerKills and Deaths: deaths reported without the lethal flag, such as in arenas.
     public long NonLethalPlayerKills { get; init; }
     public long NonLethalDeaths { get; init; }
+    // Included in GatheringFame and FishingFame: bonus fame bought with Quick Learn.
+    public double QuickLearnFame { get; init; }
     public double Silver => SilverRaw / 10000d;
     public double CombatFame => PveFame + PvpFame;
     public double UnclassifiedFame => Math.Max(0, UnknownFameAmount ?? Fame - PveFame - GatheringFame - FishingFame - PvpFame);
@@ -302,6 +304,10 @@ public sealed record ActivityResourceDetails
     public int? Enchantment { get; init; }
     public IReadOnlyDictionary<string, string>? ComponentStates { get; init; }
     public ActivityLegacyImportInfo? Legacy { get; init; }
+    // A filled journal's value: the full and empty journal prices and where they came from.
+    public long? FullJournalUnitValue { get; init; }
+    public long? EmptyJournalUnitValue { get; init; }
+    public string? ValueBasis { get; init; }
 }
 public sealed record ActivityLegacyImportInfo
 {

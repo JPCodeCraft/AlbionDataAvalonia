@@ -20,6 +20,8 @@ internal sealed class ActivityGatheringCollector
     private readonly ActivityLootCollector loot;
     private readonly ItemEstimatedMarketValueService values;
     private readonly ItemsIdsService items;
+    // The game's value for each journal item, from the latest item packet that carried one.
+    private readonly Dictionary<int, long> journalGameValues = new();
     private FishingAttempt? fishing;
 
     public ActivityGatheringCollector(ActivityTrackerService tracker, ActivityLootCollector loot,
@@ -71,6 +73,63 @@ internal sealed class ActivityGatheringCollector
         if (packet.ResourceObjectId is { } source) value = ActivityTrackerService.WithTarget(value, tracker.ResolveActor(source));
         tracker.RecordResource(Estimate(value));
         if (actor.Relationship == ActorRelationship.Self) loot.NoteHarvestAcquisition(packet.ItemId, value.Quantity, at);
+    }
+
+    public void NoteJournalValue(NewJournalItemEvent packet)
+    {
+        if (packet.Item is not { ItemIndex: > 0, EstimatedMarketValue: > 0 } item) return;
+        if (journalGameValues.Count >= 256 && !journalGameValues.ContainsKey(item.ItemIndex)) return;
+        journalGameValues[item.ItemIndex] = item.EstimatedMarketValue;
+    }
+
+    // A journal that filled while gathering is a gathered output worth the full journal minus
+    // the empty one it replaced. Its fame was already recorded with each harvest.
+    public void Observe(JournalGotFullEvent packet, DateTime at)
+    {
+        if (!packet.IsValid || !tracker.HasContext) return;
+        var actor = tracker.ResolveActor(packet.PlayerObjectId);
+        if (actor.Relationship != ActorRelationship.Self) return;
+        var full = Describe(packet.ItemId);
+        var emptyName = ActivityJournals.EmptyUniqueName(full.UniqueName);
+        var emptyId = emptyName is null ? null : items.GetItemIdByUniqueName(emptyName);
+        var (price, basis, fullValue, emptyValue) = JournalValue(packet.ItemId, emptyId);
+        if (full.UniqueName is { } fullName) tracker.RequestEstimate(packet.ItemId, fullName, 1);
+        if (emptyId is { } empty && emptyName is not null) tracker.RequestEstimate(empty, emptyName, 1);
+        var identity = ActivityResourceIdentity.FromUniqueName(full.UniqueName);
+        tracker.RecordResource(ActivityTrackerService.WithSource(tracker.Stamp(ActivityEventKind.Gathered, at,
+            ActivityTrackerService.Origin(packet, "JournalFull")), actor) with
+        {
+            ItemId = packet.ItemId,
+            ItemUniqueName = full.UniqueName,
+            ItemName = full.Name,
+            Quality = 1,
+            Quantity = packet.Count,
+            EstimatedUnitValue = price,
+            PriceObservedAtUtc = price is null ? null : at,
+            DetailsJson = JsonSerializer.Serialize(new ActivityResourceDetails
+            {
+                Method = ActivityResourceMethod.Gathering,
+                Proof = "JournalGotFull",
+                ResourceFamily = "Journal",
+                Tier = identity.Tier,
+                FullJournalUnitValue = fullValue,
+                EmptyJournalUnitValue = emptyValue,
+                ValueBasis = basis
+            })
+        });
+    }
+
+    // Market estimates when both journals have one, otherwise the game's values from item packets.
+    private (long? Price, string? Basis, long? Full, long? Empty) JournalValue(int fullId, int? emptyId)
+    {
+        long? Market(int id) => tracker.ServerId is { } server && values.Get(server, id, 1)?.NormalEmv is > 0 and var price ? price : null;
+        long? Game(int id) => journalGameValues.TryGetValue(id, out var price) ? price : null;
+        if (emptyId is not { } empty) return (null, null, null, null);
+        if (Market(fullId) is { } marketFull && Market(empty) is { } marketEmpty)
+            return (Math.Max(0, marketFull - marketEmpty), "Market", marketFull, marketEmpty);
+        if (Game(fullId) is { } gameFull && Game(empty) is { } gameEmpty)
+            return (Math.Max(0, gameFull - gameEmpty), "GameValue", gameFull, gameEmpty);
+        return (null, null, Game(fullId), Game(empty));
     }
 
     public void Observe(RewardGrantedEvent packet, DateTime at)

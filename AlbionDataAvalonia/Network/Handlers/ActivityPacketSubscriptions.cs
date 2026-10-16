@@ -26,6 +26,7 @@ internal static class ActivityPacketSubscriptions
         Event<TakeSilverEvent>(builder, EventCodes.TakeSilver, activity);
         Event<HarvestFinishedEvent>(builder, EventCodes.HarvestFinished, activity);
         Event<RewardGrantedEvent>(builder, EventCodes.RewardGranted, activity);
+        Event<JournalGotFullEvent>(builder, EventCodes.JournalGotFull, activity);
         Event<DiedEvent>(builder, EventCodes.Died, activity);
         Event<KnockedDownEvent>(builder, EventCodes.KnockedDown, activity);
         Event<KilledPlayerEvent>(builder, EventCodes.KilledPlayer, activity);

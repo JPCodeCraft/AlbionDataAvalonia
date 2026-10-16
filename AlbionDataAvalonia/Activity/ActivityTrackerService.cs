@@ -247,6 +247,7 @@ public sealed partial class ActivityTrackerService : IDisposable
             // Item baselines can precede Join on the next connection. Cache only;
             // Join confirms their connection and inventory membership before use.
             loot.ObservePendingInventoryMetadata(packet, at);
+            if (packet is NewJournalItemEvent journalItem) gathering.NoteJournalValue(journalItem);
             ObservePendingActorMetadata(packet, at);
             if (!awaitingContext && (at < mapEnteredAt || !SameConnection(packet.ConnectionId, packet.MessageIdentity)))
             { gathering.Reset(); fameCollector.Reset(); return; }
@@ -316,6 +317,9 @@ public sealed partial class ActivityTrackerService : IDisposable
                     break;
                 case RewardGrantedEvent reward when CanRecord:
                     gathering.Observe(reward, at);
+                    break;
+                case JournalGotFullEvent journal when CanRecord:
+                    gathering.Observe(journal, at);
                     break;
                 default:
                     if (enabled && !storageSuspended) loot.Observe(packet, at);
@@ -820,8 +824,8 @@ public sealed partial class ActivityTrackerService : IDisposable
                 packet.ComponentStates,
                 packet.RawFixedPointComponents,
                 packet.ReportedBonusIncrement,
-                packet.ProgressionDetailToken,
-                packet.ProgressionDetailTokenState,
+                packet.QuickLearnFame,
+                packet.QuickLearnSilverCost,
                 match.UsesEnhancedAward,
                 OrdinaryAward = packet.ObservedAward,
                 CalculationVersion = 4,
@@ -956,6 +960,10 @@ public sealed partial class ActivityTrackerService : IDisposable
         Persist(value with { SessionId = value.SessionId ?? session?.Id });
     }
     internal void RetractLoot(Guid id, int revision) => persistence.Retract(id, revision);
+    internal void RequestEstimate(int itemId, string uniqueName, int quality)
+    {
+        if (ServerId is { } server) valuations.Request(server, itemId, uniqueName, quality);
+    }
     internal Task FillLootPricesAsync(IReadOnlyCollection<ActivityLootPrice> prices) => persistence.FillMissingLootPricesAsync(prices);
     internal void Collect(Action action) { lock (sync) { if (!disposed) action(); } }
     internal void ObserveInventoryRearrangement(RequestPacket packet)
