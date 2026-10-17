@@ -1,60 +1,44 @@
 using AlbionDataAvalonia.Activity;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.ViewModels;
-using Avalonia.Threading;
 using System;
 
 namespace AlbionDataAvalonia.Views;
 
 /// <summary>Owns the single streamer window. Its view model reads activity only while the window is open.</summary>
-public sealed class ActivityStreamerWindowService(ActivityTrackerService tracker, ActivityPersistence persistence, SettingsManager settings)
+public sealed class ActivityStreamerWindowService
 {
-    private ActivityStreamerWindow? window;
+    private readonly ActivityTrackerService tracker;
+    private readonly ActivityPersistence persistence;
+    private readonly SettingsManager settings;
+    private readonly SingleWindowHost<ActivityStreamerWindow, ActivityStreamerViewModel> host;
 
-    public bool IsOpen => window is not null;
-    public event EventHandler? IsOpenChanged;
+    public ActivityStreamerWindowService(ActivityTrackerService tracker, ActivityPersistence persistence, SettingsManager settings)
+    {
+        this.tracker = tracker;
+        this.persistence = persistence;
+        this.settings = settings;
+        var user = settings.UserSettings;
+        // Its width follows the size setting and its height the sections shown, so only the spot is restored.
+        host = new(CreateViewModel, model => model.Start(), new WindowMemory(
+            () => user.StreamerWindowOpen, open => user.StreamerWindowOpen = open,
+            () => user.StreamerWindowPlacement, placement => user.StreamerWindowPlacement = placement), restoreSize: false);
+    }
+
+    public bool IsOpen => host.IsOpen;
+    public string ButtonText => IsOpen ? "Close streamer window" : "Open streamer window";
+
+    public event EventHandler? IsOpenChanged
+    {
+        add => host.IsOpenChanged += value;
+        remove => host.IsOpenChanged -= value;
+    }
 
     public ActivityStreamerViewModel CreateViewModel() => new(tracker, persistence, settings.UserSettings);
 
-    public void RestoreIfOpen()
-    {
-        if (settings.UserSettings.StreamerWindowOpen) Show();
-    }
+    public void RestoreIfOpen() => host.RestoreIfOpen();
 
-    public void Toggle()
-    {
-        if (window is null) Show();
-        else window.Close();
-    }
+    public void Toggle() => host.Toggle();
 
-    public void Show()
-    {
-        Dispatcher.UIThread.VerifyAccess();
-        if (window is not null)
-        {
-            window.Activate();
-            return;
-        }
-        if (App.IsShuttingDown) return;
-        var viewModel = CreateViewModel();
-        var opened = new ActivityStreamerWindow { DataContext = viewModel };
-        // Its width follows the size setting and its height the sections shown, so only the spot is restored.
-        var placement = new WindowPlacementTracker(opened, settings.UserSettings.StreamerWindowPlacement, restoreSize: false);
-        opened.Closing += (_, _) =>
-        {
-            if (placement.Capture() is { } spot) settings.UserSettings.StreamerWindowPlacement = spot;
-        };
-        opened.Closed += (_, _) =>
-        {
-            viewModel.Dispose();
-            if (!App.IsShuttingDown) settings.UserSettings.StreamerWindowOpen = false;
-            if (window == opened) window = null;
-            IsOpenChanged?.Invoke(this, EventArgs.Empty);
-        };
-        window = opened;
-        settings.UserSettings.StreamerWindowOpen = true;
-        opened.Show();
-        viewModel.Start();
-        IsOpenChanged?.Invoke(this, EventArgs.Empty);
-    }
+    public void Show() => host.Show();
 }

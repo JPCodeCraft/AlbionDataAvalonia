@@ -32,10 +32,10 @@
         </WrapPanel>
         <WrapPanel Grid.Row="1" Margin="0,0,0,2">
             <Button Classes="UiAction" Margin="0,0,8,6" Content="Refresh" Command="{Binding LoadTradesCommand}" />
-            <Button Classes="UiAction" Margin="0,0,8,6" Content="Export CSV" Name="ExportCsvButton" Click="ExportCsvButton_Click" IsEnabled="{Binding !IsExporting}" />
-            <Button Classes="UiAction" Margin="0,0,8,6" Content="Set quality" Name="SetQualityButton" Click="SetQualityButton_Click" IsEnabled="{Binding CanSetSelectedTradeQuality}" />
-            <Button Classes="UiAction" Margin="0,0,8,6" Content="Add to portfolio" Name="AddToPortfolioButton" Click="AddToPortfolioButton_Click" IsEnabled="{Binding CanAddSelectedTradesToPortfolio}" />
-            <Button Classes="UiAction UiDanger" Margin="0,0,8,6" Content="Delete selected…" Name="DeleteButton" Click="DeleteButton_Click" IsEnabled="{Binding HasSelectedRows}" />
+            <Button Classes="UiAction" Margin="0,0,8,6" Content="Export CSV…" Command="{Binding ExportCsvCommand}" IsEnabled="{Binding !IsExporting}" />
+            <Button Classes="UiAction" Margin="0,0,8,6" Content="Set quality…" Command="{Binding SetQualityCommand}" IsEnabled="{Binding CanSetSelectedTradeQuality}" />
+            <Button Classes="UiAction" Margin="0,0,8,6" Content="Add to Portfolio…" Command="{Binding AddToPortfolioCommand}" IsEnabled="{Binding CanAddSelectedTradesToPortfolio}" />
+            <Button Classes="UiAction UiDanger" Margin="0,0,8,6" Content="Delete selected…" Command="{Binding DeleteSelectedCommand}" IsEnabled="{Binding HasSelectedRows}" />
         </WrapPanel>
         <StackPanel Grid.Row="2" Margin="0,0,0,6" Spacing="4">
             <TextBlock Classes="UiError" Text="{Binding LoadError}" IsVisible="{Binding HasLoadError}" />
@@ -99,20 +99,21 @@
                              Message="No trades to show."
                              Hint="Market trades you make while the client runs appear here. If you expected some, check the filters above." />
         <Grid Grid.Row="4" ColumnDefinitions="*,150" MinHeight="42" Margin="0,6,0,0" ColumnSpacing="12">
+            <!-- Each total copies as a plain number. -->
             <WrapPanel VerticalAlignment="Center">
-                <TextBlock Classes="UiLabel" Text="Selected:" Margin="0,0,8,0" VerticalAlignment="Center" />
-                <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,16,0">
-                    <TextBlock Text="{Binding SelectedAmountTotal, Converter={x:Static views:UiValueConverters.WholeNumber}}" Tag="{Binding SelectedAmountTotal}" Cursor="Hand" PointerPressed="CopyValuePointerPressed" ToolTip.Tip="Click to copy" />
-                    <TextBlock Classes="UiLabel" Text="items" />
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="4" Margin="0,0,16,0">
-                    <TextBlock Text="{Binding SelectedTotalSilver, Converter={x:Static views:UiValueConverters.WholeNumber}}" Tag="{Binding SelectedTotalSilver}" Cursor="Hand" PointerPressed="CopyValuePointerPressed" ToolTip.Tip="Click to copy" />
-                    <TextBlock Classes="UiLabel" Text="silver" />
-                </StackPanel>
-                <StackPanel Orientation="Horizontal" Spacing="4">
-                    <TextBlock Classes="UiLabel" Text="Average:" />
-                    <TextBlock Text="{Binding SelectedAverageSilver, Converter={x:Static views:UiValueConverters.WholeNumber}}" Tag="{Binding SelectedAverageSilver}" Cursor="Hand" PointerPressed="CopyValuePointerPressed" ToolTip.Tip="Click to copy" />
-                </StackPanel>
+                <TextBlock Classes="UiLabel" Text="Selected:" Margin="0,0,4,0" VerticalAlignment="Center" />
+                <Button Classes="UiGhost" Padding="4,2" Content="{Binding SelectedAmountTotal, Converter={x:Static views:UiValueConverters.WholeNumber}}"
+                        Command="{Binding CopyValueCommand}" CommandParameter="{Binding SelectedAmountTotal}"
+                        ToolTip.Tip="Copy" AutomationProperties.Name="Copy selected items" />
+                <TextBlock Classes="UiLabel" Text="items" Margin="0,0,12,0" VerticalAlignment="Center" />
+                <Button Classes="UiGhost" Padding="4,2" Content="{Binding SelectedTotalSilver, Converter={x:Static views:UiValueConverters.WholeNumber}}"
+                        Command="{Binding CopyValueCommand}" CommandParameter="{Binding SelectedTotalSilver}"
+                        ToolTip.Tip="Copy" AutomationProperties.Name="Copy selected silver" />
+                <TextBlock Classes="UiLabel" Text="silver" Margin="0,0,12,0" VerticalAlignment="Center" />
+                <TextBlock Classes="UiLabel" Text="Average:" VerticalAlignment="Center" />
+                <Button Classes="UiGhost" Padding="4,2" Content="{Binding SelectedAverageSilver, Converter={x:Static views:UiValueConverters.WholeNumber}}"
+                        Command="{Binding CopyValueCommand}" CommandParameter="{Binding SelectedAverageSilver}"
+                        ToolTip.Tip="Copy" AutomationProperties.Name="Copy average silver" />
             </WrapPanel>
             <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4" IsVisible="{Binding IsExporting}">
                 <TextBlock Classes="UiLabel" Text="Exporting CSV…" />

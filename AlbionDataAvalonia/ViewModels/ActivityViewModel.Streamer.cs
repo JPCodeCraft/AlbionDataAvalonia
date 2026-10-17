@@ -9,7 +9,7 @@ public partial class ActivityViewModel
     private ActivityStreamerWindowService? streamerWindow;
 
     public bool CanOpenStreamerWindow => streamerWindow is not null;
-    public string StreamerWindowButtonText => streamerWindow?.IsOpen == true ? "Close streamer window" : "Streamer window";
+    public string StreamerWindowButtonText => streamerWindow?.ButtonText ?? "";
 
     private void AttachStreamerWindow(ActivityStreamerWindowService? service)
     {

@@ -14,6 +14,7 @@ using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
+using AlbionDataAvalonia.Ui.Services;
 using AlbionDataAvalonia.Views;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -35,6 +36,8 @@ public partial class SettingsViewModel : ViewModelBase
     private readonly DatabaseBackupService? databaseBackupService;
     private readonly ActivityStreamerWindowService? streamerWindow;
     private readonly PacketDiagnostics? packetDiagnostics;
+    private readonly IDialogService? dialogs;
+    private readonly IClipboardService? clipboard;
 
     [ObservableProperty]
     private UserSettings userSettings;
@@ -103,7 +106,7 @@ public partial class SettingsViewModel : ViewModelBase
     public ObservableCollection<PrivateOrderShareEntryViewModel> SharedUsers { get; } = new();
 
     public bool CanOpenStreamerWindow => streamerWindow is not null;
-    public string StreamerWindowButtonText => streamerWindow?.IsOpen == true ? "Close streamer window" : "Open streamer window";
+    public string StreamerWindowButtonText => streamerWindow?.ButtonText ?? "";
 
     [RelayCommand] private void ToggleStreamerWindow() => streamerWindow?.Toggle();
 
@@ -142,7 +145,9 @@ public partial class SettingsViewModel : ViewModelBase
         DatabaseBackupService databaseBackupService,
         ActivityStreamerWindowService? streamerWindow = null,
         DataCleanupService? dataCleanup = null,
-        PacketDiagnostics? packetDiagnostics = null)
+        PacketDiagnostics? packetDiagnostics = null,
+        IDialogService? dialogs = null,
+        IClipboardService? clipboard = null)
     {
         _settingsManager = settingsManager;
         _playerState = playerState;
@@ -153,6 +158,8 @@ public partial class SettingsViewModel : ViewModelBase
         this.streamerWindow = streamerWindow;
         this.dataCleanup = dataCleanup;
         this.packetDiagnostics = packetDiagnostics;
+        this.dialogs = dialogs;
+        this.clipboard = clipboard;
         if (packetDiagnostics is not null)
             packetDiagnostics.IsEnabledChanged += (_, _) => Dispatcher.UIThread.Post(() =>
             {
@@ -181,6 +188,12 @@ public partial class SettingsViewModel : ViewModelBase
     public int MaxSharedFriends => MaxSharedFriendsLimit;
     public string SharedFriendsLimitText => $"{SharedUsers.Count} / {MaxSharedFriendsLimit} friends";
     public string RedactedCurrentFirebaseUserId => RedactUserId(CurrentFirebaseUserId);
+
+    [RelayCommand]
+    private async Task CopyUserId()
+    {
+        if (clipboard is not null && !string.IsNullOrWhiteSpace(CurrentFirebaseUserId)) await clipboard.SetTextAsync(CurrentFirebaseUserId);
+    }
     public bool IsWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
     public bool CanUseSharingSettings => IsUserLoggedIn && !IsSharingBusy;
     public bool CanAddSharedUser => CanUseSharingSettings && SharedUsers.Count < MaxSharedFriendsLimit;

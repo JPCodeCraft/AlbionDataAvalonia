@@ -3,6 +3,7 @@ using AlbionDataAvalonia.Activity.Models;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Party;
 using AlbionDataAvalonia.Ui;
+using AlbionDataAvalonia.Ui.Services;
 using AlbionDataAvalonia.Views;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -146,9 +147,12 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
 
     public ActivityViewModel(ActivityTrackerService tracker, ActivityPersistence persistence, CsvExportService csvExportService,
         ActivityItemValuationService? valuations = null, PartyTrackerService? partyTracker = null,
-        ActivityStreamerWindowService? streamerWindow = null, ActivityMapWindowService? mapWindow = null) : this()
+        ActivityStreamerWindowService? streamerWindow = null, ActivityMapWindowService? mapWindow = null,
+        IDialogService? dialogs = null, IFileDialogService? files = null) : this()
     {
         this.tracker = tracker;
+        this.dialogs = dialogs;
+        this.files = files;
         this.persistence = persistence;
         this.valuations = valuations;
         this.csvExportService = csvExportService;

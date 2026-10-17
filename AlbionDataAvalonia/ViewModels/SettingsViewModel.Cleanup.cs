@@ -215,6 +215,20 @@ public partial class SettingsViewModel
         return $"Permanently delete {list} across all characters and servers?{kept} This cannot be undone.";
     }
 
+    [RelayCommand]
+    private async Task DeleteData()
+    {
+        try
+        {
+            if (dialogs is null || !CanDeleteData) return;
+            if (await dialogs.ConfirmAsync("Delete stored data?", CleanupConfirmationText(), "Delete")) await ApplyCleanupAsync();
+        }
+        catch (Exception error)
+        {
+            Log.Error(error, "Could not delete the selected stored data.");
+        }
+    }
+
     public async Task ApplyCleanupAsync()
     {
         if (dataCleanup is null || CleanupPreview is not { HasData: true } preview || IsCleanupBusy) return;
@@ -224,7 +238,7 @@ public partial class SettingsViewModel
         {
             var deleted = await dataCleanup.CleanupAsync(preview, CompactAfterCleanup);
             var removed = (deleted.Activity?.Events ?? 0) + deleted.Trades + deleted.Mails + deleted.AwakenedItems;
-            CleanupStatusText = $"Deleted {removed:N0} records{(CompactAfterCleanup ? " and compacted the database" : "")}.";
+            CleanupStatusText = $"Deleted {UiFormat.Count(removed, "record")}{(CompactAfterCleanup ? " and compacted the database" : "")}.";
         }
         catch (Exception error)
         {

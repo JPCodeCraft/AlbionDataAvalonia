@@ -599,8 +599,10 @@ public partial class MainViewModel
         return text.ToString();
     }
 
-    public async void ShowDiagnosticsCopied(bool copied)
+    [RelayCommand]
+    private async Task CopyDiagnostics()
     {
+        var copied = _clipboard is not null && await _clipboard.SetTextAsync(BuildDiagnosticsText());
         CopyDiagnosticsLabel = copied ? "Copied" : "Couldn’t copy";
         await Task.Delay(TimeSpan.FromSeconds(2));
         CopyDiagnosticsLabel = "Copy diagnostics";

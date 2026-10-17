@@ -2,67 +2,41 @@ using AlbionDataAvalonia.Activity;
 using AlbionDataAvalonia.Maps;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.ViewModels;
-using Avalonia.Threading;
 using System;
 
 namespace AlbionDataAvalonia.Views;
 
 /// <summary>Owns the single map window. Its view model reads the tracker only while the window is open.</summary>
-public sealed class ActivityMapWindowService(ActivityTrackerService tracker, ActivityPersistence persistence, MapDataService maps, SettingsManager settings)
+public sealed class ActivityMapWindowService
 {
-    private ActivityMapWindow? window;
-    private ActivityMapViewModel? viewModel;
+    private readonly SingleWindowHost<ActivityMapWindow, ActivityMapViewModel> host;
 
-    public bool IsOpen => window is not null;
-    public event EventHandler? IsOpenChanged;
-
-    public void RestoreIfOpen()
+    public ActivityMapWindowService(ActivityTrackerService tracker, ActivityPersistence persistence, MapDataService maps, SettingsManager settings)
     {
-        if (settings.UserSettings.MapWindowOpen) Show();
+        var user = settings.UserSettings;
+        host = new(() => new ActivityMapViewModel(tracker, persistence, maps, user), model => model.Start(), new WindowMemory(
+            () => user.MapWindowOpen, open => user.MapWindowOpen = open,
+            () => user.MapWindowPlacement, placement => user.MapWindowPlacement = placement), restoreSize: true);
     }
 
-    public void Toggle()
+    public bool IsOpen => host.IsOpen;
+    public string ButtonText => IsOpen ? "Close map" : "Open map";
+
+    public event EventHandler? IsOpenChanged
     {
-        if (window is null) Show();
-        else window.Close();
+        add => host.IsOpenChanged += value;
+        remove => host.IsOpenChanged -= value;
     }
+
+    public void RestoreIfOpen() => host.RestoreIfOpen();
+
+    public void Toggle() => host.Toggle();
+
+    public void Show() => host.Show();
 
     public void ShowRun(Guid runId)
     {
-        Show();
-        viewModel?.ShowRun(runId);
-    }
-
-    public void Show()
-    {
-        Dispatcher.UIThread.VerifyAccess();
-        if (window is not null)
-        {
-            if (window.WindowState == Avalonia.Controls.WindowState.Minimized) window.WindowState = Avalonia.Controls.WindowState.Normal;
-            window.Activate();
-            return;
-        }
-        if (App.IsShuttingDown) return;
-        var opened = new ActivityMapWindow();
-        var model = new ActivityMapViewModel(tracker, persistence, maps, settings.UserSettings);
-        opened.DataContext = model;
-        var placement = new WindowPlacementTracker(opened, settings.UserSettings.MapWindowPlacement, restoreSize: true);
-        opened.Closing += (_, _) =>
-        {
-            if (placement.Capture() is { } spot) settings.UserSettings.MapWindowPlacement = spot;
-        };
-        opened.Closed += (_, _) =>
-        {
-            model.Dispose();
-            if (!App.IsShuttingDown) settings.UserSettings.MapWindowOpen = false;
-            if (window == opened) { window = null; viewModel = null; }
-            IsOpenChanged?.Invoke(this, EventArgs.Empty);
-        };
-        window = opened;
-        viewModel = model;
-        settings.UserSettings.MapWindowOpen = true;
-        opened.Show();
-        model.Start();
-        IsOpenChanged?.Invoke(this, EventArgs.Empty);
+        host.Show();
+        host.ViewModel?.ShowRun(runId);
     }
 }

@@ -5,6 +5,7 @@ using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
+using AlbionDataAvalonia.Ui.Services;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -224,8 +225,14 @@ public partial class TradesViewModel : ViewModelBase
         PlayerState playerState,
         TradeService tradeService,
         CsvExportService csvExportService,
-        PortfolioUploadService portfolioUploadService)
+        PortfolioUploadService portfolioUploadService,
+        IDialogService dialogs,
+        IClipboardService clipboard,
+        IFileDialogService files)
     {
+        this.dialogs = dialogs;
+        this.clipboard = clipboard;
+        this.files = files;
         _settingsManager = settingsManager;
         _playerState = playerState;
         _tradeService = tradeService;
@@ -579,7 +586,7 @@ public partial class TradesViewModel : ViewModelBase
         await LoadTrades();
         await RefreshLocationOptionsAsync();
         UpdateSelectedTrades([]);
-        SetPortfolioImportStatus($"Delete: {deletedCount:N0} trade{(deletedCount == 1 ? string.Empty : "s")} deleted.");
+        SetPortfolioImportStatus($"Delete: {Ui.UiFormat.Count(deletedCount, "trade")} deleted.");
         return deletedCount;
     }
 

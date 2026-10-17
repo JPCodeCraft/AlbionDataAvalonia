@@ -204,7 +204,7 @@
 								Content="Open browser again" />
 							<Button HorizontalAlignment="Stretch"
 								IsEnabled="{Binding HasLoginAuthorizationUrl}"
-								Click="CopyLoginLink_Click"
+								Command="{Binding CopyLoginLinkCommand}"
 								Content="Copy sign-in link" />
 							<Button HorizontalAlignment="Stretch"
 								Command="{Binding CancelLoginCommand}"

@@ -52,7 +52,7 @@
 							<TextBlock Text="{Binding RenderedMessage}" FontSize="{DynamicResource UiFontSizeSmall}" TextWrapping="Wrap" VerticalAlignment="Center"
 									   Margin="0,7" MaxLines="2" TextTrimming="CharacterEllipsis"
 									   Classes="log-message"
-									   DataContextChanged="LogMessage_DataContextChanged"
+									   Classes.link="{Binding HasPublicUploadLink}"
 									   PointerReleased="LogMessage_PointerReleased">
 								<ToolTip.Tip>
 									<TextBlock Text="{Binding RenderedMessage}" TextWrapping="Wrap" MaxWidth="720" />

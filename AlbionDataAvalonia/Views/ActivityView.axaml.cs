@@ -1,6 +1,4 @@
-using AlbionDataAvalonia.Activity.Models;
 using AlbionDataAvalonia.ViewModels;
-using AlbionDataAvalonia.Network.Services;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Primitives;
@@ -8,12 +6,9 @@ using Avalonia.Data.Converters;
 using Avalonia.Input;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
-using Avalonia.Platform.Storage;
 using Avalonia.VisualTree;
-using Serilog;
 using System;
 using System.Linq;
-using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.Views;
 
@@ -27,7 +22,6 @@ public partial class ActivityView : UserControl
 
     private ActivityViewModel? activeViewModel;
     private bool isAttached;
-    private bool choosingLootExport;
     public ActivityView()
     {
         InitializeComponent();
@@ -90,89 +84,4 @@ public partial class ActivityView : UserControl
                 _ => column.IsVisible
             };
     }
-
-    private void ExportSessionLoot_Click(object? sender, RoutedEventArgs args)
-        => ExportLoot(sender, viewModel => viewModel.CaptureSessionLootExportQuery());
-
-    private const string AfmLootLoggerUrl = "https://albionfreemarket.com/loot-logger";
-
-    private async void OpenAfmLootLogger_Click(object? sender, RoutedEventArgs args)
-    {
-        try
-        {
-            if (TopLevel.GetTopLevel(this) is { } topLevel) await topLevel.Launcher.LaunchUriAsync(new Uri(AfmLootLoggerUrl));
-        }
-        catch (Exception error) { Log.Warning(error, "Could not open the AFM Loot Logger."); }
-    }
-
-    private void ExportCurrentLoot_Click(object? sender, RoutedEventArgs args)
-        => ExportLoot(sender, viewModel => viewModel.CaptureCurrentLootExportQuery());
-
-    private void ExportGlobalLoot_Click(object? sender, RoutedEventArgs args)
-        => ExportLoot(sender, viewModel => viewModel.CaptureGlobalLootExportQuery());
-
-    private async void ExportLoot(object? sender, Func<ActivityViewModel, ActivityQuery?> captureQuery)
-    {
-        if (choosingLootExport || sender is not MenuItem { Tag: LootExportFormat format }
-            || DataContext is not ActivityViewModel viewModel || TopLevel.GetTopLevel(this) is not Window owner
-            || captureQuery(viewModel) is not { } query) return;
-        choosingLootExport = true;
-        try
-        {
-            CsvExportOptions? options = null;
-            if (format == LootExportFormat.AfmCsv)
-            {
-                options = await CsvExportOptionsWindow.ShowAsync(owner);
-                if (options is null) return;
-            }
-            var viewer = format == LootExportFormat.LootLoggerViewer;
-            var file = await owner.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
-            {
-                Title = viewer ? "Export loot for Loot Logger Viewer" : "Export loot for AFM Loot Logger",
-                SuggestedFileName = viewer ? $"loot-events-{DateTime.Now:yyyy-MM-dd-HH-mm-ss}.txt" : $"afm-loot-log-{DateTime.Now:yyyyMMdd_HHmmss}.csv",
-                FileTypeChoices = [new FilePickerFileType(viewer ? "Loot Logger Files" : "CSV Files") { Patterns = [viewer ? "*.txt" : "*.csv"] }]
-            });
-            if (file is null) return;
-            if (!viewModel.CanStartLootExport)
-            {
-                viewModel.LootExportStatusText = "Export canceled.";
-                return;
-            }
-            await using var stream = await file.OpenWriteAsync();
-            await viewModel.ExportLootAsync(stream, query, format, options);
-        }
-        catch (Exception error)
-        {
-            Log.Error(error, "Could not open the loot export file.");
-            viewModel.LootExportStatusText = "Export failed. The file may be incomplete.";
-        }
-        finally { choosingLootExport = false; }
-    }
-
-    private async void NewSession_Click(object? sender, RoutedEventArgs args)
-    {
-        if (DataContext is not ActivityViewModel viewModel || !viewModel.HasCurrentPlaySession || TopLevel.GetTopLevel(this) is not Window owner) return;
-        var id = viewModel.CurrentPlaySessionId;
-        if (await ConfirmAsync(owner, "Start a new session?", "This session ends at your last activity and stays in History. Your next activity starts the new session.", "New session", destructive: false)
-            && viewModel.CurrentPlaySessionId == id)
-            viewModel.StartNewSession(id);
-    }
-
-    private void RunChip_Click(object? sender, RoutedEventArgs args)
-    {
-        if (DataContext is ActivityViewModel viewModel && (sender as Control)?.DataContext is ActivitySessionRow run) viewModel.OpenRun(run.Id);
-    }
-
-    private async void DeleteSession_Click(object? sender, RoutedEventArgs args)
-    {
-        if (DataContext is not ActivityViewModel viewModel || !viewModel.CanDeleteSelectedSession || TopLevel.GetTopLevel(this) is not Window owner) return;
-        var id = (viewModel.SelectedPlaySession?.Id, viewModel.SelectedSession?.Id);
-        var label = viewModel.SelectedSession is null ? "session" : "run";
-        if (await ConfirmAsync(owner, $"Delete {label}?", $"Delete the {viewModel.DeleteTargetText} and all activity in it? This cannot be undone.", $"Delete {label}")
-            && (viewModel.SelectedPlaySession?.Id, viewModel.SelectedSession?.Id) == id)
-            await viewModel.DeleteSelectedSessionAsync();
-    }
-
-    private static Task<bool> ConfirmAsync(Window owner, string title, string message, string action, bool destructive = true) =>
-        CleanupConfirmWindow.ShowAsync(owner, title, message, action, destructive);
 }

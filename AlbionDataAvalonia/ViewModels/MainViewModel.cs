@@ -5,6 +5,7 @@ using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Players;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
+using AlbionDataAvalonia.Ui.Services;
 using AlbionDataAvalonia.State.Events;
 using AlbionDataAvalonia.Views;
 using Avalonia;
@@ -49,6 +50,7 @@ public partial class MainViewModel : ViewModelBase
     private readonly Uploader _uploader;
     private readonly AuthService _authService;
     private readonly PacketDiagnostics? _packetDiagnostics;
+    private readonly IClipboardService? _clipboard;
 
     [ObservableProperty]
     private string appVersion;
@@ -245,7 +247,7 @@ public partial class MainViewModel : ViewModelBase
     {
     }
 
-    public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, PlayerIdentityService playerIdentityService, SettingsManager settingsManager, SettingsViewModel settingsViewModel, LogsViewModel logsViewModel, TradesViewModel tradesViewModel, ActivityViewModel activityViewModel, LegendaryViewModel legendaryViewModel, Uploader uploader, AuthService authService, PacketDiagnostics? packetDiagnostics = null)
+    public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, PlayerIdentityService playerIdentityService, SettingsManager settingsManager, SettingsViewModel settingsViewModel, LogsViewModel logsViewModel, TradesViewModel tradesViewModel, ActivityViewModel activityViewModel, LegendaryViewModel legendaryViewModel, Uploader uploader, AuthService authService, PacketDiagnostics? packetDiagnostics = null, IClipboardService? clipboard = null)
     {
         _playerState = playerState;
         _playerIdentityService = playerIdentityService;
@@ -259,6 +261,7 @@ public partial class MainViewModel : ViewModelBase
         _uploader = uploader;
         _authService = authService;
         _packetDiagnostics = packetDiagnostics;
+        _clipboard = clipboard;
         UploadToAfmOnly = _settingsManager.UserSettings.UploadToAfmOnly;
         ContributeToPublic = _settingsManager.UserSettings.ContributeToPublic;
         ShareWithFriends = _settingsManager.UserSettings.ShareWithFriends;
@@ -813,6 +816,15 @@ public partial class MainViewModel : ViewModelBase
         UpdateLoginStatus(SystemLauncher.TryOpenUrl(uri)
             ? "Waiting for Google sign-in in your browser..."
             : "AFM could not open your browser. Copy the sign-in link and open it in a browser on this computer.");
+    }
+
+    [RelayCommand]
+    private async Task CopyLoginLink()
+    {
+        if (string.IsNullOrWhiteSpace(LoginAuthorizationUrl)) return;
+        UpdateLoginStatus(_clipboard is not null && await _clipboard.SetTextAsync(LoginAuthorizationUrl)
+            ? "Sign-in link copied. Open it in a browser on this computer."
+            : "Could not copy the sign-in link. Use Open browser again instead.");
     }
 
     [RelayCommand]

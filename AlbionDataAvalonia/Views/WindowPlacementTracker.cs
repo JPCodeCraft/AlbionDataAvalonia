@@ -41,6 +41,17 @@ internal sealed class WindowPlacementTracker
         if (window.Screens is { } screens) screens.Changed += (_, _) => KeepOnScreen();
     }
 
+    /// <summary>Restores a window's saved placement and saves the new one when the window closes.</summary>
+    public static WindowPlacementTracker Attach(Window window, WindowPlacement? saved, bool restoreSize, Action<WindowPlacement> save)
+    {
+        var tracker = new WindowPlacementTracker(window, saved, restoreSize);
+        window.Closing += (_, _) =>
+        {
+            if (tracker.Capture() is { } placement) save(placement);
+        };
+        return tracker;
+    }
+
     // Null until the window has been shown, so a window that never opened keeps its saved spot.
     public WindowPlacement? Capture()
     {

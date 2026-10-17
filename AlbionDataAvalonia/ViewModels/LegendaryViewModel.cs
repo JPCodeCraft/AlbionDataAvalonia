@@ -5,6 +5,8 @@ using AlbionDataAvalonia.Legendary.Models;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
+using AlbionDataAvalonia.Ui;
+using AlbionDataAvalonia.Ui.Services;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -28,6 +30,7 @@ public partial class LegendaryViewModel : ViewModelBase
     private readonly AuthService authService;
     private readonly PlayerState playerState;
     private readonly SettingsManager settingsManager;
+    private readonly IDialogService dialogs;
     private List<LegendaryItemRowViewModel> unfilteredItems = new();
     private IReadOnlyDictionary<(int ServerId, Guid SoulId), LegendarySaleListing> saleListings =
         new Dictionary<(int ServerId, Guid SoulId), LegendarySaleListing>();
@@ -104,6 +107,7 @@ public partial class LegendaryViewModel : ViewModelBase
         authService = null!;
         playerState = null!;
         settingsManager = null!;
+        dialogs = null!;
     }
 
     public LegendaryViewModel(
@@ -112,7 +116,8 @@ public partial class LegendaryViewModel : ViewModelBase
         LegendarySaleService saleService,
         AuthService authService,
         PlayerState playerState,
-        SettingsManager settingsManager)
+        SettingsManager settingsManager,
+        IDialogService dialogs)
     {
         this.tracker = tracker;
         this.definitions = definitions;
@@ -120,6 +125,7 @@ public partial class LegendaryViewModel : ViewModelBase
         this.authService = authService;
         this.playerState = playerState;
         this.settingsManager = settingsManager;
+        this.dialogs = dialogs;
         currentUserId = authService.FirebaseUserId;
         UpdateFilterPlayer();
         tracker.ItemsChanged += HandleItemsChanged;
@@ -178,7 +184,7 @@ public partial class LegendaryViewModel : ViewModelBase
             selectedItems.Select(item => item.Source.Id),
             cancellationToken);
         await LoadItemsAsync();
-        SaleStatus = $"Deleted {deletedCount:N0} awakened item{(deletedCount == 1 ? string.Empty : "s")}.";
+        SaleStatus = $"Deleted {UiFormat.Count(deletedCount, "awakened item")}.";
         return deletedCount;
     }
 
@@ -286,12 +292,15 @@ public partial class LegendaryViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasSelectedItem));
         OnPropertyChanged(nameof(CanListSelectedItem));
         OnPropertyChanged(nameof(CanCancelSelectedListing));
+        OnPropertyChanged(nameof(SelectedItemSold));
+        OnPropertyChanged(nameof(CanChangeSelectedSold));
         UpdateSaleStatus();
     }
     partial void OnIsPostingChanged(bool value)
     {
         OnPropertyChanged(nameof(CanListSelectedItem));
         OnPropertyChanged(nameof(CanCancelSelectedListing));
+        OnPropertyChanged(nameof(CanChangeSelectedSold));
     }
 
     private async Task LoadDefinitionsAsync()
@@ -664,7 +673,7 @@ public sealed class LegendaryItemRowViewModel
     }
 }
 
-public sealed class LegendarySellOrderRowViewModel
+public sealed partial class LegendarySellOrderRowViewModel
 {
     public LegendarySellOrderRowViewModel(LegendarySellOrder source, bool isLatest)
     {
@@ -694,6 +703,8 @@ public sealed class LegendarySellOrderRowViewModel
     };
     public string? MessageUrl => Source.Discord.MessageUrl;
     public bool HasDiscordPost => !string.IsNullOrWhiteSpace(MessageUrl);
+
+    [RelayCommand] private void OpenDiscordPost() => SystemLauncher.TryOpenOptionalUrl(MessageUrl);
 }
 
 public sealed class LegendaryTraitRowViewModel

@@ -9,7 +9,7 @@ public partial class ActivityViewModel
     private ActivityMapWindowService? mapWindow;
 
     public bool CanOpenMapWindow => mapWindow is not null;
-    public string MapWindowButtonText => mapWindow?.IsOpen == true ? "Close map" : "Map";
+    public string MapWindowButtonText => mapWindow?.ButtonText ?? "";
     // A session with a single run maps that run; with several, a run chip picks one.
     private Guid? MapRunId => SelectedSession?.Id ?? (SelectedPlaySession?.Runs is { Count: 1 } runs ? runs[0].Id : null);
     public bool CanShowRunOnMap => mapWindow is not null && MapRunId is not null;

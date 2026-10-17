@@ -39,8 +39,7 @@
                     Classes="UiAction UiDanger"
                     VerticalAlignment="Bottom"
                     Margin="0,0,10,8"
-                    IsEnabled="{Binding HasSelectedItem}"
-                    Click="DeleteSelectedButton_Click" />
+                    Command="{Binding DeleteSelectedCommand}" />
         </WrapPanel>
 
         <TextBlock Grid.Row="1"
@@ -62,6 +61,7 @@
                       ItemsSource="{Binding Items}"
                       SelectedItem="{Binding SelectedItem}"
                       SelectionMode="Extended"
+                      SelectionChanged="ItemsGrid_SelectionChanged"
                       FontSize="{DynamicResource UiFontSizeSmall}">
 
                 <DataGrid.Columns>
@@ -124,15 +124,13 @@
                                     <WrapPanel>
                                         <Button Content="View in calculator"
                                                 Classes="UiAction"
-                                                Tag="{Binding SelectedItem.CalculatorUrl}"
                                                 IsEnabled="{Binding SelectedItem.CanViewInCalculator}"
-                                                Click="OpenCalculatorButton_Click"
+                                                Command="{Binding OpenCalculatorCommand}"
                                                 Margin="0,0,8,0" />
-                                        <Button Name="ListForSaleButton"
-                                                Classes="UiAction"
+                                        <Button Classes="UiAction"
                                                 Content="{Binding SelectedItem.SaleActionText, TargetNullValue='List for sale'}"
                                                 IsEnabled="{Binding CanListSelectedItem}"
-                                                Click="ListForSaleButton_Click" />
+                                                Command="{Binding ListForSaleCommand}" />
                                     </WrapPanel>
                                     <TextBlock Text="{Binding SaleStatus}" Classes="UiLabel" TextWrapping="Wrap" />
                                 </StackPanel>
@@ -172,17 +170,16 @@
                                         </Grid>
 
                                         <WrapPanel IsVisible="{Binding HasListing}">
-                                            <CheckBox Name="SoldCheckBox"
-                                                      Content="Mark as sold"
+                                            <CheckBox Content="Mark as sold"
                                                       IsVisible="{Binding !IsCanceled}"
-                                                      IsChecked="{Binding IsSold, Mode=OneWay}"
-                                                      IsEnabled="{Binding CanChangeSold}"
-                                                      Click="SoldCheckBox_Click"
+                                                      IsChecked="{Binding $parent[UserControl].((vm:LegendaryViewModel)DataContext).SelectedItemSold}"
+                                                      IsEnabled="{Binding $parent[UserControl].((vm:LegendaryViewModel)DataContext).CanChangeSelectedSold}"
                                                       Margin="0,0,12,0" />
                                             <Button Content="Cancel listing"
                                                     Classes="UiAction"
                                                     IsVisible="{Binding IsActiveListing}"
-                                                    Click="CancelListingButton_Click" />
+                                                    IsEnabled="{Binding $parent[UserControl].((vm:LegendaryViewModel)DataContext).CanCancelSelectedListing}"
+                                                    Command="{Binding $parent[UserControl].((vm:LegendaryViewModel)DataContext).CancelListingCommand}" />
                                         </WrapPanel>
 
                                         <Expander Header="{Binding SellOrdersHeading}"
@@ -215,9 +212,8 @@
                                                                     </Border>
                                                                     <Button Content="Open Discord post"
                                                                             Classes="UiAction"
-                                                                            Tag="{Binding MessageUrl}"
                                                                             IsVisible="{Binding HasDiscordPost}"
-                                                                            Click="OpenDiscordPostButton_Click"
+                                                                            Command="{Binding OpenDiscordPostCommand}"
                                                                             HorizontalAlignment="Left" />
                                                                 </StackPanel>
                                                             </Border>

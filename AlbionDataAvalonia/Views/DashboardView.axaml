@@ -350,7 +350,7 @@
 						<TextBlock Classes="UiLabel" Text="{Binding UploadStatusText}" VerticalAlignment="Center" />
 					</StackPanel>
 					<Button Grid.Column="1" Classes="UiGhost" FontSize="{DynamicResource UiFontSizeSmall}" Content="Logs" Command="{Binding ShowLogsCommand}" />
-					<Button Grid.Column="2" Classes="UiGhost" FontSize="{DynamicResource UiFontSizeSmall}" Content="{Binding CopyDiagnosticsLabel}" Click="CopyDiagnostics_Click"
+					<Button Grid.Column="2" Classes="UiGhost" FontSize="{DynamicResource UiFontSizeSmall}" Content="{Binding CopyDiagnosticsLabel}" Command="{Binding CopyDiagnosticsCommand}"
 							ToolTip.Tip="Copies a short summary of the checks above to paste in the AFM Discord." />
 					<Button Grid.Column="3" Classes="UiGhost" FontSize="{DynamicResource UiFontSizeSmall}" Content="Discord" Command="{Binding OpenDiscordCommand}" />
 				</Grid>

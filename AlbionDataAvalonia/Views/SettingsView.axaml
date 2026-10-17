@@ -117,7 +117,7 @@
                                 <WrapPanel>
                                     <TextBlock Classes="UiLabel" Text="Friends add you with your ID" VerticalAlignment="Center" Margin="0,0,8,0" />
                                     <TextBlock Text="{Binding RedactedCurrentFirebaseUserId}" FontSize="{DynamicResource UiFontSizeSmall}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                                    <Button Classes="UiAction" Content="Copy" Click="CopyUserIdButton_Click" />
+                                    <Button Classes="UiAction" Content="Copy" Command="{Binding CopyUserIdCommand}" AutomationProperties.Name="Copy your user ID" />
                                 </WrapPanel>
                                 <TextBlock Classes="UiLabel UiWarning"
                                            IsVisible="{Binding HasUnresolvedEntries}"
@@ -326,7 +326,7 @@
                                           Content="Compact afterwards"
                                           ToolTip.Tip="Rewrites the database file so it gets smaller. Recording pauses briefly while it runs." />
                                 <Button Grid.Column="2" Classes="UiAction UiDanger" Content="Delete…" VerticalAlignment="Center"
-                                        Click="DeleteData_Click" IsEnabled="{Binding CanDeleteData}" />
+                                        Command="{Binding DeleteDataCommand}" IsEnabled="{Binding CanDeleteData}" />
                             </Grid>
                         </Border>
                     </controls:SettingsGroup>

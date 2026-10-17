@@ -13,8 +13,10 @@ using AlbionDataAvalonia.Players;
 using AlbionDataAvalonia.ReferenceData;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
+using AlbionDataAvalonia.Ui.Services;
 using AlbionDataAvalonia.ViewModels;
 using AlbionDataAvalonia.Views;
+using AlbionDataAvalonia.Views.Dialogs;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -386,7 +388,18 @@ public partial class App : Application
         {
             if (ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
             {
-                await UpdateAvailableWindow.ShowAsync(desktop.MainWindow, update);
+                var dialog = new ConfirmDialog(
+                    "Update available",
+                    $"{update.ChannelLabel} update available",
+                    $"Version {update.Version} is available. Automatic updates are not supported on this platform, so download and install the new version manually.",
+                    "Open releases",
+                    destructive: false,
+                    cancel: "OK");
+                if (await dialog.ShowAsync(desktop.MainWindow)
+                    && Uri.TryCreate(update.ReleasePageUrl, UriKind.Absolute, out var releases))
+                {
+                    SystemLauncher.TryOpenUrl(releases);
+                }
                 return;
             }
 
@@ -403,7 +416,11 @@ public partial class App : Application
         var dialogTask = await Dispatcher.UIThread.InvokeAsync<Task>(() =>
         {
             var owner = (Current?.ApplicationLifetime as IClassicDesktopStyleApplicationLifetime)?.MainWindow;
-            return UpdateInstallationFailedWindow.ShowAsync(owner, version);
+            return new AlertDialog(
+                "Restart required",
+                $"Update to version {version} failed",
+                "Recording has stopped while preparing the update. The app will close. Reopen AFM to resume recording and try the update again.",
+                "Close app").ShowAsync(owner);
         });
         await dialogTask.ConfigureAwait(false);
     }
@@ -555,6 +572,10 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<DatabaseBackupService>();
         collection.AddSingleton<DataCleanupService>();
         collection.AddSingleton<PacketDiagnostics>();
+
+        collection.AddSingleton<IDialogService, DialogService>();
+        collection.AddSingleton<IClipboardService, ClipboardService>();
+        collection.AddSingleton<IFileDialogService, FileDialogService>();
 
         collection.AddSingleton<MainViewModel>();
         collection.AddSingleton<SettingsViewModel>();

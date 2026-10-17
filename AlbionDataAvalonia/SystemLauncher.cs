@@ -12,6 +12,14 @@ public static class SystemLauncher
     public const string AfmWebsiteUrl = "https://www.albionfreemarket.com";
     public const string AodpWebsiteUrl = "https://www.albion-online-data.com/";
     public const string AfmDiscordUrl = "https://discord.com/invite/BPmDE3zznH";
+    public const string AfmAccountUrl = "https://albionfreemarket.com/account";
+    public const string AfmLootLoggerUrl = "https://albionfreemarket.com/loot-logger";
+
+    /// <summary>Opens a link when there is one; empty and malformed links are ignored and logged.</summary>
+    public static void TryOpenOptionalUrl(string? url)
+    {
+        if (!string.IsNullOrWhiteSpace(url)) TryOpenUrl(url);
+    }
 
     public static bool TryOpenUrl(string url)
     {

@@ -9,14 +9,14 @@
         d:DesignWidth="500"
         d:DesignHeight="760"
         x:Class="AlbionDataAvalonia.Views.LegendarySaleWindow" Classes="AppPage"
-        x:DataType="vm:LegendaryItemRowViewModel"
+        x:DataType="vm:LegendarySaleViewModel"
         Width="500"
         MaxHeight="820"
         SizeToContent="Height"
         CanResize="False"
         ShowInTaskbar="False"
         WindowStartupLocation="CenterOwner"
-        Title="List awakened item for sale"
+        Title="{Binding Title}"
         Icon="/Assets/logo.ico">
 
     <Grid Margin="16" RowDefinitions="*,Auto" RowSpacing="12">
@@ -26,7 +26,9 @@
                 <Border Classes="UiCard Sunken Outlined">
                     <StackPanel Spacing="12">
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                            <TextBox x:Name="PriceTextBox"
+                            <TextBox Text="{Binding PriceText}"
+                                     IsEnabled="{Binding CanEditInputs}"
+                                     AutomationProperties.Name="Asking price in silver"
                                      FontSize="{DynamicResource UiFontSizeHeading}"
                                      FontWeight="SemiBold"
                                      Watermark="Asking price"
@@ -37,8 +39,7 @@
                                        VerticalAlignment="Center" />
                         </Grid>
 
-                        <TextBlock x:Name="ListingSubtitleTextBlock"
-                                   Classes="UiLabel" />
+                        <TextBlock Classes="UiLabel" Text="{Binding Subtitle}" />
 
                         <Grid ColumnDefinitions="68,*,Auto" ColumnSpacing="10">
                             <Border Width="64"
@@ -49,17 +50,17 @@
                                     CornerRadius="{DynamicResource UiRadiusOverlay}">
                                 <Image Margin="2"
                                        Stretch="Uniform"
-                                       items:LazyItemImage.ItemUniqueName="{Binding ItemUniqueName}"
-                                       items:LazyItemImage.Quality="{Binding ImageQuality}" />
+                                       items:LazyItemImage.ItemUniqueName="{Binding Item.ItemUniqueName}"
+                                       items:LazyItemImage.Quality="{Binding Item.ImageQuality}" />
                             </Border>
                             <StackPanel Grid.Column="1"
                                         VerticalAlignment="Center"
                                         Spacing="2">
-                                <TextBlock Text="{Binding ItemName}"
+                                <TextBlock Text="{Binding Item.ItemName}"
                                            FontWeight="SemiBold"
                                            TextWrapping="Wrap" />
                                 <TextBlock Classes="UiLabel"
-                                           Text="{Binding Quality}"
+                                           Text="{Binding Item.Quality}"
                                            Foreground="{DynamicResource UiQualityTextBrush}" />
                             </StackPanel>
                             <StackPanel Grid.Column="2"
@@ -69,20 +70,20 @@
                                 <TextBlock Classes="UiValue"
                                            Text="★"
                                            Foreground="{DynamicResource UiRatingBrush}" />
-                                <TextBlock Classes="UiValue" Text="{Binding LegendaryRating}" />
+                                <TextBlock Classes="UiValue" Text="{Binding Item.LegendaryRating}" />
                             </StackPanel>
                         </Grid>
 
                         <Grid ColumnDefinitions="*,*,*" ColumnSpacing="12">
-                            <controls:StatTile Classes="Text" Label="Attuned to" Value="{Binding AttunedTo}" />
-                            <controls:StatTile Grid.Column="1" Classes="Text" Label="Strain" Value="{Binding Strain}" />
-                            <controls:StatTile Grid.Column="2" Classes="Text" Label="PvP fame" Value="{Binding PvPFameGained}" />
+                            <controls:StatTile Classes="Text" Label="Attuned to" Value="{Binding Item.AttunedTo}" />
+                            <controls:StatTile Grid.Column="1" Classes="Text" Label="Strain" Value="{Binding Item.Strain}" />
+                            <controls:StatTile Grid.Column="2" Classes="Text" Label="PvP fame" Value="{Binding Item.PvPFameGained}" />
                         </Grid>
 
                         <StackPanel Spacing="7">
                             <TextBlock Classes="UiSectionTitle" Text="Traits" />
-                            <controls:EmptyState Classes="Inline" Message="No traits." IsVisible="{Binding !HasTraits}" />
-                            <ItemsControl ItemsSource="{Binding Traits}">
+                            <controls:EmptyState Classes="Inline" Message="No traits." IsVisible="{Binding !Item.HasTraits}" />
+                            <ItemsControl ItemsSource="{Binding Item.Traits}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:LegendaryTraitRowViewModel">
                                         <StackPanel Spacing="4" Margin="0,0,0,7">
@@ -107,14 +108,17 @@
                             </ItemsControl>
                         </StackPanel>
 
-                        <Button x:Name="CalculatorButton"
-                                Classes="UiAction"
+                        <Button Classes="UiAction"
                                 Content="View in calculator"
-                                Click="CalculatorButton_Click" />
+                                IsVisible="{Binding Item.CanViewInCalculator}"
+                                IsEnabled="{Binding !IsPosting}"
+                                Command="{Binding OpenCalculatorCommand}" />
 
                         <StackPanel Spacing="4">
                             <TextBlock Classes="UiLabel" Text="In-game contact" />
-                            <TextBox x:Name="InGameNameTextBox"
+                            <TextBox Text="{Binding InGameName}"
+                                     IsEnabled="{Binding CanEditInputs}"
+                                     AutomationProperties.Name="In-game contact"
                                      Watermark="Albion character name"
                                      MaxLength="100" />
                         </StackPanel>
@@ -123,45 +127,37 @@
 
                 <Border Classes="UiCard Sunken Outlined">
                     <StackPanel Spacing="7">
-                        <TextBlock x:Name="DeliveryTitleTextBlock"
-                                   Classes="UiSectionTitle"
-                                   Text="Where this listing will appear" />
-                        <TextBlock x:Name="WebsiteStatusTextBlock"
-                                   Text="AFM website — Will be listed"
+                        <TextBlock Classes="UiSectionTitle" Text="{Binding DeliveryTitle}" />
+                        <TextBlock Text="{Binding WebsiteStatus}"
                                    FontWeight="SemiBold"
                                    TextWrapping="Wrap" />
-                        <TextBlock x:Name="DiscordStatusTextBlock"
-                                   Text="Discord — AFM will attempt an automatic post"
+                        <TextBlock Text="{Binding DiscordStatus}"
                                    FontWeight="SemiBold"
                                    TextWrapping="Wrap" />
-                        <TextBlock x:Name="DiscordHelpTextBlock"
-                                   Classes="UiLabel"
-                                   Text="For the automatic Discord post, make sure Discord is linked on your AFM account and that you have joined the AFM Discord server." />
-                        <WrapPanel x:Name="DiscordSetupButtonsPanel">
-                            <Button x:Name="AccountLinkButton"
-                                    Classes="UiAction"
+                        <TextBlock Classes="UiLabel" Text="{Binding DiscordHelp}" />
+                        <WrapPanel IsVisible="{Binding ShowDiscordSetup}">
+                            <Button Classes="UiAction"
                                     Content="Check AFM account"
                                     Margin="0,0,8,0"
-                                    Click="AccountLinkButton_Click" />
-                            <Button x:Name="DiscordInviteButton"
-                                    Classes="UiAction"
+                                    IsVisible="{Binding ShowAccountLink}"
+                                    Command="{Binding OpenAccountCommand}" />
+                            <Button Classes="UiAction"
                                     Content="Open AFM Discord"
-                                    Click="DiscordInviteButton_Click" />
+                                    IsVisible="{Binding ShowDiscordInvite}"
+                                    Command="{Binding OpenDiscordInviteCommand}" />
                         </WrapPanel>
-                        <Button x:Name="OpenDiscordPostButton"
-                                Classes="UiAction"
+                        <Button Classes="UiAction"
                                 Content="Open Discord post"
                                 HorizontalAlignment="Left"
-                                IsVisible="False"
-                                Click="OpenDiscordPostButton_Click" />
+                                IsVisible="{Binding ShowOpenDiscordPost}"
+                                Command="{Binding OpenDiscordPostCommand}" />
                     </StackPanel>
                 </Border>
 
-                <TextBlock x:Name="ValidationTextBlock"
-                           Classes="UiError" />
-                <ProgressBar x:Name="PostingProgressBar"
-                             IsIndeterminate="True"
-                             IsVisible="False" />
+                <TextBlock Classes="UiError"
+                           Text="{Binding ValidationText}"
+                           IsVisible="{Binding ValidationText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsPosting}" />
             </StackPanel>
         </ScrollViewer>
 
@@ -169,18 +165,19 @@
                     Orientation="Horizontal"
                     HorizontalAlignment="Right"
                     Spacing="8">
-            <Button x:Name="CancelButton"
-                    Classes="UiAction"
-                    Content="Cancel"
+            <Button Classes="UiAction"
+                    Content="{Binding CancelText}"
                     MinWidth="90"
                     IsCancel="True"
-                    Click="CancelButton_Click" />
-            <Button x:Name="SubmitButton"
-                    Classes="UiAction UiPrimary"
-                    Content="List for sale"
+                    IsEnabled="{Binding !IsPosting}"
+                    Command="{Binding CancelCommand}" />
+            <Button Classes="UiAction UiPrimary"
+                    Content="{Binding SubmitText}"
                     MinWidth="130"
                     IsDefault="True"
-                    Click="SubmitButton_Click" />
+                    IsVisible="{Binding ShowSubmit}"
+                    IsEnabled="{Binding !IsPosting}"
+                    Command="{Binding SubmitCommand}" />
         </StackPanel>
     </Grid>
 </Window>

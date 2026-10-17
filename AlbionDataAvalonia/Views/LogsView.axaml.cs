@@ -48,22 +48,6 @@ namespace AlbionDataAvalonia.Views
             e.Handled = true;
         }
 
-        private void LogMessage_DataContextChanged(object? sender, EventArgs e)
-        {
-            if (sender is not TextBlock textBlock)
-            {
-                return;
-            }
-
-            if (textBlock.DataContext is not LogEventWrapper logEventWrapper)
-            {
-                textBlock.Classes.Set("link", false);
-                return;
-            }
-
-            textBlock.Classes.Set("link", logEventWrapper.HasPublicUploadLink);
-        }
-
         private void LogsGrid_CopyingRowClipboardContent(object? sender, DataGridRowClipboardEventArgs e)
         {
             if (e.IsColumnHeadersRow || e.Item is not LogEventWrapper logEventWrapper)
