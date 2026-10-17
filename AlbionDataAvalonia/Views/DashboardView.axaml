@@ -145,12 +145,12 @@
 		<Style Selector="Expander.Bare">
 			<Setter Property="Background" Value="Transparent" />
 			<Setter Property="BorderThickness" Value="0" />
-			<Setter Property="Padding" Value="0,4,0,0" />
+			<Setter Property="Padding" Value="6,2,6,8" />
 		</Style>
 		<Style Selector="Expander.Bare /template/ ToggleButton">
 			<Setter Property="Background" Value="Transparent" />
 			<Setter Property="MinHeight" Value="30" />
-			<Setter Property="Padding" Value="10,0,12,0" />
+			<Setter Property="Padding" Value="16,0,16,0" />
 		</Style>
 		<Style Selector="Expander.Trouble /template/ ToggleButton">
 			<Setter Property="MinHeight" Value="40" />
@@ -396,7 +396,7 @@
 					<Expander.Header>
 						<TextBlock Text="Upload details" FontSize="13" Opacity="0.85" />
 					</Expander.Header>
-					<Grid ColumnDefinitions="*,32,*" Margin="10,4,12,4">
+					<Grid ColumnDefinitions="*,32,*" Margin="10,4,10,0">
 						<StackPanel>
 							<TextBlock Classes="Caption" Text="PUBLIC · AODP" Margin="0,0,0,4" />
 							<Grid Classes="DetailRow" Classes.Dimmed="{Binding UploadToAfmOnly}" ColumnDefinitions="*,Auto">
