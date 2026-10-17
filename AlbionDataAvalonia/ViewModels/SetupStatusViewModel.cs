@@ -374,7 +374,7 @@ public sealed partial class SetupStatusViewModel : ViewModelBase
         var waitingLong = !inGame && !everReceived && quietFor >= HelpDelay;
         if (!adaptersReady && !inGame)
         {
-            trafficStep.Set(SetupStepState.Pending, "—");
+            trafficStep.Set(SetupStepState.Pending, UiText.None);
         }
         else if (inGame)
         {
@@ -407,7 +407,7 @@ public sealed partial class SetupStatusViewModel : ViewModelBase
         }
         else if (!inGame)
         {
-            serverStep.Set(SetupStepState.Pending, adaptersReady ? "From the first game packet" : "—");
+            serverStep.Set(SetupStepState.Pending, adaptersReady ? "From the first game packet" : UiText.None);
         }
         else if (loggingIn)
         {
@@ -427,7 +427,7 @@ public sealed partial class SetupStatusViewModel : ViewModelBase
         }
         else if (!inGame || !serverReady)
         {
-            characterStep.Set(SetupStepState.Pending, adaptersReady ? "When you enter a zone" : "—");
+            characterStep.Set(SetupStepState.Pending, adaptersReady ? "When you enter a zone" : UiText.None);
         }
         else if (loggingIn)
         {
@@ -447,7 +447,7 @@ public sealed partial class SetupStatusViewModel : ViewModelBase
         }
         else if (!inGame || !serverReady)
         {
-            locationStep.Set(SetupStepState.Pending, adaptersReady ? "When you enter a zone" : "—");
+            locationStep.Set(SetupStepState.Pending, adaptersReady ? "When you enter a zone" : UiText.None);
         }
         else if (locationUnknown)
         {

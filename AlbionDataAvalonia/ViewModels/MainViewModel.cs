@@ -8,7 +8,6 @@ using AlbionDataAvalonia.State;
 using AlbionDataAvalonia.State.Events;
 using AlbionDataAvalonia.Ui;
 using AlbionDataAvalonia.Ui.Services;
-using AlbionDataAvalonia.Views;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.ApplicationLifetimes;
@@ -131,8 +130,9 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private bool showEncrypted = false;
 
+    /// <summary>The view model of the page on screen; MainView picks its view by type.</summary>
     [ObservableProperty]
-    private object currentView;
+    private ViewModelBase? currentPage;
 
     private MainPage _selectedPage = MainPage.Dashboard;
 
@@ -271,7 +271,7 @@ public partial class MainViewModel : ViewModelBase
         UploadQueueSize = _uploader.uploadQueueCount;
         RunningTasksCount = _uploader.runningTasksCount;
 
-        AppVersion = ClientUpdater.GetVersion() ?? "Unknown";
+        AppVersion = ClientUpdater.GetVersion() ?? UiText.Unknown;
 
         UpdateVisibilities();
 
@@ -327,15 +327,15 @@ public partial class MainViewModel : ViewModelBase
             OnPropertyChanged(nameof(IsLogsSelected));
         }
 
-        CurrentView = page switch
+        // The Main tab is the dashboard, so its page is this view model.
+        CurrentPage = page switch
         {
-            MainPage.Dashboard => new DashboardView(),
-            MainPage.Activity => new ActivityView(_activityViewModel),
-            MainPage.Legendary => new LegendaryView(_legendaryViewModel),
-            MainPage.Trades => new TradesView(_tradesViewModel),
-            MainPage.Settings => new SettingsView(_settingsViewModel),
-            MainPage.Logs => new LogsView(_logsViewModel),
-            _ => new DashboardView()
+            MainPage.Activity => _activityViewModel,
+            MainPage.Legendary => _legendaryViewModel,
+            MainPage.Trades => _tradesViewModel,
+            MainPage.Settings => _settingsViewModel,
+            MainPage.Logs => _logsViewModel,
+            _ => this
         };
 
         if (page == MainPage.Legendary)
@@ -508,29 +508,7 @@ public partial class MainViewModel : ViewModelBase
         }
     }
     [RelayCommand]
-    public void ShowMainWindow()
-    {
-        Log.Verbose("Showing MainWindow");
-        if (Application.Current?.ApplicationLifetime is IClassicDesktopStyleApplicationLifetime desktop)
-        {
-            if (desktop.MainWindow != null)
-            {
-                desktop.MainWindow.WindowState = WindowState.Normal;
-                desktop.MainWindow.IsVisible = true;
-                desktop.MainWindow.Activate();
-            }
-            else
-            {
-                if (desktop.MainWindow == null)
-                {
-                    desktop.MainWindow = new MainWindow(_settingsManager);
-                    desktop.MainWindow.DataContext = this;
-                }
-                desktop.MainWindow.Show();
-                desktop.MainWindow.Activate();
-            }
-        }
-    }
+    public void ShowMainWindow() => App.ShowMainWindow();
 
     [RelayCommand]
     private void ShowDashboard()

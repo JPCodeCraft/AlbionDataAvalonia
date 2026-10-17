@@ -6,10 +6,9 @@ namespace AlbionDataAvalonia.Views
 {
     public partial class SettingsView : UserControl
     {
-        public SettingsView(SettingsViewModel settingsViewModel)
+        public SettingsView()
         {
             InitializeComponent();
-            this.DataContext = settingsViewModel;
         }
 
         protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)

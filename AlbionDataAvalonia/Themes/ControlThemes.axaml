@@ -55,6 +55,58 @@
         </Style>
     </ControlTheme>
 
+    <!--
+        A toggle that looks like a segment, for choices where several can be on at once, such as the activity
+        kinds Activity shows. Use it with Theme="{StaticResource UiToggleChip}".
+    -->
+    <ControlTheme x:Key="UiToggleChip" TargetType="ToggleButton">
+        <Setter Property="Height" Value="32" />
+        <Setter Property="Margin" Value="0,0,4,4" />
+        <Setter Property="Padding" Value="12,4" />
+        <Setter Property="FontSize" Value="{DynamicResource UiFontSizeCompact}" />
+        <Setter Property="Foreground" Value="{DynamicResource UiTextBrush}" />
+        <Setter Property="Background" Value="{DynamicResource UiInputBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource UiBorderStrongBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{DynamicResource UiRadiusControl}" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border x:Name="ChipBorder"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}"
+                        Padding="{TemplateBinding Padding}">
+                    <ContentPresenter x:Name="PART_ContentPresenter"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:pointerover">
+            <Setter Property="Background" Value="{DynamicResource UiInputHoverBrush}" />
+        </Style>
+        <Style Selector="^:checked">
+            <Setter Property="Background" Value="{DynamicResource UiSelectedBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource UiAccentTextBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="^:checked:pointerover">
+            <Setter Property="Background" Value="{DynamicResource UiSelectedHoverBrush}" />
+        </Style>
+        <Style Selector="^:focus-visible /template/ Border#ChipBorder">
+            <Setter Property="BorderBrush" Value="{DynamicResource UiFocusBrush}" />
+            <Setter Property="BorderThickness" Value="2" />
+        </Style>
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="{DynamicResource UiDisabledOpacity}" />
+        </Style>
+    </ControlTheme>
+
     <ControlTheme x:Key="{x:Type controls:SegmentedSelector}" TargetType="controls:SegmentedSelector">
         <Setter Property="SelectionMode" Value="AlwaysSelected" />
         <!-- Selecting a segment must not scroll the page it sits on. -->

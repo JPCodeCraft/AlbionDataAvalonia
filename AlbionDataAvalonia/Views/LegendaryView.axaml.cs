@@ -6,10 +6,9 @@ namespace AlbionDataAvalonia.Views;
 
 public partial class LegendaryView : UserControl
 {
-    public LegendaryView(LegendaryViewModel viewModel)
+    public LegendaryView()
     {
         InitializeComponent();
-        DataContext = viewModel;
     }
 
     private void ItemsGrid_SelectionChanged(object? sender, SelectionChangedEventArgs e)

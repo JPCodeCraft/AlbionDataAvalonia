@@ -75,7 +75,7 @@ public sealed record ActivityPartyHistory(IReadOnlyList<ActivityPartyMemberRow> 
                 UiFormat.Duration(total.TotalSeconds), stayed));
         }).OrderBy(x => x.Order).ThenBy(x => x.Row.Name, StringComparer.OrdinalIgnoreCase).Select(x => x.Row).ToList();
         foreach (var name in recordedMembers.Where(name => !members.ContainsKey(name)).Order(StringComparer.OrdinalIgnoreCase))
-            rows.Add(new(name, "Not recorded", "", "", false));
+            rows.Add(new(name, UiText.NotRecorded, "", "", false));
         if (rows.Count == 0) return Empty;
         var summary = $"{UiFormat.Count(rows.Count, "member")} besides you";
         if (peak > 1) summary += $" · peak party size {peak:N0}";

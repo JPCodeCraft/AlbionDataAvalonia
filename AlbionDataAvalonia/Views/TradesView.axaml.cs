@@ -6,10 +6,9 @@ namespace AlbionDataAvalonia.Views
 {
     public partial class TradesView : UserControl
     {
-        public TradesView(TradesViewModel tradesViewModel)
+        public TradesView()
         {
             InitializeComponent();
-            this.DataContext = tradesViewModel;
         }
 
         // The grid's selection isn't bindable, so the view model hears about it here.

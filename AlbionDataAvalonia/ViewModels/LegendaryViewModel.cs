@@ -597,23 +597,23 @@ public sealed class LegendaryItemRowViewModel
     public string Quality => ItemQuality.Format(Source.Quality);
     public int ImageQuality => Source.Quality <= 0 ? 1 : Source.Quality;
     public string AttunedTo => string.IsNullOrWhiteSpace(Source.AttunedToPlayerName)
-        ? "Unknown"
+        ? UiText.Unknown
         : Source.AttunedToPlayerName;
-    public string Attunement => Source.Attunement?.ToString("N0", CultureInfo.CurrentCulture) ?? "Unknown";
+    public string Attunement => Source.Attunement?.ToString("N0", CultureInfo.CurrentCulture) ?? UiText.Unknown;
     public long? LegendaryRatingValue { get; }
-    public string LegendaryRating => LegendaryRatingValue?.ToString("N0", CultureInfo.CurrentCulture) ?? "Unknown";
-    public string Strain => Source.Strain?.ToString("N2", CultureInfo.CurrentCulture) ?? "Unknown";
-    public string PvPFameGained => Source.PvPFameGained?.ToString("N0", CultureInfo.CurrentCulture) ?? "Unknown";
-    public string AttunementSpent => Source.AttunementSpent?.ToString("N0", CultureInfo.CurrentCulture) ?? "Unknown";
+    public string LegendaryRating => LegendaryRatingValue?.ToString("N0", CultureInfo.CurrentCulture) ?? UiText.Unknown;
+    public string Strain => Source.Strain?.ToString("N2", CultureInfo.CurrentCulture) ?? UiText.Unknown;
+    public string PvPFameGained => Source.PvPFameGained?.ToString("N0", CultureInfo.CurrentCulture) ?? UiText.Unknown;
+    public string AttunementSpent => Source.AttunementSpent?.ToString("N0", CultureInfo.CurrentCulture) ?? UiText.Unknown;
     public string TraitsSummary => Traits.Count == 0 ? "No traits" : string.Join("; ", Traits.Select(trait => $"{trait.Value} {trait.Name}"));
     public bool HasTraits => Traits.Count > 0;
-    public string Location => string.IsNullOrWhiteSpace(Source.LocationName) ? "Unknown" : Source.LocationName;
+    public string Location => string.IsNullOrWhiteSpace(Source.LocationName) ? UiText.Unknown : Source.LocationName;
     public bool HasListing => Listing is not null;
     public bool IsSold => Listing?.Sold == true;
     public bool IsCanceled => Listing?.Canceled == true;
     public bool IsActiveListing => HasListing && !IsSold && !IsCanceled;
     public bool CanChangeSold => HasListing && !IsCanceled;
-    public string SaleState => Listing is null ? "-" : IsSold ? "Sold" : IsCanceled ? "Canceled" : "Active";
+    public string SaleState => Listing is null ? UiText.None : IsSold ? "Sold" : IsCanceled ? "Canceled" : "Active";
     public string SaleStatusSummary => Listing is null
         ? "This item is not currently listed on AFM."
         : IsSold
@@ -630,10 +630,10 @@ public sealed class LegendaryItemRowViewModel
     public string SellOrdersHeading => SellOrders.Count == 1
         ? "Order history · 1 order"
         : $"Order history · {SellOrders.Count:N0} orders";
-    public string LatestPrice => Listing is null ? "-" : FormatPrice(Listing.LatestPriceSilver);
+    public string LatestPrice => Listing is null ? UiText.None : FormatPrice(Listing.LatestPriceSilver);
     public string LastListed => Listing is { } listing
         ? UiFormat.LocalDateTime(listing.LastListedAt.UtcDateTime)
-        : "-";
+        : UiText.None;
     public string LastSeen => UiFormat.LocalDateTime(Source.LastSeenAtUtc);
     public string FirstSeen => UiFormat.LocalDateTime(Source.FirstSeenAtUtc);
     public bool CanPost => Source.HasItemDetails

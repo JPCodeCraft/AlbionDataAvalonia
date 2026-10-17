@@ -5,7 +5,7 @@
         xmlns:views="clr-namespace:AlbionDataAvalonia.Views"
 		xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
         mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
-        x:Class="AlbionDataAvalonia.Views.MainWindow"
+        x:Class="AlbionDataAvalonia.Views.MainWindow" Classes="AppPage"
         Icon="/Assets/logo.ico"
         Title="Albion Data Client"
 		ExtendClientAreaToDecorationsHint="True"

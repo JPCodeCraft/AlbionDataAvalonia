@@ -4,6 +4,7 @@
 	xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
 	xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
 	xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
+	xmlns:views="clr-namespace:AlbionDataAvalonia.Views"
 	mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
 	x:Class="AlbionDataAvalonia.Views.MainView"
 	x:DataType="vm:MainViewModel">
@@ -219,22 +220,27 @@
 						<!-- Options group -->
 						<StackPanel Margin="0,0,0,10">
 							<TextBlock Classes="UiCaption" Text="MARKET ORDERS" Margin="0,0,0,5" />
-							<CheckBox IsChecked="{Binding UploadToAfmOnly}"
-								ToolTip.Tip="Send buy and sell orders to AFM for your flipper and website price tools instead of AODP. Sharing follows the options below. Market history, gold prices and bandit events remain public. Requires sign-in."
-								Margin="0,0,0,8" FontSize="{DynamicResource UiFontSizeCaption}">Private mode</CheckBox>
+							<!-- The same switches as Settings › Uploads & sharing, in a narrow row. -->
+							<Grid ColumnDefinitions="*,Auto" ColumnSpacing="6" Margin="0,0,0,6"
+								ToolTip.Tip="Send buy and sell orders to AFM for your flipper and website price tools instead of AODP. Sharing follows the options below. Market history, gold prices and bandit events remain public. Requires sign-in.">
+								<TextBlock Classes="UiFine" Foreground="{DynamicResource UiTextBrush}" Text="Private mode" VerticalAlignment="Center" />
+								<ToggleSwitch Grid.Column="1" IsChecked="{Binding UploadToAfmOnly}" AutomationProperties.Name="Private mode" />
+							</Grid>
 							<Border BorderBrush="{DynamicResource UiBorderSubtleBrush}"
 								BorderThickness="2,0,0,0"
 								Padding="10,0,0,0"
 								Margin="0,0,0,6">
-								<StackPanel>
-									<CheckBox IsChecked="{Binding ContributeToPublic}"
-										IsEnabled="{Binding UploadToAfmOnly}"
-										ToolTip.Tip="Let other AFM users use your market orders in the flipper and website price tools. These orders are not sent to AODP. Turning sharing off stops new shared uploads. Previously shared price summaries keep their original expiry, up to two days."
-										Margin="0,0,0,5" FontSize="{DynamicResource UiFontSizeCaption}">Share with other AFM users</CheckBox>
-									<CheckBox IsChecked="{Binding ShareWithFriends}"
-										IsEnabled="{Binding UploadToAfmOnly}"
-										ToolTip.Tip="Share market orders with up to five people in Settings › Uploads &amp; sharing, only when you have added each other. They can use them in the flipper and website price tools. Turning sharing off stops new shared uploads. Previously shared price summaries keep their original expiry, up to two days."
-										Margin="0,0,0,5" FontSize="{DynamicResource UiFontSizeCaption}">Share with friends</CheckBox>
+								<StackPanel Spacing="4">
+									<Grid ColumnDefinitions="*,Auto" ColumnSpacing="6" IsEnabled="{Binding UploadToAfmOnly}"
+										ToolTip.Tip="Let other AFM users use your market orders in the flipper and website price tools. These orders are not sent to AODP. Turning sharing off stops new shared uploads. Previously shared price summaries keep their original expiry, up to two days.">
+										<TextBlock Classes="UiFine" Foreground="{DynamicResource UiTextBrush}" Text="Share with other AFM users" VerticalAlignment="Center" />
+										<ToggleSwitch Grid.Column="1" IsChecked="{Binding ContributeToPublic}" AutomationProperties.Name="Share with other AFM users" />
+									</Grid>
+									<Grid ColumnDefinitions="*,Auto" ColumnSpacing="6" IsEnabled="{Binding UploadToAfmOnly}"
+										ToolTip.Tip="Share market orders with up to five people in Settings › Uploads &amp; sharing, only when you have added each other. They can use them in the flipper and website price tools. Turning sharing off stops new shared uploads. Previously shared price summaries keep their original expiry, up to two days.">
+										<TextBlock Classes="UiFine" Foreground="{DynamicResource UiTextBrush}" Text="Share with friends" VerticalAlignment="Center" />
+										<ToggleSwitch Grid.Column="1" IsChecked="{Binding ShareWithFriends}" AutomationProperties.Name="Share with friends" />
+									</Grid>
 								</StackPanel>
 							</Border>
 							<Button Classes="UiLink" FontSize="{DynamicResource UiFontSizeCaption}" Margin="0,2,0,0"
@@ -263,7 +269,16 @@
 		</Grid>
 
 		<!-- Main Content -->
-		<ContentControl Grid.Column="1" Margin="10" Content="{Binding CurrentView}">
+		<!-- Each page's view model picks its view; the Main tab's page is this view model. -->
+		<ContentControl Grid.Column="1" Margin="10" Content="{Binding CurrentPage}">
+			<ContentControl.DataTemplates>
+				<DataTemplate DataType="vm:MainViewModel"><views:DashboardView /></DataTemplate>
+				<DataTemplate DataType="vm:ActivityViewModel"><views:ActivityView /></DataTemplate>
+				<DataTemplate DataType="vm:LegendaryViewModel"><views:LegendaryView /></DataTemplate>
+				<DataTemplate DataType="vm:TradesViewModel"><views:TradesView /></DataTemplate>
+				<DataTemplate DataType="vm:SettingsViewModel"><views:SettingsView /></DataTemplate>
+				<DataTemplate DataType="vm:LogsViewModel"><views:LogsView /></DataTemplate>
+			</ContentControl.DataTemplates>
 		</ContentControl>
 	</Grid>
 </UserControl>

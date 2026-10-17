@@ -225,7 +225,7 @@ public partial class App : Application
             if (_showMainWindowWhenReady)
             {
                 _showMainWindowWhenReady = false;
-                vm.ShowMainWindow();
+                ShowOrQueueMainWindow();
             }
 
 #if DEBUG
@@ -509,15 +509,25 @@ public partial class App : Application
             .MinimumLevel.Verbose()
             .CreateLogger();
     }
-    public void OnTrayClicked(object sender, EventArgs e)
+    public void OnTrayClicked(object sender, EventArgs e) => ShowOrQueueMainWindow();
+
+    /// <summary>Brings the main window back from the tray or the taskbar.</summary>
+    public static void ShowMainWindow() => (Current as App)?.ShowOrQueueMainWindow();
+
+    // A request that arrives before the window exists is kept until startup creates it.
+    private void ShowOrQueueMainWindow()
     {
-        if (vm == null)
+        Log.Verbose("Showing MainWindow");
+        if (ApplicationLifetime is not IClassicDesktopStyleApplicationLifetime desktop) return;
+        if (desktop.MainWindow is null)
         {
             _showMainWindowWhenReady = true;
             return;
         }
 
-        vm.ShowMainWindow();
+        desktop.MainWindow.WindowState = WindowState.Normal;
+        desktop.MainWindow.IsVisible = true;
+        desktop.MainWindow.Activate();
     }
 
     private void CheckAppAlreadyRunning()

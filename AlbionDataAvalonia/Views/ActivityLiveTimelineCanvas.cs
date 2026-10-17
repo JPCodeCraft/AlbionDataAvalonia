@@ -73,12 +73,18 @@ internal sealed class ActivityLiveTimelineCanvas : Control
     public event Action<Guid>? EncounterSelected;
     public bool ShowReceived { get; set; }
     public ActivityTimelineChartMode ChartMode { get; set; }
-    internal IReadOnlyList<Series> VisibleSeries => ChartMode switch
+    // Every series the chart mode has, in legend order.
+    internal IReadOnlyList<Series> ModeSeries => ChartMode switch
     {
         ActivityTimelineChartMode.Gathering => GatheringSeries,
         ActivityTimelineChartMode.Fame => FameSeries,
         _ => ShowReceived ? CombatReceivedSeries : CombatDealtSeries
     };
+
+    /// <summary>Series turned off in the legend, by label.</summary>
+    internal HashSet<string> HiddenSeries { get; } = new();
+
+    internal IReadOnlyList<Series> VisibleSeries => ModeSeries.Where(series => !HiddenSeries.Contains(series.Label)).ToArray();
     private string RateUnit => ChartMode switch
     {
         ActivityTimelineChartMode.Gathering => "items/s",

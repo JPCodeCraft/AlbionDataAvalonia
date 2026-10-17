@@ -11,10 +11,9 @@ namespace AlbionDataAvalonia.Views
 {
     public partial class LogsView : UserControl
     {
-        public LogsView(LogsViewModel logsViewModel)
+        public LogsView()
         {
             InitializeComponent();
-            this.DataContext = logsViewModel;
         }
 
         private void LogMessage_PointerReleased(object? sender, PointerReleasedEventArgs e)

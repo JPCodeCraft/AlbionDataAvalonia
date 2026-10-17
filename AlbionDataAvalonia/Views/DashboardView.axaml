@@ -5,6 +5,7 @@
 	xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
 	xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
 	xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
+	xmlns:ui="using:AlbionDataAvalonia.Ui"
 	xmlns:controls="using:AlbionDataAvalonia.Views.Controls"
 	d:DesignHeight="600"
 	d:DesignWidth="860"
@@ -263,7 +264,7 @@
 								</WrapPanel>
 							</StackPanel>
 							<StackPanel IsVisible="{Binding !UserLoggedIn}" Spacing="2">
-								<TextBlock Classes="UiValueLarge" Text="—" Foreground="{DynamicResource UiTextDisabledBrush}" />
+								<TextBlock Classes="UiValueLarge" Text="{x:Static ui:UiText.None}" Foreground="{DynamicResource UiTextDisabledBrush}" />
 								<TextBlock Classes="UiLabel" Text="Sign in to upload specs, island data and private orders." />
 							</StackPanel>
 						</StackPanel>

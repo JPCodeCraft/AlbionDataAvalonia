@@ -24,7 +24,7 @@ public sealed class ActivityMapRow(ActivityMap source, DateTime? durationEndUtc 
     public string StartedText => UiFormat.LocalDateTime(Source.StartedAtUtc);
     public int VisitCount => Source.Visits;
     public double DurationSeconds => Source.GetDurationSeconds(durationEndUtc ?? DateTime.UtcNow);
-    public string DurationText => Source.Visits > 0 ? UiFormat.Duration(DurationSeconds) : "Not recorded";
+    public string DurationText => Source.Visits > 0 ? UiFormat.Duration(DurationSeconds) : UiText.NotRecorded;
 
     public void Update(ActivityMap value, DateTime? endUtc)
     {

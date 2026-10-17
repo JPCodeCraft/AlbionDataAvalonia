@@ -10,6 +10,8 @@ using AlbionDataAvalonia.ViewModels;
 using AlbionDataAvalonia.Views.Controls;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Controls.Primitives;
+using Avalonia.Controls.Shapes;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
 using Avalonia.Media;
@@ -304,8 +306,8 @@ public sealed class ActivityLiveTimelineView : UserControl
         mode.SelectedIndex = (int)ChartMode;
         direction.IsVisible = ChartMode == ActivityTimelineChartMode.Combat;
         legends.Children.Clear();
-        foreach (var series in canvas.VisibleSeries)
-            legends.Children.Add(Legend(series.Label + (ChartMode == ActivityTimelineChartMode.Gathering ? " / sec" : ""), series.Color));
+        foreach (var series in canvas.ModeSeries)
+            legends.Children.Add(Legend(series, ChartMode == ActivityTimelineChartMode.Gathering ? " / sec" : ""));
         RefreshDisplay();
     }
 
@@ -539,13 +541,34 @@ public sealed class ActivityLiveTimelineView : UserControl
         ToolTip.SetTip(stateText, warnings.Count > 0 ? string.Join("\n", warnings) : null);
     }
 
-    private static TextBlock Legend(string text, Color color) => new()
+    // The same legend toggle as the map: a dot in the series color, faded while the series is hidden.
+    private ToggleButton Legend(ActivityLiveTimelineCanvas.Series series, string suffix)
     {
-        Text = "●  " + text,
-        Foreground = UiPalette.Brush(color),
-        Classes = { "UiLabel" },
-        Margin = new Thickness(0, 0, 18, 2)
-    };
+        var toggle = new ToggleButton
+        {
+            Classes = { "UiLegend" },
+            IsChecked = !canvas.HiddenSeries.Contains(series.Label),
+            Content = new StackPanel
+            {
+                Orientation = Orientation.Horizontal,
+                Spacing = 6,
+                Children =
+                {
+                    new Ellipse { Width = 8, Height = 8, Fill = UiPalette.Brush(series.Color), VerticalAlignment = VerticalAlignment.Center },
+                    new TextBlock { Text = series.Label + suffix, VerticalAlignment = VerticalAlignment.Center }
+                }
+            }
+        };
+        ToolTip.SetTip(toggle, $"Show or hide {series.Label.ToLowerInvariant()}");
+        toggle.IsCheckedChanged += (_, _) =>
+        {
+            if (toggle.IsChecked == true) canvas.HiddenSeries.Remove(series.Label);
+            else canvas.HiddenSeries.Add(series.Label);
+            canvas.ClearInspection();
+            canvas.InvalidateVisual();
+        };
+        return toggle;
+    }
 
     private static Button ReplayButton(string label, string name) => new()
     {

@@ -627,7 +627,7 @@ public sealed class TradeRowViewModel : ObservableObject
     {
         true => "Yes",
         false => "No",
-        null => "Unknown"
+        null => UiText.Unknown
     };
     public DateTime DateTime => Source.DateTime;
     public string DateTimeUtcFormatted => FormatUtc(DateTime);

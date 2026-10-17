@@ -22,7 +22,7 @@ public sealed partial class DataCleanupRowViewModel(DataCleanupType type, string
     public long Rows { get; set; }
 
     [ObservableProperty] private bool isSelected;
-    [ObservableProperty] private string sizeText = "—";
+    [ObservableProperty] private string sizeText = UiText.None;
     [ObservableProperty] private string countText = "";
 }
 

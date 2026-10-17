@@ -205,7 +205,7 @@ public partial class SettingsViewModel : ViewModelBase
         ? "Beta builds arrive first and can have bugs."
         : "Stable builds only.";
 
-    public string AppVersionText => $"AFM Data Client {ClientUpdater.GetVersion() ?? "Unknown"}";
+    public string AppVersionText => $"AFM Data Client {ClientUpdater.GetVersion() ?? UiText.Unknown}";
     public string UpdatesText => IsWindows ? "Updates install by themselves." : "You'll see a notice when an update is ready.";
 
     public IReadOnlyList<Option<int>> StreamerSizeOptions { get; } = [new(0, "Small"), new(1, "Medium"), new(2, "Large")];

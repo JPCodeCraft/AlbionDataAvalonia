@@ -59,15 +59,15 @@
         </DataTemplate>
 
         <DataTemplate x:Key="ActivityVisibilityTemplate" x:DataType="vm:ActivityViewModel">
-            <!-- Keep spacing between wrapped rows without adding a trailing gap to the section. -->
+            <!-- Several kinds can be on at once; All turns the others off. The negative margin drops the last row's gap. -->
             <WrapPanel Margin="0,0,0,-4">
                 <TextBlock Text="Show" Classes="UiLabel" VerticalAlignment="Center" Margin="0,0,12,4" />
-                <CheckBox Content="All" IsChecked="{Binding ShowAllActivities, Mode=TwoWay}" MinHeight="24" Margin="0,0,18,4" />
-                <CheckBox Content="Gathering" IsChecked="{Binding ShowGathering, Mode=TwoWay}" MinHeight="24" Margin="0,0,18,4" />
-                <CheckBox Content="Fishing" IsChecked="{Binding ShowFishing, Mode=TwoWay}" MinHeight="24" Margin="0,0,18,4" />
-                <CheckBox Content="PvE" IsChecked="{Binding ShowPve, Mode=TwoWay}" MinHeight="24" Margin="0,0,18,4" />
-                <CheckBox Content="PvP" IsChecked="{Binding ShowPvp, Mode=TwoWay}" MinHeight="24" Margin="0,0,18,4" />
-                <CheckBox Content="Other" IsChecked="{Binding ShowOther, Mode=TwoWay}" MinHeight="24" Margin="0,0,18,4" />
+                <ToggleButton Theme="{StaticResource UiToggleChip}" Content="All" IsChecked="{Binding ShowAllActivities, Mode=TwoWay}" />
+                <ToggleButton Theme="{StaticResource UiToggleChip}" Content="Gathering" IsChecked="{Binding ShowGathering, Mode=TwoWay}" />
+                <ToggleButton Theme="{StaticResource UiToggleChip}" Content="Fishing" IsChecked="{Binding ShowFishing, Mode=TwoWay}" />
+                <ToggleButton Theme="{StaticResource UiToggleChip}" Content="PvE" IsChecked="{Binding ShowPve, Mode=TwoWay}" />
+                <ToggleButton Theme="{StaticResource UiToggleChip}" Content="PvP" IsChecked="{Binding ShowPvp, Mode=TwoWay}" />
+                <ToggleButton Theme="{StaticResource UiToggleChip}" Content="Other" IsChecked="{Binding ShowOther, Mode=TwoWay}" />
             </WrapPanel>
         </DataTemplate>
         <DataTemplate x:Key="ActivityResourceTileTemplate" x:DataType="vm:ActivityResourceRow">

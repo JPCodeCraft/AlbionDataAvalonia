@@ -36,30 +36,30 @@ public sealed class ActivitySummaryPresentation
     public ActivityRates Rates { get; }
     public bool IsSessionAverage { get; }
     public bool HasRecordedDuration { get; }
-    public string DamageDealt => Summary.IsLegacyAggregate ? "Unavailable" : UiFormat.Compact(Summary.DamageDealt);
-    public string DamageReceived => Summary.IsLegacyAggregate ? "Unavailable" : UiFormat.Compact(Summary.DamageReceived);
-    public string HealingDone => Summary.IsLegacyAggregate ? "Unavailable" : UiFormat.Compact(Summary.HealingDone);
-    public string HealingReceived => Summary.IsLegacyAggregate ? "Unavailable" : UiFormat.Compact(Summary.HealingReceived);
-    public string Fame => Summary.IsLegacyAggregate ? "Unavailable" : UiFormat.Compact(Summary.Fame);
-    public string CombatFame => Summary.IsLegacyAggregate ? "Unavailable" : UiFormat.Compact(Summary.CombatFame);
-    public string GatheringFame => Summary.IsLegacyAggregate ? "Unavailable" : UiFormat.Compact(Summary.GatheringFame + Summary.FishingFame);
+    public string DamageDealt => Summary.IsLegacyAggregate ? UiText.Unavailable : UiFormat.Compact(Summary.DamageDealt);
+    public string DamageReceived => Summary.IsLegacyAggregate ? UiText.Unavailable : UiFormat.Compact(Summary.DamageReceived);
+    public string HealingDone => Summary.IsLegacyAggregate ? UiText.Unavailable : UiFormat.Compact(Summary.HealingDone);
+    public string HealingReceived => Summary.IsLegacyAggregate ? UiText.Unavailable : UiFormat.Compact(Summary.HealingReceived);
+    public string Fame => Summary.IsLegacyAggregate ? UiText.Unavailable : UiFormat.Compact(Summary.Fame);
+    public string CombatFame => Summary.IsLegacyAggregate ? UiText.Unavailable : UiFormat.Compact(Summary.CombatFame);
+    public string GatheringFame => Summary.IsLegacyAggregate ? UiText.Unavailable : UiFormat.Compact(Summary.GatheringFame + Summary.FishingFame);
     public string UnknownFame => UiFormat.Compact(Summary.UnclassifiedFame);
     public bool HasUnknownFame => Summary.UnclassifiedFame > 0 && !Summary.IsLegacyAggregate;
     public bool HasPvpFame => Summary.PvpFame > 0;
     public string TotalSilver => UiFormat.Compact(Summary.Silver + Summary.LootValue + Summary.ResourceValue);
-    public string TotalSilverPerHour => HasRecordedDuration ? UiFormat.Compact(Rates.SilverPerHour + Rates.LootValuePerHour + Rates.ResourceValuePerHour) : "Unavailable";
+    public string TotalSilverPerHour => HasRecordedDuration ? UiFormat.Compact(Rates.SilverPerHour + Rates.LootValuePerHour + Rates.ResourceValuePerHour) : UiText.Unavailable;
     public string TotalSilverDetailsText => (IsImported ? "Imported gathering EMV only" : "Silver + loot EMV + gathering EMV")
         + (HasMissingItemPrices || HasUnknownSilver ? "\nExcludes items without EMV and unknown silver" : "");
-    public string Silver => Summary.IsLegacyAggregate ? "Unavailable" : UiFormat.Compact(Summary.Silver);
-    public string LootValue => Summary.LootValue == 0 && Summary.MissingLootPriceCount > 0 ? "Unavailable" : UiFormat.Compact(Summary.LootValue);
+    public string Silver => Summary.IsLegacyAggregate ? UiText.Unavailable : UiFormat.Compact(Summary.Silver);
+    public string LootValue => Summary.LootValue == 0 && Summary.MissingLootPriceCount > 0 ? UiText.Unavailable : UiFormat.Compact(Summary.LootValue);
     public string LootItemsText => $"{UiFormat.Compact(Summary.LootItems)} items picked up";
-    public string MobKills => Summary.IsLegacyAggregate ? "Unavailable" : UiFormat.Compact(Summary.MobKills);
-    public string PlayerKills => Summary.IsLegacyAggregate ? "Unavailable" : UiFormat.Compact(Summary.PlayerKills);
-    public string DamageRate => Summary.IsLegacyAggregate ? "Not recorded" : $"{UiFormat.Compact(Rates.DamagePerSecond)} DPS";
-    public string DamageReceivedRate => Summary.IsLegacyAggregate ? "Not recorded" : $"{UiFormat.Compact(Rates.DamageReceivedPerSecond)} DPS";
-    public string HealingRate => Summary.IsLegacyAggregate ? "Not recorded" : $"{UiFormat.Compact(Rates.HealingPerSecond)} HPS";
-    public string HealingReceivedRate => Summary.IsLegacyAggregate ? "Not recorded" : $"{UiFormat.Compact(Rates.HealingReceivedPerSecond)} HPS";
-    public string FameRate => Summary.IsLegacyAggregate || !HasRecordedDuration ? "Not recorded" : $"{UiFormat.Compact(Rates.FamePerHour)} / hour";
+    public string MobKills => Summary.IsLegacyAggregate ? UiText.Unavailable : UiFormat.Compact(Summary.MobKills);
+    public string PlayerKills => Summary.IsLegacyAggregate ? UiText.Unavailable : UiFormat.Compact(Summary.PlayerKills);
+    public string DamageRate => Summary.IsLegacyAggregate ? UiText.NotRecorded : $"{UiFormat.Compact(Rates.DamagePerSecond)} DPS";
+    public string DamageReceivedRate => Summary.IsLegacyAggregate ? UiText.NotRecorded : $"{UiFormat.Compact(Rates.DamageReceivedPerSecond)} DPS";
+    public string HealingRate => Summary.IsLegacyAggregate ? UiText.NotRecorded : $"{UiFormat.Compact(Rates.HealingPerSecond)} HPS";
+    public string HealingReceivedRate => Summary.IsLegacyAggregate ? UiText.NotRecorded : $"{UiFormat.Compact(Rates.HealingReceivedPerSecond)} HPS";
+    public string FameRate => Summary.IsLegacyAggregate || !HasRecordedDuration ? UiText.NotRecorded : $"{UiFormat.Compact(Rates.FamePerHour)} / hour";
     public string CombatFameRate => FameRateText(Summary.CombatFame);
     public string GatheringFameRate => FameRateText(Summary.GatheringFame + Summary.FishingFame);
     public string CombatFameDetailsText => HasPvpFame ? $"PvE {UiFormat.Compact(Summary.PveFame)} · PvP {UiFormat.Compact(Summary.PvpFame)}" : "Your combat fame";
@@ -67,7 +67,7 @@ public sealed class ActivitySummaryPresentation
     public string CombatFameFooterText => (IsSessionAverage ? CombatFameRate : "")
         + (HasPvpFame ? $"{(IsSessionAverage ? " · " : "")}PvP {UiFormat.Compact(Summary.PvpFame)}" : "");
     public string UnknownFameText => $"Unknown fame {UnknownFame}";
-    public string SilverRate => Summary.IsLegacyAggregate || !HasRecordedDuration ? "Not recorded" : $"{UiFormat.Compact(Rates.SilverPerHour)} / hour";
+    public string SilverRate => Summary.IsLegacyAggregate || !HasRecordedDuration ? UiText.NotRecorded : $"{UiFormat.Compact(Rates.SilverPerHour)} / hour";
     public string LootValueRate => HasRecordedDuration ? ValueRateText(Summary.LootValue, Summary.MissingPriceItems, Rates.LootValuePerHour) : "Hourly rate unavailable";
     public bool HasUnknownSilver => Summary.UnknownSilverCount > 0;
     public bool HasMissingLootPrices => Summary.MissingLootPriceCount > 0;
@@ -95,7 +95,7 @@ public sealed class ActivitySummaryPresentation
     public string ResourceItemsText => $"{UiFormat.Compact(Summary.ResourceItems)} items gathered";
     public string ResourceQuantityText => UiFormat.Compact(Summary.ResourceItems);
     public string ResourceBreakdownText => $"Gathering {UiFormat.Compact(Summary.GatheringItems)} · Fishing {UiFormat.Compact(Summary.FishingItems)}" + (Summary.UnclassifiedResourceItems > 0 ? $" · Other {UiFormat.Compact(Summary.UnclassifiedResourceItems)}" : "");
-    public string ResourceValueText => Summary.ResourceValue == 0 && Summary.MissingResourcePriceItems > 0 ? "Unavailable" : UiFormat.Compact(Summary.ResourceValue);
+    public string ResourceValueText => Summary.ResourceValue == 0 && Summary.MissingResourcePriceItems > 0 ? UiText.Unavailable : UiFormat.Compact(Summary.ResourceValue);
     public string ResourceRateText => HasRecordedDuration ? $"{UiFormat.Compact(Rates.ResourceItemsPerHour)} items / hour · {ValueRateText(Summary.ResourceValue, Summary.MissingResourcePriceItems, Rates.ResourceValuePerHour)}" : "Hourly rate unavailable";
     public string ItemsCountText => $"{UiFormat.Compact(Summary.LootItems + Summary.ResourceItems)} items acquired";
     public string ItemsFooterText => $"{UiFormat.Compact(Summary.LootItems)} items"
@@ -105,7 +105,7 @@ public sealed class ActivitySummaryPresentation
     public string ResourceValueDetailsText => ResourceRateText + (Summary.MissingResourcePriceItems > 0 ? $"\n{Summary.MissingResourcePriceItems:N0} items without EMV" : "");
     private static string ValueRateText(long knownValue, long missingItems, double rate) => missingItems > 0 && knownValue == 0
         ? "EMV / hour unavailable" : $"{UiFormat.Compact(rate)} EMV / hour";
-    private string FameRateText(double amount) => Summary.IsLegacyAggregate || !HasRecordedDuration ? "Not recorded" : $"{UiFormat.Compact(ActivityProjection.GetFameRate(amount, Rates))} / hour";
+    private string FameRateText(double amount) => Summary.IsLegacyAggregate || !HasRecordedDuration ? UiText.NotRecorded : $"{UiFormat.Compact(ActivityProjection.GetFameRate(amount, Rates))} / hour";
 
 }
 
@@ -200,7 +200,7 @@ public sealed class ActivityPlayerRow(ActivityActorTotal source)
     public string Gathered => ItemsText(Source.GatheredItems, Source.GatheredValue);
     public string Deaths => Source.Deaths > 0 ? Source.Deaths.ToString("N0", CultureInfo.CurrentCulture) + ActivityDisplay.NonLethal(Source.NonLethalDeaths) : "";
     private static string ItemsText(long items, long value) => items <= 0 ? ""
-        : $"{(value > 0 ? UiFormat.Compact(value) : "–")} ({items.ToString("N0", CultureInfo.CurrentCulture)})";
+        : $"{(value > 0 ? UiFormat.Compact(value) : UiText.None)} ({items.ToString("N0", CultureInfo.CurrentCulture)})";
 }
 
 // Players-table columns with at least one recorded value.
@@ -240,10 +240,10 @@ public sealed class ActivityLootRow(ActivityEvent source)
     public string ItemName => ActivityDisplay.ItemName(source.ItemName);
     public int ImageQuality => source.Quality ?? 1;
     public string Quality => ItemQuality.Format(source.Quality);
-    public string AmountText => source.Quantity > 0 ? UiFormat.Compact(source.Quantity) : source.Evidence == ActivityEvidence.Supplemental ? "Pending" : "Unknown";
-    public string UnitValueText => source.EstimatedUnitValue is { } value ? UiFormat.Compact(value) : "Unavailable";
+    public string AmountText => source.Quantity > 0 ? UiFormat.Compact(source.Quantity) : source.Evidence == ActivityEvidence.Supplemental ? "Pending" : UiText.Unknown;
+    public string UnitValueText => source.EstimatedUnitValue is { } value ? UiFormat.Compact(value) : UiText.Unavailable;
     public string ValueText => source.Quantity <= 0 ? source.Evidence == ActivityEvidence.Supplemental ? "Quantity pending" : "Unknown quantity" : ActivityProjection.GetLootValue(source) is { } value
-        ? UiFormat.Compact(value) + (EmvName == BlackMarketEmv ? $" ({BlackMarketEmv})" : "") : "Unavailable";
+        ? UiFormat.Compact(value) + (EmvName == BlackMarketEmv ? $" ({BlackMarketEmv})" : "") : UiText.Unavailable;
     private const string BlackMarketEmv = "Black Market EMV";
     // Loot prefers the Black Market EMV; rows priced before the kind was recorded cannot tell which.
     private string EmvName => source.Kind != ActivityEventKind.Loot ? "EMV" : ActivityItemValuationService.IsBlackMarketEmv(source) switch
@@ -259,7 +259,7 @@ public sealed class ActivityLootRow(ActivityEvent source)
         ActivityEventKind.LegacyGatheringAggregate => "Gathering",
         _ => ActivityDisplay.LootSource(source.LootSourceName, source.LootSourceKind)
     };
-    public string Location => string.IsNullOrWhiteSpace(source.LocationName) ? "Unavailable" : source.LocationName;
+    public string Location => string.IsNullOrWhiteSpace(source.LocationName) ? UiText.Unavailable : source.LocationName;
     public string Evidence => IsImported ? "Imported summary" : source.Evidence == ActivityEvidence.Supplemental ? "Pending" : source.Evidence.ToString();
     public string ItemDetails => $"{ItemName} · {Quality}\n" + (source.EstimatedUnitValue is null
         ? "EMV unavailable" : $"{EmvName} each: {UnitValueText} silver")
@@ -377,7 +377,7 @@ internal static class ActivityDisplay
     }.Where(value => value is not null));
     public static string ItemName(string? value) => string.IsNullOrWhiteSpace(value) || value == "Unset" || value.StartsWith('@') || value.Contains('_') ? "Unknown item" : value;
     public static string ActorName(string? value, ActivityActorKind kind = ActivityActorKind.Unknown)
-        => kind == ActivityActorKind.Mob ? MobName(value) : string.IsNullOrWhiteSpace(value) || Guid.TryParse(value, out _) ? "Unknown" : value;
+        => kind == ActivityActorKind.Mob ? MobName(value) : string.IsNullOrWhiteSpace(value) || Guid.TryParse(value, out _) ? UiText.Unknown : value;
     public static string MobName(string? value)
     {
         if (string.IsNullOrWhiteSpace(value) || value == "Unknown" || value.StartsWith('@') || value.Contains('_')
@@ -393,11 +393,11 @@ internal static class ActivityDisplay
         if (string.Equals(kind, "Mob", StringComparison.OrdinalIgnoreCase) || name?.StartsWith("@MOB", StringComparison.OrdinalIgnoreCase) == true)
             return string.IsNullOrWhiteSpace(name) || name.StartsWith('@') || name.Contains('_') ? "Mob" : name;
         if (string.IsNullOrWhiteSpace(name) || string.Equals(name, "Unknown", StringComparison.OrdinalIgnoreCase))
-            return string.Equals(kind, "Player", StringComparison.OrdinalIgnoreCase) ? "Player" : "Unknown";
-        return name.StartsWith('@') || Guid.TryParse(name, out _) ? "Unknown" : name;
+            return string.Equals(kind, "Player", StringComparison.OrdinalIgnoreCase) ? "Player" : UiText.Unknown;
+        return name.StartsWith('@') || Guid.TryParse(name, out _) ? UiText.Unknown : name;
     }
     public static string NonLethal(long count) => count > 0 ? $" ({count:N0} non-lethal)" : "";
-    public static string Relationship(ActorRelationship value) => value switch { ActorRelationship.Self => "You", ActorRelationship.Party => "Party", ActorRelationship.Other => "Other", _ => "Unknown" };
+    public static string Relationship(ActorRelationship value) => value switch { ActorRelationship.Self => "You", ActorRelationship.Party => "Party", ActorRelationship.Other => "Other", _ => UiText.Unknown };
     public static string State(ActivityState state, ActivityEndReason reason) => state == ActivityState.Open ? "Active"
         : state == ActivityState.Interrupted ? "Interrupted" : reason == ActivityEndReason.Finished ? "Finished" : "Ended";
 }
@@ -409,7 +409,7 @@ public sealed class ActivityResourceRow(ActivityResourceTotal source)
     public int ImageQuality => source.Quality ?? 1;
     public string Method => source.Source switch { ActivityResourceMethod.Gathering => "Gathering", ActivityResourceMethod.Fishing => "Fishing", _ => "Gathered resources" };
     public string QuantityText => UiFormat.Compact(source.Quantity);
-    public string ValueText => source.KnownValue == 0 && source.MissingPriceItems > 0 ? "Unavailable" : UiFormat.Compact(source.KnownValue);
+    public string ValueText => source.KnownValue == 0 && source.MissingPriceItems > 0 ? UiText.Unavailable : UiFormat.Compact(source.KnownValue);
     public bool HasMissingPrices => source.MissingPriceItems > 0;
     public string ValueLabel => "Total EMV";
     public string MissingPricesText => source.MissingPriceItems > 0 ? $"{source.MissingPriceItems:N0} without EMV" : "";

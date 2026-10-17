@@ -31,7 +31,6 @@ public partial class ActivityView : UserControl
         DataContextChanged += (_, _) => SynchronizeViewModel();
     }
 
-    public ActivityView(ActivityViewModel viewModel) : this() => DataContext = viewModel;
 
     private void HistoryTable_PointerWheelChanged(object? sender, PointerWheelEventArgs args)
     {
