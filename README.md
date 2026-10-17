@@ -28,8 +28,7 @@ An alternative client for [The Albion Online Data Project](https://www.albion-on
 | Feature                   | Description                                                                    |
 | ------------------------- | ------------------------------------------------------------------------------ |
 | Market Data Collection | Captures in-game market data and uploads to AODP servers                       |
-| Market Mail Tracking   | Collects and displays your market mail data for price tracking                 |
-| Trade History          | Stores instant buy/sell trades for later reference                             |
+| Trade History          | Stores instant buy/sell trades and completed market orders read from your mails, including order size |
 | Activity Tracker       | Saves sessions containing combat encounters, gathering, fishing, loot, silver, observed fame, and participated mob deaths |
 | Enhanced Capture       | Captures data from loadout's quick buy screen, market screens, and gold screen |
 | Specs Capture          | Uploads character specs for use with AFM website                               |
@@ -37,7 +36,7 @@ An alternative client for [The Albion Online Data Project](https://www.albion-on
 | Launch on Startup      | Automatically starts with your system                                          |
 | System Tray            | Runs quietly in system tray for minimal interference                           |
 | Auto-Updates           | Silent, automatic updates                                                      |
-| Configurable Settings  | Adjustable parallelism for AODP's PoW solving and uploads                      |
+| Configurable Settings  | Uploads and sharing, trackers, streamer window, data cleanup with storage per type, and a diagnostics mode for bug reports |
 | User-Friendly          | No admin permissions required (except for NpCap installation)                  |
 | Free and Open Source   | This software is free to use and is open source                                |
 
