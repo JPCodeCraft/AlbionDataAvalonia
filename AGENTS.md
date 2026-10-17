@@ -23,6 +23,7 @@ Use the repository defaults: C# with nullable reference types enabled (`Director
 - Reuse the controls in `Views/Controls` (looks in `Themes/ControlThemes.axaml`) before building a layout by hand: `SettingsGroup` and `SettingsRow` for settings, `StatTile` for a label over a value, `EmptyState` for an empty list or table, `InfoBanner` for a notice, `FilterField` for a labelled filter, `ItemCell` for an item's icon and name, and `SegmentedSelector` for a single choice.
 - Dialogs derive from `AppDialog<TResult>` in `Views/Dialogs` and are opened through `IDialogService` (`ConfirmAsync`, `ConfirmDeleteAsync`, `AlertAsync`, `ShowAsync`). View models reach the clipboard and file pickers through `IClipboardService` and `IFileDialogService`. Button handlers that open dialogs, copy text or pick files belong in view-model commands, not code-behind; code-behind is for view-only work such as scrolling, zooming or passing a grid's selection to the view model.
 - A secondary window that has one instance at a time (the streamer, the map) uses `SingleWindowHost`, which remembers whether it was open and where it was placed.
+- Keep a view model to one screen or panel, and move self-contained parts out as they grow: the Main tab checklist is `SetupStatusViewModel`, private sharing is `PrivateSharingViewModel` and Portfolio uploads go through `PortfolioImportCoordinator`. Activity code reads its tabs through `ActivityTab` and `ActivityDetailTab`, never index numbers.
 - Pages open with one toolbar band: tabs or filters on the left, actions on the right. There are no page titles; the sidebar names the page.
 - Pages and windows set `Classes="AppPage"` to get the shared input, expander, grid and switch skins from `Themes/Controls.axaml`. Windows also set the app icon.
 - Format numbers, sizes, durations and times with `UiFormat` (`Count`, `Whole`, `Compact`, `Bytes`, `Duration`, `Clock`, `Ago`, `LocalTime`…), so plurals and clocks read the same everywhere. Shared words such as "Any" live in `UiText`.
@@ -30,6 +31,7 @@ Use the repository defaults: C# with nullable reference types enabled (`Director
 - Service events arrive on other threads: start a handler with `if (UiDispatch.Repost(() => Handler(args))) return;`. Use `UiDebouncer` to wait for input to settle and `LatestLoad` so only the newest of overlapping loads applies its result.
 - Write copy in sentence case. Cross-references read "Settings › Tab". Reload actions are called "Refresh".
 - Icon-only buttons set `AutomationProperties.Name`, and every `DataTemplate` declares `x:DataType`.
+- Debug builds open a UI kit window (`Views/UiKitWindow.axaml`) with every token, text class, button role, surface and shared control when `AFM_UI_KIT=1` is set. Add new shared pieces to it, and include a screenshot of it in pull requests that change tokens.
 
 ## Testing Guidelines
 PoW tests live in `PowBench.Tests`; run them with `dotnet test PowBench.Tests`. Keep tests focused on PoW unless explicitly instructed otherwise. See `PowBench/README.md` for algorithm speed comparisons.

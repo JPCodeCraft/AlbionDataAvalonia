@@ -79,17 +79,17 @@
                             <ToggleSwitch IsChecked="{Binding UserSettings.ContributeToPublic}" />
                         </controls:SettingsRow>
                         <controls:SettingsRow Title="Share with friends" IsEnabled="{Binding CanUsePrivateSharing}"
-                                              Hint="{Binding SharedFriendsLimitText, StringFormat='Up to five people, once you’ve added each other. {0}'}">
+                                              Hint="{Binding Sharing.LimitText, StringFormat='Up to five people, once you’ve added each other. {0}'}">
                             <ToggleSwitch IsChecked="{Binding UserSettings.ShareWithFriends}" />
                         </controls:SettingsRow>
-                        <controls:SettingsRow Classes="Inset" Padding="30,10,14,12" IsEnabled="{Binding CanUseSharingSettings}">
+                        <controls:SettingsRow Classes="Inset" Padding="30,10,14,12" IsEnabled="{Binding Sharing.CanEdit}">
                             <StackPanel Spacing="8">
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                                    <TextBox Text="{Binding FriendInput}" Watermark="User ID, email or AFM username" AutomationProperties.Name="Friend to add" />
+                                    <TextBox Text="{Binding Sharing.FriendInput}" Watermark="User ID, email or AFM username" AutomationProperties.Name="Friend to add" />
                                     <Button Grid.Column="1" Classes="UiAction" Content="Add"
-                                            Command="{Binding AddSharedUserCommand}" IsEnabled="{Binding CanAddSharedUser}" />
+                                            Command="{Binding Sharing.AddCommand}" IsEnabled="{Binding Sharing.CanAdd}" />
                                 </Grid>
-                                <ItemsControl ItemsSource="{Binding SharedUsers}">
+                                <ItemsControl ItemsSource="{Binding Sharing.Friends}">
                                     <ItemsControl.ItemsPanel>
                                         <ItemsPanelTemplate>
                                             <WrapPanel Orientation="Horizontal" />
@@ -104,7 +104,7 @@
                                                             VerticalAlignment="Center"
                                                             ToolTip.Tip="Remove from sharing"
                                                             AutomationProperties.Name="Remove from sharing"
-                                                            Command="{Binding #SettingsRoot.((vm:SettingsViewModel)DataContext).RemoveSharedUserCommand}"
+                                                            Command="{Binding #SettingsRoot.((vm:SettingsViewModel)DataContext).Sharing.RemoveCommand}"
                                                             CommandParameter="{Binding}">
                                                         <PathIcon Width="10" Height="10"
                                                                   Data="M 1,0 L 5,4 L 9,0 L 10,1 L 6,5 L 10,9 L 9,10 L 5,6 L 1,10 L 0,9 L 4,5 L 0,1 Z" />
@@ -116,15 +116,15 @@
                                 </ItemsControl>
                                 <WrapPanel>
                                     <TextBlock Classes="UiLabel" Text="Friends add you with your ID" VerticalAlignment="Center" Margin="0,0,8,0" />
-                                    <TextBlock Text="{Binding RedactedCurrentFirebaseUserId}" FontSize="{DynamicResource UiFontSizeSmall}" VerticalAlignment="Center" Margin="0,0,8,0" />
-                                    <Button Classes="UiAction" Content="Copy" Command="{Binding CopyUserIdCommand}" AutomationProperties.Name="Copy your user ID" />
+                                    <TextBlock Text="{Binding Sharing.RedactedUserId}" FontSize="{DynamicResource UiFontSizeSmall}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                    <Button Classes="UiAction" Content="Copy" Command="{Binding Sharing.CopyUserIdCommand}" AutomationProperties.Name="Copy your user ID" />
                                 </WrapPanel>
                                 <TextBlock Classes="UiLabel UiWarning"
-                                           IsVisible="{Binding HasUnresolvedEntries}"
-                                           Text="{Binding SharingStatus}" />
+                                           IsVisible="{Binding Sharing.HasUnresolvedEntries}"
+                                           Text="{Binding Sharing.Status}" />
                                 <TextBlock Classes="UiLabel"
-                                           IsVisible="{Binding HasNormalSharingStatus}"
-                                           Text="{Binding SharingStatus}" />
+                                           IsVisible="{Binding Sharing.HasNormalStatus}"
+                                           Text="{Binding Sharing.Status}" />
                             </StackPanel>
                         </controls:SettingsRow>
                         <controls:SettingsRow>

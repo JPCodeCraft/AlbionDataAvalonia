@@ -113,7 +113,7 @@ public partial class ActivityViewModel
             SelectedPlayer = null;
             ResetMaps();
             Sessions.Clear();
-            if (IsImportedDetail) SelectedDetailTabIndex = 4;
+            if (IsImportedDetail) SelectedDetailTab = ActivityDetailTab.Items;
         }
         finally { applyingSelection = false; }
         ResetDetailRows();
@@ -141,7 +141,7 @@ public partial class ActivityViewModel
         var header = await persistence.GetPlaySessionAsync(playSessionId);
         if (isDisposed || header is null) return;
         applyingSelection = true;
-        try { SelectedTabIndex = 1; }
+        try { SelectedTab = ActivityTab.History; }
         finally { applyingSelection = false; }
         await LoadPlaySessionsAsync(false);
         var row = PlaySessions.FirstOrDefault(existing => existing.Id == playSessionId);
@@ -159,8 +159,8 @@ public partial class ActivityViewModel
             ResetDetailRows();
             SelectedEncounter = encounter is null ? null : new ActivityEncounterRow(encounter, SelectedScope.Value);
             if (SelectedEncounter is not null) Encounters.Add(SelectedEncounter);
-            if (SelectedEncounter is not null && SelectedDetailTabIndex == MapsDetailTabIndex) SelectedDetailTabIndex = 0;
-            if (IsImportedDetail) SelectedDetailTabIndex = 4;
+            if (SelectedEncounter is not null && SelectedDetailTab == ActivityDetailTab.Maps) SelectedDetailTab = ActivityDetailTab.Encounters;
+            if (IsImportedDetail) SelectedDetailTab = ActivityDetailTab.Items;
             ++detailChangeVersion;
         }
         finally { applyingSelection = false; }
@@ -246,6 +246,6 @@ public partial class ActivityViewModel
         if (CurrentRuns.Count > 0) CurrentRuns = new();
         ClearCurrentPeriod();
         CurrentLiveTimeline = null;
-        if (isActive && SelectedTabIndex == 0) _ = RunSafelyAsync(RefreshVisibleAsync);
+        if (isActive && SelectedTab == ActivityTab.Current) _ = RunSafelyAsync(RefreshVisibleAsync);
     }
 }

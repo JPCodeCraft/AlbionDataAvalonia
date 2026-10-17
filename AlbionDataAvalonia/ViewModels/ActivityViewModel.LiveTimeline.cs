@@ -24,12 +24,12 @@ public partial class ActivityViewModel
         if (value is not (5 or 15 or 30 or 60 or 120)) { LiveTimelineMinutes = 5; return; }
         liveTimelineCancellation.Cancel();
         CurrentLiveTimeline = null;
-        if (isActive && SelectedTabIndex == 0) _ = RefreshLiveTimelineSafelyAsync();
+        if (isActive && SelectedTab == ActivityTab.Current) _ = RefreshLiveTimelineSafelyAsync();
     }
 
     private async Task RefreshLiveTimelineSafelyAsync()
     {
-        if (tracker is null || !isActive || SelectedTabIndex != 0 || liveTimelineRefreshing || isDisposed) return;
+        if (tracker is null || !isActive || SelectedTab != ActivityTab.Current || liveTimelineRefreshing || isDisposed) return;
         var key = GetCurrentPeriodKey();
         var categories = VisibleCategories;
         var windowMinutes = LiveTimelineMinutes;
@@ -46,7 +46,7 @@ public partial class ActivityViewModel
         {
             var snapshot = await tracker.GetLiveTimelineAsync(query, DateTime.UtcNow, cancellationToken, windowMinutes * 60);
             cancellationToken.ThrowIfCancellationRequested();
-            if (isDisposed || !isActive || SelectedTabIndex != 0 || GetCurrentPeriodKey() != key || VisibleCategories != categories || LiveTimelineMinutes != windowMinutes) return;
+            if (isDisposed || !isActive || SelectedTab != ActivityTab.Current || GetCurrentPeriodKey() != key || VisibleCategories != categories || LiveTimelineMinutes != windowMinutes) return;
             CurrentLiveTimeline = snapshot with { ContextKey = $"{snapshot.ContextKey}|{key.Mode}|{key.Hours}|{windowMinutes}" };
             if (liveTimelineReadFailed && ErrorText == LiveTimelineReadError) ErrorText = "";
             liveTimelineReadFailed = false;

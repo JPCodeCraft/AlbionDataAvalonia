@@ -15,7 +15,6 @@ namespace AlbionDataAvalonia.ViewModels;
 
 public partial class ActivityViewModel
 {
-    private const int PartyDetailTabIndex = 7;
     private const int MaximumPartyChanges = 12;
     private PartyTrackerService? partyTracker;
     private LatestUiValueDispatcher<PartyTrackerSnapshot>? partySnapshots;
@@ -121,7 +120,7 @@ public partial class ActivityViewModel
         var runs = run is null ? header.Runs : [run];
         var events = await persistence.GetPartyEventsAsync(new ActivityQuery { PlaySessionId = playSessionId, SessionId = run?.Id }, cancellationToken);
         var members = await persistence.GetSessionPartyMembersAsync(runs.Select(x => x.Id), cancellationToken);
-        if (!IsCurrentDetail(version, playSessionId) || SelectedDetailTabIndex != PartyDetailTabIndex) return;
+        if (!IsCurrentDetail(version, playSessionId) || SelectedDetailTab != ActivityDetailTab.Party) return;
         var names = runs.SelectMany(x => members.TryGetValue(x.Id, out var found) ? found : [])
             .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToArray();
         var span = run ?? new ActivitySession

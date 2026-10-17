@@ -107,11 +107,11 @@ public partial class ActivityViewModel
     partial void OnLegacyImportInfoChanged(ActivityLegacyImportInfo? value) => OnPropertyChanged(nameof(ImportedDetailTooltipText));
     partial void OnSelectedItemSourceChanged(Option<ActivityItemSources> value)
 
-    { OnPropertyChanged(nameof(ShowGlobalLootPanel)); ++itemChangeVersion; ++globalLootVersion; globalLootPage = 0; if (isActive && SelectedTabIndex == 2) _ = RunSafelyAsync(() => LoadGlobalLootAsync(false)); }
+    { OnPropertyChanged(nameof(ShowGlobalLootPanel)); ++itemChangeVersion; ++globalLootVersion; globalLootPage = 0; if (isActive && SelectedTab == ActivityTab.Items) _ = RunSafelyAsync(() => LoadGlobalLootAsync(false)); }
 
     partial void OnSelectedSessionItemSourceChanged(Option<ActivityItemSources> value)
 
-    { OnPropertyChanged(nameof(CanExportSessionLoot)); OnPropertyChanged(nameof(ShowSessionLootPanel)); ++detailChangeVersion; ++detailVersion; sessionLootPage = 0; if (isActive && SelectedTabIndex == 1 && SelectedDetailTabIndex == 4) _ = RunSafelyAsync(RefreshDetailsAsync); }
+    { OnPropertyChanged(nameof(CanExportSessionLoot)); OnPropertyChanged(nameof(ShowSessionLootPanel)); ++detailChangeVersion; ++detailVersion; sessionLootPage = 0; if (isActive && SelectedTab == ActivityTab.History && SelectedDetailTab == ActivityDetailTab.Items) _ = RunSafelyAsync(RefreshDetailsAsync); }
 
     partial void OnSessionResourcesChanged(ObservableCollection<ActivityResourceRow> value) => OnPropertyChanged(nameof(HasSessionResources));
 
@@ -168,9 +168,9 @@ public partial class ActivityViewModel
         liveTimelineCancellation.Cancel();
         ++detailChangeVersion; ++detailVersion;
 
-        if (isActive && SelectedTabIndex == 0) _ = RefreshLiveTimelineSafelyAsync();
+        if (isActive && SelectedTab == ActivityTab.Current) _ = RefreshLiveTimelineSafelyAsync();
 
-        else if (isActive && SelectedTabIndex == 1 && SelectedDetailTabIndex is 1 or 5) _ = RunSafelyAsync(RefreshDetailsAsync);
+        else if (isActive && SelectedTab == ActivityTab.History && SelectedDetailTab is ActivityDetailTab.Charts or ActivityDetailTab.Timeline) _ = RunSafelyAsync(RefreshDetailsAsync);
 
     }
 
@@ -196,7 +196,7 @@ public partial class ActivityViewModel
         }
         var rows = await persistence.GetResourceTotalsAsync(query, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
-        if (isDisposed || !isActive || SelectedTabIndex != 0 || tracker?.CurrentSessionId != id || SelectedScope.Value != scope) return;
+        if (isDisposed || !isActive || SelectedTab != ActivityTab.Current || tracker?.CurrentSessionId != id || SelectedScope.Value != scope) return;
         CurrentResources = new(rows.Select(row => new ActivityResourceRow(row)));
         currentResourcesQuery = query;
         currentResourcesReadVersion = dataVersion;

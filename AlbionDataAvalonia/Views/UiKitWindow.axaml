@@ -1,0 +1,141 @@
+<!--
+    Every token, text class, button role, surface and shared control on one page, for checking a theme change.
+    Debug builds open it when AFM_UI_KIT=1 is set; see "UI Conventions" in AGENTS.md.
+-->
+<Window xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+        xmlns:controls="using:AlbionDataAvalonia.Views.Controls"
+        xmlns:ui="using:AlbionDataAvalonia.Ui"
+        xmlns:views="using:AlbionDataAvalonia.Views"
+        x:Class="AlbionDataAvalonia.Views.UiKitWindow"
+        x:DataType="views:UiKitWindow"
+        Classes="AppPage"
+        Title="UI kit"
+        Icon="/Assets/logo.ico"
+        Width="1100" Height="820"
+        WindowStartupLocation="CenterScreen">
+    <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+        <StackPanel Margin="20" Spacing="24">
+            <StackPanel Spacing="8">
+                <TextBlock Classes="UiTitle" Text="Colors" />
+                <TextBlock Classes="UiLabel" Text="Every Color and brush token in Themes/Tokens.axaml." />
+                <ItemsControl x:Name="Swatches">
+                    <ItemsControl.ItemsPanel>
+                        <ItemsPanelTemplate>
+                            <WrapPanel />
+                        </ItemsPanelTemplate>
+                    </ItemsControl.ItemsPanel>
+                    <ItemsControl.ItemTemplate>
+                        <DataTemplate x:DataType="views:UiKitSwatch">
+                            <StackPanel Width="200" Orientation="Horizontal" Spacing="8" Margin="0,0,8,8">
+                                <Border Width="28" Height="28" CornerRadius="{DynamicResource UiRadiusControl}" Background="{Binding Brush}"
+                                        BorderBrush="{DynamicResource UiBorderBrush}" BorderThickness="1" />
+                                <TextBlock Classes="UiFine" Text="{Binding Key}" VerticalAlignment="Center" TextTrimming="CharacterEllipsis" MaxWidth="160" />
+                            </StackPanel>
+                        </DataTemplate>
+                    </ItemsControl.ItemTemplate>
+                </ItemsControl>
+            </StackPanel>
+
+            <StackPanel Spacing="6">
+                <TextBlock Classes="UiTitle" Text="Text" />
+                <TextBlock Classes="UiCaption" Text="UICAPTION · SECTION LABELS" />
+                <TextBlock Classes="UiLabel" Text="UiLabel · hints and secondary lines" />
+                <TextBlock Classes="UiFine" Text="UiFine · the smallest supporting text" />
+                <TextBlock Classes="UiMuted" Text="UiMuted · body text in the secondary color" />
+                <TextBlock Text="Body · the default text" />
+                <TextBlock Classes="UiRowTitle" Text="UiRowTitle · a settings row or list item" />
+                <TextBlock Classes="UiSectionTitle" Text="UiSectionTitle · a card heading" />
+                <TextBlock Classes="UiTitle" Text="UiTitle · dialog and page headings" />
+                <TextBlock Classes="UiHeading" Text="UiHeading · a hero line" />
+                <StackPanel Orientation="Horizontal" Spacing="16">
+                    <TextBlock Classes="UiValue" Text="12,480" />
+                    <TextBlock Classes="UiValueLarge UiAccent" Text="1.2M" />
+                </StackPanel>
+                <TextBlock Classes="UiAccent" Text="UiAccent · orange text" />
+                <TextBlock Classes="UiWarning" Text="UiWarning · needs attention" />
+                <TextBlock Classes="UiError" Text="UiError · something failed" />
+                <TextBlock Classes="UiMono" Text="UiMono · sudo setcap cap_net_admin,cap_net_raw+eip" />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+                <TextBlock Classes="UiTitle" Text="Buttons" />
+                <WrapPanel>
+                    <Button Classes="UiAction" Content="Secondary" Margin="0,0,8,8" />
+                    <Button Classes="UiAction UiPrimary" Content="Primary" Margin="0,0,8,8" />
+                    <Button Classes="UiAction UiDanger" Content="Delete…" Margin="0,0,8,8" />
+                    <Button Classes="UiAction UiGhost" Content="Ghost" Margin="0,0,8,8" />
+                    <Button Classes="UiLink" Content="Link" Margin="0,0,8,8" VerticalAlignment="Center" />
+                    <Button Classes="UiAction UiIcon" Content="+" AutomationProperties.Name="Add" Margin="0,0,8,8" />
+                </WrapPanel>
+                <WrapPanel>
+                    <Button Classes="UiAction" Content="Secondary" IsEnabled="False" Margin="0,0,8,8" />
+                    <Button Classes="UiAction UiPrimary" Content="Primary" IsEnabled="False" Margin="0,0,8,8" />
+                    <Button Classes="UiAction UiDanger" Content="Delete…" IsEnabled="False" Margin="0,0,8,8" />
+                    <Button Classes="UiChipButton" Content="Chip button" Margin="0,0,8,8" />
+                    <Button Classes="UiChipButton Accent" Content="Accent chip" Margin="0,0,8,8" />
+                </WrapPanel>
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+                <TextBlock Classes="UiTitle" Text="Surfaces" />
+                <WrapPanel>
+                    <Border Classes="UiCard" Width="200" Margin="0,0,8,8"><TextBlock Text="UiCard" /></Border>
+                    <Border Classes="UiCard Subtle" Width="200" Margin="0,0,8,8"><TextBlock Text="UiCard Subtle" /></Border>
+                    <Border Classes="UiCard Bordered" Width="200" Margin="0,0,8,8"><TextBlock Text="UiCard Bordered" /></Border>
+                    <Border Classes="UiCard Outlined" Width="200" Margin="0,0,8,8"><TextBlock Text="UiCard Outlined" /></Border>
+                    <Border Classes="UiCard Sunken" Width="200" Margin="0,0,8,8"><TextBlock Text="UiCard Sunken" /></Border>
+                </WrapPanel>
+                <WrapPanel>
+                    <Border Classes="UiBadge" Margin="0,0,8,8"><TextBlock Text="Neutral" /></Border>
+                    <Border Classes="UiBadge Success" Margin="0,0,8,8"><TextBlock Text="Success" /></Border>
+                    <Border Classes="UiBadge Warning" Margin="0,0,8,8"><TextBlock Text="Warning" /></Border>
+                    <Border Classes="UiBadge Danger" Margin="0,0,8,8"><TextBlock Text="Danger" /></Border>
+                    <Border Classes="UiBadge Accent" Margin="0,0,8,8"><TextBlock Text="Accent" /></Border>
+                    <Border Classes="UiBadge PremiumStatus Premium" Margin="0,0,8,8"><TextBlock Text="Premium" /></Border>
+                    <Border Classes="UiChip" Margin="0,0,8,8"><TextBlock Text="Chip" /></Border>
+                    <Border Classes="UiChip Selected" Margin="0,0,8,8"><TextBlock Text="Selected chip" /></Border>
+                    <Border Classes="UiCode" Margin="0,0,8,8"><TextBlock Classes="UiMono" Text="code" /></Border>
+                </WrapPanel>
+                <WrapPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,16,8"><Ellipse Classes="UiStatusDot Ok" /><TextBlock Classes="UiLabel" Text="Ok" /></StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,16,8"><Ellipse Classes="UiStatusDot Warning" /><TextBlock Classes="UiLabel" Text="Warning" /></StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,16,8"><Ellipse Classes="UiStatusDot Blocked" /><TextBlock Classes="UiLabel" Text="Blocked" /></StackPanel>
+                    <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,16,8"><Ellipse Classes="UiStatusDot" /><TextBlock Classes="UiLabel" Text="Idle" /></StackPanel>
+                </WrapPanel>
+                <controls:InfoBanner Title="Warning" Message="An InfoBanner with Kind=Warning, the default." />
+                <controls:InfoBanner Kind="Error" Title="Error" Message="An InfoBanner with Kind=Error." />
+                <controls:InfoBanner Kind="Info" Message="An InfoBanner with Kind=Info and no title." />
+            </StackPanel>
+
+            <StackPanel Spacing="8">
+                <TextBlock Classes="UiTitle" Text="Controls" />
+                <controls:SettingsGroup Header="SETTINGSGROUP">
+                    <controls:SettingsRow Title="SettingsRow" Hint="A title, a hint and a control at the end.">
+                        <ToggleSwitch IsChecked="True" />
+                    </controls:SettingsRow>
+                    <controls:SettingsRow Title="With a choice">
+                        <controls:SegmentedSelector ItemsSource="{Binding Choices}" SelectedIndex="1" />
+                    </controls:SettingsRow>
+                </controls:SettingsGroup>
+                <WrapPanel>
+                    <controls:StatTile Classes="Card" Label="StatTile Card" Value="23.3k" Detail="84.0M / hour" Width="220" Margin="0,0,8,8" />
+                    <controls:StatTile Classes="Card Accent Large" Label="Accent Large" Value="1.2M" Width="220" Margin="0,0,8,8" />
+                    <controls:StatTile Classes="Text" Label="Text" Value="Ashvale" Width="160" Margin="0,0,8,8" />
+                </WrapPanel>
+                <WrapPanel>
+                    <controls:FilterField Label="FilterField">
+                        <TextBox Width="230" Watermark="Search" />
+                    </controls:FilterField>
+                    <controls:FilterField Label="With a combo box">
+                        <ComboBox Width="140" ItemsSource="{Binding Choices}" SelectedIndex="0" />
+                    </controls:FilterField>
+                </WrapPanel>
+                <controls:ItemCell ItemUniqueName="T6_BAG" ImageQuality="2" Title="ItemCell" Subtitle="Good" Detail="An item's icon and name" />
+                <Border Classes="UiCard Sunken" Height="120">
+                    <controls:EmptyState Message="EmptyState" Hint="Shown while a list or table has nothing in it." />
+                </Border>
+            </StackPanel>
+        </StackPanel>
+    </ScrollViewer>
+</Window>

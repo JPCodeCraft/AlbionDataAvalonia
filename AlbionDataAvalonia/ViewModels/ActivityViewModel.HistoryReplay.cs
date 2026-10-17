@@ -32,7 +32,7 @@ public partial class ActivityViewModel
     private async Task LoadHistoryReplayAsync(ActivityTimelineReplayRequest request)
     {
         if (request is null || persistence is null || isDisposed || !isActive ||
-            SelectedTabIndex != 1 || SelectedDetailTabIndex != 1 || HistoryLiveTimeline is not { HasContext: true } overview) return;
+            SelectedTab != ActivityTab.History || SelectedDetailTab != ActivityDetailTab.Charts || HistoryLiveTimeline is not { HasContext: true } overview) return;
         var categories = VisibleCategories;
         var query = DetailQuery() with { ShowCategories = categories };
         var contextKey = HistoryTimelineContextKey(query, categories);
@@ -53,7 +53,7 @@ public partial class ActivityViewModel
                 ToUtc = request.WindowEndUtc
             }, request.WindowEndUtc, null, null, cancellationToken, (int)span);
             cancellationToken.ThrowIfCancellationRequested();
-            if (isDisposed || !isActive || SelectedTabIndex != 1 || SelectedDetailTabIndex != 1 ||
+            if (isDisposed || !isActive || SelectedTab != ActivityTab.History || SelectedDetailTab != ActivityDetailTab.Charts ||
                 version != historyReplayReadVersion || HistoryLiveTimeline?.ContextKey != contextKey ||
                 HistoryTimelineContextKey(DetailQuery(), VisibleCategories) != contextKey) return;
             HistoryReplayTimeline = snapshot with { ContextKey = contextKey };

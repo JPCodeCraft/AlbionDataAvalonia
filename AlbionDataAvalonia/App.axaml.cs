@@ -227,6 +227,11 @@ public partial class App : Application
                 _showMainWindowWhenReady = false;
                 vm.ShowMainWindow();
             }
+
+#if DEBUG
+            // A page of every token and shared control, for checking a theme change.
+            if (Environment.GetEnvironmentVariable("AFM_UI_KIT") == "1") new UiKitWindow().Show();
+#endif
         }
         else if (ApplicationLifetime is ISingleViewApplicationLifetime singleViewPlatform)
         {

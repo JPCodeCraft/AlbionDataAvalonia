@@ -2,6 +2,7 @@ using AlbionDataAvalonia.Locations;
 using AlbionDataAvalonia.Locations.Models;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Services;
+using AlbionDataAvalonia.State;
 using AlbionDataAvalonia.Ui;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -12,6 +13,7 @@ using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
+using System.Windows.Input;
 
 namespace AlbionDataAvalonia.ViewModels;
 
@@ -33,9 +35,12 @@ public enum SetupSummarySeverity
     Idle
 }
 
-// The Main tab walks through what the client needs before it can upload, and the sidebar
-// summarizes the same checks. Everything is recomputed once a second from live state.
-public partial class MainViewModel
+/// <summary>
+/// Walks through what the client needs before it can upload: the capture driver, adapters, game traffic, server,
+/// character and location. The Main tab shows the steps and the sidebar a summary. Everything is recomputed once a
+/// second from live state.
+/// </summary>
+public sealed partial class SetupStatusViewModel : ViewModelBase
 {
     private enum SetupStage
     {
@@ -52,6 +57,37 @@ public partial class MainViewModel
         ChangeZones,
         Ready
     }
+
+    private readonly NetworkListenerService networkListener = null!;
+    private readonly PlayerState playerState = null!;
+
+    public SetupStatusViewModel()
+    {
+    }
+
+    /// <param name="installDriver">Opens the Npcap download.</param>
+    /// <param name="installMacPermissions">Installs the macOS capture permission and restarts the client.</param>
+    public SetupStatusViewModel(NetworkListenerService networkListener, PlayerState playerState, ICommand installDriver, ICommand installMacPermissions)
+    {
+        this.networkListener = networkListener;
+        this.playerState = playerState;
+        windowsDriverActions = [new("Download Npcap", installDriver, true), new("Check again", CheckCaptureAgainCommand)];
+        linuxDriverActions = [new("Check again", CheckCaptureAgainCommand, true)];
+        macPermissionActions = [new("Install permissions", installMacPermissions, true)];
+
+        _ = CheckCaptureDriverAsync();
+        setupTimer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => Update());
+        setupTimer.Start();
+        Update();
+    }
+
+    /// <summary>Market orders arrive encrypted, so the summary warns even when every step is done.</summary>
+    [ObservableProperty] private bool ordersEncrypted;
+
+    partial void OnOrdersEncryptedChanged(bool value) => Update();
+
+    /// <summary>Every step is done and the client can upload.</summary>
+    [ObservableProperty] private bool isReady;
 
     private static readonly TimeSpan HelpDelay = TimeSpan.FromMinutes(1);
     private static readonly TimeSpan LoginGrace = TimeSpan.FromSeconds(15);
@@ -113,10 +149,6 @@ public partial class MainViewModel
     [ObservableProperty] private string checksPassedText = "";
     [ObservableProperty] private bool allChecksPassed;
     [ObservableProperty] private bool isLocationUnrecognized;
-    [ObservableProperty] private string uploadStatusText = "Uploads start once you’re detected";
-    [ObservableProperty] private bool isUploading;
-    [ObservableProperty] private string copyDiagnosticsLabel = "Copy diagnostics";
-    [ObservableProperty] private bool isDiagnosticsEnabled;
 
     public bool HeroIsRadar => HeroKind is SetupHeroKind.Waiting;
     public bool HeroIsIdle => HeroKind is SetupHeroKind.Idle;
@@ -165,24 +197,8 @@ public partial class MainViewModel
         ]
     };
 
-    private void InitializeSetup()
-    {
-        windowsDriverActions = [new("Download Npcap", InstallNpCapCommand, true), new("Check again", CheckCaptureAgainCommand)];
-        linuxDriverActions = [new("Check again", CheckCaptureAgainCommand, true)];
-        macPermissionActions = [new("Install permissions", InstallMacOSCapturePermissionsCommand, true)];
-        IsDiagnosticsEnabled = _packetDiagnostics?.IsEnabled == true;
-
-        _ = CheckCaptureDriverAsync();
-        setupTimer = new DispatcherTimer(TimeSpan.FromSeconds(1), DispatcherPriority.Background, (_, _) => UpdateSetup());
-        setupTimer.Start();
-        UpdateSetup();
-    }
-
     [RelayCommand]
     private Task CheckCaptureAgain() => CheckCaptureDriverAsync();
-
-    [RelayCommand]
-    private void OpenDiscord() => SystemLauncher.TryOpenUrl(SystemLauncher.AfmDiscordUrl);
 
     private async Task CheckCaptureDriverAsync()
     {
@@ -203,7 +219,7 @@ public partial class MainViewModel
             isCheckingDriver = false;
         }
 
-        UpdateSetup();
+        Update();
     }
 
     private void CheckGameProcess()
@@ -229,16 +245,17 @@ public partial class MainViewModel
         }));
     }
 
-    private void UpdateSetup()
+    /// <summary>Recomputes every step now; it also runs once a second.</summary>
+    public void Update()
     {
-        if (UiDispatch.Repost(UpdateSetup)) return;
+        if (UiDispatch.Repost(Update)) return;
 
         // Reading IsInGame can raise a player state change that lands back here.
-        if (_playerState is null || _networkListener is null || isUpdatingSetup) return;
+        if (playerState is null || networkListener is null || isUpdatingSetup) return;
         isUpdatingSetup = true;
         try
         {
-            UpdateSetupCore();
+            UpdateCore();
         }
         finally
         {
@@ -246,28 +263,28 @@ public partial class MainViewModel
         }
     }
 
-    private void UpdateSetupCore()
+    private void UpdateCore()
     {
         var now = DateTime.UtcNow;
-        captureStatus = _networkListener.GetCaptureStatus();
-        var macBlocked = _networkListener.IsMacOSCapturePermissionSetupRequired;
+        captureStatus = networkListener.GetCaptureStatus();
+        var macBlocked = networkListener.IsMacOSCapturePermissionSetupRequired;
         if (captureStatus.IsStarted) listeningSinceUtc ??= now;
 
-        var inGame = _playerState.IsInGame;
+        var inGame = playerState.IsInGame;
         if (inGame) inGameSinceUtc ??= now;
         else inGameSinceUtc = null;
 
-        var lastPacket = _playerState.LastPacketTime;
+        var lastPacket = playerState.LastPacketTime;
         var everReceived = lastPacket != DateTime.MinValue;
         var quietSince = listeningSinceUtc ?? now;
         if (everReceived && lastPacket > quietSince) quietSince = lastPacket;
         var quietFor = now - quietSince;
         var loggingIn = inGame && now - inGameSinceUtc < LoginGrace;
 
-        var server = _playerState.AlbionServer;
-        var character = _playerState.PlayerName;
+        var server = playerState.AlbionServer;
+        var character = playerState.PlayerName;
         var hasCharacter = !string.IsNullOrWhiteSpace(character);
-        var location = _playerState.Location;
+        var location = playerState.Location;
         var locationUnset = location == AlbionLocations.Unset;
         var locationUnknown = location == AlbionLocations.Unknown;
 
@@ -479,7 +496,7 @@ public partial class MainViewModel
         UpdateHero(quietFor, now - lastPacket, character, location);
         UpdateStatusSummary(firstOpen, quietFor);
         UpdateTroubleshooting(waitingLong);
-        UpdateUploadStatus();
+        IsReady = setupStage == SetupStage.Ready;
     }
 
     private void UpdateHero(TimeSpan quietFor, TimeSpan sinceLastPacket, string character, AlbionLocation location)
@@ -536,14 +553,14 @@ public partial class MainViewModel
             SetupStage.LoggingIn => (SetupSummarySeverity.Waiting, "Logging in…", step),
             SetupStage.UnknownServer => (SetupSummarySeverity.Warning, "Unknown server", step),
             SetupStage.ChangeZones => (SetupSummarySeverity.Warning, "Change zones once", step),
-            _ when ShowEncrypted => (SetupSummarySeverity.Warning, "Orders encrypted", "Other tracking continues"),
+            _ when OrdersEncrypted => (SetupSummarySeverity.Warning, "Orders encrypted", "Other tracking continues"),
             _ when IsLocationUnrecognized => (SetupSummarySeverity.Warning, "Unrecognized zone", ChecksPassedText),
             _ => (SetupSummarySeverity.Ok, "All set", ChecksPassedText)
         };
 
         var open = firstOpen < SetupSteps.Count ? SetupSteps[firstOpen] : null;
         StatusTooltip = setupStage == SetupStage.Ready
-            ? ShowEncrypted ? "Market orders are encrypted right now, so they can’t be uploaded." : "Everything the client needs is detected."
+            ? OrdersEncrypted ? "Market orders are encrypted right now, so they can’t be uploaded." : "Everything the client needs is detected."
             : open is { HasHint: true } ? open.Hint : HeroText;
     }
 
@@ -566,18 +583,9 @@ public partial class MainViewModel
         }
     }
 
-    private void UpdateUploadStatus()
+    /// <summary>The checks, adapters and game state for Copy diagnostics, without the character's name.</summary>
+    public void AppendDiagnostics(StringBuilder text)
     {
-        IsUploading = UploadQueueSize > 0 || RunningTasksCount > 0;
-        UploadStatusText = IsUploading
-            ? $"Uploading {RunningTasksCount:N0} · {UploadQueueSize:N0} waiting"
-            : setupStage == SetupStage.Ready ? "Uploads idle" : "Uploads start once you’re detected";
-    }
-
-    public string BuildDiagnosticsText()
-    {
-        var text = new StringBuilder();
-        text.AppendLine($"AFM Data Client {AppVersion} ({RuntimeInformation.OSDescription}, {RuntimeInformation.OSArchitecture})");
         foreach (var step in SetupSteps)
         {
             var value = step.State == SetupStepState.Pending ? "not detected" : step.Value;
@@ -587,21 +595,7 @@ public partial class MainViewModel
         }
 
         text.AppendLine($"Adapters reported: {captureStatus.AvailableDeviceCount}, open: {captureStatus.ListeningDeviceCount}");
-        text.AppendLine($"Game process: {(_playerState.IsInGame ? "sending traffic" : gameProcessRunning ? "running" : "not detected")}");
+        text.AppendLine($"Game process: {(playerState.IsInGame ? "sending traffic" : gameProcessRunning ? "running" : "not detected")}");
         text.AppendLine($"Status: {StatusTitle}");
-        text.AppendLine($"Signed in: {(UserLoggedIn ? "yes" : "no")} · Private mode: {(UploadToAfmOnly ? "on" : "off")}");
-        text.AppendLine($"Uploads since start: public {PublicUploadSuccessCount:N0} ok, {PublicUploadFailedCount:N0} failed · private {PrivateUploadSuccessCount:N0} ok, {PrivateUploadFailedCount:N0} failed");
-        text.AppendLine($"Upload queue: {UploadQueueSize:N0} waiting, {RunningTasksCount:N0} running");
-        text.Append($"Diagnostics mode: {(IsDiagnosticsEnabled ? "on" : "off")}");
-        return text.ToString();
-    }
-
-    [RelayCommand]
-    private async Task CopyDiagnostics()
-    {
-        var copied = _clipboard is not null && await _clipboard.SetTextAsync(BuildDiagnosticsText());
-        CopyDiagnosticsLabel = copied ? "Copied" : "Couldn’t copy";
-        await Task.Delay(TimeSpan.FromSeconds(2));
-        CopyDiagnosticsLabel = "Copy diagnostics";
     }
 }

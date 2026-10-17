@@ -109,28 +109,28 @@
 		<StackPanel Margin="10,6,20,16" Spacing="14">
 
 			<!--  SETUP: shown until the client knows the server, character and location  -->
-			<StackPanel IsVisible="{Binding !ShowReadyView}" Spacing="12">
+			<StackPanel IsVisible="{Binding !Setup.ShowReadyView}" Spacing="12">
 				<Grid ColumnDefinitions="Auto,*" Margin="0,4,0,2">
 					<Grid Width="56" Height="56" Margin="0,0,16,0" VerticalAlignment="Top">
-						<Grid IsVisible="{Binding HeroIsRadar}">
+						<Grid IsVisible="{Binding Setup.HeroIsRadar}">
 							<Ellipse Fill="{DynamicResource UiAccentTintSubtleBrush}" Stroke="{DynamicResource UiAccentEdgeBrush}" StrokeThickness="1.5" />
 							<Ellipse Width="18" Height="18" Fill="{DynamicResource UiAccentTextBrush}" />
 						</Grid>
-						<Grid IsVisible="{Binding HeroIsIdle}">
+						<Grid IsVisible="{Binding Setup.HeroIsIdle}">
 							<Ellipse Fill="{DynamicResource UiHoverBrush}" Stroke="{DynamicResource UiBorderSubtleBrush}" StrokeThickness="1.5" />
 							<Ellipse Width="18" Height="18" Fill="{DynamicResource UiTextTertiaryBrush}" />
 						</Grid>
-						<Grid IsVisible="{Binding HeroIsWarning}">
+						<Grid IsVisible="{Binding Setup.HeroIsWarning}">
 							<Ellipse Fill="{DynamicResource UiAccentTintBrush}" />
 							<PathIcon Width="28" Height="28" Foreground="{DynamicResource UiWarningBrush}"
 									  Data="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M11,7H13V13H11V7M11,15H13V17H11V15Z" />
 						</Grid>
-						<Grid IsVisible="{Binding HeroIsBlocked}">
+						<Grid IsVisible="{Binding Setup.HeroIsBlocked}">
 							<Ellipse Fill="{DynamicResource UiDangerTintBrush}" />
 							<PathIcon Width="28" Height="28" Foreground="{DynamicResource UiDangerBrush}"
 									  Data="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M11,7H13V13H11V7M11,15H13V17H11V15Z" />
 						</Grid>
-						<Grid IsVisible="{Binding HeroIsZone}">
+						<Grid IsVisible="{Binding Setup.HeroIsZone}">
 							<Ellipse Fill="{DynamicResource UiAccentTintBrush}" />
 							<Canvas Width="32" Height="32">
 								<Ellipse Canvas.Left="7" Canvas.Top="5" Width="12" Height="22" Stroke="{DynamicResource UiAccentTextBrush}" StrokeThickness="2.4" />
@@ -140,21 +140,21 @@
 						</Grid>
 					</Grid>
 					<StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
-						<TextBlock Classes="UiHeading" Text="{Binding HeroTitle}" />
-						<TextBlock Classes="UiMuted" TextWrapping="Wrap" FontSize="{DynamicResource UiFontSizeCompact}" Text="{Binding HeroText}" />
-						<TextBlock Classes="UiLabel" Foreground="{DynamicResource UiTextTertiaryBrush}" Text="{Binding HeroMeta}" Margin="0,4,0,0"
-								   IsVisible="{Binding HeroMeta, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+						<TextBlock Classes="UiHeading" Text="{Binding Setup.HeroTitle}" />
+						<TextBlock Classes="UiMuted" TextWrapping="Wrap" FontSize="{DynamicResource UiFontSizeCompact}" Text="{Binding Setup.HeroText}" />
+						<TextBlock Classes="UiLabel" Foreground="{DynamicResource UiTextTertiaryBrush}" Text="{Binding Setup.HeroMeta}" Margin="0,4,0,0"
+								   IsVisible="{Binding Setup.HeroMeta, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
 					</StackPanel>
 				</Grid>
 
-				<ItemsControl ItemsSource="{Binding SetupSteps}" ItemTemplate="{StaticResource SetupStepTemplate}" />
+				<ItemsControl ItemsSource="{Binding Setup.SetupSteps}" ItemTemplate="{StaticResource SetupStepTemplate}" />
 
-				<Expander IsVisible="{Binding ShowTroubleshooting}"
-						  IsExpanded="{Binding IsTroubleshootingOpen, Mode=TwoWay}">
+				<Expander IsVisible="{Binding Setup.ShowTroubleshooting}"
+						  IsExpanded="{Binding Setup.IsTroubleshootingOpen, Mode=TwoWay}">
 					<Expander.Header>
-						<TextBlock Classes="UiAccent" Text="{Binding TroubleshootingTitle}" FontWeight="SemiBold" />
+						<TextBlock Classes="UiAccent" Text="{Binding Setup.TroubleshootingTitle}" FontWeight="SemiBold" />
 					</Expander.Header>
-					<ItemsControl ItemsSource="{Binding TroubleshootingSteps}">
+					<ItemsControl ItemsSource="{Binding Setup.TroubleshootingSteps}">
 						<ItemsControl.ItemTemplate>
 							<DataTemplate x:DataType="vm:TroubleshootingStep">
 								<Grid ColumnDefinitions="22,*" Margin="0,3">
@@ -176,13 +176,13 @@
 			</StackPanel>
 
 			<!--  READY: everything detected  -->
-			<StackPanel IsVisible="{Binding ShowReadyView}" Spacing="12">
+			<StackPanel IsVisible="{Binding Setup.ShowReadyView}" Spacing="12">
 				<controls:InfoBanner Classes="Stacked" IsVisible="{Binding ShowEncrypted}"
 									 Title="Market orders are encrypted right now"
 									 Message="The client can’t read buy and sell orders, so it can’t upload them. Other tracking continues.">
 					<Button Classes="UiLink" FontSize="{DynamicResource UiFontSizeSmall}" Content="Updates on the AFM Discord" Command="{Binding OpenDiscordCommand}" />
 				</controls:InfoBanner>
-				<controls:InfoBanner IsVisible="{Binding IsLocationUnrecognized}"
+				<controls:InfoBanner IsVisible="{Binding Setup.IsLocationUnrecognized}"
 									 Title="Unrecognized zone"
 									 Message="Market uploads pause until you reach a city or another known zone." />
 
@@ -209,8 +209,8 @@
 							<StackPanel Grid.Column="2" Spacing="2">
 								<TextBlock Classes="UiCaption" Text="LOCATION" />
 								<TextBlock Classes="UiSectionTitle UiWarning" TextTrimming="CharacterEllipsis" Text="{Binding LocationName}"
-										   IsVisible="{Binding IsLocationUnrecognized}" />
-								<TextBlock Classes="UiSectionTitle" TextTrimming="CharacterEllipsis" Text="{Binding LocationName}" IsVisible="{Binding !IsLocationUnrecognized}" />
+										   IsVisible="{Binding Setup.IsLocationUnrecognized}" />
+								<TextBlock Classes="UiSectionTitle" TextTrimming="CharacterEllipsis" Text="{Binding LocationName}" IsVisible="{Binding !Setup.IsLocationUnrecognized}" />
 							</StackPanel>
 						</Grid>
 						<Rectangle Classes="UiDivider" />
@@ -225,17 +225,17 @@
 					<Expander.Header>
 						<StackPanel Orientation="Horizontal" Spacing="8">
 							<Grid Width="16" Height="16" VerticalAlignment="Center">
-								<Ellipse Fill="{DynamicResource UiSuccessBrush}" IsVisible="{Binding AllChecksPassed}" />
-								<Path IsVisible="{Binding AllChecksPassed}" Data="M4.4,8.3 L7,10.8 L11.6,5.9" Stroke="White"
+								<Ellipse Fill="{DynamicResource UiSuccessBrush}" IsVisible="{Binding Setup.AllChecksPassed}" />
+								<Path IsVisible="{Binding Setup.AllChecksPassed}" Data="M4.4,8.3 L7,10.8 L11.6,5.9" Stroke="White"
 									  StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" />
-								<Ellipse Fill="{DynamicResource UiWarningBrush}" IsVisible="{Binding !AllChecksPassed}" />
-								<TextBlock IsVisible="{Binding !AllChecksPassed}" Text="!" FontWeight="Bold" FontSize="{DynamicResource UiFontSizeCaption}"
+								<Ellipse Fill="{DynamicResource UiWarningBrush}" IsVisible="{Binding !Setup.AllChecksPassed}" />
+								<TextBlock IsVisible="{Binding !Setup.AllChecksPassed}" Text="!" FontWeight="Bold" FontSize="{DynamicResource UiFontSizeCaption}"
 										   Foreground="{DynamicResource UiOnAccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
 							</Grid>
-							<TextBlock Classes="UiMuted" Text="{Binding ChecksPassedText}" FontSize="{DynamicResource UiFontSizeCompact}" VerticalAlignment="Center" />
+							<TextBlock Classes="UiMuted" Text="{Binding Setup.ChecksPassedText}" FontSize="{DynamicResource UiFontSizeCompact}" VerticalAlignment="Center" />
 						</StackPanel>
 					</Expander.Header>
-					<ItemsControl ItemsSource="{Binding SetupSteps}" ItemTemplate="{StaticResource SetupStepTemplate}" />
+					<ItemsControl ItemsSource="{Binding Setup.SetupSteps}" ItemTemplate="{StaticResource SetupStepTemplate}" />
 				</Expander>
 
 				<Grid ColumnDefinitions="*,12,*">

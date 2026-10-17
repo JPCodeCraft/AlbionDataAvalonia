@@ -57,7 +57,7 @@ public partial class TradesViewModel
 
             var sellPremiumStatuses = selectedRows
                 .Where(row => row.Source.Operation == TradeOperation.Sell)
-                .Select(row => ResolvePortfolioPremium(row.Source))
+                .Select(row => _portfolio.ResolvePremium(row.Source))
                 .ToList();
             if (await dialogs.ShowAsync(new PortfolioUploadDialog(selectedRows.Count, sellPremiumStatuses)) is not { } confirmation) return;
 
@@ -122,7 +122,7 @@ public partial class TradesViewModel
     {
         var groups = rows
             .Where(row => row.QualityLevel == 0)
-            .GroupBy(CreateQualityKey)
+            .GroupBy(PortfolioImportCoordinator.QualityKey)
             .Select(group => new PortfolioQualitySelectionGroup(group.Key, group.First().ItemName, group.First().Server?.Name ?? "Unknown server", group.Count()))
             .OrderBy(group => group.ItemName)
             .ThenBy(group => group.ServerName)

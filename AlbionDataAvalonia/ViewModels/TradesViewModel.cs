@@ -29,12 +29,11 @@ public partial class TradesViewModel : ViewModelBase
     private readonly PlayerState _playerState;
     private readonly TradeService _tradeService;
     private readonly CsvExportService _csvExportService;
-    private readonly PortfolioUploadService _portfolioUploadService;
+    private readonly PortfolioImportCoordinator _portfolio = null!;
     private UiDebouncer? _filterDebounce;
     private UiDebouncer? _loadDebounce;
     private readonly SemaphoreSlim _loadGate = new(1, 1);
     private readonly LatestLoad _tradeLoads = new();
-    private readonly LatestLoad _portfolioRefreshes = new();
     private Task? _backgroundPortfolioRefresh;
     private bool _isPortfolioStatusLoading;
 
@@ -92,7 +91,6 @@ public partial class TradesViewModel : ViewModelBase
 
     private List<Trade> UnfilteredTrades { get; set; } = new();
     private List<TradeRowViewModel> SelectedTrades { get; set; } = new();
-    private HashSet<Guid> PortfolioUploadedTradeIds { get; set; } = new();
 
     private List<string> _locations = [UiText.Any];
     public List<string> Locations => _locations;
@@ -232,7 +230,7 @@ public partial class TradesViewModel : ViewModelBase
         _playerState = playerState;
         _tradeService = tradeService;
         _csvExportService = csvExportService;
-        _portfolioUploadService = portfolioUploadService;
+        _portfolio = new PortfolioImportCoordinator(portfolioUploadService, tradeService, playerState);
 
         _tradeService.OnTradeAdded += HandleTradeAdded;
         _settingsManager.UserSettings.PropertyChanged += OnUserSettingsPropertyChanged;
@@ -347,63 +345,23 @@ public partial class TradesViewModel : ViewModelBase
         var rows = filteredList
             .OrderByDescending(x => x.DateTime)
             .Take(_settingsManager.UserSettings.TradesToShow)
-            .Select(trade => new TradeRowViewModel(trade, PortfolioUploadedTradeIds.Contains(trade.Id)))
+            .Select(trade => new TradeRowViewModel(trade, _portfolio.IsUploaded(trade.Id)))
             .ToList();
 
         Trades = new ObservableCollection<TradeRowViewModel>(rows);
-    }
-
-    private async Task<PortfolioUploadedTradeIdsResult> LoadPortfolioUploadedTradeIdsAsync(CancellationToken cancellationToken = default)
-    {
-        return await _portfolioUploadService.GetUploadedTradeIdsAsync(cancellationToken);
     }
 
     public async Task<bool> RefreshPortfolioUploadedTradeIdsAsync(
         bool showStatusOnFailure = false,
         CancellationToken cancellationToken = default)
     {
-        var version = _portfolioRefreshes.Begin();
-        await Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            if (!_portfolioRefreshes.IsCurrent(version)) return;
-            SetPortfolioStatusLoading(true);
-        });
-        PortfolioUploadedTradeIdsResult result;
-        try
-        {
-            result = await LoadPortfolioUploadedTradeIdsAsync(cancellationToken);
-        }
-        catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested)
-        {
-            await Dispatcher.UIThread.InvokeAsync(() =>
-            {
-                if (_portfolioRefreshes.IsCurrent(version)) SetPortfolioStatusLoading(false);
-            });
-            return false;
-        }
-        catch (Exception ex)
-        {
-            Log.Warning(ex, "Failed to refresh uploaded Portfolio trade ids");
-            result = PortfolioUploadedTradeIdsResult.Failed("Failed to load portfolio positions.");
-        }
-
-        return await Dispatcher.UIThread.InvokeAsync(() =>
-        {
-            if (!_portfolioRefreshes.IsCurrent(version)) return false;
-            SetPortfolioUploadedTradeIds(result.Success ? result.TradeIds : null);
-            if (!result.Success && showStatusOnFailure)
-            {
-                SetPortfolioImportStatus($"Portfolio: {result.ErrorMessage ?? "failed to load positions."}");
-            }
-            return result.Success;
-        });
-    }
-
-    private void SetPortfolioUploadedTradeIds(HashSet<Guid>? uploadedTradeIds)
-    {
-        if (uploadedTradeIds is not null) PortfolioUploadedTradeIds = uploadedTradeIds;
+        SetPortfolioStatusLoading(true);
+        var refresh = await _portfolio.RefreshUploadedAsync(cancellationToken);
+        if (!refresh.IsCurrent) return false;
         ApplyPortfolioUploadedTradeIdsToVisibleRows();
         SetPortfolioStatusLoading(false);
+        if (!refresh.Success && refresh.ErrorMessage is { } error && showStatusOnFailure) SetPortfolioImportStatus($"Portfolio: {error}");
+        return refresh.Success;
     }
 
     private void SetPortfolioStatusLoading(bool value)
@@ -412,24 +370,11 @@ public partial class TradesViewModel : ViewModelBase
         OnPropertyChanged(nameof(CanSetSelectedTradeQuality));
     }
 
-    private void AddPortfolioUploadedTradeIds(IEnumerable<Guid> tradeIds)
-    {
-        // A response begun before this upload must not erase its newly confirmed IDs.
-        _portfolioRefreshes.Invalidate();
-        foreach (var tradeId in tradeIds)
-        {
-            PortfolioUploadedTradeIds.Add(tradeId);
-        }
-
-        ApplyPortfolioUploadedTradeIdsToVisibleRows();
-        SetPortfolioStatusLoading(false);
-    }
-
     private void ApplyPortfolioUploadedTradeIdsToVisibleRows()
     {
         foreach (var row in Trades)
         {
-            row.SetUploadedToPortfolio(PortfolioUploadedTradeIds.Contains(row.Source.Id));
+            row.SetUploadedToPortfolio(_portfolio.IsUploaded(row.Source.Id));
         }
 
         HasSelectedQualityEditableRows = SelectedTrades.Any(trade => !trade.UploadedToPortfolio);
@@ -486,7 +431,7 @@ public partial class TradesViewModel : ViewModelBase
         SelectedAmountTotal = amountTotal;
         SelectedTotalSilver = totalSilver;
         SelectedAverageSilver = amountTotal == 0 ? 0 : totalSilver / amountTotal;
-        SelectedPortfolioPostCount = EstimatePortfolioPostCount(selectedTrades);
+        SelectedPortfolioPostCount = PortfolioImportCoordinator.EstimatePostCount(selectedTrades);
     }
 
     public async Task ExportToCsvAsync(Stream stream, CsvExportOptions options, CancellationToken cancellationToken = default)
@@ -506,7 +451,7 @@ public partial class TradesViewModel : ViewModelBase
 
     public async Task<bool> EnsurePortfolioSignedInAsync(CancellationToken cancellationToken = default)
     {
-        if (await _portfolioUploadService.CanUploadAsync(cancellationToken))
+        if (await _portfolio.CanUploadAsync(cancellationToken))
         {
             return true;
         }
@@ -543,7 +488,7 @@ public partial class TradesViewModel : ViewModelBase
         CancellationToken cancellationToken = default)
     {
         var selectedTrades = selected?.ToList() ?? new List<TradeRowViewModel>();
-        var editableTrades = selectedTrades.Where(row => !PortfolioUploadedTradeIds.Contains(row.Source.Id)).ToList();
+        var editableTrades = selectedTrades.Where(row => !_portfolio.IsUploaded(row.Source.Id)).ToList();
         if (selectedTrades.Count == 0 || editableTrades.Count == 0 || IsSettingQuality || _isPortfolioStatusLoading)
         {
             return;
@@ -609,7 +554,7 @@ public partial class TradesViewModel : ViewModelBase
             return;
         }
 
-        var estimatedPostCount = EstimatePortfolioPostCount(selectedTrades);
+        var estimatedPostCount = PortfolioImportCoordinator.EstimatePostCount(selectedTrades);
         if (PortfolioUploadService.IsPostLimitExceeded(estimatedPostCount))
         {
             SelectedPortfolioPostCount = estimatedPostCount;
@@ -618,93 +563,10 @@ public partial class TradesViewModel : ViewModelBase
         }
 
         IsAddingToPortfolio = true;
-        SetPortfolioImportStatus("Adding selected trades to Portfolio...");
-
+        SetPortfolioImportStatus("Adding selected trades to Portfolio…");
         try
         {
-            await SavePortfolioQualityOverridesAsync(selectedTrades, qualityOverrides, cancellationToken);
-            await SavePortfolioPremiumOverrideAsync(selectedTrades, premiumOverride, cancellationToken);
-
-            var requests = new List<PortfolioTradeImportRequest>();
-            var invalidTrades = 0;
-
-            foreach (var row in selectedTrades)
-            {
-                var trade = row.Source;
-                var locationIndex = trade.Location?.MarketLocation?.IdInt
-                    ?? trade.Location?.IdInt
-                    ?? trade.LocationId;
-
-                if (locationIndex < 0 || string.IsNullOrWhiteSpace(trade.ItemId) || trade.Amount <= 0)
-                {
-                    invalidTrades++;
-                    Log.Warning(
-                        "Portfolio import request skipped invalid trade {TradeId}. Item={ItemId} Amount={Amount} LocationIndex={LocationIndex}",
-                        trade.Id,
-                        trade.ItemId,
-                        trade.Amount,
-                        locationIndex);
-                    continue;
-                }
-
-                var qualityIndex = trade.QualityLevel > 0
-                    ? trade.QualityLevel
-                    : qualityOverrides.TryGetValue(CreateQualityKey(row), out var selectedQuality)
-                        ? selectedQuality
-                        : 1;
-
-                bool? hasPremium = trade.Operation == TradeOperation.Sell
-                    ? premiumOverride ?? trade.HasPremium ?? _playerState.HasPremium ?? true
-                    : null;
-
-                requests.Add(new PortfolioTradeImportRequest(
-                    trade.Id,
-                    trade.ItemId,
-                    trade.AlbionServerId,
-                    trade.Type,
-                    trade.Operation,
-                    trade.Amount,
-                    trade.UnitSilver,
-                    trade.DateTime,
-                    locationIndex,
-                    qualityIndex,
-                    HasPremium: hasPremium));
-            }
-
-            var result = await _portfolioUploadService.ImportTradesAsync(requests, allowReupload, cancellationToken);
-            var uploadedOrAlreadyPresentIds = result.ImportedTradeIds
-                .Concat(result.SkippedTradeIds)
-                .Distinct()
-                .ToList();
-            if (uploadedOrAlreadyPresentIds.Count > 0)
-            {
-                AddPortfolioUploadedTradeIds(uploadedOrAlreadyPresentIds);
-            }
-
-            var failedCount = result.FailedCount + invalidTrades;
-            var status = $"Portfolio: {result.ImportedCount:N0} imported";
-            if (result.ReuploadedCount > 0)
-            {
-                status += $", {result.ReuploadedCount:N0} reuploaded";
-            }
-            if (result.SkippedCount > 0)
-            {
-                status += $", {result.SkippedCount:N0} skipped";
-            }
-            if (failedCount > 0)
-            {
-                status += $", {failedCount:N0} failed";
-            }
-            if (result.Errors.Count > 0)
-            {
-                status += $". {result.Errors[0]}";
-            }
-            else if (result.Warnings.Count > 0)
-            {
-                status += $". {result.Warnings[0]}";
-            }
-
-            SetPortfolioImportStatus(status);
+            SetPortfolioImportStatus(await _portfolio.ImportAsync(selectedTrades, qualityOverrides, allowReupload, premiumOverride, cancellationToken));
         }
         catch (Exception ex)
         {
@@ -714,111 +576,11 @@ public partial class TradesViewModel : ViewModelBase
         finally
         {
             IsAddingToPortfolio = false;
+            // The upload can set qualities and mark trades as uploaded, which changes what the selection can do.
+            ApplyPortfolioUploadedTradeIdsToVisibleRows();
+            SetPortfolioStatusLoading(false);
+            UpdateSelectedTrades(selectedTrades);
         }
-    }
-
-    private async Task SavePortfolioPremiumOverrideAsync(
-        IReadOnlyCollection<TradeRowViewModel> selectedTrades,
-        bool? premiumOverride,
-        CancellationToken cancellationToken)
-    {
-        if (!premiumOverride.HasValue)
-        {
-            return;
-        }
-
-        var sellRows = selectedTrades
-            .Where(row => row.Source.Operation == TradeOperation.Sell)
-            .ToList();
-        if (sellRows.Count == 0)
-        {
-            return;
-        }
-
-        var updatedCount = await _tradeService.UpdateTradePremiumStatusAsync(
-            sellRows.Select(row => row.Source.Id),
-            premiumOverride.Value,
-            cancellationToken);
-
-        if (updatedCount != sellRows.Count)
-        {
-            throw new InvalidOperationException("Failed to save selected Portfolio Premium statuses.");
-        }
-
-        foreach (var row in sellRows)
-        {
-            row.Source.HasPremium = premiumOverride.Value;
-        }
-    }
-
-    public bool ResolvePortfolioPremium(Trade trade)
-    {
-        return trade.HasPremium ?? _playerState.HasPremium ?? true;
-    }
-
-    private async Task SavePortfolioQualityOverridesAsync(
-        IReadOnlyCollection<TradeRowViewModel> selectedTrades,
-        IReadOnlyDictionary<PortfolioTradeQualityKey, int> qualityOverrides,
-        CancellationToken cancellationToken)
-    {
-        var rowsToUpdate = selectedTrades
-            .Where(row => row.QualityLevel == 0
-                && !row.UploadedToPortfolio
-                && qualityOverrides.TryGetValue(CreateQualityKey(row), out var quality)
-                && quality is >= 1 and <= 5)
-            .ToList();
-
-        if (rowsToUpdate.Count == 0)
-        {
-            return;
-        }
-
-        foreach (var group in rowsToUpdate.GroupBy(row => qualityOverrides[CreateQualityKey(row)]))
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-            var qualityLevel = (byte)group.Key;
-            var groupRows = group.ToList();
-            var updatedCount = await _tradeService.UpdateTradeQualityLevelsAsync(
-                groupRows.Select(row => row.Source.Id),
-                qualityLevel);
-
-            if (updatedCount != groupRows.Count)
-            {
-                throw new InvalidOperationException("Failed to save selected Portfolio trade qualities.");
-            }
-
-            foreach (var row in groupRows)
-            {
-                row.SetQualityLevel(qualityLevel);
-            }
-        }
-
-        UpdateSelectedTrades(selectedTrades);
-    }
-
-    public static PortfolioTradeQualityKey CreateQualityKey(TradeRowViewModel row)
-    {
-        return new PortfolioTradeQualityKey(row.ItemId, row.Source.AlbionServerId);
-    }
-
-    private static int EstimatePortfolioPostCount(IEnumerable<TradeRowViewModel> selectedTrades)
-    {
-        return PortfolioUploadService.EstimatePortfolioPostCount(selectedTrades.Select(CreatePortfolioPostEstimate));
-    }
-
-    private static PortfolioTradePostEstimate CreatePortfolioPostEstimate(TradeRowViewModel row)
-    {
-        var trade = row.Source;
-        var locationIndex = trade.Location?.MarketLocation?.IdInt
-            ?? trade.Location?.IdInt
-            ?? trade.LocationId;
-
-        return new PortfolioTradePostEstimate(
-            trade.ItemId,
-            trade.AlbionServerId,
-            trade.Amount,
-            locationIndex,
-            trade.QualityLevel > 0 ? trade.QualityLevel : 0);
     }
 
     private void SetPortfolioImportStatus(string status)

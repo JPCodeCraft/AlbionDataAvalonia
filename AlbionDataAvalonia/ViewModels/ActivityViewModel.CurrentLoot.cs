@@ -35,7 +35,7 @@ public partial class ActivityViewModel
             ClearCurrentLoot();
             currentLootKey = key;
         }
-        if (key is null || !IsCurrentLootExpanded || !isActive || SelectedTabIndex != 0) return;
+        if (key is null || !IsCurrentLootExpanded || !isActive || SelectedTab != ActivityTab.Current) return;
         if (append && !HasMoreCurrentLoot) return;
 
         var nowUtc = DateTime.UtcNow;
@@ -57,7 +57,7 @@ public partial class ActivityViewModel
         var page = append ? currentLootPage + 1 : currentLootPage;
         var result = await ReadEventRowsAsync(query, page, append, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
-        if (isDisposed || !isActive || SelectedTabIndex != 0 || !IsCurrentLootExpanded ||
+        if (isDisposed || !isActive || SelectedTab != ActivityTab.Current || !IsCurrentLootExpanded ||
             version != currentLootVersion || key != GetCurrentPeriodKey()) return;
 
         ApplyEventRows(CurrentLoot, result.Items.Select(value => new ActivityLootRow(value)).ToArray(), row => row.SourceEvent, append);
@@ -77,7 +77,7 @@ public partial class ActivityViewModel
     partial void OnIsCurrentLootExpandedChanged(bool value)
     {
         if (!value) CancelCurrentLootRead();
-        else if (isActive && SelectedTabIndex == 0) _ = RunSafelyAsync(() => RefreshCurrentLootAsync());
+        else if (isActive && SelectedTab == ActivityTab.Current) _ = RunSafelyAsync(() => RefreshCurrentLootAsync());
     }
 
     partial void OnCurrentLootChanged(ObservableCollection<ActivityLootRow> value) => OnPropertyChanged(nameof(HasCurrentLoot));

@@ -112,20 +112,20 @@
 			<StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2">
 				<Button Classes="UiCardButton" Margin="10,0,10,10"
 					Command="{Binding ShowDashboardCommand}"
-					ToolTip.Tip="{Binding StatusTooltip}">
+					ToolTip.Tip="{Binding Setup.StatusTooltip}">
 					<StackPanel Spacing="3">
 						<Grid ColumnDefinitions="Auto,*">
 							<Ellipse Classes="UiStatusDot"
-								Classes.Ok="{Binding StatusIsOk}"
-								Classes.Busy="{Binding StatusIsWaiting}"
-								Classes.Warning="{Binding StatusIsWarning}"
-								Classes.Blocked="{Binding StatusIsBlocked}"
+								Classes.Ok="{Binding Setup.StatusIsOk}"
+								Classes.Busy="{Binding Setup.StatusIsWaiting}"
+								Classes.Warning="{Binding Setup.StatusIsWarning}"
+								Classes.Blocked="{Binding Setup.StatusIsBlocked}"
 								Margin="0,0,7,0" />
-							<TextBlock Grid.Column="1" Classes="UiRowTitle" Text="{Binding StatusTitle}"
+							<TextBlock Grid.Column="1" Classes="UiRowTitle" Text="{Binding Setup.StatusTitle}"
 								FontSize="{DynamicResource UiFontSizeCompact}" />
 						</Grid>
-						<TextBlock Classes="UiFine" Text="{Binding StatusSubtitle}" Margin="15,0,0,4" />
-						<ItemsControl ItemsSource="{Binding SetupSteps}">
+						<TextBlock Classes="UiFine" Text="{Binding Setup.StatusSubtitle}" Margin="15,0,0,4" />
+						<ItemsControl ItemsSource="{Binding Setup.SetupSteps}">
 							<ItemsControl.ItemsPanel>
 								<ItemsPanelTemplate>
 									<UniformGrid Rows="1" />

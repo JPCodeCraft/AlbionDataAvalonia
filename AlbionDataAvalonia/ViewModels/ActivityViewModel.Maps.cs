@@ -57,7 +57,6 @@ public sealed class ActivityMapRow(ActivityMap source, DateTime? durationEndUtc 
 
 public partial class ActivityViewModel
 {
-    private const int MapsDetailTabIndex = 6;
     private int mapPage;
     private (Guid PlaySessionId, Guid? RunId)? mapsOwner;
     private long mapsDataVersion = -1;
@@ -68,7 +67,7 @@ public partial class ActivityViewModel
     [ObservableProperty] private ActivityMapRow? selectedMap;
     [ObservableProperty] private bool hasMoreMaps;
 
-    public bool IsShowingMap => SelectedDetailTabIndex == MapsDetailTabIndex && SelectedMap is not null;
+    public bool IsShowingMap => SelectedDetailTab == ActivityDetailTab.Maps && SelectedMap is not null;
     public bool HasSelectedDetailSelection => HasSelectedEncounter || IsShowingMap;
     public string DetailMapMetadataText => IsShowingMap ? SelectedMap!.DetailsText : string.Empty;
     public bool HasDetailMapMetadata => DetailMapMetadataText.Length > 0;
@@ -78,7 +77,7 @@ public partial class ActivityViewModel
     {
         var playSessionId = header.PlaySession.Id;
         await LoadMapsAsync(false, version);
-        if (!IsCurrentDetail(version, playSessionId) || SelectedDetailTabIndex != MapsDetailTabIndex || persistence is null) return;
+        if (!IsCurrentDetail(version, playSessionId) || SelectedDetailTab != ActivityDetailTab.Maps || persistence is null) return;
         var map = SelectedMap;
         var scope = SelectedScope.Value;
         var owner = new ActivityQuery { PlaySessionId = playSessionId, SessionId = run?.Id, Scope = scope };
@@ -91,7 +90,7 @@ public partial class ActivityViewModel
                     await persistence.GetCombatDurationSecondsAsync(owner, cancellationToken))
                 : await persistence.GetMapSummaryAsync(owner, map.RawMapId, scope, cancellationToken);
         }
-        if (!IsCurrentDetail(version, playSessionId) || SelectedDetailTabIndex != MapsDetailTabIndex ||
+        if (!IsCurrentDetail(version, playSessionId) || SelectedDetailTab != ActivityDetailTab.Maps ||
             SelectedMap?.RawMapId != map?.RawMapId || SelectedScope.Value != scope) return;
         cachedMapSummary = totals;
         mapSummaryKey = key;
@@ -104,7 +103,7 @@ public partial class ActivityViewModel
 
     private async Task LoadMapsAsync(bool append, long version)
     {
-        if (persistence is null || SelectedPlaySession is not { } playSession || SelectedDetailTabIndex != MapsDetailTabIndex) return;
+        if (persistence is null || SelectedPlaySession is not { } playSession || SelectedDetailTab != ActivityDetailTab.Maps) return;
         var run = SelectedSession;
         var owner = (playSession.Id, run?.Id);
         var dataVersion = detailDataVersion;
@@ -112,7 +111,7 @@ public partial class ActivityViewModel
         var page = append ? mapPage + 1 : mapPage;
         var query = new ActivityQuery { PlaySessionId = playSession.Id, SessionId = run?.Id };
         var result = await ReadPagesAsync(index => persistence.GetMapsAsync(query, index, detailQueryCancellation.Token), page, append);
-        if (!IsCurrentDetail(version, playSession.Id) || SelectedSession?.Id != run?.Id || SelectedDetailTabIndex != MapsDetailTabIndex) return;
+        if (!IsCurrentDetail(version, playSession.Id) || SelectedSession?.Id != run?.Id || SelectedDetailTab != ActivityDetailTab.Maps) return;
         var selectedId = SelectedMap?.RawMapId;
         // A visit still open keeps counting; a closed run or session ends at its last observation.
         var live = run is not null ? tracker?.CurrentSessionId == run.Id : playSession.IsOpen;
@@ -139,7 +138,7 @@ public partial class ActivityViewModel
         ++detailVersion;
         // Never briefly label the previous map's totals as the newly selected map.
         DetailSummary = ActivitySummaryPresentation.Empty;
-        if (isActive && SelectedTabIndex == 1 && SelectedDetailTabIndex == MapsDetailTabIndex)
+        if (isActive && SelectedTab == ActivityTab.History && SelectedDetailTab == ActivityDetailTab.Maps)
             _ = RunSafelyAsync(RefreshDetailsAsync);
     }
 

@@ -116,7 +116,7 @@ public partial class ActivityViewModel
         {
             var snapshot = await tracker.GetPeriodSnapshotAsync(query, nowUtc, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
-            if (isDisposed || !isActive || SelectedTabIndex != 0 || key != GetCurrentPeriodKey()) return;
+            if (isDisposed || !isActive || SelectedTab != ActivityTab.Current || key != GetCurrentPeriodKey()) return;
             currentPeriodKey = key;
             currentPeriodSnapshot = snapshot;
             currentObservationKey = observationKey;
@@ -192,7 +192,7 @@ public partial class ActivityViewModel
         OnPropertyChanged(nameof(IsLastHoursPeriod));
         OnPropertyChanged(nameof(IsPlaySessionPeriod));
         OnPropertyChanged(nameof(ShowCurrentRuns));
-        if (isActive && SelectedTabIndex == 0) _ = RunSafelyAsync(RefreshVisibleAsync);
+        if (isActive && SelectedTab == ActivityTab.Current) _ = RunSafelyAsync(RefreshVisibleAsync);
     }
 
     partial void OnSelectedPeriodChanged(Option<ActivityPeriodMode> value) => ChangeCurrentPeriod();

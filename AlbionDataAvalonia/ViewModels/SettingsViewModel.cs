@@ -25,7 +25,6 @@ namespace AlbionDataAvalonia.ViewModels;
 
 public partial class SettingsViewModel : ViewModelBase
 {
-    private const int MaxSharedFriendsLimit = 5;
     public const int UploadsTabIndex = 1;
     public const int StreamerTabIndex = 3;
 
@@ -33,12 +32,10 @@ public partial class SettingsViewModel : ViewModelBase
     private readonly PlayerState _playerState;
     private readonly ActivityTrackerService? activityTracker;
     private readonly AuthService? authService;
-    private readonly AFMUploader? afmUploader;
     private readonly DatabaseBackupService? databaseBackupService;
     private readonly ActivityStreamerWindowService? streamerWindow;
     private readonly PacketDiagnostics? packetDiagnostics;
     private readonly IDialogService? dialogs;
-    private readonly IClipboardService? clipboard;
 
     [ObservableProperty]
     private UserSettings userSettings;
@@ -82,29 +79,9 @@ public partial class SettingsViewModel : ViewModelBase
     [ObservableProperty]
     private bool isUserLoggedIn;
 
-    [ObservableProperty]
-    private string friendInput = string.Empty;
-
-    [ObservableProperty]
-    private string sharingStatus = string.Empty;
-
-    [ObservableProperty]
-    private bool hasSharingStatus;
-
-    [ObservableProperty]
-    private bool isSharingBusy;
-
-    [ObservableProperty]
-    private string unresolvedEntriesText = string.Empty;
-
-    [ObservableProperty]
-    private bool hasUnresolvedEntries;
-
     private readonly TimeSpan powSolveStatsRefreshInterval = TimeSpan.FromSeconds(3);
     private DateTimeOffset lastPowSolveStatsRefresh = DateTimeOffset.MinValue;
     private IDisposable? pendingPowSolveStatsRefreshRegistration;
-
-    public ObservableCollection<PrivateOrderShareEntryViewModel> SharedUsers { get; } = new();
 
     public bool CanOpenStreamerWindow => streamerWindow is not null;
     public string StreamerWindowButtonText => streamerWindow?.ButtonText ?? "";
@@ -154,13 +131,12 @@ public partial class SettingsViewModel : ViewModelBase
         _playerState = playerState;
         this.activityTracker = activityTracker;
         this.authService = authService;
-        this.afmUploader = afmUploader;
+        Sharing = new PrivateSharingViewModel(afmUploader, clipboard);
         this.databaseBackupService = databaseBackupService;
         this.streamerWindow = streamerWindow;
         this.dataCleanup = dataCleanup;
         this.packetDiagnostics = packetDiagnostics;
         this.dialogs = dialogs;
-        this.clipboard = clipboard;
         if (packetDiagnostics is not null)
             packetDiagnostics.IsEnabledChanged += (_, _) => Dispatcher.UIThread.Post(() =>
             {
@@ -186,19 +162,7 @@ public partial class SettingsViewModel : ViewModelBase
     }
 
     public int PowSolveWindowSize => _playerState?.PowSolveWindowSize ?? 0;
-    public int MaxSharedFriends => MaxSharedFriendsLimit;
-    public string SharedFriendsLimitText => $"{SharedUsers.Count} / {MaxSharedFriendsLimit} friends";
-    public string RedactedCurrentFirebaseUserId => RedactUserId(CurrentFirebaseUserId);
-
-    [RelayCommand]
-    private async Task CopyUserId()
-    {
-        if (clipboard is not null && !string.IsNullOrWhiteSpace(CurrentFirebaseUserId)) await clipboard.SetTextAsync(CurrentFirebaseUserId);
-    }
     public bool IsWindows => RuntimeInformation.IsOSPlatform(OSPlatform.Windows);
-    public bool CanUseSharingSettings => IsUserLoggedIn && !IsSharingBusy;
-    public bool CanAddSharedUser => CanUseSharingSettings && SharedUsers.Count < MaxSharedFriendsLimit;
-    public bool HasNormalSharingStatus => HasSharingStatus && !HasUnresolvedEntries;
     public string BackupFolderPath => AppData.BackupDirectoryPath;
     public string DataFolderPath => AppData.DataDirectoryPath;
 
@@ -282,6 +246,9 @@ public partial class SettingsViewModel : ViewModelBase
 
     public bool CanUsePrivateSharing => IsUserLoggedIn && UserSettings.UploadToAfmOnly;
 
+    /// <summary>The friends who see your private market orders.</summary>
+    public PrivateSharingViewModel Sharing { get; } = new();
+
     [RelayCommand]
     private void OpenDataFolder() => SystemLauncher.OpenFolder(DataFolderPath);
 
@@ -318,85 +285,6 @@ public partial class SettingsViewModel : ViewModelBase
         pendingPowSolveStatsRefreshRegistration = null;
         lastPowSolveStatsRefresh = DateTimeOffset.MinValue;
         UpdatePowSolveStatistics();
-    }
-
-    [RelayCommand]
-    private async Task AddSharedUser()
-    {
-        var value = FriendInput.Trim();
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return;
-        }
-
-        if (SharedUsers.Count >= MaxSharedFriendsLimit)
-        {
-            SetSharingStatus($"You can share with up to {MaxSharedFriendsLimit} friends.");
-            return;
-        }
-
-        if (SharedUsers.Any(x => string.Equals(GetInputDedupeKey(x.Value), GetInputDedupeKey(value), StringComparison.Ordinal)))
-        {
-            FriendInput = string.Empty;
-            return;
-        }
-
-        await SavePrivateOrderSharesAsync(
-            SharedUsers.Select(x => x.Value).Append(value),
-            successStatus: "Sharing list updated.");
-    }
-
-    [RelayCommand]
-    private async Task RemoveSharedUser(PrivateOrderShareEntryViewModel? entry)
-    {
-        if (entry is null)
-        {
-            return;
-        }
-
-        await SavePrivateOrderSharesAsync(
-            SharedUsers.Where(x => !ReferenceEquals(x, entry)).Select(x => x.Value),
-            successStatus: "Sharing list updated.");
-    }
-
-    [RelayCommand]
-    private async Task LoadPrivateOrderShares()
-    {
-        await LoadPrivateOrderSharesAsync(showStatus: true);
-    }
-
-    private async Task SavePrivateOrderSharesAsync(IEnumerable<string> sharedUsers, string successStatus)
-    {
-        if (!IsUserLoggedIn || afmUploader is null)
-        {
-            SetSharingStatus("Sign in to manage private sharing.");
-            return;
-        }
-
-        var expectedUserId = CurrentFirebaseUserId;
-        await RunSharingOperationAsync(async () =>
-        {
-            UnresolvedEntriesText = string.Empty;
-            SetSharingStatus("Saving sharing list...");
-            var response = await afmUploader.SavePrivateOrderSharesAsync(sharedUsers);
-            if (!IsCurrentSharingUser(expectedUserId))
-            {
-                return;
-            }
-
-            if (response is null)
-            {
-                SetSharingStatus("Could not save the friends list. Try again in a moment.");
-                return;
-            }
-
-            ApplySharedUsers(response.SharedUsers);
-            ApplyUnresolvedEntries(response.UnresolvedEntries);
-            FriendInput = string.Empty;
-            SetSharingStatus(response.UnresolvedEntries.Count == 0
-                ? successStatus
-                : FormatUnableToAddMessage(response.UnresolvedEntries));
-        });
     }
 
     private void MaybeUpdatePowSolveStatistics()
@@ -510,31 +398,6 @@ public partial class SettingsViewModel : ViewModelBase
     partial void OnIsUserLoggedInChanged(bool value)
     {
         OnPropertyChanged(nameof(CanUsePrivateSharing));
-        OnPropertyChanged(nameof(CanUseSharingSettings));
-        OnPropertyChanged(nameof(CanAddSharedUser));
-    }
-
-    partial void OnCurrentFirebaseUserIdChanged(string value)
-    {
-        OnPropertyChanged(nameof(RedactedCurrentFirebaseUserId));
-    }
-
-    partial void OnIsSharingBusyChanged(bool value)
-    {
-        OnPropertyChanged(nameof(CanUseSharingSettings));
-        OnPropertyChanged(nameof(CanAddSharedUser));
-    }
-
-    partial void OnSharingStatusChanged(string value)
-    {
-        HasSharingStatus = !string.IsNullOrWhiteSpace(value);
-        OnPropertyChanged(nameof(HasNormalSharingStatus));
-    }
-
-    partial void OnUnresolvedEntriesTextChanged(string value)
-    {
-        HasUnresolvedEntries = !string.IsNullOrWhiteSpace(value);
-        OnPropertyChanged(nameof(HasNormalSharingStatus));
     }
 
     private void OnFirebaseUserChanged(FirebaseAuthResponse? user)
@@ -556,139 +419,7 @@ public partial class SettingsViewModel : ViewModelBase
 
         IsUserLoggedIn = user is not null;
         CurrentFirebaseUserId = userId;
-
-        if (user is null)
-        {
-            SharedUsers.Clear();
-            RefreshSharedFriendsLimit();
-            FriendInput = string.Empty;
-            UnresolvedEntriesText = string.Empty;
-            SetSharingStatus("Sign in to manage private sharing.");
-            return;
-        }
-
-        _ = LoadPrivateOrderSharesAsync(showStatus: false);
-    }
-
-    private async Task LoadPrivateOrderSharesAsync(bool showStatus)
-    {
-        if (!IsUserLoggedIn || afmUploader is null)
-        {
-            if (showStatus)
-            {
-                SetSharingStatus("Sign in to manage private sharing.");
-            }
-
-            return;
-        }
-
-        var expectedUserId = CurrentFirebaseUserId;
-        await RunSharingOperationAsync(async () =>
-        {
-            var response = await afmUploader.GetPrivateOrderSharesAsync();
-            if (!IsCurrentSharingUser(expectedUserId))
-            {
-                return;
-            }
-
-            if (response is null)
-            {
-                if (showStatus)
-                {
-                    SetSharingStatus("Failed to load private sharing settings.");
-                }
-
-                return;
-            }
-
-            ApplySharedUsers(response.SharedUsers);
-            UnresolvedEntriesText = string.Empty;
-
-            if (showStatus)
-            {
-                SetSharingStatus("Private sharing settings loaded.");
-            }
-        });
-    }
-
-    private bool IsCurrentSharingUser(string expectedUserId)
-    {
-        return IsUserLoggedIn
-            && !string.IsNullOrWhiteSpace(expectedUserId)
-            && string.Equals(CurrentFirebaseUserId, expectedUserId, StringComparison.Ordinal);
-    }
-
-    private async Task RunSharingOperationAsync(Func<Task> operation)
-    {
-        IsSharingBusy = true;
-        try
-        {
-            await operation();
-        }
-        finally
-        {
-            IsSharingBusy = false;
-        }
-    }
-
-    private void ApplySharedUsers(IEnumerable<PrivateOrderShareEntry> entries)
-    {
-        SharedUsers.Clear();
-        foreach (var entry in entries)
-        {
-            SharedUsers.Add(new PrivateOrderShareEntryViewModel(entry.Value, entry.Type, entry.Resolved));
-        }
-
-        RefreshSharedFriendsLimit();
-    }
-
-    private void RefreshSharedFriendsLimit()
-    {
-        OnPropertyChanged(nameof(SharedFriendsLimitText));
-        OnPropertyChanged(nameof(CanAddSharedUser));
-    }
-
-    private void ApplyUnresolvedEntries(IReadOnlyCollection<string> unresolvedEntries)
-    {
-        UnresolvedEntriesText = unresolvedEntries.Count == 0
-            ? string.Empty
-            : string.Join(", ", unresolvedEntries);
-    }
-
-    private static string FormatUnableToAddMessage(IReadOnlyCollection<string> unresolvedEntries)
-    {
-        return unresolvedEntries.Count == 1
-            ? $"Unable to add {unresolvedEntries.First()}. Check the user ID, email or AFM username. If the entry is ambiguous, use the email instead."
-            : $"Unable to add {string.Join(", ", unresolvedEntries)}. Check the user IDs, emails or AFM usernames. For ambiguous entries, use email instead.";
-    }
-
-    private void SetSharingStatus(string status)
-    {
-        SharingStatus = status;
-    }
-
-    private static string GetInputDedupeKey(string value)
-    {
-        return value.Contains('@', StringComparison.Ordinal)
-            ? $"email:{value.Trim().ToLowerInvariant()}"
-            : $"userId:{value.Trim()}";
-    }
-
-    private static string RedactUserId(string value)
-    {
-        if (string.IsNullOrWhiteSpace(value))
-        {
-            return string.Empty;
-        }
-
-        const int visibleStart = 4;
-        const int visibleEnd = 4;
-        if (value.Length <= visibleStart + visibleEnd)
-        {
-            return new string('*', value.Length);
-        }
-
-        return $"{value[..visibleStart]}{new string('*', value.Length - visibleStart - visibleEnd)}{value[^visibleEnd..]}";
+        Sharing.SetUser(userId);
     }
 
     private void UpdateActivityRecordingStatus()
@@ -697,24 +428,4 @@ public partial class SettingsViewModel : ViewModelBase
         ActivityRecordingStatus = activityTracker?.StatusText ??
             (UserSettings.ActivityRecordingEnabled ? "Recording enabled." : "Recording disabled. Saved history remains available.");
     }
-}
-
-public sealed class PrivateOrderShareEntryViewModel
-{
-    public PrivateOrderShareEntryViewModel(string value, string type, bool resolved)
-    {
-        Value = value;
-        Type = type;
-        Resolved = resolved;
-    }
-
-    public string Value { get; }
-    public string Type { get; }
-    public bool Resolved { get; }
-    public string TypeLabel => Type.ToLowerInvariant() switch
-    {
-        "email" => "Email",
-        "username" => "AFM username",
-        _ => "User ID"
-    };
 }

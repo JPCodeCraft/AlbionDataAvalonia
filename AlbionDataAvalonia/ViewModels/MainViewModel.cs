@@ -252,6 +252,11 @@ public partial class MainViewModel : ViewModelBase
         _authService = authService;
         _packetDiagnostics = packetDiagnostics;
         _clipboard = clipboard;
+        Setup = new SetupStatusViewModel(networkListener, playerState, InstallNpCapCommand, InstallMacOSCapturePermissionsCommand);
+        Setup.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(SetupStatusViewModel.IsReady)) UpdateUploadStatus();
+        };
         UploadToAfmOnly = _settingsManager.UserSettings.UploadToAfmOnly;
         ContributeToPublic = _settingsManager.UserSettings.ContributeToPublic;
         ShareWithFriends = _settingsManager.UserSettings.ShareWithFriends;
@@ -292,7 +297,8 @@ public partial class MainViewModel : ViewModelBase
 
         userSettings = _settingsManager.UserSettings;
 
-        InitializeSetup();
+        IsDiagnosticsEnabled = _packetDiagnostics?.IsEnabled == true;
+        UpdateUploadStatus();
         NavigateTo(MainPage.Dashboard);
     }
 
@@ -362,6 +368,7 @@ public partial class MainViewModel : ViewModelBase
     private void UpdateVisibilities()
     {
         ShowEncrypted = _playerState.HasEncryptedData;
+        Setup.OrdersEncrypted = ShowEncrypted;
     }
 
     // Token refreshes raise this from the thread pool.
@@ -420,7 +427,7 @@ public partial class MainViewModel : ViewModelBase
         ShareWithFriends = _settingsManager.UserSettings.ShareWithFriends;
 
         UpdateVisibilities();
-        UpdateSetup();
+        Setup.Update();
     }
 
     private void OnPlayerIdentityChanged(PlayerIdentitySnapshot identity)
@@ -478,7 +485,7 @@ public partial class MainViewModel : ViewModelBase
         if (UiDispatch.Repost(() => NetworkListener_MacOSCapturePermissionSetupRequiredChanged(sender, e))) return;
 
         OnPropertyChanged(nameof(ShowMacOSCapturePermissionSetup));
-        UpdateSetup();
+        Setup.Update();
     }
 
     private void UpdateUploadStats()
@@ -635,7 +642,7 @@ public partial class MainViewModel : ViewModelBase
             OnPropertyChanged(nameof(IsMacOSCapturePermissionSetupOutdated));
             OnPropertyChanged(nameof(ShowMacOSCapturePermissionSetup));
             OnPropertyChanged(nameof(MacOSCapturePermissionButtonText));
-            UpdateSetup();
+            Setup.Update();
         }
     }
 
