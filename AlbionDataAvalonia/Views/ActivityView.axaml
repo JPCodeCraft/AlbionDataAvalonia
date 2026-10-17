@@ -122,7 +122,6 @@
         <Style Selector="ListBox.ActivityRunChips ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="Background" Value="{DynamicResource AFMBrown}" /><Setter Property="BorderBrush" Value="{DynamicResource AFMOrange}" /></Style>
         <Style Selector="TextBlock.PartyChange"><Setter Property="Foreground" Value="#F47D7D" /></Style>
         <Style Selector="TextBlock.PartyChange.Joined"><Setter Property="Foreground" Value="#A0D477" /></Style>
-        <Style Selector="TabControl.ActivityDetails TabItem /template/ ContentPresenter#PART_ContentPresenter"><Setter Property="FontSize" Value="16" /></Style>
         <Style Selector="TabControl.ActivityDetails DataGrid">
             <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
             <Setter Property="MaxHeight" Value="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" />
