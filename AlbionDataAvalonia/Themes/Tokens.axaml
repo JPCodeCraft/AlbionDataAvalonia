@@ -20,9 +20,9 @@
     <SolidColorBrush x:Key="UiAccentTintBrush" Color="#33FFA726" />
     <SolidColorBrush x:Key="UiAccentEdgeBrush" Color="#66FFA726" />
 
-    <!-- Selection: a chosen segment, list row or chip. -->
-    <Color x:Key="UiSelectedColor">#553F31</Color>
-    <Color x:Key="UiSelectedHoverColor">#624833</Color>
+    <!-- Selection: a chosen segment, list row or chip. Neutral, so the accent outline or bar marks the choice. -->
+    <Color x:Key="UiSelectedColor">#525252</Color>
+    <Color x:Key="UiSelectedHoverColor">#5C5C5C</Color>
     <SolidColorBrush x:Key="UiSelectedBrush" Color="{StaticResource UiSelectedColor}" />
     <SolidColorBrush x:Key="UiSelectedHoverBrush" Color="{StaticResource UiSelectedHoverColor}" />
 
@@ -227,6 +227,14 @@
     <x:Double x:Key="DataGridRowSelectedHoveredUnfocusedBackgroundOpacity">1</x:Double>
     <SolidColorBrush x:Key="DataGridCellFocusVisualPrimaryBrush" Color="{StaticResource UiAccentTextColor}" />
     <SolidColorBrush x:Key="DataGridCellFocusVisualSecondaryBrush" Color="Transparent" />
+
+    <!-- Fluent overrides: list and combo box items select in gray instead of a dimmed accent fill. -->
+    <SolidColorBrush x:Key="SystemControlHighlightListAccentLowBrush" Color="{StaticResource UiSelectedColor}" />
+    <SolidColorBrush x:Key="SystemControlHighlightListAccentMediumBrush" Color="{StaticResource UiSelectedHoverColor}" />
+    <SolidColorBrush x:Key="SystemControlHighlightListAccentHighBrush" Color="{StaticResource UiSelectedHoverColor}" />
+    <SolidColorBrush x:Key="ComboBoxItemBackgroundSelected" Color="{StaticResource UiSelectedColor}" />
+    <SolidColorBrush x:Key="ComboBoxItemBackgroundSelectedPointerOver" Color="{StaticResource UiSelectedHoverColor}" />
+    <SolidColorBrush x:Key="ComboBoxItemBackgroundSelectedPressed" Color="{StaticResource UiSelectedHoverColor}" />
 
     <!-- Fluent overrides: compact tab headers for every TabControl. -->
     <x:Double x:Key="TabItemHeaderFontSize">13</x:Double>
