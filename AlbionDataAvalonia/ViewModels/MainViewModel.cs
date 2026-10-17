@@ -17,6 +17,7 @@ using CommunityToolkit.Mvvm.Input;
 using Serilog;
 using System;
 using System.Collections.ObjectModel;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -275,6 +276,7 @@ public partial class MainViewModel : ViewModelBase
         UploadToAfmOnly = _settingsManager.UserSettings.UploadToAfmOnly;
         ContributeToPublic = _settingsManager.UserSettings.ContributeToPublic;
         ShareWithFriends = _settingsManager.UserSettings.ShareWithFriends;
+        _settingsManager.UserSettings.PropertyChanged += OnUserSettingsPropertyChanged;
 
         LocationName = _playerState.Location.FriendlyName;
         PlayerName = string.IsNullOrWhiteSpace(_playerState.PlayerName) ? "Not set" : _playerState.PlayerName;
@@ -362,6 +364,27 @@ public partial class MainViewModel : ViewModelBase
         {
             _tradesViewModel.EnsureLoaded();
         }
+    }
+
+    // Settings > Uploads & sharing edits the same saved values as the sidebar quick settings.
+    private void OnUserSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
+    {
+        if (e.PropertyName is not (nameof(UserSettings.UploadToAfmOnly)
+            or nameof(UserSettings.ContributeToPublic)
+            or nameof(UserSettings.ShareWithFriends)))
+        {
+            return;
+        }
+
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => OnUserSettingsPropertyChanged(sender, e));
+            return;
+        }
+
+        UploadToAfmOnly = _settingsManager.UserSettings.UploadToAfmOnly;
+        ContributeToPublic = _settingsManager.UserSettings.ContributeToPublic;
+        ShareWithFriends = _settingsManager.UserSettings.ShareWithFriends;
     }
 
     private void UpdateVisibilities()
@@ -695,6 +718,13 @@ public partial class MainViewModel : ViewModelBase
     }
 
     [RelayCommand]
+    private void ShowUploadSettings()
+    {
+        _settingsViewModel.SelectedTabIndex = SettingsViewModel.UploadsTabIndex;
+        NavigateTo(MainPage.Settings);
+    }
+
+    [RelayCommand]
     private void ShowTrades()
     {
         NavigateTo(MainPage.Trades);
@@ -703,13 +733,13 @@ public partial class MainViewModel : ViewModelBase
     [RelayCommand]
     private void OpenAFMWebsite()
     {
-        OpenUrl("https://www.albionfreemarket.com");
+        SystemLauncher.TryOpenUrl(SystemLauncher.AfmWebsiteUrl);
     }
 
     [RelayCommand]
     private void OpenAODPWebsite()
     {
-        OpenUrl("https://www.albion-online-data.com/");
+        SystemLauncher.TryOpenUrl(SystemLauncher.AodpWebsiteUrl);
     }
 
     [RelayCommand]
@@ -902,7 +932,7 @@ public partial class MainViewModel : ViewModelBase
             return;
         }
 
-        UpdateLoginStatus(TryOpenUrl(uri)
+        UpdateLoginStatus(SystemLauncher.TryOpenUrl(uri)
             ? "Waiting for Google sign-in in your browser..."
             : "AFM could not open your browser. Copy the sign-in link and open it in a browser on this computer.");
     }
@@ -928,24 +958,13 @@ public partial class MainViewModel : ViewModelBase
 
     public void OpenUrl(object? urlObj)
     {
-        var url = urlObj as string;
-
-        if (url == null)
+        if (urlObj is not string url)
         {
-            Log.Error("Invalid URL: {Url}", url);
+            Log.Error("Invalid URL: {Url}", urlObj);
             return;
         }
 
-        if (!Uri.TryCreate(url, UriKind.Absolute, out var uri))
-        {
-            Log.Error("Invalid URL: {Url}", url);
-            return;
-        }
-
-        if (!TryOpenUrl(uri))
-        {
-            Log.Warning("Unable to open URL: {Url}", url);
-        }
+        SystemLauncher.TryOpenUrl(url);
     }
 
     public void UpdateLoginStatus(string message)
@@ -968,71 +987,9 @@ public partial class MainViewModel : ViewModelBase
         }
 
         LoginAuthorizationUrl = authorizationUri.AbsoluteUri;
-        UpdateLoginStatus(TryOpenUrl(authorizationUri)
+        UpdateLoginStatus(SystemLauncher.TryOpenUrl(authorizationUri)
             ? "Waiting for Google sign-in in your browser..."
             : "AFM could not open your browser. Copy the sign-in link and open it in a browser on this computer.");
-    }
-
-    private static bool TryOpenUrl(Uri uri)
-    {
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-        {
-            try
-            {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = uri.AbsoluteUri,
-                    UseShellExecute = true
-                });
-
-                return true;
-            }
-            catch (Exception ex)
-            {
-                Log.Debug(ex, "Windows could not open URL with the system shell");
-                return false;
-            }
-        }
-
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-        {
-            return TryStartUrlLauncher("xdg-open", uri.AbsoluteUri)
-                || TryStartUrlLauncher("gio", uri.AbsoluteUri, "open")
-                || TryStartUrlLauncher("x-www-browser", uri.AbsoluteUri);
-        }
-
-        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-        {
-            return TryStartUrlLauncher("open", uri.AbsoluteUri);
-        }
-
-        return false;
-    }
-
-    private static bool TryStartUrlLauncher(string executable, string url, string? command = null)
-    {
-        try
-        {
-            var startInfo = new ProcessStartInfo
-            {
-                FileName = executable,
-                UseShellExecute = false
-            };
-
-            if (!string.IsNullOrEmpty(command))
-            {
-                startInfo.ArgumentList.Add(command);
-            }
-
-            startInfo.ArgumentList.Add(url);
-            Process.Start(startInfo);
-            return true;
-        }
-        catch (Exception ex)
-        {
-            Log.Debug(ex, "URL launcher {Launcher} was unavailable", executable);
-            return false;
-        }
     }
 }
 

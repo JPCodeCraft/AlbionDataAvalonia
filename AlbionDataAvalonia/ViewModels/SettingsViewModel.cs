@@ -23,6 +23,8 @@ namespace AlbionDataAvalonia.ViewModels;
 public partial class SettingsViewModel : ViewModelBase
 {
     private const int MaxSharedFriendsLimit = 5;
+    public const int UploadsTabIndex = 1;
+    public const int StreamerTabIndex = 3;
 
     private readonly SettingsManager _settingsManager;
     private readonly PlayerState _playerState;
@@ -34,6 +36,13 @@ public partial class SettingsViewModel : ViewModelBase
 
     [ObservableProperty]
     private UserSettings userSettings;
+
+    [ObservableProperty]
+    private int selectedTabIndex;
+
+    // A live copy of the streamer window, read only while the Streamer tab is on screen.
+    [ObservableProperty]
+    private ActivityStreamerViewModel? streamerPreview;
 
     [ObservableProperty]
     private double powSolveTimeAverage;
@@ -95,6 +104,23 @@ public partial class SettingsViewModel : ViewModelBase
     public string StreamerWindowButtonText => streamerWindow?.IsOpen == true ? "Close streamer window" : "Open streamer window";
 
     [RelayCommand] private void ToggleStreamerWindow() => streamerWindow?.Toggle();
+
+    partial void OnSelectedTabIndexChanged(int value) => UpdateStreamerPreview(value == StreamerTabIndex);
+
+    public void UpdateStreamerPreview(bool visible)
+    {
+        if (visible && StreamerPreview is null && streamerWindow is not null)
+        {
+            var preview = streamerWindow.CreateViewModel();
+            StreamerPreview = preview;
+            preview.Start();
+        }
+        else if (!visible && StreamerPreview is { } preview)
+        {
+            StreamerPreview = null;
+            preview.Dispose();
+        }
+    }
 
     public SettingsViewModel()
     {
@@ -164,41 +190,78 @@ public partial class SettingsViewModel : ViewModelBase
         databaseBackupService?.OpenBackupFolder();
     }
 
-    public bool IsShowMainWindowOnStartup
+    public IReadOnlyList<ActivityOption<int>> StartupWindowModeOptions { get; } = [new(0, "Show window"), new(1, "Minimize to taskbar"), new(2, "Hide in tray")];
+
+    public int StartupWindowModeIndex
     {
-        get => UserSettings.StartupWindowMode == StartupWindowMode.ShowMainWindow;
+        get => (int)UserSettings.StartupWindowMode;
+        set => UserSettings.StartupWindowMode = (StartupWindowMode)Math.Clamp(value, 0, StartupWindowModeOptions.Count - 1);
+    }
+
+    public IReadOnlyList<ActivityOption<int>> UpdateChannelOptions { get; } = [new(0, "Stable"), new(1, "Beta")];
+
+    public int UpdateChannelIndex
+    {
+        get => UserSettings.JoinBetaProgram ? 1 : 0;
+        set => UserSettings.JoinBetaProgram = value == 1;
+    }
+
+    public string UpdateChannelText => UserSettings.JoinBetaProgram
+        ? "Beta builds arrive first and can have bugs."
+        : "Stable builds only.";
+
+    public string AppVersionText => $"AFM Data Client {ClientUpdater.GetVersion() ?? "Unknown"}";
+    public string UpdatesText => IsWindows ? "Updates install by themselves." : "You'll see a notice when an update is ready.";
+
+    public IReadOnlyList<ActivityOption<int>> StreamerSizeOptions { get; } = [new(0, "Small"), new(1, "Medium"), new(2, "Large")];
+    public IReadOnlyList<ActivityOption<int>> StreamerChartModeOptions { get; } = [new(0, "Combat"), new(1, "Gathering"), new(2, "Fame")];
+
+    public string StreamerSizeText => UserSettings.StreamerSizeIndex switch
+    {
+        0 => "Main numbers only, without the chart.",
+        2 => "Adds breakdowns and the session name.",
+        _ => "Numbers and chart."
+    };
+
+    public string StreamerChartText => UserSettings.StreamerSizeIndex == 0 ? "Hidden at Small size." : "";
+
+    public bool TrackAwakenedItems
+    {
+        get => !UserSettings.DisableAwakeningItemsTracker;
+        set => UserSettings.DisableAwakeningItemsTracker = !value;
+    }
+
+    public bool IsPublicMode
+    {
+        get => !UserSettings.UploadToAfmOnly;
         set
         {
-            if (value)
-            {
-                UserSettings.StartupWindowMode = StartupWindowMode.ShowMainWindow;
-            }
+            if (value) UserSettings.UploadToAfmOnly = false;
         }
     }
 
-    public bool IsMinimizedToTaskbarOnStartup
+    public bool IsPrivateMode
     {
-        get => UserSettings.StartupWindowMode == StartupWindowMode.MinimizedToTaskbar;
+        get => UserSettings.UploadToAfmOnly;
         set
         {
-            if (value)
-            {
-                UserSettings.StartupWindowMode = StartupWindowMode.MinimizedToTaskbar;
-            }
+            if (value) UserSettings.UploadToAfmOnly = true;
         }
     }
 
-    public bool IsHiddenToTrayOnStartup
-    {
-        get => UserSettings.StartupWindowMode == StartupWindowMode.HiddenToTray;
-        set
-        {
-            if (value)
-            {
-                UserSettings.StartupWindowMode = StartupWindowMode.HiddenToTray;
-            }
-        }
-    }
+    public bool CanUsePrivateSharing => IsUserLoggedIn && UserSettings.UploadToAfmOnly;
+
+    [RelayCommand]
+    private void OpenDataFolder() => SystemLauncher.OpenFolder(DataFolderPath);
+
+    [RelayCommand]
+    private void OpenAfmWebsite() => SystemLauncher.TryOpenUrl(SystemLauncher.AfmWebsiteUrl);
+
+    [RelayCommand]
+    private void OpenAodpWebsite() => SystemLauncher.TryOpenUrl(SystemLauncher.AodpWebsiteUrl);
+
+    [RelayCommand]
+    private void OpenDiscord() => SystemLauncher.TryOpenUrl(SystemLauncher.AfmDiscordUrl);
 
     [RelayCommand]
     private void ClearPowSolveStats()
@@ -372,9 +435,35 @@ public partial class SettingsViewModel : ViewModelBase
 
         if (e.PropertyName == nameof(UserSettings.StartupWindowMode))
         {
-            OnPropertyChanged(nameof(IsShowMainWindowOnStartup));
-            OnPropertyChanged(nameof(IsMinimizedToTaskbarOnStartup));
-            OnPropertyChanged(nameof(IsHiddenToTrayOnStartup));
+            OnPropertyChanged(nameof(StartupWindowModeIndex));
+            return;
+        }
+
+        if (e.PropertyName == nameof(UserSettings.JoinBetaProgram))
+        {
+            OnPropertyChanged(nameof(UpdateChannelIndex));
+            OnPropertyChanged(nameof(UpdateChannelText));
+            return;
+        }
+
+        if (e.PropertyName == nameof(UserSettings.StreamerSizeIndex))
+        {
+            OnPropertyChanged(nameof(StreamerSizeText));
+            OnPropertyChanged(nameof(StreamerChartText));
+            return;
+        }
+
+        if (e.PropertyName == nameof(UserSettings.DisableAwakeningItemsTracker))
+        {
+            OnPropertyChanged(nameof(TrackAwakenedItems));
+            return;
+        }
+
+        if (e.PropertyName == nameof(UserSettings.UploadToAfmOnly))
+        {
+            OnPropertyChanged(nameof(IsPublicMode));
+            OnPropertyChanged(nameof(IsPrivateMode));
+            OnPropertyChanged(nameof(CanUsePrivateSharing));
             return;
         }
 
@@ -386,6 +475,7 @@ public partial class SettingsViewModel : ViewModelBase
 
     partial void OnIsUserLoggedInChanged(bool value)
     {
+        OnPropertyChanged(nameof(CanUsePrivateSharing));
         OnPropertyChanged(nameof(CanUseSharingSettings));
         OnPropertyChanged(nameof(CanAddSharedUser));
     }

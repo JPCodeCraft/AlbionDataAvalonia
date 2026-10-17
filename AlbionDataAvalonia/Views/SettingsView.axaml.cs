@@ -1,4 +1,5 @@
 using AlbionDataAvalonia.ViewModels;
+using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 
@@ -10,6 +11,21 @@ namespace AlbionDataAvalonia.Views
         {
             InitializeComponent();
             this.DataContext = settingsViewModel;
+        }
+
+        protected override void OnAttachedToVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            base.OnAttachedToVisualTree(e);
+            if (DataContext is SettingsViewModel vm)
+            {
+                vm.UpdateStreamerPreview(vm.SelectedTabIndex == SettingsViewModel.StreamerTabIndex);
+            }
+        }
+
+        protected override void OnDetachedFromVisualTree(VisualTreeAttachmentEventArgs e)
+        {
+            (DataContext as SettingsViewModel)?.UpdateStreamerPreview(false);
+            base.OnDetachedFromVisualTree(e);
         }
 
         private async void CopyUserIdButton_Click(object? sender, RoutedEventArgs e)

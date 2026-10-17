@@ -3,338 +3,624 @@
              xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
+             xmlns:views="clr-namespace:AlbionDataAvalonia.Views"
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
              x:Class="AlbionDataAvalonia.Views.SettingsView"
              x:Name="SettingsRoot"
              Classes="AppPage"
              x:DataType="vm:SettingsViewModel">
 
-    <TabControl Margin="0,0,20,20">
+    <UserControl.Resources>
+        <SolidColorBrush x:Key="ToggleSwitchFillOnDisabled" Color="#59F57C00" />
+        <SolidColorBrush x:Key="ToggleSwitchKnobFillOnDisabled" Color="#99FFFFFF" />
+    </UserControl.Resources>
+
+    <UserControl.Styles>
+        <Style Selector="Border.Group:disabled, Border.Row:disabled">
+            <Setter Property="Opacity" Value="0.55" />
+        </Style>
+        <Style Selector="StackPanel.Page">
+            <Setter Property="Spacing" Value="18" />
+            <Setter Property="Margin" Value="0,12,16,16" />
+        </Style>
+        <Style Selector="TextBlock.GroupTitle">
+            <Setter Property="FontSize" Value="11" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="Opacity" Value="0.55" />
+            <Setter Property="Margin" Value="2,0,0,6" />
+        </Style>
+        <Style Selector="Border.Group">
+            <Setter Property="Background" Value="{DynamicResource UiSurfaceBrush}" />
+            <Setter Property="CornerRadius" Value="8" />
+        </Style>
+        <Style Selector="Border.Row">
+            <Setter Property="Padding" Value="14,11" />
+            <Setter Property="BorderBrush" Value="#14FFFFFF" />
+            <Setter Property="BorderThickness" Value="0,1,0,0" />
+        </Style>
+        <Style Selector="Border.Row:nth-child(1)">
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="TextBlock.RowTitle">
+            <Setter Property="FontWeight" Value="SemiBold" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+        </Style>
+        <Style Selector="TextBlock.RowHint">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Opacity" Value="0.7" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="Margin" Value="0,2,0,0" />
+        </Style>
+        <Style Selector="TextBlock.Path">
+            <Setter Property="FontSize" Value="12" />
+            <Setter Property="Opacity" Value="0.7" />
+            <Setter Property="TextWrapping" Value="Wrap" />
+            <Setter Property="FontFamily" Value="Consolas, Menlo, monospace" />
+            <Setter Property="Margin" Value="0,4,0,0" />
+        </Style>
+        <Style Selector="ToggleSwitch">
+            <Setter Property="OnContent" Value="" />
+            <Setter Property="OffContent" Value="" />
+            <Setter Property="MinWidth" Value="0" />
+            <Setter Property="VerticalAlignment" Value="Center" />
+            <Setter Property="Margin" Value="12,0,0,0" />
+        </Style>
+        <Style Selector="RadioButton.Choice">
+            <Setter Property="HorizontalAlignment" Value="Stretch" />
+            <Setter Property="Padding" Value="8,0,0,0" />
+        </Style>
+        <Style Selector="Expander.Plain">
+            <Setter Property="Background" Value="Transparent" />
+        </Style>
+    </UserControl.Styles>
+
+    <TabControl Margin="0,0,20,20" SelectedIndex="{Binding SelectedTabIndex}">
         <TabItem Header="General">
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <StackPanel Spacing="16" Margin="0,14,0,0">
-                    <WrapPanel Orientation="Horizontal">
-                        <CheckBox Content="Start with Windows"
-                                  IsChecked="{Binding UserSettings.StartWithWindows}"
-                                  IsVisible="{Binding IsWindows}"
-                                  Margin="0,0,28,8" />
-                        <CheckBox Content="Minimize button hides window to system tray"
-                                  IsChecked="{Binding UserSettings.MinimizeButtonMinimizesToTray}"
-                                  Margin="0,0,28,8" />
-                        <CheckBox Content="Close button hides window to system tray"
-                                  IsChecked="{Binding CloseButtonHidesToTray}"
-                                  Margin="0,0,28,8" />
-                        <CheckBox Content="Join beta program"
-                                  IsChecked="{Binding UserSettings.JoinBetaProgram}"
-                                  Margin="0,0,28,8" />
-                    </WrapPanel>
-
-                    <StackPanel Spacing="8">
-                        <TextBlock Text="When AFM Data Client starts:" />
-                        <WrapPanel Orientation="Horizontal">
-                            <RadioButton Content="Display main window"
-                                         GroupName="StartupWindowMode"
-                                         IsChecked="{Binding IsShowMainWindowOnStartup}"
-                                         Margin="0,0,28,8" />
-                            <RadioButton Content="Minimize main window to taskbar"
-                                         GroupName="StartupWindowMode"
-                                         IsChecked="{Binding IsMinimizedToTaskbarOnStartup}"
-                                         Margin="0,0,28,8" />
-                            <RadioButton Content="Hide main window in system tray"
-                                         GroupName="StartupWindowMode"
-                                         IsChecked="{Binding IsHiddenToTrayOnStartup}"
-                                         Margin="0,0,28,8" />
-                        </WrapPanel>
-                    </StackPanel>
-                </StackPanel>
-            </ScrollViewer>
-        </TabItem>
-
-        <TabItem Header="Uploads">
-            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <Grid RowDefinitions="Auto,Auto,*" Margin="0,14,0,0" RowSpacing="18">
-                    <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
-                        <TextBlock Text="Parallel uploads" />
-                        <TextBlock Grid.Column="1" Text="{Binding UserSettings.DesiredThreadCount, Mode=OneWay, StringFormat={}{0:N0}}" />
-                    </Grid>
-
-                    <Slider Grid.Row="1"
-                            Minimum="1"
-                            Maximum="{Binding UserSettings.MaxThreadCount}"
-                            Value="{Binding UserSettings.DesiredThreadCount}"
-                            TickFrequency="1"
-                            IsSnapToTickEnabled="True" />
-
-                    <Expander Grid.Row="2" Header="Diagnostics" IsExpanded="False"
-                              HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch"
-                              VerticalAlignment="Top">
-                        <StackPanel Spacing="8" Margin="12">
-                            <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
-                                <TextBlock Classes="UiSectionTitle" Text="Proof-of-work performance" VerticalAlignment="Center" />
-                                <Button Grid.Column="1" Classes="UiAction UiSecondary" Content="Clear" Command="{Binding ClearPowSolveStatsCommand}" HorizontalAlignment="Right" />
-                            </Grid>
-                            <TextBlock FontSize="12" Opacity="0.8">
-                                <Run Text="Tracking last " />
-                                <Run Text="{Binding PowSolveSampleCount, Mode=OneWay, StringFormat={}{0:N0}}" />
-                                <Run Text=" of " />
-                                <Run Text="{Binding PowSolveWindowSize, Mode=OneWay, StringFormat={}{0:N0}}" />
-                                <Run Text=" solves" />
-                            </TextBlock>
-
-                            <UniformGrid Columns="2" Rows="4" Margin="0,8,0,0">
-                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
-                                <TextBlock Text="Latest:" FontWeight="SemiBold" />
-                                <TextBlock Text="{Binding PowSolveTimeLatest, Mode=OneWay, StringFormat={}{0:N0} ms}" />
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="16,0,0,6">
-                                <TextBlock Text="Average:" FontWeight="SemiBold" />
-                                <TextBlock Text="{Binding PowSolveTimeAverage, Mode=OneWay, StringFormat={}{0:N1} ms}" />
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
-                                <TextBlock Text="Median:" FontWeight="SemiBold" />
-                                <TextBlock Text="{Binding PowSolveTimeMedian, Mode=OneWay, StringFormat={}{0:N0} ms}" />
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="16,0,0,6">
-                                <TextBlock Text="95th percentile:" FontWeight="SemiBold" />
-                                <TextBlock Text="{Binding PowSolveTimePercentile95, Mode=OneWay, StringFormat={}{0:N0} ms}" />
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <TextBlock Text="Min:" FontWeight="SemiBold" />
-                                <TextBlock Text="{Binding PowSolveTimeMin, Mode=OneWay, StringFormat={}{0:N0} ms}" />
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="16,0,0,0">
-                                <TextBlock Text="Max:" FontWeight="SemiBold" />
-                                <TextBlock Text="{Binding PowSolveTimeMax, Mode=OneWay, StringFormat={}{0:N0} ms}" />
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Spacing="6">
-                                <TextBlock Text="Std dev:" FontWeight="SemiBold" />
-                                <TextBlock Text="{Binding PowSolveTimeStandardDeviation, Mode=OneWay, StringFormat={}{0:N1} ms}" />
-                            </StackPanel>
-                            <StackPanel Orientation="Horizontal" Spacing="6" Margin="16,0,0,0">
-                                <TextBlock Text="Samples:" FontWeight="SemiBold" />
-                                <TextBlock Text="{Binding PowSolveSampleCount, Mode=OneWay, StringFormat={}{0:N0}}" />
-                            </StackPanel>
-                            </UniformGrid>
-                        </StackPanel>
-                    </Expander>
-                </Grid>
-            </ScrollViewer>
-        </TabItem>
-
-        <TabItem Header="Sharing">
-            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <StackPanel Spacing="12" Margin="0,14,20,0" HorizontalAlignment="Stretch">
-                    <TextBlock Text="Sign in to manage private sharing settings."
-                               IsVisible="{Binding !IsUserLoggedIn}"
-                               Opacity="0.8" />
-
-                    <StackPanel Spacing="12" IsEnabled="{Binding CanUseSharingSettings}">
-                        <Grid ColumnDefinitions="Auto,Auto,Auto" VerticalAlignment="Center">
-                            <TextBlock Grid.Column="0"
-                                       Text="Your ID:"
-                                       FontWeight="SemiBold"
-                                       VerticalAlignment="Center"
-                                       Margin="0,0,8,0" />
-                            <TextBlock Grid.Column="1"
-                                   Text="{Binding RedactedCurrentFirebaseUserId}"
-                                   TextWrapping="Wrap"
-                                   VerticalAlignment="Center"
-                                   MaxWidth="720" />
-                            <Button Grid.Column="2" Classes="UiAction UiSecondary"
-                                    Content="Copy"
-                                    Click="CopyUserIdButton_Click"
-                                    Margin="8,0,0,0" />
-                        </Grid>
-
-                        <TextBlock TextWrapping="Wrap"
-                                   Opacity="0.8"
-                                   HorizontalAlignment="Left"
-                                   Text="Add up to five people by user ID, email or AFM website username (not an Albion character name). Sharing works only when you have added each other and Share with Friends is enabled. They can use your market orders in the flipper and website price tools. Send them your ID, email or AFM username so they can add you. Turning sharing off stops new shared uploads. Previously shared price summaries keep their original expiry, up to two days." />
-
-                        <TextBlock Text="{Binding SharedFriendsLimitText}"
-                                   FontWeight="SemiBold" />
-
-                        <Grid ColumnDefinitions="360,Auto" VerticalAlignment="Center" HorizontalAlignment="Left">
-                            <TextBox Grid.Column="0"
-                                     Text="{Binding FriendInput}"
-                                     Watermark="User ID, email or AFM username" />
-                            <Button Grid.Column="1" Classes="UiAction"
-                                    Content="Add"
-                                    Command="{Binding AddSharedUserCommand}"
-                                    IsEnabled="{Binding CanAddSharedUser}"
-                                    Margin="8,0,0,0" />
-                        </Grid>
-
-                        <ItemsControl ItemsSource="{Binding SharedUsers}">
-                            <ItemsControl.ItemsPanel>
-                                <ItemsPanelTemplate>
-                                    <WrapPanel Orientation="Horizontal" />
-                                </ItemsPanelTemplate>
-                            </ItemsControl.ItemsPanel>
-                            <ItemsControl.ItemTemplate>
-                                <DataTemplate x:DataType="vm:PrivateOrderShareEntryViewModel">
-                                    <Border Background="rgba(255,255,255,0.08)"
-                                            CornerRadius="12"
-                                            Padding="8,4"
-                                            Margin="0,0,8,8"
-                                            BorderBrush="rgba(255,255,255,0.16)"
-                                            BorderThickness="1"
-                                            HorizontalAlignment="Left">
-                                        <StackPanel Orientation="Horizontal" Spacing="6">
-                                            <TextBlock Text="{Binding Value}"
-                                                       TextTrimming="CharacterEllipsis"
-                                                       MaxWidth="280"
-                                                       FontSize="12"
-                                                       VerticalAlignment="Center" />
-                                            <Button Width="24" Height="24"
-                                                    Padding="0"
-                                                    MinWidth="24"
-                                                    MinHeight="24"
-                                                    VerticalAlignment="Center"
-                                                    HorizontalContentAlignment="Center"
-                                                    VerticalContentAlignment="Center"
-                                                    ToolTip.Tip="Remove from sharing"
-                                                    AutomationProperties.Name="Remove from sharing"
-                                                    Tag="{Binding}"
-                                                    Click="RemoveSharedUserButton_Click">
-                                                <PathIcon Width="10" Height="10"
-                                                          Data="M 1,0 L 5,4 L 9,0 L 10,1 L 6,5 L 10,9 L 9,10 L 5,6 L 1,10 L 0,9 L 4,5 L 0,1 Z" />
-                                            </Button>
+                <StackPanel Classes="Page">
+                    <StackPanel>
+                        <TextBlock Classes="GroupTitle" Text="STARTUP" />
+                        <Border Classes="Group">
+                            <StackPanel>
+                                <Border Classes="Row">
+                                    <StackPanel Spacing="8">
+                                        <StackPanel>
+                                            <TextBlock Classes="RowTitle" Text="When the client starts" />
+                                            <TextBlock Classes="RowHint" Text="The client keeps capturing in every mode." />
                                         </StackPanel>
-                                    </Border>
-                                </DataTemplate>
-                            </ItemsControl.ItemTemplate>
-                        </ItemsControl>
+                                        <views:ActivitySegmentedSelector ItemsSource="{Binding StartupWindowModeOptions}"
+                                                                         SelectedIndex="{Binding StartupWindowModeIndex}"
+                                                                         AutomationProperties.Name="When the client starts" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Classes="Row" IsVisible="{Binding IsWindows}">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel>
+                                            <TextBlock Classes="RowTitle" Text="Start with Windows" />
+                                            <TextBlock Classes="RowHint" Text="Open AFM Data Client when you sign in to Windows." />
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" IsChecked="{Binding UserSettings.StartWithWindows}" AutomationProperties.Name="Start with Windows" />
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
 
-                        <TextBlock IsVisible="{Binding HasUnresolvedEntries}"
-                                   Text="{Binding SharingStatus}"
-                                   TextWrapping="Wrap"
-                                   Opacity="0.8"
-                                   Foreground="{StaticResource AFMOrange}" />
-                        <TextBlock IsVisible="{Binding HasNormalSharingStatus}"
-                                   Text="{Binding SharingStatus}"
-                                   TextWrapping="Wrap"
-                                   Opacity="0.8" />
+                    <StackPanel>
+                        <TextBlock Classes="GroupTitle" Text="WINDOW BUTTONS" />
+                        <Border Classes="Group">
+                            <StackPanel>
+                                <Border Classes="Row">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel>
+                                            <TextBlock Classes="RowTitle" Text="Minimize hides to tray" />
+                                            <TextBlock Classes="RowHint" Text="The window leaves the taskbar. Open it again from the tray icon." />
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" IsChecked="{Binding UserSettings.MinimizeButtonMinimizesToTray}" AutomationProperties.Name="Minimize hides to tray" />
+                                    </Grid>
+                                </Border>
+                                <Border Classes="Row">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel>
+                                            <TextBlock Classes="RowTitle" Text="Close hides to tray" />
+                                            <TextBlock Classes="RowHint" Text="The client keeps running. Quit from the tray icon menu." />
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" IsChecked="{Binding CloseButtonHidesToTray}" AutomationProperties.Name="Close hides to tray" />
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
                 </StackPanel>
             </ScrollViewer>
         </TabItem>
 
-        <TabItem Header="Activity">
+        <TabItem Header="Uploads &amp; sharing">
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <StackPanel Margin="0,14,20,0" Spacing="12">
-                    <CheckBox Content="Record activity"
-                              IsChecked="{Binding UserSettings.ActivityRecordingEnabled}" />
-                    <TextBlock Text="{Binding ActivityRecordingStatus}" TextWrapping="Wrap" />
-                    <TextBlock Text="Combat, gathering, fishing, and loot are saved together in local sessions. A session opens when you log in and counts from your first activity. It ends at your last activity after 30 minutes without activity, when you press New session, switch character, turn recording off, or close the app for more than 30 minutes. Each dungeon, Mists visit or stretch of open world is a run inside it. Records remain until you delete them in Activity."
-                               TextWrapping="Wrap" Opacity="0.65" />
-                    <TextBlock Text="Party filters change what is shown. All observed loot pickups are recorded while recording is enabled."
-                               TextWrapping="Wrap" Opacity="0.65" />
-
-                    <TextBlock Text="Streamer window" FontSize="16" FontWeight="DemiBold" Margin="0,8,0,0" />
-                    <TextBlock Text="A compact window with the current session. Capture it as a window source in your streaming app."
-                               TextWrapping="Wrap" Opacity="0.65" />
-                    <StackPanel Orientation="Horizontal" Spacing="8">
-                        <TextBlock Text="Size" VerticalAlignment="Center" />
-                        <ComboBox SelectedIndex="{Binding UserSettings.StreamerSizeIndex}" Width="140">
-                            <ComboBoxItem Content="Small" />
-                            <ComboBoxItem Content="Medium" />
-                            <ComboBoxItem Content="Large" />
-                        </ComboBox>
-                    </StackPanel>
-                    <TextBlock Text="Small shows only the main numbers, without the chart. Large adds breakdowns and the session name."
-                               TextWrapping="Wrap" Opacity="0.65" />
-                    <WrapPanel>
-                        <CheckBox Content="Silver totals" IsChecked="{Binding UserSettings.StreamerShowSilver}" Margin="0,0,18,4" />
-                        <CheckBox Content="Combat" IsChecked="{Binding UserSettings.StreamerShowCombat}" Margin="0,0,18,4" />
-                        <CheckBox Content="Gathering" IsChecked="{Binding UserSettings.StreamerShowGathering}" Margin="0,0,18,4" />
-                        <CheckBox Content="Chart" IsChecked="{Binding UserSettings.StreamerShowChart}" Margin="0,0,18,4" />
-                    </WrapPanel>
-                    <StackPanel Orientation="Horizontal" Spacing="8" IsVisible="{Binding UserSettings.StreamerShowChart}">
-                        <TextBlock Text="Chart shows" VerticalAlignment="Center" />
-                        <ComboBox SelectedIndex="{Binding UserSettings.StreamerChartModeIndex}" Width="140">
-                            <ComboBoxItem Content="Combat" />
-                            <ComboBoxItem Content="Gathering" />
-                            <ComboBoxItem Content="Fame" />
-                        </ComboBox>
-                    </StackPanel>
-                    <CheckBox Content="Show party totals instead of personal"
-                              IsChecked="{Binding UserSettings.StreamerPartyTotals}" />
-                    <CheckBox Content="Green background for chroma key"
-                              IsChecked="{Binding UserSettings.StreamerChromaKey}" />
-                    <Button Classes="UiAction" Content="{Binding StreamerWindowButtonText}" Command="{Binding ToggleStreamerWindowCommand}"
-                            IsVisible="{Binding CanOpenStreamerWindow}" HorizontalAlignment="Left" />
-                </StackPanel>
-            </ScrollViewer>
-        </TabItem>
-
-
-
-        <TabItem Header="Awakened">
-            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <StackPanel Margin="0,14,0,0" Spacing="8">
-                    <CheckBox Content="Disable Awakened Items Tracker"
-                              IsChecked="{Binding UserSettings.DisableAwakeningItemsTracker}" />
-                    <TextBlock Text="Stops detecting and storing awakened items. Existing records are kept."
-                               TextWrapping="Wrap"
-                               Opacity="0.65" />
-                </StackPanel>
-            </ScrollViewer>
-        </TabItem>
-
-        <TabItem Header="Backup">
-            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
-                <StackPanel Margin="0,14,20,0" Spacing="14">
-                    <TextBlock Text="Automatic database backups"
-                               FontWeight="Bold"
-                               FontSize="16" />
-                    <TextBlock Text="AFM Data Client creates a compressed backup every 24 hours. It keeps the three newest backups plus recovery points closest to 5, 10, and 15 days old."
-                               TextWrapping="Wrap" />
-
-                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                        <StackPanel Spacing="4" VerticalAlignment="Center">
-                            <TextBlock Text="Backup folder" FontWeight="SemiBold" />
-                            <TextBlock Text="{Binding BackupFolderPath}"
-                                       TextWrapping="Wrap"
-                                       Opacity="0.8" />
-                        </StackPanel>
-                        <Button Grid.Column="1" Classes="UiAction UiSecondary"
-                                Content="Open backup folder"
-                                Command="{Binding OpenBackupFolderCommand}"
-                                VerticalAlignment="Center" />
-                    </Grid>
-
-                    <Border Classes="UiCard"
-                            Padding="12">
-                        <StackPanel Spacing="6">
-                            <TextBlock Text="Privacy" FontWeight="Bold" />
-                            <TextBlock Text="Backups contain your stored history and player data. Your saved sign-in token is removed, so you must sign in again after restoring a backup."
-                                       TextWrapping="Wrap" />
-                        </StackPanel>
+                <StackPanel Classes="Page">
+                    <Border Classes="UiCard" Padding="12,10" IsVisible="{Binding !IsUserLoggedIn}"
+                            BorderBrush="#73FFA726" BorderThickness="1" Background="#14FFA726">
+                        <TextBlock TextWrapping="Wrap" FontSize="12"
+                                   Text="Signed out. Market data uploads to the Albion Online Data Project. Sign in to use private mode, sharing and AFM account features." />
                     </Border>
 
-                    <StackPanel Spacing="8">
-                        <TextBlock Text="How to restore a backup"
-                                   FontWeight="Bold"
-                                   FontSize="16" />
-                        <TextBlock Text="1. Exit AFM from the system tray and confirm that it is no longer running."
-                                   TextWrapping="Wrap" />
-                        <TextBlock Text="2. Make a safety copy of the current data folder:"
-                                   TextWrapping="Wrap" />
-                        <TextBlock Text="{Binding DataFolderPath}"
-                                   Margin="20,0,0,0"
-                                   TextWrapping="Wrap"
-                                   Opacity="0.8" />
-                        <TextBlock Text="3. Extract the selected backup ZIP. It contains afmdataclient.db."
-                                   TextWrapping="Wrap" />
-                        <TextBlock Text="4. In the data folder, move aside afmdataclient.db and any afmdataclient.db-wal or afmdataclient.db-shm files."
-                                   TextWrapping="Wrap" />
-                        <TextBlock Text="5. Copy the extracted afmdataclient.db into the data folder."
-                                   TextWrapping="Wrap" />
-                        <TextBlock Text="6. Start AFM, verify the restored history, and sign in again."
-                                   TextWrapping="Wrap" />
+                    <StackPanel>
+                        <TextBlock Classes="GroupTitle" Text="MARKET ORDERS" />
+                        <Border Classes="Group">
+                            <StackPanel>
+                                <Border Classes="Row">
+                                    <RadioButton Classes="Choice" GroupName="MarketOrders" IsChecked="{Binding IsPublicMode}">
+                                        <StackPanel>
+                                            <TextBlock Classes="RowTitle" Text="Public" />
+                                            <TextBlock Classes="RowHint" Text="Buy and sell orders go to the Albion Online Data Project, where any site or sheet can use them." />
+                                        </StackPanel>
+                                    </RadioButton>
+                                </Border>
+                                <Border Classes="Row">
+                                    <RadioButton Classes="Choice" GroupName="MarketOrders" IsChecked="{Binding IsPrivateMode}" IsEnabled="{Binding IsUserLoggedIn}">
+                                        <StackPanel>
+                                            <TextBlock Classes="RowTitle" Text="Private mode" />
+                                            <TextBlock Classes="RowHint" Text="Orders go to AFM only, for your flipper and website price tools. Market history, gold prices and bandit events stay public." />
+                                        </StackPanel>
+                                    </RadioButton>
+                                </Border>
+                            </StackPanel>
+                        </Border>
                     </StackPanel>
 
+                    <StackPanel>
+                        <TextBlock Classes="GroupTitle" Text="SHARING IN PRIVATE MODE" />
+                        <Border Classes="Group">
+                            <StackPanel>
+                                <Border Classes="Row" IsEnabled="{Binding CanUsePrivateSharing}">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel>
+                                            <TextBlock Classes="RowTitle" Text="Share with other AFM users" />
+                                            <TextBlock Classes="RowHint" Text="Other AFM users can use your orders in the flipper and price tools. They are not sent to AODP." />
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" IsChecked="{Binding UserSettings.ContributeToPublic}" AutomationProperties.Name="Share with other AFM users" />
+                                    </Grid>
+                                </Border>
+                                <Border Classes="Row" IsEnabled="{Binding CanUsePrivateSharing}">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel>
+                                            <TextBlock Classes="RowTitle" Text="Share with friends" />
+                                            <TextBlock Classes="RowHint">
+                                                <Run Text="Up to five people, once you've added each other." />
+                                                <Run Text="{Binding SharedFriendsLimitText, Mode=OneWay}" />
+                                            </TextBlock>
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" IsChecked="{Binding UserSettings.ShareWithFriends}" AutomationProperties.Name="Share with friends" />
+                                    </Grid>
+                                </Border>
+                                <Border Classes="Row" Padding="30,10,14,12" Background="#14000000" IsEnabled="{Binding CanUseSharingSettings}">
+                                    <StackPanel Spacing="8">
+                                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
+                                            <TextBox Text="{Binding FriendInput}" Watermark="User ID, email or AFM username" />
+                                            <Button Grid.Column="1" Classes="UiAction UiSecondary" Content="Add"
+                                                    Command="{Binding AddSharedUserCommand}" IsEnabled="{Binding CanAddSharedUser}" />
+                                        </Grid>
+                                        <ItemsControl ItemsSource="{Binding SharedUsers}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel Orientation="Horizontal" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:PrivateOrderShareEntryViewModel">
+                                                    <Border Background="rgba(255,255,255,0.08)"
+                                                            CornerRadius="12"
+                                                            Padding="8,4"
+                                                            Margin="0,0,8,8"
+                                                            BorderBrush="rgba(255,255,255,0.16)"
+                                                            BorderThickness="1"
+                                                            HorizontalAlignment="Left">
+                                                        <StackPanel Orientation="Horizontal" Spacing="6">
+                                                            <TextBlock Text="{Binding Value}"
+                                                                       TextTrimming="CharacterEllipsis"
+                                                                       MaxWidth="280"
+                                                                       FontSize="12"
+                                                                       VerticalAlignment="Center" />
+                                                            <Button Width="24" Height="24"
+                                                                    Padding="0"
+                                                                    MinWidth="24"
+                                                                    MinHeight="24"
+                                                                    VerticalAlignment="Center"
+                                                                    HorizontalContentAlignment="Center"
+                                                                    VerticalContentAlignment="Center"
+                                                                    ToolTip.Tip="Remove from sharing"
+                                                                    AutomationProperties.Name="Remove from sharing"
+                                                                    Tag="{Binding}"
+                                                                    Click="RemoveSharedUserButton_Click">
+                                                                <PathIcon Width="10" Height="10"
+                                                                          Data="M 1,0 L 5,4 L 9,0 L 10,1 L 6,5 L 10,9 L 9,10 L 5,6 L 1,10 L 0,9 L 4,5 L 0,1 Z" />
+                                                            </Button>
+                                                        </StackPanel>
+                                                    </Border>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                        <WrapPanel>
+                                            <TextBlock Classes="RowHint" Text="Friends add you with your ID" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                            <TextBlock Text="{Binding RedactedCurrentFirebaseUserId}" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                            <Button Classes="UiAction UiSecondary" Content="Copy" Click="CopyUserIdButton_Click" />
+                                        </WrapPanel>
+                                        <TextBlock IsVisible="{Binding HasUnresolvedEntries}"
+                                                   Text="{Binding SharingStatus}"
+                                                   TextWrapping="Wrap"
+                                                   FontSize="12"
+                                                   Foreground="{StaticResource AFMOrange}" />
+                                        <TextBlock IsVisible="{Binding HasNormalSharingStatus}"
+                                                   Text="{Binding SharingStatus}"
+                                                   Classes="RowHint" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Classes="Row">
+                                    <TextBlock Classes="RowHint" Margin="0"
+                                               Text="Turning sharing off stops new shared uploads. Summaries you already shared expire within two days." />
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel>
+                        <TextBlock Classes="GroupTitle" Text="AFM ACCOUNT" />
+                        <Border Classes="Group" IsEnabled="{Binding IsUserLoggedIn}">
+                            <StackPanel>
+                                <Border Classes="Row">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel>
+                                            <TextBlock Classes="RowTitle" Text="Upload character specs" />
+                                            <TextBlock Classes="RowHint" Text="Your specs appear on the AFM website." />
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" IsChecked="{Binding UserSettings.UploadSpecsToAfm}" AutomationProperties.Name="Upload character specs" />
+                                    </Grid>
+                                </Border>
+                                <Border Classes="Row">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel>
+                                            <TextBlock Classes="RowTitle" Text="Island tracker" />
+                                            <TextBlock Classes="RowHint" Text="Tracks island plots and farming collections for your AFM account. After turning it back on, leave and re-enter your island." />
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" IsChecked="{Binding UserSettings.AfmIslandTrackerEnabled}" AutomationProperties.Name="Island tracker" />
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel>
+                        <TextBlock Classes="GroupTitle" Text="UPLOAD SPEED" />
+                        <Border Classes="Group">
+                            <StackPanel>
+                                <Border Classes="Row">
+                                    <StackPanel Spacing="4">
+                                        <Grid ColumnDefinitions="*,Auto">
+                                            <TextBlock Classes="RowTitle" Text="Parallel uploads" />
+                                            <TextBlock Grid.Column="1" FontWeight="SemiBold" Text="{Binding UserSettings.DesiredThreadCount, Mode=OneWay, StringFormat={}{0:N0}}" />
+                                        </Grid>
+                                        <Slider Minimum="1"
+                                                Maximum="{Binding UserSettings.MaxThreadCount}"
+                                                Value="{Binding UserSettings.DesiredThreadCount}"
+                                                TickFrequency="1"
+                                                IsSnapToTickEnabled="True"
+                                                AutomationProperties.Name="Parallel uploads" />
+                                        <TextBlock Classes="RowHint" Text="More parallel uploads clear the queue faster and use more CPU for the proof-of-work each upload needs." />
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
+
+        <TabItem Header="Trackers">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Classes="Page">
+                    <StackPanel>
+                        <TextBlock Classes="GroupTitle" Text="ACTIVITY" />
+                        <Border Classes="Group">
+                            <StackPanel>
+                                <Border Classes="Row">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel>
+                                            <TextBlock Classes="RowTitle" Text="Record activity" />
+                                            <TextBlock Classes="RowHint" Text="Saves combat, gathering, fishing and loot into local sessions." />
+                                            <TextBlock Classes="RowHint" Text="{Binding ActivityRecordingStatus}" />
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" IsChecked="{Binding UserSettings.ActivityRecordingEnabled}" AutomationProperties.Name="Record activity" />
+                                    </Grid>
+                                </Border>
+                                <Border Classes="Row">
+                                    <Expander Classes="Plain" Header="How sessions work" IsExpanded="False"
+                                              HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                                        <StackPanel Spacing="8" Margin="4,8">
+                                            <TextBlock Classes="RowHint" Text="Combat, gathering, fishing, and loot are saved together in local sessions. A session opens when you log in and counts from your first activity. It ends at your last activity after 30 minutes without activity, when you press New session, switch character, turn recording off, or close the app for more than 30 minutes. Each dungeon, Mists visit or stretch of open world is a run inside it. Records remain until you delete them in Settings › Data &amp; backups." />
+                                            <TextBlock Classes="RowHint" Text="Party filters change what is shown. All observed loot pickups are recorded while recording is on." />
+                                        </StackPanel>
+                                    </Expander>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel>
+                        <TextBlock Classes="GroupTitle" Text="AWAKENED ITEMS" />
+                        <Border Classes="Group">
+                            <StackPanel>
+                                <Border Classes="Row">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel>
+                                            <TextBlock Classes="RowTitle" Text="Track awakened items" />
+                                            <TextBlock Classes="RowHint" Text="Detects and stores awakened items. Turning it off keeps existing records." />
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" IsChecked="{Binding TrackAwakenedItems}" AutomationProperties.Name="Track awakened items" />
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
+
+        <TabItem Header="Streamer">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Classes="Page">
+                    <TextBlock Classes="RowHint" Margin="2,0,0,0"
+                               Text="A compact window with the current session. Capture it as a window source in your streaming app." />
+
+                    <Border CornerRadius="8" Padding="16" Background="#262626" IsVisible="{Binding StreamerPreview, Converter={x:Static ObjectConverters.IsNotNull}}">
+                        <Border HorizontalAlignment="Center" CornerRadius="6"
+                                Background="{Binding StreamerPreview.WindowBackground, FallbackValue=Transparent}"
+                                Width="{Binding StreamerPreview.WindowWidth, FallbackValue=330}">
+                            <views:ActivityStreamerView DataContext="{Binding StreamerPreview}" />
+                        </Border>
+                    </Border>
+
+                    <StackPanel>
+                        <TextBlock Classes="GroupTitle" Text="LAYOUT" />
+                        <Border Classes="Group">
+                            <StackPanel>
+                                <Border Classes="Row">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Classes="RowTitle" Text="Size" />
+                                            <TextBlock Classes="RowHint" Text="{Binding StreamerSizeText}" />
+                                        </StackPanel>
+                                        <views:ActivitySegmentedSelector Grid.Column="1" ItemsSource="{Binding StreamerSizeOptions}"
+                                                                         SelectedIndex="{Binding UserSettings.StreamerSizeIndex}"
+                                                                         AutomationProperties.Name="Streamer size" />
+                                    </Grid>
+                                </Border>
+                                <Border Classes="Row">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Classes="RowTitle" Text="Silver totals" VerticalAlignment="Center" />
+                                        <ToggleSwitch Grid.Column="1" IsChecked="{Binding UserSettings.StreamerShowSilver}" AutomationProperties.Name="Silver totals" />
+                                    </Grid>
+                                </Border>
+                                <Border Classes="Row">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Classes="RowTitle" Text="Combat" VerticalAlignment="Center" />
+                                        <ToggleSwitch Grid.Column="1" IsChecked="{Binding UserSettings.StreamerShowCombat}" AutomationProperties.Name="Combat" />
+                                    </Grid>
+                                </Border>
+                                <Border Classes="Row">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <TextBlock Classes="RowTitle" Text="Gathering" VerticalAlignment="Center" />
+                                        <ToggleSwitch Grid.Column="1" IsChecked="{Binding UserSettings.StreamerShowGathering}" AutomationProperties.Name="Gathering" />
+                                    </Grid>
+                                </Border>
+                                <Border Classes="Row">
+                                    <Grid ColumnDefinitions="*,Auto,Auto">
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Classes="RowTitle" Text="Chart" />
+                                            <TextBlock Classes="RowHint" Text="{Binding StreamerChartText}"
+                                                       IsVisible="{Binding StreamerChartText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                        </StackPanel>
+                                        <views:ActivitySegmentedSelector Grid.Column="1" ItemsSource="{Binding StreamerChartModeOptions}"
+                                                                         SelectedIndex="{Binding UserSettings.StreamerChartModeIndex}"
+                                                                         IsVisible="{Binding UserSettings.StreamerShowChart}"
+                                                                         AutomationProperties.Name="Chart shows" />
+                                        <ToggleSwitch Grid.Column="2" IsChecked="{Binding UserSettings.StreamerShowChart}" AutomationProperties.Name="Chart" />
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel>
+                        <TextBlock Classes="GroupTitle" Text="OPTIONS" />
+                        <Border Classes="Group">
+                            <StackPanel>
+                                <Border Classes="Row">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel>
+                                            <TextBlock Classes="RowTitle" Text="Party totals" />
+                                            <TextBlock Classes="RowHint" Text="Show the party's numbers instead of yours. You can also switch it in the window itself." />
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" IsChecked="{Binding UserSettings.StreamerPartyTotals}" AutomationProperties.Name="Party totals" />
+                                    </Grid>
+                                </Border>
+                                <Border Classes="Row">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel>
+                                            <TextBlock Classes="RowTitle" Text="Green background" />
+                                            <TextBlock Classes="RowHint" Text="For chroma key in your streaming app." />
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" IsChecked="{Binding UserSettings.StreamerChromaKey}" AutomationProperties.Name="Green background" />
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <WrapPanel IsVisible="{Binding CanOpenStreamerWindow}">
+                        <Button Classes="UiAction" Content="{Binding StreamerWindowButtonText}" Command="{Binding ToggleStreamerWindowCommand}" Margin="0,0,12,4" />
+                        <TextBlock Classes="RowHint" VerticalAlignment="Center" Text="Left open, it reopens when the client starts." />
+                    </WrapPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
+
+        <TabItem Header="Data &amp; backups">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Classes="Page">
+                    <StackPanel>
+                        <TextBlock Classes="GroupTitle" Text="BACKUPS" />
+                        <Border Classes="Group">
+                            <StackPanel>
+                                <Border Classes="Row">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel>
+                                            <TextBlock Classes="RowTitle" Text="Automatic, every 24 hours" />
+                                            <TextBlock Classes="RowHint" Text="Keeps the three newest plus points about 5, 10 and 15 days old. Backups include your history, not your sign-in, so sign in again after restoring." />
+                                            <TextBlock Classes="Path" Text="{Binding BackupFolderPath}" />
+                                        </StackPanel>
+                                        <Button Grid.Column="1" Classes="UiAction UiSecondary" Content="Open folder"
+                                                Command="{Binding OpenBackupFolderCommand}" VerticalAlignment="Center" Margin="12,0,0,0" />
+                                    </Grid>
+                                </Border>
+                                <Border Classes="Row">
+                                    <Expander Classes="Plain" Header="How to restore a backup" IsExpanded="False"
+                                              HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                                        <StackPanel Spacing="6" Margin="4,8">
+                                            <TextBlock Classes="RowHint" Text="1. Exit AFM from the system tray and confirm that it is no longer running." />
+                                            <TextBlock Classes="RowHint" Text="2. Make a safety copy of the data folder below." />
+                                            <TextBlock Classes="RowHint" Text="3. Extract the selected backup ZIP. It contains afmdataclient.db." />
+                                            <TextBlock Classes="RowHint" Text="4. In the data folder, move aside afmdataclient.db and any afmdataclient.db-wal or afmdataclient.db-shm files." />
+                                            <TextBlock Classes="RowHint" Text="5. Copy the extracted afmdataclient.db into the data folder." />
+                                            <TextBlock Classes="RowHint" Text="6. Start AFM, verify the restored history, and sign in again." />
+                                        </StackPanel>
+                                    </Expander>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel>
+                        <TextBlock Classes="GroupTitle" Text="DATA FOLDER" />
+                        <Border Classes="Group">
+                            <StackPanel>
+                                <Border Classes="Row">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel>
+                                            <TextBlock Classes="RowTitle" Text="History database" />
+                                            <TextBlock Classes="Path" Text="{Binding DataFolderPath}" />
+                                        </StackPanel>
+                                        <Button Grid.Column="1" Classes="UiAction UiSecondary" Content="Open folder"
+                                                Command="{Binding OpenDataFolderCommand}" VerticalAlignment="Center" Margin="12,0,0,0" />
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+                </StackPanel>
+            </ScrollViewer>
+        </TabItem>
+
+        <TabItem Header="About">
+            <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
+                <StackPanel Classes="Page">
+                    <StackPanel>
+                        <TextBlock Classes="GroupTitle" Text="VERSION" />
+                        <Border Classes="Group">
+                            <StackPanel>
+                                <Border Classes="Row">
+                                    <StackPanel>
+                                        <TextBlock Classes="RowTitle" Text="{Binding AppVersionText}" />
+                                        <TextBlock Classes="RowHint" Text="{Binding UpdatesText}" />
+                                    </StackPanel>
+                                </Border>
+                                <Border Classes="Row">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel VerticalAlignment="Center">
+                                            <TextBlock Classes="RowTitle" Text="Update channel" />
+                                            <TextBlock Classes="RowHint" Text="{Binding UpdateChannelText}" />
+                                        </StackPanel>
+                                        <views:ActivitySegmentedSelector Grid.Column="1" ItemsSource="{Binding UpdateChannelOptions}"
+                                                                         SelectedIndex="{Binding UpdateChannelIndex}"
+                                                                         AutomationProperties.Name="Update channel" />
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel>
+                        <TextBlock Classes="GroupTitle" Text="LINKS" />
+                        <Border Classes="Group">
+                            <StackPanel>
+                                <Border Classes="Row">
+                                    <WrapPanel>
+                                        <Button Classes="UiAction UiSecondary" Content="Albion Free Market" Command="{Binding OpenAfmWebsiteCommand}" Margin="0,0,8,0" />
+                                        <Button Classes="UiAction UiSecondary" Content="Albion Online Data Project" Command="{Binding OpenAodpWebsiteCommand}" Margin="0,0,8,0" />
+                                        <Button Classes="UiAction UiSecondary" Content="AFM Discord" Command="{Binding OpenDiscordCommand}" />
+                                    </WrapPanel>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel>
+                        <TextBlock Classes="GroupTitle" Text="DIAGNOSTICS" />
+                        <Border Classes="Group">
+                            <StackPanel>
+                                <Border Classes="Row">
+                                    <Expander Classes="Plain" Header="Proof-of-work performance" IsExpanded="False"
+                                              HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
+                                        <StackPanel Spacing="8" Margin="4,8">
+                                            <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
+                                                <TextBlock Classes="RowHint" Margin="0" VerticalAlignment="Center">
+                                                    <Run Text="Last " />
+                                                    <Run Text="{Binding PowSolveSampleCount, Mode=OneWay, StringFormat={}{0:N0}}" />
+                                                    <Run Text=" of " />
+                                                    <Run Text="{Binding PowSolveWindowSize, Mode=OneWay, StringFormat={}{0:N0}}" />
+                                                    <Run Text=" solves. Useful when reporting slow uploads." />
+                                                </TextBlock>
+                                                <Button Grid.Column="1" Classes="UiAction UiSecondary" Content="Clear" Command="{Binding ClearPowSolveStatsCommand}" />
+                                            </Grid>
+                                            <UniformGrid Columns="2" Rows="4">
+                                                <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
+                                                    <TextBlock Text="Latest:" FontWeight="SemiBold" />
+                                                    <TextBlock Text="{Binding PowSolveTimeLatest, Mode=OneWay, StringFormat={}{0:N0} ms}" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" Spacing="6" Margin="16,0,0,6">
+                                                    <TextBlock Text="Average:" FontWeight="SemiBold" />
+                                                    <TextBlock Text="{Binding PowSolveTimeAverage, Mode=OneWay, StringFormat={}{0:N1} ms}" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">
+                                                    <TextBlock Text="Median:" FontWeight="SemiBold" />
+                                                    <TextBlock Text="{Binding PowSolveTimeMedian, Mode=OneWay, StringFormat={}{0:N0} ms}" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" Spacing="6" Margin="16,0,0,6">
+                                                    <TextBlock Text="95th percentile:" FontWeight="SemiBold" />
+                                                    <TextBlock Text="{Binding PowSolveTimePercentile95, Mode=OneWay, StringFormat={}{0:N0} ms}" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <TextBlock Text="Min:" FontWeight="SemiBold" />
+                                                    <TextBlock Text="{Binding PowSolveTimeMin, Mode=OneWay, StringFormat={}{0:N0} ms}" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" Spacing="6" Margin="16,0,0,0">
+                                                    <TextBlock Text="Max:" FontWeight="SemiBold" />
+                                                    <TextBlock Text="{Binding PowSolveTimeMax, Mode=OneWay, StringFormat={}{0:N0} ms}" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                                    <TextBlock Text="Std dev:" FontWeight="SemiBold" />
+                                                    <TextBlock Text="{Binding PowSolveTimeStandardDeviation, Mode=OneWay, StringFormat={}{0:N1} ms}" />
+                                                </StackPanel>
+                                                <StackPanel Orientation="Horizontal" Spacing="6" Margin="16,0,0,0">
+                                                    <TextBlock Text="Samples:" FontWeight="SemiBold" />
+                                                    <TextBlock Text="{Binding PowSolveSampleCount, Mode=OneWay, StringFormat={}{0:N0}}" />
+                                                </StackPanel>
+                                            </UniformGrid>
+                                        </StackPanel>
+                                    </Expander>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
                 </StackPanel>
             </ScrollViewer>
         </TabItem>

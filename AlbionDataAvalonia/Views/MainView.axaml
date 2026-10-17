@@ -279,7 +279,7 @@
 
 						<!-- Options group -->
 						<StackPanel Margin="0,0,0,10">
-							<TextBlock Text="DATA UPLOAD OPTIONS" FontSize="11" Opacity="0.7"
+							<TextBlock Text="MARKET ORDERS" FontSize="11" Opacity="0.7"
 								Margin="0,0,0,5" />
 							<CheckBox IsChecked="{Binding UploadToAfmOnly}"
 								ToolTip.Tip="Send buy and sell orders to AFM for your flipper and website price tools instead of AODP. Sharing follows the options below. Market history, gold prices and bandit events remain public. Requires sign-in."
@@ -295,16 +295,13 @@
 										Margin="0,0,0,5" FontSize="11">Share with Other AFM Users</CheckBox>
 									<CheckBox IsChecked="{Binding ShareWithFriends}"
 										IsEnabled="{Binding UploadToAfmOnly}"
-										ToolTip.Tip="Share market orders with up to five people in Settings > Sharing, only when you have added each other. They can use them in the flipper and website price tools. Turning sharing off stops new shared uploads. Previously shared price summaries keep their original expiry, up to two days."
+										ToolTip.Tip="Share market orders with up to five people in Settings &gt; Uploads &amp; sharing, only when you have added each other. They can use them in the flipper and website price tools. Turning sharing off stops new shared uploads. Previously shared price summaries keep their original expiry, up to two days."
 										Margin="0,0,0,5" FontSize="11">Share with Friends</CheckBox>
 								</StackPanel>
 							</Border>
-							<CheckBox IsChecked="{Binding UserSettings.UploadSpecsToAfm}"
-								ToolTip.Tip="If you mark this, your character specs will be uploaded to AFM."
-								Margin="0,0,0,5" FontSize="11">Upload Specs to AFM</CheckBox>
-							<CheckBox IsChecked="{Binding UserSettings.AfmIslandTrackerEnabled}"
-								ToolTip.Tip="Track and upload your island plots and farming collections to your AFM account. Turning this off stops tracking and uploads. After enabling it again, leave and re-enter the island to resume tracking."
-								Margin="0,0,0,5" FontSize="11">AFM Island Tracker</CheckBox>
+							<Button Classes="link" FontSize="11" Margin="0,2,0,0"
+								Content="More upload settings ›"
+								Command="{Binding ShowUploadSettingsCommand}" />
 						</StackPanel>
 
 						<!-- Logout button -->
