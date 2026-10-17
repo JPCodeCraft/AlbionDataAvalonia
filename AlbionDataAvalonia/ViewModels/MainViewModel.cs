@@ -5,8 +5,9 @@ using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Players;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
-using AlbionDataAvalonia.Ui.Services;
 using AlbionDataAvalonia.State.Events;
+using AlbionDataAvalonia.Ui;
+using AlbionDataAvalonia.Ui.Services;
 using AlbionDataAvalonia.Views;
 using Avalonia;
 using Avalonia.Controls;
@@ -81,25 +82,14 @@ public partial class MainViewModel : ViewModelBase
         null => "Premium Unknown"
     };
 
-    public IBrush PremiumStatusBackground => HasPremium switch
-    {
-        true => Brush.Parse("#4DFFA726"),
-        false => Brush.Parse("#2AFFFFFF"),
-        null => Brush.Parse("#1AFFFFFF")
-    };
-
-    public IBrush PremiumStatusForeground => HasPremium switch
-    {
-        true => Brush.Parse("#FFD180"),
-        false => Brush.Parse("#C7C7C7"),
-        null => Brush.Parse("#999999")
-    };
+    public bool IsPremium => HasPremium == true;
+    public bool IsNotPremium => HasPremium == false;
 
     partial void OnHasPremiumChanged(bool? value)
     {
         OnPropertyChanged(nameof(PremiumStatusText));
-        OnPropertyChanged(nameof(PremiumStatusBackground));
-        OnPropertyChanged(nameof(PremiumStatusForeground));
+        OnPropertyChanged(nameof(IsPremium));
+        OnPropertyChanged(nameof(IsNotPremium));
     }
 
     [ObservableProperty]
@@ -362,11 +352,7 @@ public partial class MainViewModel : ViewModelBase
             return;
         }
 
-        if (!Dispatcher.UIThread.CheckAccess())
-        {
-            Dispatcher.UIThread.Post(() => OnUserSettingsPropertyChanged(sender, e));
-            return;
-        }
+        if (UiDispatch.Repost(() => OnUserSettingsPropertyChanged(sender, e))) return;
 
         UploadToAfmOnly = _settingsManager.UserSettings.UploadToAfmOnly;
         ContributeToPublic = _settingsManager.UserSettings.ContributeToPublic;
@@ -381,11 +367,7 @@ public partial class MainViewModel : ViewModelBase
     // Token refreshes raise this from the thread pool.
     private void OnAuthUserChanged(FirebaseAuthResponse? user)
     {
-        if (!Dispatcher.UIThread.CheckAccess())
-        {
-            Dispatcher.UIThread.Post(() => OnAuthUserChanged(user));
-            return;
-        }
+        if (UiDispatch.Repost(() => OnAuthUserChanged(user))) return;
 
         FirebaseUser = user;
         UserLoggedIn = user is not null;
@@ -394,11 +376,7 @@ public partial class MainViewModel : ViewModelBase
     // Upload results arrive on uploader threads.
     private void ApplyPublicUploadStats(PublicUploadStatsSnapshot stats)
     {
-        if (!Dispatcher.UIThread.CheckAccess())
-        {
-            Dispatcher.UIThread.Post(() => ApplyPublicUploadStats(stats));
-            return;
-        }
+        if (UiDispatch.Repost(() => ApplyPublicUploadStats(stats))) return;
 
         PublicUploadSuccessCount = stats.SuccessCount;
         PublicUploadFailedCount = stats.FailedCount;
@@ -413,11 +391,7 @@ public partial class MainViewModel : ViewModelBase
 
     private void ApplyPrivateUploadStats(PrivateUploadStatsSnapshot stats)
     {
-        if (!Dispatcher.UIThread.CheckAccess())
-        {
-            Dispatcher.UIThread.Post(() => ApplyPrivateUploadStats(stats));
-            return;
-        }
+        if (UiDispatch.Repost(() => ApplyPrivateUploadStats(stats))) return;
 
         PrivateUploadSuccessCount = stats.SuccessCount;
         PrivateUploadFailedCount = stats.FailedCount;
@@ -432,11 +406,7 @@ public partial class MainViewModel : ViewModelBase
 
     private void UpdateState(object? sender, PlayerStateEventArgs e)
     {
-        if (!Dispatcher.UIThread.CheckAccess())
-        {
-            Dispatcher.UIThread.Post(() => UpdateState(sender, e));
-            return;
-        }
+        if (UiDispatch.Repost(() => UpdateState(sender, e))) return;
 
         // Snapshots raised on capture threads are posted, so a late one can be older than the current state.
         LocationName = _playerState.Location.FriendlyName;
@@ -466,11 +436,7 @@ public partial class MainViewModel : ViewModelBase
             return;
         }
 
-        if (!Dispatcher.UIThread.CheckAccess())
-        {
-            Dispatcher.UIThread.Post(() => OnPlayerIdentityChanged(identity));
-            return;
-        }
+        if (UiDispatch.Repost(() => OnPlayerIdentityChanged(identity))) return;
 
         PlayerAffiliationText = FormatPlayerAffiliation(identity.AllianceName, identity.GuildName);
     }
@@ -509,11 +475,7 @@ public partial class MainViewModel : ViewModelBase
 
     private void NetworkListener_MacOSCapturePermissionSetupRequiredChanged(object? sender, EventArgs e)
     {
-        if (!Dispatcher.UIThread.CheckAccess())
-        {
-            Dispatcher.UIThread.Post(() => NetworkListener_MacOSCapturePermissionSetupRequiredChanged(sender, e));
-            return;
-        }
+        if (UiDispatch.Repost(() => NetworkListener_MacOSCapturePermissionSetupRequiredChanged(sender, e))) return;
 
         OnPropertyChanged(nameof(ShowMacOSCapturePermissionSetup));
         UpdateSetup();
@@ -521,11 +483,7 @@ public partial class MainViewModel : ViewModelBase
 
     private void UpdateUploadStats()
     {
-        if (!Dispatcher.UIThread.CheckAccess())
-        {
-            Dispatcher.UIThread.Post(UpdateUploadStats);
-            return;
-        }
+        if (UiDispatch.Repost(UpdateUploadStats)) return;
 
         UploadQueueSize = _uploader.uploadQueueCount;
         RunningTasksCount = _uploader.runningTasksCount;
@@ -865,11 +823,7 @@ public partial class MainViewModel : ViewModelBase
 
     private void OnLoginAuthorizationReady(Uri authorizationUri)
     {
-        if (!Dispatcher.UIThread.CheckAccess())
-        {
-            Dispatcher.UIThread.Post(() => OnLoginAuthorizationReady(authorizationUri));
-            return;
-        }
+        if (UiDispatch.Repost(() => OnLoginAuthorizationReady(authorizationUri))) return;
 
         if (!IsLoginPending)
         {

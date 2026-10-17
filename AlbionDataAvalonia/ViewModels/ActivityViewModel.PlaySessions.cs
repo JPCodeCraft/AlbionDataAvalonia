@@ -1,5 +1,6 @@
 using AlbionDataAvalonia.Activity;
 using AlbionDataAvalonia.Activity.Models;
+using AlbionDataAvalonia.Ui;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System;
@@ -225,7 +226,7 @@ public partial class ActivityViewModel
         if (!IsPlaySessionPeriod || context.Owner is null) { CurrentStateText = ""; return; }
         if (context.PlaySession is not { } playSession) { CurrentStateText = "Waiting for your first activity"; return; }
         if (ActivityPlaySessionProjection.IsIdle(playSession, nowUtc))
-            CurrentStateText = $"Idle {ActivityDisplay.Duration((nowUtc - playSession.LastActivityAtUtc).TotalSeconds)} · time is paused";
+            CurrentStateText = $"Idle {UiFormat.Duration((nowUtc - playSession.LastActivityAtUtc).TotalSeconds)} · time is paused";
         else CurrentStateText = context.Session is null ? "Between runs" : "";
     }
 

@@ -1,10 +1,11 @@
 ﻿using AlbionDataAvalonia.Locations;
-using AlbionDataAvalonia.Locations.Models;
 using AlbionDataAvalonia.Items;
+using AlbionDataAvalonia.Locations.Models;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
+using AlbionDataAvalonia.Ui;
 using AlbionDataAvalonia.Ui.Services;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -29,16 +30,13 @@ public partial class TradesViewModel : ViewModelBase
     private readonly TradeService _tradeService;
     private readonly CsvExportService _csvExportService;
     private readonly PortfolioUploadService _portfolioUploadService;
-    private readonly TimeSpan _filterDebounceInterval = TimeSpan.FromMilliseconds(250);
-    private readonly TimeSpan _loadDebounceInterval = TimeSpan.FromMilliseconds(100);
-    private IDisposable? _pendingFilterRefreshRegistration;
-    private IDisposable? _pendingLoadTradesRegistration;
+    private UiDebouncer? _filterDebounce;
+    private UiDebouncer? _loadDebounce;
     private readonly SemaphoreSlim _loadGate = new(1, 1);
-    private int _loadVersion;
-    private int _portfolioRefreshVersion;
+    private readonly LatestLoad _tradeLoads = new();
+    private readonly LatestLoad _portfolioRefreshes = new();
     private Task? _backgroundPortfolioRefresh;
     private bool _isPortfolioStatusLoading;
-    private static readonly IReadOnlyList<NumericOption> _tradesToLoadOptions = NumericOptions.MailAndTradeLoadOptions;
 
     [ObservableProperty]
     private string filterText = string.Empty;
@@ -96,16 +94,15 @@ public partial class TradesViewModel : ViewModelBase
     private List<TradeRowViewModel> SelectedTrades { get; set; } = new();
     private HashSet<Guid> PortfolioUploadedTradeIds { get; set; } = new();
 
-    private List<string> _locations = ["Any"];
+    private List<string> _locations = [UiText.Any];
     public List<string> Locations => _locations;
 
     private async Task RefreshLocationOptionsAsync()
     {
         try
         {
-            var selectedServer = GetSelectedServer();
-            AlbionServers.TryParse(selectedServer, out AlbionServer? server);
-            var locationIds = await Task.Run(() => _tradeService.GetDistinctLocationIds(server?.Id));
+            var selectedServer = SelectedServer.Value;
+            var locationIds = await Task.Run(() => _tradeService.GetDistinctLocationIds(selectedServer));
 
             var locations = locationIds
                 .Select(id => AlbionLocations.ResolveStoredLocation(string.Empty, id))
@@ -115,14 +112,14 @@ public partial class TradesViewModel : ViewModelBase
                 .OrderBy(x => x)
                 .Cast<string>()
                 .ToList();
-            locations.Insert(0, "Any");
+            locations.Insert(0, UiText.Any);
 
             // Scoped by server only (never the location filter), so selecting a location
             // doesn't shrink the list. Only notify when the set actually changes to avoid
             // ItemsSource churn that would round-trip the selection.
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (selectedServer == GetSelectedServer() && !_locations.SequenceEqual(locations))
+                if (selectedServer == SelectedServer.Value && !_locations.SequenceEqual(locations))
                 {
                     _locations = locations;
                     OnPropertyChanged(nameof(Locations));
@@ -135,21 +132,23 @@ public partial class TradesViewModel : ViewModelBase
         }
     }
     [ObservableProperty]
-    private string selectedLocation = "Any";
+    private string selectedLocation = UiText.Any;
 
-    public List<string> TradeOperations { get; set; } = new() { "Any", "Bought", "Sold" };
+    private static readonly Option<TradeOperation?> AnyOperation = new(null, UiText.Any);
+    public IReadOnlyList<Option<TradeOperation?>> TradeOperations { get; } = [AnyOperation, new(TradeOperation.Buy, "Bought"), new(TradeOperation.Sell, "Sold")];
     [ObservableProperty]
-    private string selectedOperation = "Any";
+    private Option<TradeOperation?> selectedOperation = AnyOperation;
 
-    public List<string> TradeTypes { get; set; } = new() { "Any", "Instant", "Order" };
+    private static readonly Option<TradeType?> AnyTradeType = new(null, UiText.Any);
+    public IReadOnlyList<Option<TradeType?>> TradeTypes { get; } = [AnyTradeType, new(TradeType.Instant, "Instant"), new(TradeType.Order, "Order")];
     [ObservableProperty]
-    private string selectedTradeType = "Any";
+    private Option<TradeType?> selectedTradeType = AnyTradeType;
 
-    public List<string> Servers { get; set; } = new();
+    public IReadOnlyList<Option<int?>> Servers => UiOptions.Servers;
     [ObservableProperty]
-    private string selectedServer = "Any";
+    private Option<int?> selectedServer = UiOptions.Servers[0];
 
-    public IReadOnlyList<NumericOption> TradesToLoadOptions => _tradesToLoadOptions;
+    public IReadOnlyList<Option<int>> TradesToLoadOptions => UiOptions.TradeCounts;
 
     public bool IsSelectedPortfolioPostLimitExceeded => PortfolioUploadService.IsPostLimitExceeded(SelectedPortfolioPostCount);
 
@@ -161,13 +160,9 @@ public partial class TradesViewModel : ViewModelBase
 
     public bool CanAddSelectedTradesToPortfolio => HasSelectedRows && !IsAddingToPortfolio && !IsSelectedPortfolioPostLimitExceeded;
 
-    public NumericOption SelectedTradesToLoad
+    public Option<int> SelectedTradesToLoad
     {
-        get
-        {
-            var current = _settingsManager?.UserSettings.TradesToShow ?? _tradesToLoadOptions[0].Value;
-            return ResolveOption(_tradesToLoadOptions, current);
-        }
+        get => UiOptions.Nearest(UiOptions.TradeCounts, _settingsManager?.UserSettings.TradesToShow ?? UiOptions.TradeCounts[0].Value);
         set
         {
             if (value is null || _settingsManager is null)
@@ -185,14 +180,14 @@ public partial class TradesViewModel : ViewModelBase
 
     partial void OnFilterTextChanged(string? oldValue, string newValue) => ScheduleFilterTrades();
     partial void OnSelectedLocationChanged(string? oldValue, string newValue) => QueueLoadTradesForSelectionChange(oldValue, newValue);
-    partial void OnSelectedOperationChanged(string? oldValue, string newValue) => QueueLoadTradesForSelectionChange(oldValue, newValue);
-    partial void OnSelectedTradeTypeChanged(string? oldValue, string newValue) => QueueLoadTradesForSelectionChange(oldValue, newValue);
-    partial void OnSelectedServerChanged(string? oldValue, string newValue)
+    partial void OnSelectedOperationChanged(Option<TradeOperation?>? oldValue, Option<TradeOperation?> newValue) => QueueLoadTradesForSelectionChange(oldValue, newValue);
+    partial void OnSelectedTradeTypeChanged(Option<TradeType?>? oldValue, Option<TradeType?> newValue) => QueueLoadTradesForSelectionChange(oldValue, newValue);
+    partial void OnSelectedServerChanged(Option<int?>? oldValue, Option<int?> newValue)
     {
         QueueLoadTradesForSelectionChange(oldValue, newValue);
 
         // Server scope determines which locations exist; refresh the dropdown for the new server.
-        if (!string.Equals(oldValue, newValue, StringComparison.Ordinal))
+        if (newValue is not null && !Equals(oldValue, newValue))
         {
             _ = RefreshLocationOptionsAsync();
         }
@@ -243,16 +238,13 @@ public partial class TradesViewModel : ViewModelBase
         _settingsManager.UserSettings.PropertyChanged += OnUserSettingsPropertyChanged;
         NormalizeTradesToLoadSetting();
 
-        Servers = AlbionServers.GetAll().Select(x => x.Name).ToList();
-        Servers.Insert(0, "Any");
-
         _playerState.OnPlayerStateChanged += (_, _) => Dispatcher.UIThread.Post(FollowPlayerServer);
     }
 
     // Player state changes come from packet handling, so this runs posted to the UI thread.
     private void FollowPlayerServer()
     {
-        var currentServer = _playerState.AlbionServer?.Name ?? "Any";
+        var currentServer = UiOptions.Find(UiOptions.Servers, _playerState.AlbionServer?.Id);
         if (SelectedServer != currentServer)
         {
             SelectedServer = currentServer;
@@ -276,11 +268,11 @@ public partial class TradesViewModel : ViewModelBase
     [RelayCommand]
     public async Task LoadTrades()
     {
-        var version = Interlocked.Increment(ref _loadVersion);
+        var version = _tradeLoads.Begin();
         await _loadGate.WaitAsync();
         try
         {
-            if (version != Volatile.Read(ref _loadVersion))
+            if (!_tradeLoads.IsCurrent(version))
             {
                 return;
             }
@@ -292,7 +284,7 @@ public partial class TradesViewModel : ViewModelBase
 
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (version != Volatile.Read(ref _loadVersion)
+                if (!_tradeLoads.IsCurrent(version)
                     || filter != GetCurrentTradeFilter()
                     || count != _settingsManager.UserSettings.TradesToShow)
                 {
@@ -314,9 +306,9 @@ public partial class TradesViewModel : ViewModelBase
             Log.Error(ex, "Failed to load trades");
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (version == Volatile.Read(ref _loadVersion))
+                if (_tradeLoads.IsCurrent(version))
                 {
-                    LoadError = "Could not load trades. Your current list is unchanged. Try Reload.";
+                    LoadError = "Could not load trades. Your current list is unchanged. Select Refresh to try again.";
                 }
             });
         }
@@ -370,10 +362,10 @@ public partial class TradesViewModel : ViewModelBase
         bool showStatusOnFailure = false,
         CancellationToken cancellationToken = default)
     {
-        var version = Interlocked.Increment(ref _portfolioRefreshVersion);
+        var version = _portfolioRefreshes.Begin();
         await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            if (version != Volatile.Read(ref _portfolioRefreshVersion)) return;
+            if (!_portfolioRefreshes.IsCurrent(version)) return;
             SetPortfolioStatusLoading(true);
         });
         PortfolioUploadedTradeIdsResult result;
@@ -385,7 +377,7 @@ public partial class TradesViewModel : ViewModelBase
         {
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (version == Volatile.Read(ref _portfolioRefreshVersion)) SetPortfolioStatusLoading(false);
+                if (_portfolioRefreshes.IsCurrent(version)) SetPortfolioStatusLoading(false);
             });
             return false;
         }
@@ -397,7 +389,7 @@ public partial class TradesViewModel : ViewModelBase
 
         return await Dispatcher.UIThread.InvokeAsync(() =>
         {
-            if (version != Volatile.Read(ref _portfolioRefreshVersion)) return false;
+            if (!_portfolioRefreshes.IsCurrent(version)) return false;
             SetPortfolioUploadedTradeIds(result.Success ? result.TradeIds : null);
             if (!result.Success && showStatusOnFailure)
             {
@@ -423,7 +415,7 @@ public partial class TradesViewModel : ViewModelBase
     private void AddPortfolioUploadedTradeIds(IEnumerable<Guid> tradeIds)
     {
         // A response begun before this upload must not erase its newly confirmed IDs.
-        Interlocked.Increment(ref _portfolioRefreshVersion);
+        _portfolioRefreshes.Invalidate();
         foreach (var tradeId in tradeIds)
         {
             PortfolioUploadedTradeIds.Add(tradeId);
@@ -443,9 +435,10 @@ public partial class TradesViewModel : ViewModelBase
         HasSelectedQualityEditableRows = SelectedTrades.Any(trade => !trade.UploadedToPortfolio);
     }
 
-    private void QueueLoadTradesForSelectionChange(string? oldValue, string? newValue)
+    // A combo box briefly selects nothing while its items change; that is not a new filter.
+    private void QueueLoadTradesForSelectionChange(object? oldValue, object? newValue)
     {
-        if (string.IsNullOrWhiteSpace(newValue) || string.Equals(oldValue, newValue, StringComparison.Ordinal))
+        if (newValue is null or "" || Equals(oldValue, newValue))
         {
             return;
         }
@@ -453,60 +446,14 @@ public partial class TradesViewModel : ViewModelBase
         ScheduleLoadTrades();
     }
 
-    private void ScheduleLoadTrades()
-    {
-        if (!Dispatcher.UIThread.CheckAccess())
-        {
-            Dispatcher.UIThread.Post(ScheduleLoadTrades);
-            return;
-        }
-
-        _pendingLoadTradesRegistration?.Dispose();
-        _pendingLoadTradesRegistration = DispatcherTimer.RunOnce(() =>
-        {
-            _pendingLoadTradesRegistration = null;
-            _ = LoadTrades();
-        }, _loadDebounceInterval);
-    }
-
-    private string GetSelectedLocation()
-    {
-        return string.IsNullOrWhiteSpace(SelectedLocation) ? "Any" : SelectedLocation;
-    }
-
-    private string GetSelectedOperation()
-    {
-        return string.IsNullOrWhiteSpace(SelectedOperation) ? "Any" : SelectedOperation;
-    }
-
-    private string GetSelectedTradeType()
-    {
-        return string.IsNullOrWhiteSpace(SelectedTradeType) ? "Any" : SelectedTradeType;
-    }
-
-    private string GetSelectedServer()
-    {
-        return string.IsNullOrWhiteSpace(SelectedServer) ? "Any" : SelectedServer;
-    }
+    // Several filters can change at once, such as the server and its locations; load once they settle.
+    private void ScheduleLoadTrades() => (_loadDebounce ??= new(TimeSpan.FromMilliseconds(100), () => _ = LoadTrades())).Trigger();
 
     private CurrentTradeFilter GetCurrentTradeFilter()
     {
-        var location = AlbionLocations.Get(GetSelectedLocation());
-        AlbionServers.TryParse(GetSelectedServer(), out AlbionServer? server);
-        var selectedTradeType = GetSelectedTradeType();
-        var selectedOperation = GetSelectedOperation();
-        TradeType? tradeType = selectedTradeType == "Instant"
-            ? TradeType.Instant
-            : selectedTradeType == "Order"
-                ? TradeType.Order
-                : null;
-        TradeOperation? tradeOperation = selectedOperation == "Sold"
-            ? TradeOperation.Sell
-            : selectedOperation == "Bought"
-                ? TradeOperation.Buy
-                : null;
-
-        return new CurrentTradeFilter(server?.Id, location?.MarketLocation?.IdInt ?? location?.IdInt, tradeType, tradeOperation);
+        var location = string.IsNullOrWhiteSpace(SelectedLocation) ? null : AlbionLocations.Get(SelectedLocation);
+        return new CurrentTradeFilter(SelectedServer?.Value, location?.MarketLocation?.IdInt ?? location?.IdInt,
+            SelectedTradeType?.Value, SelectedOperation?.Value);
     }
 
     private readonly record struct CurrentTradeFilter(int? AlbionServerId, int? LocationId, TradeType? TradeType, TradeOperation? TradeOperation);
@@ -629,11 +576,11 @@ public partial class TradesViewModel : ViewModelBase
             }
 
             UpdateSelectedTrades(selectedTrades);
-            var status = $"Quality: {updatedCount:N0} trade{(updatedCount == 1 ? string.Empty : "s")} updated to {ItemQuality.Format(qualityLevel)}.";
+            var status = $"Quality: {UiFormat.Count(updatedCount, "trade")} updated to {ItemQuality.Format(qualityLevel)}.";
             var skippedCount = selectedTrades.Count - editableTrades.Count;
             if (skippedCount > 0)
             {
-                status += $" {skippedCount:N0} uploaded trade{(skippedCount == 1 ? string.Empty : "s")} skipped.";
+                status += $" {UiFormat.Count(skippedCount, "uploaded trade")} skipped.";
             }
 
             SetPortfolioImportStatus(status);
@@ -890,51 +837,16 @@ public partial class TradesViewModel : ViewModelBase
 
     private void NormalizeTradesToLoadSetting()
     {
-        var normalized = NormalizeOption(_tradesToLoadOptions, _settingsManager.UserSettings.TradesToShow);
+        var normalized = UiOptions.Nearest(UiOptions.TradeCounts, _settingsManager.UserSettings.TradesToShow).Value;
         if (_settingsManager.UserSettings.TradesToShow != normalized)
         {
             _settingsManager.UserSettings.TradesToShow = normalized;
         }
     }
 
-    private static NumericOption ResolveOption(IReadOnlyList<NumericOption> options, int value)
-    {
-        var normalized = NormalizeOption(options, value);
-        return options.First(option => option.Value == normalized);
-    }
+    private void ScheduleFilterTrades() => (_filterDebounce ??= new(TimeSpan.FromMilliseconds(250), FilterTrades)).Trigger();
 
-    private static int NormalizeOption(IReadOnlyList<NumericOption> options, int value)
-    {
-        if (options.Count == 0)
-        {
-            return value;
-        }
-
-        var nearest = options.OrderBy(option => Math.Abs(option.Value - value)).First();
-        return nearest.Value;
-    }
-
-    private void ScheduleFilterTrades()
-    {
-        if (!Dispatcher.UIThread.CheckAccess())
-        {
-            Dispatcher.UIThread.Post(ScheduleFilterTrades);
-            return;
-        }
-
-        CancelPendingFilterRefresh();
-        _pendingFilterRefreshRegistration = DispatcherTimer.RunOnce(() =>
-        {
-            _pendingFilterRefreshRegistration = null;
-            FilterTrades();
-        }, _filterDebounceInterval);
-    }
-
-    private void CancelPendingFilterRefresh()
-    {
-        _pendingFilterRefreshRegistration?.Dispose();
-        _pendingFilterRefreshRegistration = null;
-    }
+    private void CancelPendingFilterRefresh() => _filterDebounce?.Cancel();
 }
 
 public sealed class TradeRowViewModel : ObservableObject

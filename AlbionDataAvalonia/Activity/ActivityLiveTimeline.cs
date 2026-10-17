@@ -1,4 +1,5 @@
 using AlbionDataAvalonia.Activity.Models;
+using AlbionDataAvalonia.Ui;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -170,9 +171,9 @@ internal static class ActivityLiveTimeline
             context = WithPlayer(context, first.SourceName);
         }
         else lines.Add($"{Actor(first.SourceName)} → {Actor(first.TargetName)}");
-        var time = first.CapturedAtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture);
+        var time = UiFormat.LocalTime(first.CapturedAtUtc);
         if (events.Length > 1 && events[^1].CapturedAtUtc > first.CapturedAtUtc)
-            time += " – " + events[^1].CapturedAtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture);
+            time += " – " + UiFormat.LocalTime(events[^1].CapturedAtUtc);
         var tooltipTitle = kind is ActivityLiveTimelineMarkerKind.Fame or ActivityLiveTimelineMarkerKind.Silver or ActivityLiveTimelineMarkerKind.PlayerKill ? label : $"{label} · {amount:N0}";
         var tooltip = new ActivityLiveTimelineTooltip(tooltipTitle, time, context, lines);
         var detail = time + "\n" + context + "\n" + string.Join("\n", lines);
@@ -191,11 +192,11 @@ internal static class ActivityLiveTimeline
         if (ActivityPartyDetails.Parse(events[^1].DetailsJson) is { PartySize: > 0 } details)
             lines.Add(details.PartySize == 1 ? "Now solo" : $"Party size: {details.PartySize:N0}");
         var title = joined.Length > 0 && left.Length > 0 ? "Party changed"
-            : joined.Length > 0 ? joined.Length == 1 ? "Player joined the party" : $"{joined.Length:N0} players joined the party"
-            : left.Length == 1 ? "Player left the party" : $"{left.Length:N0} players left the party";
-        var time = first.CapturedAtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture);
+            : joined.Length > 0 ? joined.Length == 1 ? "Player joined the party" : $"{UiFormat.Count(joined.Length, "player")} joined the party"
+            : left.Length == 1 ? "Player left the party" : $"{UiFormat.Count(left.Length, "player")} left the party";
+        var time = UiFormat.LocalTime(first.CapturedAtUtc);
         if (events[^1].CapturedAtUtc > first.CapturedAtUtc)
-            time += " – " + events[^1].CapturedAtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture);
+            time += " – " + UiFormat.LocalTime(events[^1].CapturedAtUtc);
         var tooltip = new ActivityLiveTimelineTooltip(title, time, first.LocationName, lines);
         return new($"{ActivityLiveTimelineMarkerKind.Party}:{first.Id:N}", ActivityLiveTimelineMarkerKind.Party, first.CapturedAtUtc,
             "Party changed", time + "\n" + first.LocationName + "\n" + string.Join("\n", lines),
@@ -245,12 +246,12 @@ internal static class ActivityLiveTimeline
         var amount = group.Sum(marker => marker.Amount);
         var secondary = group.Sum(marker => marker.SecondaryAmount);
         var unknown = group.Any(marker => marker.HasUnknownAmount);
-        var time = first.CapturedAtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture);
-        if (end > first.CapturedAtUtc) time += " – " + end.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture);
+        var time = UiFormat.LocalTime(first.CapturedAtUtc);
+        if (end > first.CapturedAtUtc) time += " – " + UiFormat.LocalTime(end);
         var title = first.Label + " · " + (party ? PartyValue(amount, secondary) : amount.ToString("N0", CultureInfo.CurrentCulture) + (unknown ? " + ?" : ""));
         // Keep constituent ranges and totals: their existing item/mob breakdowns may already be truncated.
         var lines = group.Take(4).Select(marker =>
-            (marker.Tooltip?.TimeText ?? marker.CapturedAtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture)) +
+            (marker.Tooltip?.TimeText ?? UiFormat.LocalTime(marker.CapturedAtUtc)) +
             " · " + (party ? marker.ValueText : marker.Amount.ToString("N0", CultureInfo.CurrentCulture) + (marker.HasUnknownAmount ? " + ?" : "")) +
             (marker.Kind is ActivityLiveTimelineMarkerKind.Loot or ActivityLiveTimelineMarkerKind.Gathering or ActivityLiveTimelineMarkerKind.Fishing
                 ? " items" : marker.Kind == ActivityLiveTimelineMarkerKind.MobKill ? " kills" : "")).ToList();
@@ -271,10 +272,7 @@ internal static class ActivityLiveTimeline
     }
 
     private static string MarkerValue(double amount, bool unknown) =>
-        unknown && amount == 0 ? "?" : CompactAmount(amount) + (unknown ? " ?" : "");
-
-    private static string CompactAmount(double value) => value >= 1000000 ? (value / 1000000).ToString("0.#", CultureInfo.CurrentCulture) + "m" :
-        value >= 1000 ? (value / 1000).ToString("0.#", CultureInfo.CurrentCulture) + "k" : value.ToString("N0", CultureInfo.CurrentCulture);
+        unknown && amount == 0 ? "?" : UiFormat.Compact(amount) + (unknown ? " ?" : "");
 
     private static string FameLabel(ActivityFameCategory category) => category switch
     {

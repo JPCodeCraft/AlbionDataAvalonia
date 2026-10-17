@@ -1,4 +1,5 @@
 using AlbionDataAvalonia.Activity.Models;
+using AlbionDataAvalonia.Ui;
 using AlbionDataAvalonia.ViewModels;
 using Avalonia;
 using Avalonia.Controls;
@@ -6,6 +7,7 @@ using Avalonia.Data;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
+using Avalonia.Media.Immutable;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -22,25 +24,9 @@ public sealed class ActivityMapCanvas : Control
     public static readonly StyledProperty<bool> FollowProperty =
         AvaloniaProperty.Register<ActivityMapCanvas, bool>(nameof(Follow), defaultBindingMode: BindingMode.TwoWay);
 
-    // The same colors the live timeline uses for these events.
-    internal static readonly Color KillColor = Color.Parse("#EB9C64");
-    internal static readonly Color LootColor = Color.Parse("#BF91F0");
-    internal static readonly Color GatheringColor = Color.Parse("#A0D477");
-    internal static readonly Color DeathColor = Color.Parse("#F47D7D");
-    internal static readonly Color PathColor = Color.Parse("#FFA726");
-    internal static readonly Color PathStartColor = Color.Parse("#4FC3F7");
-    private static readonly IBrush Background = new SolidColorBrush(Color.Parse("#1C1E1E"));
-    private static readonly IBrush GridBrush = new SolidColorBrush(Color.Parse("#22FFFFFF"));
-    private static readonly IBrush ZoneBrush = new SolidColorBrush(Color.Parse("#14FFFFFF"));
-    private static readonly IBrush TooltipBrush = new SolidColorBrush(Color.Parse("#F0252525"));
-    private static readonly IBrush TextBrush = new SolidColorBrush(Color.Parse("#EFEFEF"));
-    private static readonly IBrush MutedBrush = new SolidColorBrush(Color.Parse("#B5B5B5"));
-    private static readonly Pen TooltipPen = new(new SolidColorBrush(Color.Parse("#555555")), 1);
-    private static readonly Pen OutlinePen = new(new SolidColorBrush(Color.Parse("#CC111111")), 1.4);
-    private static readonly Pen WhitePen = new(Brushes.White, 1.6, lineJoin: PenLineJoin.Round);
-    private static readonly Pen PartyRingPen = new(new SolidColorBrush(Color.Parse("#D0FFFFFF")), 1.4);
-    private static readonly IBrush CountBrush = new SolidColorBrush(Color.Parse("#E6202020"));
-    private static readonly Pen CountPen = new(new SolidColorBrush(Color.Parse("#80FFFFFF")), 1);
+    private static Color MarkerOutline => UiPalette.Color("UiMapMarkerOutlineColor");
+    private static ImmutablePen OutlinePen => UiPalette.Pen(MarkerOutline, 1.4);
+    private static ImmutablePen WhitePen => UiPalette.Pen(UiPalette.Color("UiMapMarkerEdgeColor"), 1.6, join: PenLineJoin.Round);
     private const double LiveZoom = 3.5;
     private const double MinZoom = 0.5;
     private const double MaxZoom = 40;
@@ -147,7 +133,7 @@ public sealed class ActivityMapCanvas : Control
     public override void Render(DrawingContext context)
     {
         var bounds = new Rect(Bounds.Size);
-        context.FillRectangle(Background, bounds);
+        context.FillRectangle(UiPalette.Brush("UiMapBackgroundColor"), bounds);
         hits.Clear();
         if (Scene is not { } scene || bounds.Width <= 0 || bounds.Height <= 0) return;
 
@@ -171,7 +157,7 @@ public sealed class ActivityMapCanvas : Control
         if (scene.Layers.HasFlag(ActivityMapLayers.Path)) DrawPath(context, scene, scale);
         DrawMarkers(context, scene, scale);
         DrawPosition(context, scene, scale);
-        if (hovered is { } hover && pointer is { } at) DrawTooltip(context, hover, at, scene);
+        if (hovered is { } hover && pointer is { } at) ChartDrawing.DrawTooltip(context, bounds, at, hover.Title, hover.Lines);
     }
 
     private void DrawZoneOutline(DrawingContext context, ActivityMapScene scene, double scale)
@@ -187,9 +173,9 @@ public sealed class ActivityMapCanvas : Control
             path.EndFigure(true);
         }
 
-        context.DrawGeometry(ZoneBrush, null, outline);
+        context.DrawGeometry(UiPalette.Brush("UiMapZoneColor"), null, outline);
         // A faint 50-unit grid gives zones without a minimap a sense of distance.
-        var pen = new Pen(GridBrush, 1);
+        var pen = UiPalette.Pen(UiPalette.Color("UiMapGridColor"));
         var step = 50;
         for (var x = Math.Ceiling(geometry.Min.X / step) * step; x <= geometry.Max.X; x += step)
             context.DrawLine(pen, ToScreen(ImagePoint(scene, x, geometry.Min.Y), scale), ToScreen(ImagePoint(scene, x, geometry.Max.Y), scale));
@@ -219,7 +205,7 @@ public sealed class ActivityMapCanvas : Control
         {
             var at = ToScreen(ImagePoint(scene, exit.Position.X, exit.Position.Y), scale);
             if (!Visible(at, 8)) continue;
-            context.DrawEllipse(exit.Fill, OutlinePen, at, 6, 6);
+            context.DrawEllipse(UiPalette.Brush(ActivityPalette.Zone(exit.Zone)), OutlinePen, at, 6, 6);
             hits.Add(new Hit(at, 9, exit.Label, []));
         }
     }
@@ -285,9 +271,9 @@ public sealed class ActivityMapCanvas : Control
         {
             if (figures[bucket] is not { } figure) continue;
             var fraction = (bucket + 1d) / buckets;
-            var color = live ? Color.FromArgb((byte)(40 + 215 * fraction), PathColor.R, PathColor.G, PathColor.B) : Blend(PathStartColor, PathColor, fraction);
+            var color = live ? UiPalette.WithAlpha(ActivityPalette.PathEnd, 40 + 215 * fraction) : UiPalette.Blend(ActivityPalette.PathStart, ActivityPalette.PathEnd, fraction);
             var width = live ? 2 + 1.6 * fraction : 3;
-            context.DrawGeometry(null, new Pen(new SolidColorBrush(color), width, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round), figure);
+            context.DrawGeometry(null, UiPalette.Pen(color, width, PenLineCap.Round, PenLineJoin.Round), figure);
         }
 
         if (!live)
@@ -296,7 +282,7 @@ public sealed class ActivityMapCanvas : Control
             if (visible.Length > 0)
             {
                 var start = ToScreen(ImagePoint(scene, visible[0].X, visible[0].Y), scale);
-                context.DrawEllipse(new SolidColorBrush(PathStartColor), WhitePen, start, 5, 5);
+                context.DrawEllipse(UiPalette.Brush(ActivityPalette.PathStart), WhitePen, start, 5, 5);
                 hits.Add(new Hit(start, 7, "Run started here", Lines(When(visible[0].CapturedAtUtc, scene))));
             }
         }
@@ -365,9 +351,10 @@ public sealed class ActivityMapCanvas : Control
                 using (context.PushOpacity(Math.Max(0.2, cluster.Opacity)))
                 {
                     // A party member's event gets a light ring so it reads apart from the character's own.
-                    if (cluster.Members.All(x => !x.IsOwn)) context.DrawEllipse(null, PartyRingPen, at, count > 1 ? 12 : 10.5, count > 1 ? 12 : 10.5);
+                    if (cluster.Members.All(x => !x.IsOwn))
+                        context.DrawEllipse(null, UiPalette.Pen(UiPalette.Color("UiMapPartyRingColor"), 1.4), at, count > 1 ? 12 : 10.5, count > 1 ? 12 : 10.5);
                     DrawMarkerShape(context, cluster.Kind, at, count > 1 ? 7.5 : 6.5);
-                    if (count > 1) DrawCount(context, at, count);
+                    if (count > 1) ChartDrawing.DrawCountBadge(context, at, count);
                 }
 
                 hits.Add(count == 1 ? new Hit(at, 9, cluster.Members[0].Title,
@@ -375,16 +362,6 @@ public sealed class ActivityMapCanvas : Control
                     : new Hit(at, 11, GroupTitle(cluster.Kind, count), GroupLines(cluster.Members, scene)));
             }
         }
-    }
-
-    private static void DrawCount(DrawingContext context, Point at, int count)
-    {
-        var text = new FormattedText(count > 99 ? "99+" : count.ToString(CultureInfo.CurrentCulture), CultureInfo.CurrentCulture,
-            FlowDirection.LeftToRight, new Typeface(FontFamily.Default, FontStyle.Normal, FontWeight.Bold), 10, Brushes.White);
-        var width = Math.Max(15, text.Width + 7);
-        var badge = new Rect(at.X + 4, at.Y - 15, width, 14);
-        context.DrawRectangle(CountBrush, CountPen, badge, 7, 7);
-        context.DrawText(text, new Point(badge.X + (width - text.Width) / 2, badge.Y + (14 - text.Height) / 2));
     }
 
     private static string GroupTitle(ActivityMapMarkerKind kind, int count) => kind switch
@@ -403,7 +380,7 @@ public sealed class ActivityMapCanvas : Control
         if (groups.Length > GroupLinesShown)
         {
             var rest = groups.Skip(GroupLinesShown).Sum(x => x.Count());
-            lines.Add(rest == 1 ? "and 1 more" : $"and {rest} more");
+            lines.Add($"and {UiFormat.Whole(rest)} more");
         }
 
         var oldest = members.Min(x => x.CapturedAtUtc);
@@ -440,20 +417,19 @@ public sealed class ActivityMapCanvas : Control
             }
         }
 
+        var fill = UiPalette.Brush(ActivityPalette.MapMarker(kind));
         switch (kind)
         {
             case ActivityMapMarkerKind.Kill:
-                context.DrawGeometry(new SolidColorBrush(KillColor), OutlinePen, geometry);
-                break;
             case ActivityMapMarkerKind.Gathering:
-                context.DrawGeometry(new SolidColorBrush(GatheringColor), OutlinePen, geometry);
+                context.DrawGeometry(fill, OutlinePen, geometry);
                 break;
             case ActivityMapMarkerKind.Loot:
-                context.DrawEllipse(new SolidColorBrush(LootColor), OutlinePen, at, radius * 0.9, radius * 0.9);
+                context.DrawEllipse(fill, OutlinePen, at, radius * 0.9, radius * 0.9);
                 break;
             default:
-                context.DrawEllipse(new SolidColorBrush(Color.Parse("#E0212121")), new Pen(new SolidColorBrush(DeathColor), 1.5), at, radius, radius);
-                var pen = new Pen(new SolidColorBrush(DeathColor), 1.8, lineCap: PenLineCap.Round);
+                context.DrawEllipse(UiPalette.Brush("UiMapDeathFillColor"), UiPalette.Pen(ActivityPalette.Death, 1.5), at, radius, radius);
+                var pen = UiPalette.Pen(ActivityPalette.Death, 1.8, PenLineCap.Round);
                 var arm = radius * 0.5;
                 context.DrawLine(pen, new Point(at.X - arm, at.Y - arm), new Point(at.X + arm, at.Y + arm));
                 context.DrawLine(pen, new Point(at.X + arm, at.Y - arm), new Point(at.X - arm, at.Y + arm));
@@ -476,11 +452,11 @@ public sealed class ActivityMapCanvas : Control
 
         if (current is not { } point) return;
         var at = ToScreen(ImagePoint(scene, point.X, point.Y), scale);
-        context.DrawEllipse(new SolidColorBrush(Color.FromArgb(50, PathColor.R, PathColor.G, PathColor.B)),
-            new Pen(new SolidColorBrush(Color.FromArgb(140, PathColor.R, PathColor.G, PathColor.B)), 1), at, 16, 16);
+        var you = ActivityPalette.PathEnd;
+        context.DrawEllipse(UiPalette.Brush(UiPalette.WithAlpha(you, 50)), UiPalette.Pen(UiPalette.WithAlpha(you, 140)), at, 16, 16);
         if (heading is not { } angle)
         {
-            context.DrawEllipse(new SolidColorBrush(PathColor), WhitePen, at, 6, 6);
+            context.DrawEllipse(UiPalette.Brush(you), WhitePen, at, 6, 6);
             return;
         }
 
@@ -499,34 +475,13 @@ public sealed class ActivityMapCanvas : Control
             path.EndFigure(true);
         }
 
-        context.DrawGeometry(new SolidColorBrush(PathColor), WhitePen, arrow);
-    }
-
-    private void DrawTooltip(DrawingContext context, Hit hit, Point at, ActivityMapScene scene)
-    {
-        var lines = new List<(string Text, IBrush Brush, double Size, FontWeight Weight)> { (hit.Title, TextBrush, 13, FontWeight.SemiBold) };
-        lines.AddRange(hit.Lines.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => (x, MutedBrush, 12d, FontWeight.Normal)));
-        var texts = lines.Select(x => new FormattedText(x.Text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
-            new Typeface(FontFamily.Default, FontStyle.Normal, x.Weight), x.Size, x.Brush)).ToArray();
-        var width = texts.Max(x => x.Width) + 20;
-        var height = texts.Sum(x => x.Height) + 14;
-        var left = Math.Clamp(at.X + 14, 4, Math.Max(4, Bounds.Width - width - 4));
-        var top = at.Y + 16 + height > Bounds.Height ? at.Y - height - 10 : at.Y + 16;
-        context.DrawRectangle(TooltipBrush, TooltipPen, new Rect(left, Math.Max(4, top), width, height), 6, 6);
-        var y = Math.Max(4, top) + 7;
-        foreach (var text in texts)
-        {
-            context.DrawText(text, new Point(left + 10, y));
-            y += text.Height;
-        }
+        context.DrawGeometry(UiPalette.Brush(you), WhitePen, arrow);
     }
 
     private static string When(DateTime? at, ActivityMapScene scene)
     {
         if (at is not { } time) return "";
-        if (!scene.IsLive) return time.ToLocalTime().ToString("t", CultureInfo.CurrentCulture);
-        var age = scene.NowUtc - time;
-        return age < TimeSpan.FromMinutes(1) ? "just now" : age < TimeSpan.FromHours(1) ? $"{(int)age.TotalMinutes} min ago" : time.ToLocalTime().ToString("t", CultureInfo.CurrentCulture);
+        return scene.IsLive ? UiFormat.Ago(time, scene.NowUtc) : UiFormat.LocalShortTime(time);
     }
 
     // 1 for fresh items, falling to 0 at the fade time; without fading everything stays fully visible.
@@ -624,9 +579,6 @@ public sealed class ActivityMapCanvas : Control
         at.X >= -margin && at.Y >= -margin && at.X <= Bounds.Width + margin && at.Y <= Bounds.Height + margin;
 
     private static double Distance(Point a, Point b) => Math.Sqrt(Math.Pow(a.X - b.X, 2) + Math.Pow(a.Y - b.Y, 2));
-
-    private static Color Blend(Color from, Color to, double fraction) => Color.FromRgb(
-        (byte)(from.R + (to.R - from.R) * fraction), (byte)(from.G + (to.G - from.G) * fraction), (byte)(from.B + (to.B - from.B) * fraction));
 
     private sealed record Hit(Point At, double Radius, string Title, IReadOnlyList<string> Lines);
 

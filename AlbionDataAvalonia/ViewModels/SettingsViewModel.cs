@@ -5,15 +5,16 @@ using System.ComponentModel;
 using System.Linq;
 using System.Runtime.InteropServices;
 using System.Threading.Tasks;
+using AlbionDataAvalonia.Activity;
 using AlbionDataAvalonia.Auth.Models;
 using AlbionDataAvalonia.Auth.Services;
-using AlbionDataAvalonia.Activity;
 using AlbionDataAvalonia.DB;
 using AlbionDataAvalonia.Logging;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.State;
+using AlbionDataAvalonia.Ui;
 using AlbionDataAvalonia.Ui.Services;
 using AlbionDataAvalonia.Views;
 using Avalonia.Threading;
@@ -220,7 +221,7 @@ public partial class SettingsViewModel : ViewModelBase
         databaseBackupService?.OpenBackupFolder();
     }
 
-    public IReadOnlyList<ActivityOption<int>> StartupWindowModeOptions { get; } = [new(0, "Show window"), new(1, "Minimize to taskbar"), new(2, "Hide in tray")];
+    public IReadOnlyList<Option<int>> StartupWindowModeOptions { get; } = [new(0, "Show window"), new(1, "Minimize to taskbar"), new(2, "Hide in tray")];
 
     public int StartupWindowModeIndex
     {
@@ -228,7 +229,7 @@ public partial class SettingsViewModel : ViewModelBase
         set => UserSettings.StartupWindowMode = (StartupWindowMode)Math.Clamp(value, 0, StartupWindowModeOptions.Count - 1);
     }
 
-    public IReadOnlyList<ActivityOption<int>> UpdateChannelOptions { get; } = [new(0, "Stable"), new(1, "Beta")];
+    public IReadOnlyList<Option<int>> UpdateChannelOptions { get; } = [new(0, "Stable"), new(1, "Beta")];
 
     public int UpdateChannelIndex
     {
@@ -243,8 +244,8 @@ public partial class SettingsViewModel : ViewModelBase
     public string AppVersionText => $"AFM Data Client {ClientUpdater.GetVersion() ?? "Unknown"}";
     public string UpdatesText => IsWindows ? "Updates install by themselves." : "You'll see a notice when an update is ready.";
 
-    public IReadOnlyList<ActivityOption<int>> StreamerSizeOptions { get; } = [new(0, "Small"), new(1, "Medium"), new(2, "Large")];
-    public IReadOnlyList<ActivityOption<int>> StreamerChartModeOptions { get; } = [new(0, "Combat"), new(1, "Gathering"), new(2, "Fame")];
+    public IReadOnlyList<Option<int>> StreamerSizeOptions { get; } = [new(0, "Small"), new(1, "Medium"), new(2, "Large")];
+    public IReadOnlyList<Option<int>> StreamerChartModeOptions { get; } = [new(0, "Combat"), new(1, "Gathering"), new(2, "Fame")];
 
     public string StreamerSizeText => UserSettings.StreamerSizeIndex switch
     {
@@ -400,11 +401,7 @@ public partial class SettingsViewModel : ViewModelBase
 
     private void MaybeUpdatePowSolveStatistics()
     {
-        if (!Dispatcher.UIThread.CheckAccess())
-        {
-            Dispatcher.UIThread.Post(MaybeUpdatePowSolveStatistics);
-            return;
-        }
+        if (UiDispatch.Repost(MaybeUpdatePowSolveStatistics)) return;
 
         var now = DateTimeOffset.UtcNow;
         var elapsed = now - lastPowSolveStatsRefresh;
@@ -437,11 +434,7 @@ public partial class SettingsViewModel : ViewModelBase
 
     private void UpdatePowSolveStatistics()
     {
-        if (!Dispatcher.UIThread.CheckAccess())
-        {
-            Dispatcher.UIThread.Post(UpdatePowSolveStatistics);
-            return;
-        }
+        if (UiDispatch.Repost(UpdatePowSolveStatistics)) return;
 
         if (_playerState == null)
         {
@@ -546,11 +539,7 @@ public partial class SettingsViewModel : ViewModelBase
 
     private void OnFirebaseUserChanged(FirebaseAuthResponse? user)
     {
-        if (!Dispatcher.UIThread.CheckAccess())
-        {
-            Dispatcher.UIThread.Post(() => OnFirebaseUserChanged(user));
-            return;
-        }
+        if (UiDispatch.Repost(() => OnFirebaseUserChanged(user))) return;
 
         ApplyFirebaseUser(user);
     }
@@ -704,11 +693,7 @@ public partial class SettingsViewModel : ViewModelBase
 
     private void UpdateActivityRecordingStatus()
     {
-        if (!Dispatcher.UIThread.CheckAccess())
-        {
-            Dispatcher.UIThread.Post(UpdateActivityRecordingStatus);
-            return;
-        }
+        if (UiDispatch.Repost(UpdateActivityRecordingStatus)) return;
         ActivityRecordingStatus = activityTracker?.StatusText ??
             (UserSettings.ActivityRecordingEnabled ? "Recording enabled." : "Recording disabled. Saved history remains available.");
     }

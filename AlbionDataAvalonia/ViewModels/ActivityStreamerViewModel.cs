@@ -1,7 +1,7 @@
 using AlbionDataAvalonia.Activity;
 using AlbionDataAvalonia.Activity.Models;
 using AlbionDataAvalonia.Settings;
-using Avalonia.Media;
+using AlbionDataAvalonia.Ui;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Serilog;
@@ -16,8 +16,6 @@ namespace AlbionDataAvalonia.ViewModels;
 public sealed partial class ActivityStreamerViewModel : ViewModelBase, IDisposable
 {
     private const int ChartWindowSeconds = 5 * 60;
-    private static readonly IBrush DarkBackground = new SolidColorBrush(Color.Parse("#262626"));
-    private static readonly IBrush ChromaKeyBackground = new SolidColorBrush(Color.Parse("#00B140"));
     private readonly ActivityTrackerService? tracker;
     private readonly ActivityPersistence? persistence;
     private readonly DispatcherTimer refreshTimer = new() { Interval = TimeSpan.FromSeconds(1) };
@@ -39,7 +37,7 @@ public sealed partial class ActivityStreamerViewModel : ViewModelBase, IDisposab
 
     public UserSettings Settings { get; }
     public ActivityTimelineChartMode ChartMode => (ActivityTimelineChartMode)Math.Clamp(Settings.StreamerChartModeIndex, 0, 2);
-    public IBrush WindowBackground => Settings.StreamerChromaKey ? ChromaKeyBackground : DarkBackground;
+    public bool UseChromaKey => Settings.StreamerChromaKey;
     public bool IsPersonalScope
     {
         get => !Settings.StreamerPartyTotals;
@@ -60,7 +58,7 @@ public sealed partial class ActivityStreamerViewModel : ViewModelBase, IDisposab
     public double WindowWidth => Settings.StreamerSizeIndex switch { 0 => 250, 1 => 330, _ => 380 };
     public string SilverPerHourShortText => PerHourShort(Summary.Rates.SilverPerHour + Summary.Rates.LootValuePerHour + Summary.Rates.ResourceValuePerHour);
     public string CombatFamePerHourShortText => PerHourShort(ActivityProjection.GetFameRate(Summary.Summary.CombatFame, Summary.Rates));
-    public string DpsShortText => Summary.IsImported ? "" : $"{ActivityDisplay.Number(Summary.Rates.DamagePerSecond)} DPS";
+    public string DpsShortText => Summary.IsImported ? "" : $"{UiFormat.Compact(Summary.Rates.DamagePerSecond)} DPS";
     public string GatheredPerHourShortText => PerHourShort(Summary.Rates.ResourceValuePerHour);
     public bool ShowChart => Settings.StreamerShowChart && HasSession && !IsSmall;
     public bool ShowNothingSelected => !Settings.StreamerShowSilver && !Settings.StreamerShowCombat &&
@@ -94,7 +92,7 @@ public sealed partial class ActivityStreamerViewModel : ViewModelBase, IDisposab
         OnPropertyChanged(nameof(GatheredPerHourShortText));
     }
 
-    private string PerHourShort(double rate) => Summary.HasRecordedDuration ? $"{ActivityDisplay.Number(rate)} / h" : "";
+    private string PerHourShort(double rate) => Summary.HasRecordedDuration ? $"{UiFormat.Compact(rate)} / h" : "";
 
     partial void OnHasSessionChanged(bool value) => OnPropertyChanged(nameof(ShowChart));
 
@@ -105,7 +103,7 @@ public sealed partial class ActivityStreamerViewModel : ViewModelBase, IDisposab
         {
             if (isDisposed) return;
             OnPropertyChanged(nameof(ChartMode));
-            OnPropertyChanged(nameof(WindowBackground));
+            OnPropertyChanged(nameof(UseChromaKey));
             OnPropertyChanged(nameof(IsPersonalScope));
             OnPropertyChanged(nameof(IsPartyScope));
             OnPropertyChanged(nameof(ShowChart));
@@ -191,10 +189,10 @@ public sealed partial class ActivityStreamerViewModel : ViewModelBase, IDisposab
         Summary = new(snapshot.Summary, ActivityProjection.GetRates(snapshot.Summary, durations.PlaySeconds, combatSeconds), true, true, durations.RunSeconds);
         HasSession = true;
         TitleText = ActivityPlaySessionProjection.IsIdle(playSession, nowUtc)
-            ? $"Idle {ActivityDisplay.Duration((nowUtc - playSession.LastActivityAtUtc).TotalSeconds)}"
+            ? $"Idle {UiFormat.Duration((nowUtc - playSession.LastActivityAtUtc).TotalSeconds)}"
             : context.Session is { } run ? ActivityDisplay.SessionTitle(run) : "Between runs";
-        SessionTimeText = $"Session {ActivityDisplay.Duration(durations.PlaySeconds)}";
-        DurationText = $"{SessionTimeText} · Combat {ActivityDisplay.Duration(combatSeconds)}";
+        SessionTimeText = $"Session {UiFormat.Duration(durations.PlaySeconds)}";
+        DurationText = $"{SessionTimeText} · Combat {UiFormat.Duration(combatSeconds)}";
 
         // The chart scrolls between reads, so it is read every other tick.
         if (!ShowChart || tickCount++ % 2 != 0) return;

@@ -64,13 +64,13 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     private CancellationTokenSource currentQueryCancellation = new();
     private ActivitySession? currentSession;
 
-    public IReadOnlyList<ActivityOption<ActivityScope>> ScopeOptions { get; } =
+    public IReadOnlyList<Option<ActivityScope>> ScopeOptions { get; } =
         [new(ActivityScope.Personal, "Personal"), new(ActivityScope.Party, "Party")];
-    public IReadOnlyList<ActivityOption<ActivityScope>> LootScopeOptions { get; } =
+    public IReadOnlyList<Option<ActivityScope>> LootScopeOptions { get; } =
         [new(ActivityScope.Personal, "Personal"), new(ActivityScope.Party, "Party"), new(ActivityScope.AllObserved, "Everyone")];
-    [ObservableProperty] private ActivityOption<ActivityScope> selectedScope = new(ActivityScope.Personal, "Personal");
-    [ObservableProperty] private ActivityOption<ActivityScope> selectedLootScope = new(ActivityScope.Personal, "Personal");
-    [ObservableProperty] private ActivityOption<ActivityScope> selectedSessionLootScope = new(ActivityScope.Personal, "Personal");
+    [ObservableProperty] private Option<ActivityScope> selectedScope = new(ActivityScope.Personal, "Personal");
+    [ObservableProperty] private Option<ActivityScope> selectedLootScope = new(ActivityScope.Personal, "Personal");
+    [ObservableProperty] private Option<ActivityScope> selectedSessionLootScope = new(ActivityScope.Personal, "Personal");
     [ObservableProperty] private int selectedTabIndex;
     [ObservableProperty] private int selectedDetailTabIndex;
     [ObservableProperty] private string lootSearch = "";
@@ -114,15 +114,15 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     public bool CanDeleteSelectedSession => SelectedSession is { } run
         ? run.Source.State != ActivityState.Open && run.Id != tracker?.CurrentSessionId
         : SelectedPlaySession is { IsOpen: false } playSession && playSession.Id != tracker?.CurrentPlaySessionId;
-    public string CurrentCombatDurationText => $"Combat time: {ActivityDisplay.Duration(CurrentSummary.Rates.CombatDurationSeconds)}";
+    public string CurrentCombatDurationText => $"Combat time: {UiFormat.Duration(CurrentSummary.Rates.CombatDurationSeconds)}";
     public string DetailTitle => IsShowingMap ? SelectedMap!.Name : SelectedEncounter is { } encounter ? $"Encounter {encounter.Number} · {encounter.Classification}"
         : SelectedSession?.Title ?? SelectedPlaySession?.Title ?? "Select a session";
-    public string DetailDurationText => IsShowingMap ? $"Recorded time: {SelectedMap!.DurationText} · Combat time: {ActivityDisplay.Duration(DetailSummary.Rates.CombatDurationSeconds)}"
-        : IsImportedDetail ? $"Duration: {ActivityDisplay.Duration(DetailSummary.Rates.DurationSeconds)}" : SelectedEncounter is { } encounter ? $"Combat time: {encounter.DurationText}"
-        : SelectedSession is { } run ? $"Run time: {run.DurationText} · Combat time: {ActivityDisplay.Duration(DetailSummary.Rates.CombatDurationSeconds)}"
-        : $"Session time: {ActivityDisplay.Duration(DetailSummary.Rates.DurationSeconds)}" +
-            (DetailSummary.RunSeconds is { } runSeconds ? $" · In runs: {ActivityDisplay.Duration(runSeconds)}" : "") +
-            $" · Combat time: {ActivityDisplay.Duration(DetailSummary.Rates.CombatDurationSeconds)}";
+    public string DetailDurationText => IsShowingMap ? $"Recorded time: {SelectedMap!.DurationText} · Combat time: {UiFormat.Duration(DetailSummary.Rates.CombatDurationSeconds)}"
+        : IsImportedDetail ? $"Duration: {UiFormat.Duration(DetailSummary.Rates.DurationSeconds)}" : SelectedEncounter is { } encounter ? $"Combat time: {encounter.DurationText}"
+        : SelectedSession is { } run ? $"Run time: {run.DurationText} · Combat time: {UiFormat.Duration(DetailSummary.Rates.CombatDurationSeconds)}"
+        : $"Session time: {UiFormat.Duration(DetailSummary.Rates.DurationSeconds)}" +
+            (DetailSummary.RunSeconds is { } runSeconds ? $" · In runs: {UiFormat.Duration(runSeconds)}" : "") +
+            $" · Combat time: {UiFormat.Duration(DetailSummary.Rates.CombatDurationSeconds)}";
     public string DetailScopeText => $"{SelectedPlayer?.Name ?? ""}{((SelectedSession?.Source.IsPartial ?? SelectedPlaySession?.IsPartial) == true ? $"{(SelectedPlayer is null ? "" : " · ")}Incomplete recording" : "")}";
     private const string RecordingStatus = "Recording";
     private const string WaitingStatus = "Waiting for character";
@@ -133,7 +133,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     public string LootCountText => UiFormat.Count(GlobalLoot.Count, "pickup");
     public string GlobalLootTotalsText => string.Join(" · ", new[]
     {
-        ShowGlobalLootPanel ? $"Loot {ActivityDisplay.Number(GlobalLootSummary.Summary.LootItems)} items · EMV {GlobalLootSummary.LootValue}" : null,
+        ShowGlobalLootPanel ? $"Loot {UiFormat.Compact(GlobalLootSummary.Summary.LootItems)} items · EMV {GlobalLootSummary.LootValue}" : null,
         SelectedItemSource.Value != ActivityItemSources.Loot ? $"Gathered {GlobalLootSummary.ResourceQuantityText} · EMV {GlobalLootSummary.ResourceValueText}" : null
     }.Where(value => value is not null));
     public string GlobalLootDetailsText => "Loot uses the Black Market EMV when available";
@@ -223,7 +223,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         UpdateStatus();
         if (tracker is not null) UpdateCurrentPlayState(tracker.GetCurrentContext(), DateTime.UtcNow);
         if (currentSession is not null && SelectedPeriod.Value == ActivityPeriodMode.CurrentRun)
-            CurrentDurationText = $"Run time: {ActivityDisplay.Duration(ActivityProjection.GetDurationSeconds(currentSession, DateTime.UtcNow))}";
+            CurrentDurationText = $"Run time: {UiFormat.Duration(ActivityProjection.GetDurationSeconds(currentSession, DateTime.UtcNow))}";
         else if (SelectedPeriod.Value != ActivityPeriodMode.CurrentRun)
             ApplyCurrentPeriodPresentation(DateTime.UtcNow);
         if (SelectedTabIndex == 1)
@@ -334,9 +334,9 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         {
             var summary = ActivityProjection.GetSummary(current, scope);
             CurrentSummary = new(summary, ActivityProjection.GetRates(summary, current, combatTask.Result, DateTime.UtcNow), true);
-            CurrentDurationText = $"Run time: {ActivityDisplay.Duration(ActivityProjection.GetDurationSeconds(current, DateTime.UtcNow))}";
+            CurrentDurationText = $"Run time: {UiFormat.Duration(ActivityProjection.GetDurationSeconds(current, DateTime.UtcNow))}";
             CurrentRunTimeText = "";
-            CurrentPeriodDescription = $"Since {ActivityDisplay.LocalDate(current.StartedAtUtc)}";
+            CurrentPeriodDescription = $"Since {UiFormat.LocalDateTime(current.StartedAtUtc)}";
         }
         else if (period == ActivityPeriodMode.CurrentRun) ClearCurrentPeriod();
         if (period == ActivityPeriodMode.CurrentRun)
@@ -731,7 +731,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         OnPropertyChanged(nameof(ImportedDetailTooltipText));
     }
 
-    partial void OnSelectedScopeChanged(ActivityOption<ActivityScope> value)
+    partial void OnSelectedScopeChanged(Option<ActivityScope> value)
     {
         currentQueryCancellation.Cancel();
         liveTimelineCancellation.Cancel();
@@ -746,9 +746,9 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         NotifyDetailProperties();
         if (isActive && !applyingSelection) _ = RunSafelyAsync(RefreshVisibleAsync);
     }
-    partial void OnSelectedLootScopeChanged(ActivityOption<ActivityScope> value)
+    partial void OnSelectedLootScopeChanged(Option<ActivityScope> value)
     { ++itemChangeVersion; ++globalLootVersion; globalLootPage = 0; if (isActive && SelectedTabIndex == 2) _ = RunSafelyAsync(() => LoadGlobalLootAsync(false)); }
-    partial void OnSelectedSessionLootScopeChanged(ActivityOption<ActivityScope> value)
+    partial void OnSelectedSessionLootScopeChanged(Option<ActivityScope> value)
     {
         ++detailChangeVersion; ++detailVersion;
         sessionLootPage = 0;

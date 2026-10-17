@@ -14,7 +14,10 @@ public enum ActivityMapLayers
     All = Path | Kills | Loot | Gathering | Deaths | Features
 }
 
-public sealed record ActivityMapExit(MapPoint Position, string Label, IBrush Fill);
+/// <summary>A zone's danger level, which colors its exits.</summary>
+public enum MapZoneKind { Blue, Yellow, Red, Black, Other }
+
+public sealed record ActivityMapExit(MapPoint Position, string Label, MapZoneKind Zone);
 
 public sealed record ActivityMapIcon(MapPoint Position, string Label, Bitmap? Image, double Scale = 1);
 

@@ -15,7 +15,8 @@
 Use the repository defaults: C# with nullable reference types enabled (`Directory.Build.props`) and implicit usings. Prefer 4-space indentation, PascalCase for types and public members, camelCase for locals and fields, and suffix view models with `ViewModel`. Keep XAML element names meaningful and mirror corresponding view models. Run `dotnet format` before submitting to enforce spacing, imports, and analyzer hints.
 
 ## UI Conventions
-- Colors, radii, padding and font sizes come from `Themes/Tokens.axaml` through `{DynamicResource ...}`. Don't type hex or rgba colors, or numeric font sizes, in `Views/*.axaml`; add a token instead. `scripts/check-ui-tokens.sh` enforces this in CI.
+- Colors, radii, padding and font sizes come from `Themes/Tokens.axaml` through `{DynamicResource ...}`. Don't type hex or rgba colors, or numeric font sizes, in XAML; add a token instead. Code that draws (the timeline and map canvases) reads tokens through `UiPalette` and `ActivityPalette`, and uses `ChartDrawing` for text, tooltips and badges. `scripts/check-ui-tokens.sh` enforces this in CI.
+- View models expose states, never brushes or colors. XAML maps a state to tokens with classes (`Classes.Done="{Binding IsDone}"`) or, for a kind with many values, a converter that reads `ActivityPalette`.
 - Text uses the classes in `Themes/Typography.axaml`: `UiCaption`, `UiLabel`, `UiFine`, `UiMuted`, `UiRowTitle`, `UiSectionTitle`, `UiTitle`, `UiHeading`, `UiValue`, `UiValueLarge`, `UiAccent`, `UiWarning`, `UiError`, `UiMono`. Use the `UiTextSecondaryBrush` and `UiTextTertiaryBrush` tokens for muted text, not `Opacity`. Use `SemiBold` for emphasis and `Bold` only for large values.
 - A plain `Button` is the secondary button. Give a button at most one role class from `Themes/Buttons.axaml`: `UiPrimary` (one per view or dialog), `UiDanger` (deletes and other actions that can't be undone), `UiGhost` or `UiLink`. Add `UiAction` for the standard action size. Disabled buttons keep their role. Actions that open a dialog end with "…".
 - Cards, banners, chips and badges use the classes in `Themes/Surfaces.axaml` (`UiCard` with `Subtle`, `Bordered`, `Outlined` or `Sunken`, plus `UiBanner`, `UiChip`, `UiBadge`, `UiCode` and `UiOverlay`). A local style block needs a comment saying why it can't be shared.
@@ -24,6 +25,9 @@ Use the repository defaults: C# with nullable reference types enabled (`Director
 - A secondary window that has one instance at a time (the streamer, the map) uses `SingleWindowHost`, which remembers whether it was open and where it was placed.
 - Pages open with one toolbar band: tabs or filters on the left, actions on the right. There are no page titles; the sidebar names the page.
 - Pages and windows set `Classes="AppPage"` to get the shared input, expander, grid and switch skins from `Themes/Controls.axaml`. Windows also set the app icon.
+- Format numbers, sizes, durations and times with `UiFormat` (`Count`, `Whole`, `Compact`, `Bytes`, `Duration`, `Clock`, `Ago`, `LocalTime`…), so plurals and clocks read the same everywhere. Shared words such as "Any" live in `UiText`.
+- Choices use `Option<T>`; lists more than one screen offers live in `UiOptions` (trade and log counts, servers).
+- Service events arrive on other threads: start a handler with `if (UiDispatch.Repost(() => Handler(args))) return;`. Use `UiDebouncer` to wait for input to settle and `LatestLoad` so only the newest of overlapping loads applies its result.
 - Write copy in sentence case. Cross-references read "Settings › Tab". Reload actions are called "Refresh".
 - Icon-only buttons set `AutomationProperties.Name`, and every `DataTemplate` declares `x:DataType`.
 

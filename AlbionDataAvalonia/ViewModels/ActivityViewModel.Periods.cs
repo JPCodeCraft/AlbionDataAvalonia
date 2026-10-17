@@ -1,5 +1,6 @@
 using AlbionDataAvalonia.Activity;
 using AlbionDataAvalonia.Activity.Models;
+using AlbionDataAvalonia.Ui;
 using CommunityToolkit.Mvvm.ComponentModel;
 using System;
 using System.Collections.Generic;
@@ -18,12 +19,12 @@ public partial class ActivityViewModel
     private DateTime currentPeriodFromUtc;
     private DateTime currentPeriodToUtc;
 
-    public IReadOnlyList<ActivityOption<ActivityPeriodMode>> PeriodOptions { get; } =
+    public IReadOnlyList<Option<ActivityPeriodMode>> PeriodOptions { get; } =
         [new(ActivityPeriodMode.PlaySession, "Session"),
          new(ActivityPeriodMode.CurrentRun, "Current run"),
          new(ActivityPeriodMode.LastHours, "Last X hours")];
 
-    [ObservableProperty] private ActivityOption<ActivityPeriodMode> selectedPeriod = new(ActivityPeriodMode.PlaySession, "Session");
+    [ObservableProperty] private Option<ActivityPeriodMode> selectedPeriod = new(ActivityPeriodMode.PlaySession, "Session");
     [ObservableProperty] private decimal lastHours = 1;
     [ObservableProperty] private string currentPeriodDescription = "Waiting for activity";
     [ObservableProperty] private string currentPeriodWarning = "";
@@ -138,9 +139,9 @@ public partial class ActivityViewModel
             var durations = ActivityPlaySessionProjection.Durations(snapshot.ObservationIntervals, currentPeriodFromUtc, end);
             var combat = ActivityPeriodProjection.GetRates(snapshot, currentPeriodFromUtc, end).CombatDurationSeconds;
             CurrentSummary = new(snapshot.Summary, ActivityProjection.GetRates(snapshot.Summary, durations.PlaySeconds, combat), true, true, durations.RunSeconds);
-            CurrentDurationText = $"Session time: {ActivityDisplay.Duration(durations.PlaySeconds)}";
-            CurrentRunTimeText = $"In runs: {ActivityDisplay.Duration(durations.RunSeconds)}";
-            CurrentPeriodDescription = $"Started {ActivityDisplay.LocalDate(playSession.StartedAtUtc)} · ends after 30 minutes without activity";
+            CurrentDurationText = $"Session time: {UiFormat.Duration(durations.PlaySeconds)}";
+            CurrentRunTimeText = $"In runs: {UiFormat.Duration(durations.RunSeconds)}";
+            CurrentPeriodDescription = $"Started {UiFormat.LocalDateTime(playSession.StartedAtUtc)} · ends after 30 minutes without activity";
             CurrentPeriodWarning = "";
             if (snapshot.IsPartial) CurrentPeriodDescription += " · incomplete recording";
             return;
@@ -149,12 +150,12 @@ public partial class ActivityViewModel
         var presentationEndUtc = key.Mode == ActivityPeriodMode.LastHours ? currentPeriodToUtc : nowUtc;
         var rates = ActivityPeriodProjection.GetRates(snapshot, currentPeriodFromUtc, presentationEndUtc);
         CurrentSummary = new(snapshot.Summary, rates, true);
-        CurrentDurationText = $"Tracked time: {ActivityDisplay.Duration(rates.DurationSeconds)}";
+        CurrentDurationText = $"Tracked time: {UiFormat.Duration(rates.DurationSeconds)}";
         CurrentRunTimeText = "";
         var fromUtc = currentPeriodFromUtc;
         CurrentPeriodDescription = currentSession is not null
-            ? $"Since {ActivityDisplay.LocalDate(fromUtc)}"
-            : $"{key.CharacterName} · {ActivityDisplay.Server(key.Server)} · Since {ActivityDisplay.LocalDate(fromUtc)}";
+            ? $"Since {UiFormat.LocalDateTime(fromUtc)}"
+            : $"{key.CharacterName} · {ActivityDisplay.Server(key.Server)} · Since {UiFormat.LocalDateTime(fromUtc)}";
         CurrentPeriodWarning = snapshot.HasExcludedImports
             ? "Imported gathering totals are excluded from this time range." : "";
         if (snapshot.IsPartial)
@@ -194,7 +195,7 @@ public partial class ActivityViewModel
         if (isActive && SelectedTabIndex == 0) _ = RunSafelyAsync(RefreshVisibleAsync);
     }
 
-    partial void OnSelectedPeriodChanged(ActivityOption<ActivityPeriodMode> value) => ChangeCurrentPeriod();
+    partial void OnSelectedPeriodChanged(Option<ActivityPeriodMode> value) => ChangeCurrentPeriod();
     partial void OnLastHoursChanged(decimal value)
     {
         var normalized = Math.Clamp(Math.Round(value, 0, MidpointRounding.AwayFromZero), 1m, 168m);

@@ -95,6 +95,19 @@
     <Style Selector="Border.UiBadge.Dark">
         <Setter Property="Background" Value="{DynamicResource UiWindowBrush}" />
     </Style>
+    <!-- The character's Premium badge: gold with Premium, plain without it, dim while unknown. -->
+    <Style Selector="Border.UiBadge.PremiumStatus">
+        <Setter Property="Background" Value="{DynamicResource UiNeutralFillBrush}" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource UiTextTertiaryBrush}" />
+    </Style>
+    <Style Selector="Border.UiBadge.PremiumStatus.NotPremium">
+        <Setter Property="Background" Value="{DynamicResource UiActiveBrush}" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource UiTextSecondaryBrush}" />
+    </Style>
+    <Style Selector="Border.UiBadge.PremiumStatus.Premium">
+        <Setter Property="Background" Value="{DynamicResource UiPremiumBrush}" />
+        <Setter Property="TextElement.Foreground" Value="{DynamicResource UiPremiumTextBrush}" />
+    </Style>
     <Style Selector="Border.UiBadge TextBlock">
         <Setter Property="FontSize" Value="{DynamicResource UiFontSizeCaption}" />
         <Setter Property="FontWeight" Value="SemiBold" />
@@ -139,5 +152,51 @@
     </Style>
     <Style Selector="Ellipse.UiStatusDot.Blocked">
         <Setter Property="Fill" Value="{DynamicResource UiDangerBrush}" />
+    </Style>
+
+    <!-- The streamer window and its preview: dark, or a green screen that streaming software can key out. -->
+    <Style Selector="Window.UiStreamerBackdrop">
+        <Setter Property="Background" Value="{DynamicResource UiSurfaceSunkenBrush}" />
+    </Style>
+    <Style Selector="Window.UiStreamerBackdrop.ChromaKey">
+        <Setter Property="Background" Value="{DynamicResource UiChromaKeyBrush}" />
+    </Style>
+    <Style Selector="Border.UiStreamerBackdrop">
+        <Setter Property="Background" Value="{DynamicResource UiSurfaceSunkenBrush}" />
+    </Style>
+    <Style Selector="Border.UiStreamerBackdrop.ChromaKey">
+        <Setter Property="Background" Value="{DynamicResource UiChromaKeyBrush}" />
+    </Style>
+
+    <!-- A setup step's state on the Main tab: done, done in an earlier session, in progress, needs attention or blocked. -->
+    <Style Selector=":is(Shape).UiStepState">
+        <Setter Property="Fill" Value="{DynamicResource UiPendingBrush}" />
+    </Style>
+    <Style Selector=":is(Shape).UiStepState.Done">
+        <Setter Property="Fill" Value="{DynamicResource UiSuccessBrush}" />
+    </Style>
+    <Style Selector=":is(Shape).UiStepState.Stale">
+        <Setter Property="Fill" Value="{DynamicResource UiSuccessFadedBrush}" />
+    </Style>
+    <Style Selector=":is(Shape).UiStepState.Active, :is(Shape).UiStepState.Warning">
+        <Setter Property="Fill" Value="{DynamicResource UiWarningBrush}" />
+    </Style>
+    <Style Selector=":is(Shape).UiStepState.Blocked">
+        <Setter Property="Fill" Value="{DynamicResource UiDangerBrush}" />
+    </Style>
+    <Style Selector="Border.UiStepState">
+        <Setter Property="Background" Value="{DynamicResource UiPendingBrush}" />
+    </Style>
+    <Style Selector="Border.UiStepState.Done">
+        <Setter Property="Background" Value="{DynamicResource UiSuccessBrush}" />
+    </Style>
+    <Style Selector="Border.UiStepState.Stale">
+        <Setter Property="Background" Value="{DynamicResource UiSuccessFadedBrush}" />
+    </Style>
+    <Style Selector="Border.UiStepState.Active, Border.UiStepState.Warning">
+        <Setter Property="Background" Value="{DynamicResource UiWarningBrush}" />
+    </Style>
+    <Style Selector="Border.UiStepState.Blocked">
+        <Setter Property="Background" Value="{DynamicResource UiDangerBrush}" />
     </Style>
 </Styles>

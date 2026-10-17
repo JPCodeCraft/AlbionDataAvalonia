@@ -1,5 +1,6 @@
 using AlbionDataAvalonia.Activity;
 using AlbionDataAvalonia.Activity.Models;
+using AlbionDataAvalonia.Ui;
 using CommunityToolkit.Mvvm.ComponentModel;
 using System;
 using System.Collections.Generic;
@@ -28,9 +29,9 @@ public sealed class ActivityPlaySessionRow : ObservableObject
     public bool IsOpen => Source.State == ActivityState.Open;
     public ActivitySummary Summary => summary;
     public string Title => ActivityDisplay.PlaySessionTitle(Runs);
-    public string MetadataText => $"{ActivityDisplay.LocalDate(Source.StartedAtUtc)} · {Source.CharacterName} · {ActivityDisplay.Server(Source.Server)}";
-    public string DurationText => ActivityDisplay.Duration(Durations(DateTime.UtcNow).PlaySeconds);
-    public string RunsText => Runs.Count == 1 ? "1 run" : $"{Runs.Count:N0} runs";
+    public string MetadataText => $"{UiFormat.LocalDateTime(Source.StartedAtUtc)} · {Source.CharacterName} · {ActivityDisplay.Server(Source.Server)}";
+    public string DurationText => UiFormat.Duration(Durations(DateTime.UtcNow).PlaySeconds);
+    public string RunsText => UiFormat.Count(Runs.Count, "run");
     public string TagsText => ActivityDisplay.Tags(summary.Tags);
     public string StateText => IsOpen ? "Active" : Source.State == ActivityState.Interrupted ? "App closed" : "";
     public bool IsImported => summary.IsLegacyAggregate;

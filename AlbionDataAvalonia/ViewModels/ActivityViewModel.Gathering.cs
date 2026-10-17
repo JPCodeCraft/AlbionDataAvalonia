@@ -1,5 +1,6 @@
 using AlbionDataAvalonia.Activity;
 using AlbionDataAvalonia.Activity.Models;
+using AlbionDataAvalonia.Ui;
 
 using CommunityToolkit.Mvvm.ComponentModel;
 
@@ -29,15 +30,15 @@ public partial class ActivityViewModel
     private ActivityQuery? currentResourcesQuery;
     private long currentResourcesReadVersion;
 
-    public IReadOnlyList<ActivityOption<ActivityItemSources>> ItemSourceOptions { get; } =
+    public IReadOnlyList<Option<ActivityItemSources>> ItemSourceOptions { get; } =
 
         [new(ActivityItemSources.All, "All items"), new(ActivityItemSources.Loot, "Loot"),
 
          new(ActivityItemSources.Gathering, "Gathering"), new(ActivityItemSources.Fishing, "Fishing")];
 
-    [ObservableProperty] private ActivityOption<ActivityItemSources> selectedItemSource = new(ActivityItemSources.All, "All items");
+    [ObservableProperty] private Option<ActivityItemSources> selectedItemSource = new(ActivityItemSources.All, "All items");
 
-    [ObservableProperty] private ActivityOption<ActivityItemSources> selectedSessionItemSource = new(ActivityItemSources.All, "All items");
+    [ObservableProperty] private Option<ActivityItemSources> selectedSessionItemSource = new(ActivityItemSources.All, "All items");
 
     [ObservableProperty] private bool showAllActivities = true;
 
@@ -104,11 +105,11 @@ public partial class ActivityViewModel
 
 
     partial void OnLegacyImportInfoChanged(ActivityLegacyImportInfo? value) => OnPropertyChanged(nameof(ImportedDetailTooltipText));
-    partial void OnSelectedItemSourceChanged(ActivityOption<ActivityItemSources> value)
+    partial void OnSelectedItemSourceChanged(Option<ActivityItemSources> value)
 
     { OnPropertyChanged(nameof(ShowGlobalLootPanel)); ++itemChangeVersion; ++globalLootVersion; globalLootPage = 0; if (isActive && SelectedTabIndex == 2) _ = RunSafelyAsync(() => LoadGlobalLootAsync(false)); }
 
-    partial void OnSelectedSessionItemSourceChanged(ActivityOption<ActivityItemSources> value)
+    partial void OnSelectedSessionItemSourceChanged(Option<ActivityItemSources> value)
 
     { OnPropertyChanged(nameof(CanExportSessionLoot)); OnPropertyChanged(nameof(ShowSessionLootPanel)); ++detailChangeVersion; ++detailVersion; sessionLootPage = 0; if (isActive && SelectedTabIndex == 1 && SelectedDetailTabIndex == 4) _ = RunSafelyAsync(RefreshDetailsAsync); }
 

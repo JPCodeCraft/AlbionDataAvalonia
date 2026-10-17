@@ -2,11 +2,11 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
         xmlns:views="clr-namespace:AlbionDataAvalonia.Views"
-        x:Class="AlbionDataAvalonia.Views.ActivityStreamerWindow" Classes="AppPage"
+        x:Class="AlbionDataAvalonia.Views.ActivityStreamerWindow"
         x:DataType="vm:ActivityStreamerViewModel"
         Title="AFM Streamer" Icon="/Assets/logo.ico"
         Width="330" MinWidth="220" SizeToContent="Height" CanResize="True"
         WindowStartupLocation="CenterScreen"
-        Background="{Binding WindowBackground}">
+        Classes="AppPage UiStreamerBackdrop" Classes.ChromaKey="{Binding UseChromaKey}">
     <views:ActivityStreamerView />
 </Window>

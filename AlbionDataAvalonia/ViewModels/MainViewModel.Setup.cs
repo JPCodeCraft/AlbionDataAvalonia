@@ -2,6 +2,7 @@ using AlbionDataAvalonia.Locations;
 using AlbionDataAvalonia.Locations.Models;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Services;
+using AlbionDataAvalonia.Ui;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
@@ -230,11 +231,7 @@ public partial class MainViewModel
 
     private void UpdateSetup()
     {
-        if (!Dispatcher.UIThread.CheckAccess())
-        {
-            Dispatcher.UIThread.Post(UpdateSetup);
-            return;
-        }
+        if (UiDispatch.Repost(UpdateSetup)) return;
 
         // Reading IsInGame can raise a player state change that lands back here.
         if (_playerState is null || _networkListener is null || isUpdatingSetup) return;
@@ -329,7 +326,7 @@ public partial class MainViewModel
         {
             adaptersReady = true;
             adaptersStep.Set(SetupStepState.Done,
-                captureStatus.ListeningDeviceCount == 1 ? "Listening on 1 adapter" : $"Listening on {captureStatus.ListeningDeviceCount} adapters");
+                $"Listening on {UiFormat.Count(captureStatus.ListeningDeviceCount, "adapter")}");
         }
         else if (captureStatus.AvailableDeviceCount == 0)
         {
@@ -368,17 +365,17 @@ public partial class MainViewModel
         }
         else if (stuck)
         {
-            trafficStep.Set(SetupStepState.Warning, $"Nothing for {FormatElapsed(quietFor)}",
+            trafficStep.Set(SetupStepState.Warning, $"Nothing for {UiFormat.Clock(quietFor)}",
                 "Albion Online is running, but no game traffic reached the client. Try the steps below.");
         }
         else if (everReceived)
         {
-            trafficStep.Set(SetupStepState.Active, $"Last packet {FormatElapsed(now - lastPacket)} ago",
+            trafficStep.Set(SetupStepState.Active, $"Last packet {UiFormat.Clock(now - lastPacket)} ago",
                 "Log in again and the client picks up where it left off.");
         }
         else if (waitingLong)
         {
-            trafficStep.Set(SetupStepState.Warning, $"Nothing for {FormatElapsed(quietFor)}",
+            trafficStep.Set(SetupStepState.Warning, $"Nothing for {UiFormat.Clock(quietFor)}",
                 "Still waiting. If the game is already open, try the steps below.");
         }
         else
@@ -487,7 +484,7 @@ public partial class MainViewModel
 
     private void UpdateHero(TimeSpan quietFor, TimeSpan sinceLastPacket, string character, AlbionLocation location)
     {
-        var listening = $"Listening for {FormatElapsed(quietFor)}";
+        var listening = $"Listening for {UiFormat.Clock(quietFor)}";
         (HeroKind, HeroTitle, HeroText, HeroMeta) = setupStage switch
         {
             SetupStage.DriverBlocked => (SetupHeroKind.Blocked, OperatingSystemName switch
@@ -508,7 +505,7 @@ public partial class MainViewModel
                 !string.IsNullOrWhiteSpace(character) && location != AlbionLocations.Unset && location != AlbionLocations.Unknown
                     ? $"{character} was last seen in {location.FriendlyName}. Log in again and the client picks up where it left off."
                     : "Log in again and the client picks up where it left off.",
-                $"Last packet {FormatElapsed(sinceLastPacket)} ago"),
+                $"Last packet {UiFormat.Clock(sinceLastPacket)} ago"),
             SetupStage.Waiting when quietFor >= HelpDelay => (SetupHeroKind.Waiting, "Still waiting for game traffic",
                 "If the game is already open, something may be hiding its traffic. The steps below usually fix it.", listening),
             SetupStage.Waiting => (SetupHeroKind.Waiting, "Waiting for Albion Online",
@@ -606,13 +603,5 @@ public partial class MainViewModel
         CopyDiagnosticsLabel = copied ? "Copied" : "Couldn’t copy";
         await Task.Delay(TimeSpan.FromSeconds(2));
         CopyDiagnosticsLabel = "Copy diagnostics";
-    }
-
-    private static string FormatElapsed(TimeSpan elapsed)
-    {
-        if (elapsed < TimeSpan.Zero) elapsed = TimeSpan.Zero;
-        return elapsed.TotalHours >= 1
-            ? $"{(int)elapsed.TotalHours}:{elapsed.Minutes:00}:{elapsed.Seconds:00}"
-            : $"{elapsed.Minutes}:{elapsed.Seconds:00}";
     }
 }

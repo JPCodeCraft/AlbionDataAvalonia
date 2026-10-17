@@ -1,7 +1,6 @@
 using AlbionDataAvalonia.DB;
 using AlbionDataAvalonia.Ui;
 using AlbionDataAvalonia.Views;
-using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Serilog;
@@ -14,11 +13,10 @@ using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.ViewModels;
 
-public sealed partial class DataCleanupRowViewModel(DataCleanupType type, string label, IBrush brush) : ObservableObject
+public sealed partial class DataCleanupRowViewModel(DataCleanupType type, string label) : ObservableObject
 {
     public DataCleanupType Type { get; } = type;
     public string Label { get; } = label;
-    public IBrush Brush { get; } = brush;
     public bool IsActivity => Type == DataCleanupType.Activity;
     public long Bytes { get; set; }
     public long Rows { get; set; }
@@ -28,12 +26,12 @@ public sealed partial class DataCleanupRowViewModel(DataCleanupType type, string
     [ObservableProperty] private string countText = "";
 }
 
-public sealed record StorageLegendItem(string Label, string SizeText, IBrush Brush);
+/// <summary>A legend entry; a null kind is the rest of the database.</summary>
+public sealed record StorageLegendItem(string Label, string SizeText, DataCleanupType? Kind);
 
 public partial class SettingsViewModel
 {
     public const int DataTabIndex = 4;
-    private static readonly IBrush OtherStorageBrush = new SolidColorBrush(Color.Parse("#40FFFFFF"));
 
     private readonly DataCleanupService? dataCleanup;
     private CancellationTokenSource cleanupPreviewCancellation = new();
@@ -41,14 +39,14 @@ public partial class SettingsViewModel
 
     public IReadOnlyList<DataCleanupRowViewModel> CleanupRows { get; } =
     [
-        new(DataCleanupType.Activity, "Activity", new SolidColorBrush(Color.Parse("#FFA726"))),
-        new(DataCleanupType.Trades, "Trades", new SolidColorBrush(Color.Parse("#64B5F6"))),
-        new(DataCleanupType.Mails, "Mail records", new SolidColorBrush(Color.Parse("#BA68C8"))),
-        new(DataCleanupType.AwakenedItems, "Awakened items", new SolidColorBrush(Color.Parse("#81C784")))
+        new(DataCleanupType.Activity, "Activity"),
+        new(DataCleanupType.Trades, "Trades"),
+        new(DataCleanupType.Mails, "Mail records"),
+        new(DataCleanupType.AwakenedItems, "Awakened items")
     ];
 
     // Zero days means everything; the open activity session is still kept.
-    public IReadOnlyList<ActivityOption<int>> CleanupAgeOptions { get; } =
+    public IReadOnlyList<Option<int>> CleanupAgeOptions { get; } =
         [new(30, "30 days"), new(90, "90 days"), new(180, "6 months"), new(365, "1 year"), new(0, "Everything")];
 
     [ObservableProperty] private int selectedCleanupAgeIndex = 1;
@@ -107,7 +105,7 @@ public partial class SettingsViewModel
                 var measured = storage.Rows.First(item => item.Type == row.Type);
                 row.Bytes = measured.Bytes;
                 row.Rows = measured.Rows;
-                row.SizeText = FormatBytes(measured.Bytes);
+                row.SizeText = UiFormat.Bytes(measured.Bytes);
                 row.CountText = measured.Type switch
                 {
                     DataCleanupType.Activity => $"{UiFormat.Count(measured.Sessions ?? 0, "session")} · {UiFormat.Count(measured.Rows, "event")}",
@@ -117,12 +115,12 @@ public partial class SettingsViewModel
                 };
             }
 
-            DatabaseSizeText = $"Database {FormatBytes(storage.DatabaseBytes)}";
-            StorageNoteText = $"Backups {FormatBytes(storage.BackupBytes)}" + (storage.IsEstimated ? " · sizes are estimates" : "");
-            StorageSegments = CleanupRows.Select(row => new StorageSegment(row.Bytes, row.Brush))
-                .Append(new StorageSegment(storage.OtherBytes, OtherStorageBrush)).ToArray();
-            StorageLegend = CleanupRows.Select(row => new StorageLegendItem(row.Label, row.SizeText, row.Brush))
-                .Append(new StorageLegendItem("Other", FormatBytes(storage.OtherBytes), OtherStorageBrush)).ToArray();
+            DatabaseSizeText = $"Database {UiFormat.Bytes(storage.DatabaseBytes)}";
+            StorageNoteText = $"Backups {UiFormat.Bytes(storage.BackupBytes)}" + (storage.IsEstimated ? " · sizes are estimates" : "");
+            StorageSegments = CleanupRows.Select(row => new StorageSegment(row.Bytes, row.Type))
+                .Append(new StorageSegment(storage.OtherBytes, null)).ToArray();
+            StorageLegend = CleanupRows.Select(row => new StorageLegendItem(row.Label, row.SizeText, row.Type))
+                .Append(new StorageLegendItem("Other", UiFormat.Bytes(storage.OtherBytes), null)).ToArray();
         }
         catch (Exception error)
         {
@@ -184,7 +182,7 @@ public partial class SettingsViewModel
         var types = string.Join(", ", CleanupRows.Where(row => row.IsSelected).Select(row => row.Label.ToLowerInvariant()));
         var freed = EstimateFreedBytes(preview);
         CleanupPreviewText = freed > 0
-            ? $"{scope} {types}. Frees about {FormatBytes(freed)}{(CompactAfterCleanup ? "" : " once the database is compacted")}."
+            ? $"{scope} {types}. Frees about {UiFormat.Bytes(freed)}{(CompactAfterCleanup ? "" : " once the database is compacted")}."
             : $"{scope} {types}.";
     }
 
@@ -256,6 +254,4 @@ public partial class SettingsViewModel
         CleanupStatusText = status;
     }
 
-    private static string FormatBytes(long bytes) => bytes < 1024 ? $"{bytes:N0} B" : bytes < 1024L * 1024 ?
-        $"{bytes / 1024d:N1} KB" : bytes < 1024L * 1024 * 1024 ? $"{bytes / (1024d * 1024):N1} MB" : $"{bytes / (1024d * 1024 * 1024):N1} GB";
 }

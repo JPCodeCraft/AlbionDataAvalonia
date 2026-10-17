@@ -38,6 +38,12 @@
     <SolidColorBrush x:Key="UiDangerEdgeBrush" Color="#8CFF7043" />
     <SolidColorBrush x:Key="UiDangerTextBrush" Color="#FFAB91" />
     <SolidColorBrush x:Key="UiErrorTextBrush" Color="#FFB4A8" />
+    <!-- Setup steps: a step done in an earlier session, and one not reached yet. -->
+    <SolidColorBrush x:Key="UiSuccessFadedBrush" Color="#734CAF50" />
+    <SolidColorBrush x:Key="UiPendingBrush" Color="#26FFFFFF" />
+    <!-- The character's Premium badge. -->
+    <SolidColorBrush x:Key="UiPremiumBrush" Color="#4DFFA726" />
+    <SolidColorBrush x:Key="UiPremiumTextBrush" Color="#FFD180" />
 
     <!-- Surfaces, from the window down to inputs, plus overlays drawn on top of content. -->
     <Color x:Key="UiWindowColor">#303030</Color>
@@ -101,6 +107,7 @@
     <Color x:Key="UiActivityPartyColor">#8FA8F5</Color>
     <Color x:Key="UiActivityMixedColor">#B499CB</Color>
     <Color x:Key="UiActivityUnknownColor">#C5C5C5</Color>
+    <Color x:Key="UiActivityPvpColor">#CE8585</Color>
     <Color x:Key="UiMapPathStartColor">#4FC3F7</Color>
     <Color x:Key="UiMapPathEndColor">#FFA726</Color>
     <Color x:Key="UiMapExitColor">#4A90E2</Color>
@@ -109,6 +116,42 @@
     <SolidColorBrush x:Key="UiActivityGatheringBrush" Color="{StaticResource UiActivityGatheringColor}" />
     <SolidColorBrush x:Key="UiActivityDeathBrush" Color="{StaticResource UiActivityDeathColor}" />
     <SolidColorBrush x:Key="UiMapExitBrush" Color="{StaticResource UiMapExitColor}" />
+
+    <!-- Canvases: the live timeline and the map draw their own chrome with these. -->
+    <Color x:Key="UiCanvasTextColor">#EFEFEF</Color>
+    <Color x:Key="UiCanvasMutedColor">#C5C5C5</Color>
+    <Color x:Key="UiCanvasPillColor">#3D3D3D</Color>
+    <Color x:Key="UiCanvasGridColor">#505050</Color>
+    <Color x:Key="UiCanvasCursorColor">#969696</Color>
+    <Color x:Key="UiCanvasGapColor">#494949</Color>
+    <Color x:Key="UiTooltipColor">#F0252525</Color>
+    <Color x:Key="UiMapBackgroundColor">#1C1E1E</Color>
+    <Color x:Key="UiMapGridColor">#22FFFFFF</Color>
+    <Color x:Key="UiMapZoneColor">#14FFFFFF</Color>
+    <Color x:Key="UiMapMarkerOutlineColor">#CC111111</Color>
+    <Color x:Key="UiMapMarkerEdgeColor">#FFFFFF</Color>
+    <Color x:Key="UiMapDeathFillColor">#E0212121</Color>
+    <Color x:Key="UiMapPartyRingColor">#D0FFFFFF</Color>
+    <Color x:Key="UiMapCountColor">#E6202020</Color>
+    <Color x:Key="UiMapCountEdgeColor">#80FFFFFF</Color>
+    <SolidColorBrush x:Key="UiTooltipBrush" Color="{StaticResource UiTooltipColor}" />
+
+    <!-- Zone danger levels, for the exits drawn on the map. -->
+    <Color x:Key="UiZoneBlueColor">#4A90E2</Color>
+    <Color x:Key="UiZoneYellowColor">#F2C94C</Color>
+    <Color x:Key="UiZoneRedColor">#E05555</Color>
+    <Color x:Key="UiZoneBlackColor">#2B2B2B</Color>
+    <Color x:Key="UiZoneOtherColor">#B0B0B0</Color>
+
+    <!-- Stored data kinds in Settings › Data &amp; backups. -->
+    <Color x:Key="UiStorageActivityColor">#FFA726</Color>
+    <Color x:Key="UiStorageTradesColor">#64B5F6</Color>
+    <Color x:Key="UiStorageMailsColor">#BA68C8</Color>
+    <Color x:Key="UiStorageAwakenedColor">#81C784</Color>
+    <Color x:Key="UiStorageOtherColor">#40FFFFFF</Color>
+
+    <!-- The streamer window's green-screen background, for chroma keying in streaming software. -->
+    <SolidColorBrush x:Key="UiChromaKeyBrush" Color="#00B140" />
 
     <!-- Awakened items: item quality, rating and trait rolls. -->
     <SolidColorBrush x:Key="UiQualityTextBrush" Color="#F0B94A" />

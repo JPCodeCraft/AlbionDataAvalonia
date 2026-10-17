@@ -1,3 +1,5 @@
+using AlbionDataAvalonia.DB;
+using AlbionDataAvalonia.Ui;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Media;
@@ -6,7 +8,8 @@ using System.Linq;
 
 namespace AlbionDataAvalonia.Views;
 
-public sealed record StorageSegment(double Value, IBrush Brush);
+/// <summary>A share of the bar; a null kind is the rest of the database.</summary>
+public sealed record StorageSegment(double Value, DataCleanupType? Kind);
 
 /// <summary>A single rounded bar split into segments sized by their share of the total.</summary>
 public sealed class StorageBar : Control
@@ -15,7 +18,7 @@ public sealed class StorageBar : Control
         AvaloniaProperty.Register<StorageBar, IReadOnlyList<StorageSegment>?>(nameof(Segments));
 
     public static readonly StyledProperty<IBrush?> TrackBrushProperty =
-        AvaloniaProperty.Register<StorageBar, IBrush?>(nameof(TrackBrush), new SolidColorBrush(Color.Parse("#14FFFFFF")));
+        AvaloniaProperty.Register<StorageBar, IBrush?>(nameof(TrackBrush));
 
     static StorageBar()
     {
@@ -44,7 +47,7 @@ public sealed class StorageBar : Control
 
         using (context.PushClip(new RoundedRect(bounds, bounds.Height / 2)))
         {
-            context.FillRectangle(TrackBrush ?? Brushes.Transparent, bounds);
+            context.FillRectangle(TrackBrush ?? UiPalette.Brush("UiHoverBrush"), bounds);
             var segments = Segments;
             var total = segments?.Sum(segment => segment.Value) ?? 0;
             if (segments is null || total <= 0)
@@ -58,7 +61,7 @@ public sealed class StorageBar : Control
                 var width = bounds.Width * segment.Value / total;
                 if (width > 0)
                 {
-                    context.FillRectangle(segment.Brush, new Rect(x, 0, width, bounds.Height));
+                    context.FillRectangle(UiPalette.Brush(ActivityPalette.Storage(segment.Kind)), new Rect(x, 0, width, bounds.Height));
                 }
 
                 x += width;

@@ -5,7 +5,8 @@
 <ResourceDictionary xmlns="https://github.com/avaloniaui"
                     xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
                     xmlns:controls="using:AlbionDataAvalonia.Views.Controls"
-                    xmlns:items="using:AlbionDataAvalonia.Items">
+                    xmlns:items="using:AlbionDataAvalonia.Items"
+                    xmlns:ui="using:AlbionDataAvalonia.Ui">
 
     <!-- SegmentedSelector -->
     <ControlTheme x:Key="SegmentItemTheme" TargetType="ListBoxItem">
@@ -70,8 +71,8 @@
             </ItemsPanelTemplate>
         </Setter>
         <Setter Property="ItemTemplate">
-            <DataTemplate>
-                <TextBlock Text="{ReflectionBinding Label}" FontSize="{DynamicResource UiFontSizeCompact}" VerticalAlignment="Center" />
+            <DataTemplate x:DataType="ui:IOption">
+                <TextBlock Text="{Binding Label}" FontSize="{DynamicResource UiFontSizeCompact}" VerticalAlignment="Center" />
             </DataTemplate>
         </Setter>
         <Setter Property="Template">

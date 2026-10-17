@@ -1,6 +1,7 @@
 using AlbionDataAvalonia.Activity;
 using AlbionDataAvalonia.Activity.Models;
 using AlbionDataAvalonia.Locations;
+using AlbionDataAvalonia.Ui;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using System;
@@ -20,10 +21,10 @@ public sealed class ActivityMapRow(ActivityMap source, DateTime? durationEndUtc 
     public string Name => Source.Name;
     public string DetailsText => FormatDetails(Source.Metadata);
     public bool HasDetails => DetailsText.Length > 0;
-    public string StartedText => ActivityDisplay.LocalDate(Source.StartedAtUtc);
+    public string StartedText => UiFormat.LocalDateTime(Source.StartedAtUtc);
     public int VisitCount => Source.Visits;
     public double DurationSeconds => Source.GetDurationSeconds(durationEndUtc ?? DateTime.UtcNow);
-    public string DurationText => Source.Visits > 0 ? ActivityDisplay.Duration(DurationSeconds) : "Not recorded";
+    public string DurationText => Source.Visits > 0 ? UiFormat.Duration(DurationSeconds) : "Not recorded";
 
     public void Update(ActivityMap value, DateTime? endUtc)
     {

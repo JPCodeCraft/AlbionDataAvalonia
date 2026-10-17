@@ -5,6 +5,7 @@ using System.Linq;
 using System.Windows.Input;
 using AlbionDataAvalonia.Activity;
 using AlbionDataAvalonia.Activity.Models;
+using AlbionDataAvalonia.Ui;
 using AlbionDataAvalonia.ViewModels;
 using AlbionDataAvalonia.Views.Controls;
 using Avalonia;
@@ -50,38 +51,36 @@ public sealed class ActivityLiveTimelineView : UserControl
         IsVisible = false,
         IsHitTestVisible = false,
         Padding = new Thickness(10, 8),
-        CornerRadius = new CornerRadius(4),
-        Background = new SolidColorBrush(Color.Parse("#262626")),
-        BorderBrush = new SolidColorBrush(Color.Parse("#626262")),
+        CornerRadius = new CornerRadius(ChartDrawing.TooltipRadius),
         BorderThickness = new Thickness(1)
     };
     private readonly SegmentedSelector mode = new()
     {
-        ItemsSource = new[] { new ActivityOption<ActivityTimelineChartMode>(ActivityTimelineChartMode.Combat, "Combat"),
+        ItemsSource = new[] { new Option<ActivityTimelineChartMode>(ActivityTimelineChartMode.Combat, "Combat"),
             new(ActivityTimelineChartMode.Gathering, "Gathering"), new(ActivityTimelineChartMode.Fame, "Fame") },
         SelectedIndex = 0
     };
     private readonly SegmentedSelector direction = new()
     {
-        ItemsSource = new[] { new ActivityOption<bool>(false, "Dealt"), new ActivityOption<bool>(true, "Received") },
+        ItemsSource = new[] { new Option<bool>(false, "Dealt"), new Option<bool>(true, "Received") },
         SelectedIndex = 0
     };
     private readonly ComboBox window = new()
     {
         Name = "ActivityTimelineWindow",
-        ItemsSource = new[] { new ActivityOption<int>(5, "5 min"), new ActivityOption<int>(15, "15 min"),
-            new ActivityOption<int>(30, "30 min"), new ActivityOption<int>(60, "1 h"), new ActivityOption<int>(120, "2 h") },
+        ItemsSource = new[] { new Option<int>(5, "5 min"), new Option<int>(15, "15 min"),
+            new Option<int>(30, "30 min"), new Option<int>(60, "1 h"), new Option<int>(120, "2 h") },
         SelectedIndex = 0,
         Width = 108,
         Height = 32,
         HorizontalAlignment = HorizontalAlignment.Right,
         VerticalAlignment = VerticalAlignment.Top
     };
-    private readonly TextBlock titleText = new() { FontSize = 18, FontWeight = FontWeight.SemiBold };
+    private readonly TextBlock titleText = new() { Classes = { "UiTitle" } };
     private readonly TextBlock stateText = new()
     {
-        FontSize = 12,
-        Opacity = 0.8,
+        Classes = { "UiLabel" },
+        TextWrapping = TextWrapping.NoWrap,
         VerticalAlignment = VerticalAlignment.Center,
         MaxWidth = 200,
         TextTrimming = TextTrimming.CharacterEllipsis
@@ -97,23 +96,18 @@ public sealed class ActivityLiveTimelineView : UserControl
     private readonly ComboBox replaySpeedSelector = new()
     {
         Name = "ActivityReplaySpeed",
-        ItemsSource = new[] { new ActivityOption<double>(1, "1×"), new ActivityOption<double>(2, "2×"), new ActivityOption<double>(4, "4×"), new ActivityOption<double>(8, "8×") },
+        ItemsSource = new[] { new Option<double>(1, "1×"), new Option<double>(2, "2×"), new Option<double>(4, "4×"), new Option<double>(8, "8×") },
         SelectedIndex = 0,
         Width = 74,
         Height = 32,
         Margin = new Thickness(6, 0, 0, 0)
     };
     private readonly Slider replaySeek = new() { Name = "ActivityReplaySeek", Minimum = 0, Maximum = 1, IsEnabled = false, MinWidth = 120 };
-    private readonly TextBlock replayPosition = new() { FontSize = 12, VerticalAlignment = VerticalAlignment.Center, MinWidth = 105, TextAlignment = TextAlignment.Right };
+    private readonly TextBlock replayPosition = new() { Classes = { "UiLabel" }, VerticalAlignment = VerticalAlignment.Center, MinWidth = 105, TextAlignment = TextAlignment.Right };
     private readonly Grid replaySeekRow = new() { ColumnDefinitions = new ColumnDefinitions("*,Auto"), ColumnSpacing = 10 };
     private readonly StackPanel replayControls = new() { Spacing = 5, IsVisible = false };
     private readonly Grid heading = new() { ColumnDefinitions = new ColumnDefinitions("*,Auto") };
-    private readonly Border frame = new()
-    {
-        Background = new SolidColorBrush(Color.Parse("#383838")),
-        CornerRadius = new CornerRadius(6),
-        Padding = new Thickness(12)
-    };
+    private readonly Border frame = new() { Classes = { "UiCard" } };
     private ActivityLiveTimelineSnapshot? latest;
     private ActivityLiveTimelineSnapshot? replayFrame;
     private ActivityTimelineReplayRequest? lastReplayRequest;
@@ -141,7 +135,7 @@ public sealed class ActivityLiveTimelineView : UserControl
     {
         mode.SelectionChanged += (_, _) =>
         {
-            if (mode.SelectedItem is ActivityOption<ActivityTimelineChartMode> option) SetCurrentValue(ChartModeProperty, option.Value);
+            if (mode.SelectedItem is Option<ActivityTimelineChartMode> option) SetCurrentValue(ChartModeProperty, option.Value);
         };
         direction.SelectionChanged += (_, _) =>
         {
@@ -150,7 +144,7 @@ public sealed class ActivityLiveTimelineView : UserControl
         };
         window.SelectionChanged += (_, _) =>
         {
-            if (window.SelectedItem is ActivityOption<int> option) SetCurrentValue(WindowMinutesProperty, option.Value);
+            if (window.SelectedItem is Option<int> option) SetCurrentValue(WindowMinutesProperty, option.Value);
         };
         ToolTip.SetTip(window, "Chart time range");
         playReplay.Click += (_, _) => ToggleReplay();
@@ -159,7 +153,7 @@ public sealed class ActivityLiveTimelineView : UserControl
         replaySpeedSelector.SelectionChanged += (_, _) =>
         {
             HoldReplayCursor();
-            replaySpeed = (replaySpeedSelector.SelectedItem as ActivityOption<double>)?.Value ?? 1;
+            replaySpeed = (replaySpeedSelector.SelectedItem as Option<double>)?.Value ?? 1;
             UpdateReplayClock();
         };
         ToolTip.SetTip(replaySpeedSelector, "Playback speed");
@@ -211,6 +205,8 @@ public sealed class ActivityLiveTimelineView : UserControl
 
         // The tooltip shares the chart's host rather than its clipped drawing surface. Keeping
         // the entire overlay out of hit testing lets pointer movement continue through it.
+        UiPalette.Bind(tooltipPanel, Border.BackgroundProperty, "UiTooltipBrush");
+        UiPalette.Bind(tooltipPanel, Border.BorderBrushProperty, "UiBorderStrongBrush");
         tooltipLayer.Children.Add(tooltipPanel);
         var chartHost = new Grid { ClipToBounds = false, Children = { canvas, tooltipLayer } };
         frame.Child = new StackPanel { Spacing = 6, Children = { heading, replayControls, legends, chartHost } };
@@ -468,12 +464,12 @@ public sealed class ActivityLiveTimelineView : UserControl
         header.Children.Add(new TextBlock
         {
             Text = tooltip.Title,
-            FontSize = 13,
+            FontSize = ChartDrawing.TooltipTitleSize,
             FontWeight = FontWeight.SemiBold,
             Margin = new Thickness(0, 0, 12, 0),
             TextWrapping = TextWrapping.Wrap
         });
-        if (!string.IsNullOrEmpty(tooltip.TimeText)) header.Children.Add(new TextBlock { Text = tooltip.TimeText, FontSize = 12, Opacity = 0.75 });
+        if (!string.IsNullOrEmpty(tooltip.TimeText)) header.Children.Add(new TextBlock { Text = tooltip.TimeText, Classes = { "UiLabel" } });
         var content = new StackPanel { Spacing = 4, IsHitTestVisible = false };
         content.Children.Add(header);
         if (!string.IsNullOrEmpty(tooltip.ContextText)) content.Children.Add(TooltipLine(tooltip.ContextText, true));
@@ -489,13 +485,12 @@ public sealed class ActivityLiveTimelineView : UserControl
         Canvas.SetTop(tooltipPanel, top);
     }
 
-    private static TextBlock TooltipLine(string text, bool muted = false) => new()
+    private static TextBlock TooltipLine(string text, bool muted = false)
     {
-        Text = text,
-        FontSize = 12,
-        Opacity = muted ? 0.75 : 1,
-        TextWrapping = TextWrapping.Wrap
-    };
+        var line = new TextBlock { Text = text, FontSize = ChartDrawing.TooltipLineSize, TextWrapping = TextWrapping.Wrap };
+        if (muted) line.Classes.Add("UiMuted");
+        return line;
+    }
 
     private void DrawLatest()
     {
@@ -528,15 +523,15 @@ public sealed class ActivityLiveTimelineView : UserControl
             var elapsed = latest == null ? 0 : Math.Max(0, (cursor - latest.WindowStartUtc).TotalSeconds);
             replaySeek.Maximum = Math.Max(1, total);
             replaySeek.Value = Math.Min(total, elapsed);
-            replayPosition.Text = ActivityDisplay.Duration(elapsed) + " / " + ActivityDisplay.Duration(total);
+            replayPosition.Text = UiFormat.Duration(elapsed) + " / " + UiFormat.Duration(total);
         }
         finally { updatingReplayPosition = false; }
         var windowTitle = WindowMinutes switch { 60 => "Last hour", 120 => "Last 2 hours", _ => $"Last {WindowMinutes} minutes" };
         titleText.Text = replayMode ? "Session replay" : string.IsNullOrWhiteSpace(Title) ? IsRolling ? windowTitle : "Activity over time" : Title;
         stateText.Text = latest?.HasContext != true ? "Waiting for activity" : IsRolling
             ? "Live"
-            : replayMode ? $"{cursor.ToLocalTime():HH:mm:ss} · " + (finished ? "Finished" : replayPlaying ? "Playing" : "Paused")
-            : $"{latest.WindowStartUtc.ToLocalTime():HH:mm:ss} – {latest.WindowEndUtc.ToLocalTime():HH:mm:ss}";
+            : replayMode ? $"{UiFormat.LocalTime(cursor)} · " + (finished ? "Finished" : replayPlaying ? "Playing" : "Paused")
+            : $"{UiFormat.LocalTime(latest.WindowStartUtc)} – {UiFormat.LocalTime(latest.WindowEndUtc)}";
         if (latest?.IsPartial == true && IsRolling) stateText.Text += " · Some activity missing";
         var warnings = new List<string>();
         if (latest?.IsPartial == true) warnings.Add("Some activity may be missing.");
@@ -547,8 +542,8 @@ public sealed class ActivityLiveTimelineView : UserControl
     private static TextBlock Legend(string text, Color color) => new()
     {
         Text = "●  " + text,
-        Foreground = new SolidColorBrush(color),
-        FontSize = 12,
+        Foreground = UiPalette.Brush(color),
+        Classes = { "UiLabel" },
         Margin = new Thickness(0, 0, 18, 2)
     };
 

@@ -133,7 +133,8 @@
 							</ItemsControl.ItemsPanel>
 							<ItemsControl.ItemTemplate>
 								<DataTemplate x:DataType="vm:SetupStepViewModel">
-									<Border Height="3" Margin="1,0" CornerRadius="2" Background="{Binding StateBrush}" />
+									<Border Classes="UiStepState" Classes.Done="{Binding IsDone}" Classes.Stale="{Binding IsStale}" Classes.Active="{Binding IsActive}"
+											Classes.Warning="{Binding IsWarning}" Classes.Blocked="{Binding IsBlocked}" Height="3" Margin="1,0" CornerRadius="2" />
 								</DataTemplate>
 							</ItemsControl.ItemTemplate>
 						</ItemsControl>

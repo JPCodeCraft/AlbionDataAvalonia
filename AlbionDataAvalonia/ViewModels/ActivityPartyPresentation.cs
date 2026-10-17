@@ -1,5 +1,6 @@
 using AlbionDataAvalonia.Activity;
 using AlbionDataAvalonia.Activity.Models;
+using AlbionDataAvalonia.Ui;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -11,7 +12,7 @@ public sealed record ActivityPartyMemberChip(string Name, bool IsYou);
 public sealed record ActivityPartyChangeRow(DateTime AtUtc, bool Joined, IReadOnlyList<string> Players, int PartySize)
 {
     internal static readonly TimeSpan MergeWindow = TimeSpan.FromSeconds(10);
-    public string TimeText => ActivityDisplay.LocalTime(AtUtc);
+    public string TimeText => UiFormat.LocalTime(AtUtc);
     public string Change => Joined ? "Joined" : "Left";
     public string Player => ActivityPartyText.Preview(Players);
     public string PlayerDetails => ActivityPartyText.Members(Players);
@@ -69,16 +70,16 @@ public sealed record ActivityPartyHistory(IReadOnlyList<ActivityPartyMemberRow> 
             var total = span.Total + (span.OpenedAt is { } open ? Positive(end - open) : TimeSpan.Zero);
             var stayed = span.OpenedAt is not null;
             return (Order: span.FirstJoined ?? DateTime.MaxValue, Row: new ActivityPartyMemberRow(x.Key,
-                span.AtStart ? "Session start" : span.FirstJoined is { } joined ? ActivityDisplay.LocalTime(joined) : "",
-                stayed ? session.State == ActivityState.Open ? "Still in party" : "Session end" : span.LastLeft is { } left ? ActivityDisplay.LocalTime(left) : "",
-                ActivityDisplay.Duration(total.TotalSeconds), stayed));
+                span.AtStart ? "Session start" : span.FirstJoined is { } joined ? UiFormat.LocalTime(joined) : "",
+                stayed ? session.State == ActivityState.Open ? "Still in party" : "Session end" : span.LastLeft is { } left ? UiFormat.LocalTime(left) : "",
+                UiFormat.Duration(total.TotalSeconds), stayed));
         }).OrderBy(x => x.Order).ThenBy(x => x.Row.Name, StringComparer.OrdinalIgnoreCase).Select(x => x.Row).ToList();
         foreach (var name in recordedMembers.Where(name => !members.ContainsKey(name)).Order(StringComparer.OrdinalIgnoreCase))
             rows.Add(new(name, "Not recorded", "", "", false));
         if (rows.Count == 0) return Empty;
-        var summary = $"{rows.Count:N0} {(rows.Count == 1 ? "member" : "members")} besides you";
+        var summary = $"{UiFormat.Count(rows.Count, "member")} besides you";
         if (peak > 1) summary += $" · peak party size {peak:N0}";
-        if (changes.Count > 0) summary += $" · {changes.Count:N0} {(changes.Count == 1 ? "change" : "changes")}";
+        if (changes.Count > 0) summary += $" · {UiFormat.Count(changes.Count, "change")}";
         if (events.Count == 0) summary += " · joins and departures were not recorded for this session";
         changes.Reverse();
         return new(rows, changes, summary);

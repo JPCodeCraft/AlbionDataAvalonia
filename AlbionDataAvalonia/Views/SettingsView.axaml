@@ -197,8 +197,8 @@
                                Text="A compact window with the current session. Capture it as a window source in your streaming app." />
 
                     <Border Classes="UiCard Sunken" Padding="16" IsVisible="{Binding StreamerPreview, Converter={x:Static ObjectConverters.IsNotNull}}">
-                        <Border HorizontalAlignment="Center" CornerRadius="{DynamicResource UiRadiusOverlay}"
-                                Background="{Binding StreamerPreview.WindowBackground, FallbackValue=Transparent}"
+                        <Border Classes="UiStreamerBackdrop" Classes.ChromaKey="{Binding StreamerPreview.UseChromaKey, FallbackValue=False}"
+                                HorizontalAlignment="Center" CornerRadius="{DynamicResource UiRadiusOverlay}"
                                 Width="{Binding StreamerPreview.WindowWidth, FallbackValue=330}">
                             <views:ActivityStreamerView DataContext="{Binding StreamerPreview}" />
                         </Border>
@@ -270,7 +270,7 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="vm:StorageLegendItem">
                                             <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,16,2">
-                                                <Border Classes="UiSwatch" Background="{Binding Brush}" />
+                                                <Border Classes="UiSwatch" Background="{Binding Kind, Converter={x:Static views:UiValueConverters.StorageBrush}}" />
                                                 <TextBlock Classes="UiLabel" VerticalAlignment="Center">
                                                     <Run Text="{Binding Label}" />
                                                     <Run Text="{Binding SizeText}" />
@@ -292,7 +292,7 @@
                                         <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="10">
                                             <CheckBox IsChecked="{Binding IsSelected}" VerticalAlignment="Center" MinWidth="0" Padding="0"
                                                       AutomationProperties.Name="{Binding Label}" />
-                                            <Border Grid.Column="1" Classes="UiSwatch" Background="{Binding Brush}" />
+                                            <Border Grid.Column="1" Classes="UiSwatch" Background="{Binding Type, Converter={x:Static views:UiValueConverters.StorageBrush}}" />
                                             <StackPanel Grid.Column="2" VerticalAlignment="Center">
                                                 <TextBlock Classes="UiRowTitle" Text="{Binding Label}" />
                                                 <TextBlock Classes="UiLabel" Text="{Binding CountText}" />

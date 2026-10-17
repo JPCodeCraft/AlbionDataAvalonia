@@ -2,6 +2,7 @@ using AlbionDataAvalonia.Activity;
 using AlbionDataAvalonia.Activity.Models;
 using AlbionDataAvalonia.Maps;
 using AlbionDataAvalonia.Settings;
+using AlbionDataAvalonia.Ui;
 using AlbionDataAvalonia.Views;
 using Avalonia.Media;
 using Avalonia.Media.Imaging;
@@ -33,15 +34,6 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
     private static readonly TimeSpan FadeRefresh = TimeSpan.FromSeconds(1);
     // Without a minimap, the path is shown on a grid at least this many units across.
     private const double MinimumFallbackSize = 160;
-    private static readonly IBrush BlueZone = new SolidColorBrush(Color.Parse("#4A90E2"));
-    private static readonly IBrush YellowZone = new SolidColorBrush(Color.Parse("#F2C94C"));
-    private static readonly IBrush RedZone = new SolidColorBrush(Color.Parse("#E05555"));
-    private static readonly IBrush BlackZone = new SolidColorBrush(Color.Parse("#2B2B2B"));
-    private static readonly IBrush OtherZone = new SolidColorBrush(Color.Parse("#B0B0B0"));
-    internal static readonly IBrush KillBrush = new SolidColorBrush(ActivityMapCanvas.KillColor);
-    internal static readonly IBrush LootBrush = new SolidColorBrush(ActivityMapCanvas.LootColor);
-    internal static readonly IBrush GatheringBrush = new SolidColorBrush(ActivityMapCanvas.GatheringColor);
-    internal static readonly IBrush DeathBrush = new SolidColorBrush(ActivityMapCanvas.DeathColor);
 
     private readonly ActivityTrackerService tracker;
     private readonly ActivityPersistence persistence;
@@ -60,7 +52,7 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
     private Guid? requestedRunId;
     private bool runsLoaded;
     private bool disposed;
-    private int loadVersion;
+    private readonly LatestLoad loads = new();
 
     public ActivityMapViewModel(ActivityTrackerService tracker, ActivityPersistence persistence, MapDataService maps, UserSettings settings)
     {
@@ -76,9 +68,9 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
     }
 
     private static readonly int[] FadeOptionValues = [1, 5, 15, 0];
-    public IReadOnlyList<ActivityOption<int>> ModeOptions { get; } = [new(0, "Live"), new(1, "History")];
-    public IReadOnlyList<ActivityOption<int>> FadeOptions { get; } = [new(1, "1 min"), new(5, "5 min"), new(15, "15 min"), new(0, "Never")];
-    public IReadOnlyList<ActivityOption<int>> ScopeOptions { get; } = [new(0, "Personal"), new(1, "Party")];
+    public IReadOnlyList<Option<int>> ModeOptions { get; } = [new(0, "Live"), new(1, "History")];
+    public IReadOnlyList<Option<int>> FadeOptions { get; } = [new(1, "1 min"), new(5, "5 min"), new(15, "15 min"), new(0, "Never")];
+    public IReadOnlyList<Option<int>> ScopeOptions { get; } = [new(0, "Personal"), new(1, "Party")];
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsLive), nameof(IsHistory), nameof(ShowFollow))]
@@ -321,18 +313,18 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
 
     private async Task LoadRunsAsync()
     {
-        var version = ++loadVersion;
+        var version = loads.Begin();
         try
         {
             var mapped = await persistence.GetMappedRunsAsync();
-            if (disposed || version != loadVersion) return;
+            if (disposed || !loads.IsCurrent(version)) return;
             runsLoaded = true;
             var requested = requestedRunId;
             var options = mapped.Select(x => new ActivityMapRunOption(x.Id, RunLabel(x))).ToList();
             // A run shown from the Activity tab is listed even if it recorded no positions yet.
             if (requested is { } id && options.All(x => x.Id != id) && await persistence.GetSessionAsync(id) is { } run)
                 options.Insert(0, new ActivityMapRunOption(run.Id, RunLabel(run)));
-            if (disposed || version != loadVersion) return;
+            if (disposed || !loads.IsCurrent(version)) return;
             Runs = options;
             requestedRunId = null;
             SelectedRun = options.FirstOrDefault(x => x.Id == requested) ?? options.FirstOrDefault();
@@ -351,11 +343,11 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
 
     private async Task LoadRunAsync(Guid runId)
     {
-        var version = ++loadVersion;
+        var version = loads.Begin();
         try
         {
             var loaded = await persistence.GetRunMapAsync(runId);
-            if (disposed || version != loadVersion) return;
+            if (disposed || !loads.IsCurrent(version)) return;
             runMap = loaded;
             historyZone = null;
             if (loaded is null)
@@ -398,8 +390,8 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
     private async Task LoadHistoryZoneAsync(ActivityMapRunMapOption option)
     {
         historyZone = null;
-        TimelineStartText = option.StartUtc.ToLocalTime().ToString("t", CultureInfo.CurrentCulture);
-        TimelineEndText = option.EndUtc.ToLocalTime().ToString("t", CultureInfo.CurrentCulture);
+        TimelineStartText = UiFormat.LocalShortTime(option.StartUtc);
+        TimelineEndText = UiFormat.LocalShortTime(option.EndUtc);
         UpdateHistoryDetails(option);
         TimelineValue = TimelineMax;
         RebuildHistory();
@@ -425,7 +417,7 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
         Subtitle = zone?.Subtitle ?? "";
         var until = TimelineValue >= TimelineMax ? (DateTime?)null
             : option.StartUtc + TimeSpan.FromSeconds((option.EndUtc - option.StartUtc).TotalSeconds * TimelineValue / TimelineMax);
-        TimelineNowText = until is { } moment ? moment.ToLocalTime().ToString("T", CultureInfo.CurrentCulture) : "";
+        TimelineNowText = until is { } moment ? UiFormat.LocalTime(moment) : "";
         var markers = Shown(option.Markers);
         var points = option.Points.Select(x => (x.X, x.Y)).Concat(markers.Select(x => (x.X, x.Y))).ToArray();
         var geometry = zone?.Geometry ?? (points.Length == 0 ? null
@@ -455,7 +447,7 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
             foreach (var exit in zone.Exits)
             {
                 var target = await maps.ZoneAsync(exit.TargetId);
-                exits.Add(new ActivityMapExit(exit.Position, $"To {target?.DisplayName ?? exit.TargetId}", ZoneBrush(target?.PvpCategory)));
+                exits.Add(new ActivityMapExit(exit.Position, $"To {target?.DisplayName ?? exit.TargetId}", Zone(target?.PvpCategory)));
             }
 
             var icons = await iconsTask;
@@ -479,23 +471,17 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
     private void UpdateHistoryDetails(ActivityMapRunMapOption option)
     {
         var span = Math.Max(1, (option.EndUtc - option.StartUtc).TotalSeconds);
-        Ticks = Shown(option.Markers).Select(x => new ActivityMapTick(Math.Clamp((x.CapturedAtUtc - option.StartUtc).TotalSeconds / span, 0, 1), x.Kind switch
-        {
-            ActivityMapMarkerKind.Kill => KillBrush,
-            ActivityMapMarkerKind.Loot => LootBrush,
-            ActivityMapMarkerKind.Gathering => GatheringBrush,
-            _ => DeathBrush
-        })).ToArray();
+        Ticks = Shown(option.Markers).Select(x => new ActivityMapTick(Math.Clamp((x.CapturedAtUtc - option.StartUtc).TotalSeconds / span, 0, 1), x.Kind)).ToArray();
         if (runMap is not null) RunSummaryText = RunSummary(runMap, RunMaps, Shown(runMap.Markers));
     }
 
-    private static IBrush ZoneBrush(string? pvpCategory) => pvpCategory switch
+    private static MapZoneKind Zone(string? pvpCategory) => pvpCategory switch
     {
-        "blue" => BlueZone,
-        "yellow" => YellowZone,
-        "red" => RedZone,
-        "black" => BlackZone,
-        _ => OtherZone
+        "blue" => MapZoneKind.Blue,
+        "yellow" => MapZoneKind.Yellow,
+        "red" => MapZoneKind.Red,
+        "black" => MapZoneKind.Black,
+        _ => MapZoneKind.Other
     };
 
     private static string ZoneDescription(MapZone zone)
@@ -555,13 +541,13 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
         var duration = (run.Run.ClosedAtUtc ?? run.Run.LastObservedAtUtc) - run.Run.StartedAtUtc;
         var parts = new List<string>
         {
-            mapsInRun.Count == 1 ? "1 map" : $"{mapsInRun.Count} maps",
-            duration.TotalHours >= 1 ? $"{(int)duration.TotalHours} h {duration.Minutes} min" : $"{Math.Max(1, (int)duration.TotalMinutes)} min"
+            UiFormat.Count(mapsInRun.Count, "map"),
+            UiFormat.Duration(duration)
         };
         var kills = markers.Count(x => x.Kind == ActivityMapMarkerKind.Kill);
-        if (kills > 0) parts.Add(kills == 1 ? "1 kill" : $"{kills} kills");
+        if (kills > 0) parts.Add(UiFormat.Count(kills, "kill"));
         var loot = markers.Count(x => x.Kind == ActivityMapMarkerKind.Loot);
-        if (loot > 0) parts.Add(loot == 1 ? "1 pickup" : $"{loot} pickups");
+        if (loot > 0) parts.Add(UiFormat.Count(loot, "pickup"));
         return string.Join(" · ", parts);
     }
 

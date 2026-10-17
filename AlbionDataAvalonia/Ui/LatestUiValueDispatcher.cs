@@ -1,8 +1,9 @@
 using Avalonia.Threading;
 using System;
 
-namespace AlbionDataAvalonia.ViewModels;
+namespace AlbionDataAvalonia.Ui;
 
+/// <summary>Applies only the newest of a stream of values on the UI thread, at most once per interval.</summary>
 internal sealed class LatestUiValueDispatcher<T> : IDisposable
     where T : class
 {

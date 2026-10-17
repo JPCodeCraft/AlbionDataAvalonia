@@ -17,10 +17,10 @@
 			<Border Classes="Step" Classes.Current="{Binding HasHint}">
 				<Grid ColumnDefinitions="Auto,*">
 					<Grid Width="18" Height="18" Margin="0,1,12,0" VerticalAlignment="Top">
-						<Ellipse IsVisible="{Binding IsChecked}" Fill="{Binding StateBrush}" />
+						<Ellipse Classes="UiStepState" Classes.Done="{Binding IsDone}" Classes.Stale="{Binding IsStale}" IsVisible="{Binding IsChecked}" />
 						<Path IsVisible="{Binding IsChecked}" Data="M5,9.3 L7.9,12.1 L13.1,6.6" Stroke="White"
 							  StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round" />
-						<Ellipse IsVisible="{Binding NeedsAttention}" Fill="{Binding StateBrush}" />
+						<Ellipse Classes="UiStepState" Classes.Warning="{Binding IsWarning}" Classes.Blocked="{Binding IsBlocked}" IsVisible="{Binding NeedsAttention}" />
 						<Canvas IsVisible="{Binding NeedsAttention}" Width="18" Height="18">
 							<Path Data="M9,4.4 L9,10" Stroke="{DynamicResource UiOnAccentBrush}" StrokeThickness="2.2" StrokeLineCap="Round" />
 							<Ellipse Canvas.Left="7.7" Canvas.Top="11.8" Width="2.6" Height="2.6" Fill="{DynamicResource UiOnAccentBrush}" />
@@ -197,10 +197,10 @@
 								<TextBlock Classes="UiCaption" Text="CHARACTER" />
 								<StackPanel Orientation="Horizontal" Spacing="8">
 									<TextBlock Classes="UiSectionTitle" TextTrimming="CharacterEllipsis" Text="{Binding PlayerName}" VerticalAlignment="Center" />
-									<Border Classes="UiBadge" Background="{Binding PremiumStatusBackground}">
+									<Border Classes="UiBadge PremiumStatus" Classes.Premium="{Binding IsPremium}" Classes.NotPremium="{Binding IsNotPremium}">
 										<StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
 											<Image Width="16" Height="16" VerticalAlignment="Center" Source="/Assets/Icons/icon_shop_premium.png" Stretch="Uniform" />
-											<TextBlock Foreground="{Binding PremiumStatusForeground}" Text="{Binding PremiumStatusText}" />
+											<TextBlock Text="{Binding PremiumStatusText}" />
 										</StackPanel>
 									</Border>
 								</StackPanel>

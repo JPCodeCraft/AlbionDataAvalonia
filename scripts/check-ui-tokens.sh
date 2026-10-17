@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# Fails when view XAML types a color or a font size instead of using Themes/Tokens.axaml.
+# Fails when views or view models type a color or a font size instead of using Themes/Tokens.axaml.
 # See "UI Conventions" in AGENTS.md.
 set -u
 cd "$(dirname "$0")/.."
@@ -12,11 +12,23 @@ report() {
     status=1
 }
 
-colors=$(grep -nE '#[0-9A-Fa-f]{3,8}\b|rgba?\(' "$app"/Views/*.axaml 2>/dev/null)
-[ -n "$colors" ] && report "Color literals in view XAML (use a Ui*Brush token):" "$colors"
+# XAML in Views and Themes; only Tokens.axaml defines colors (App.axaml holds Fluent's own palette).
+xaml=$(find "$app/Views" "$app/Themes" -name '*.axaml' ! -name 'Tokens.axaml')
 
-sizes=$(grep -nE 'FontSize="[0-9]' "$app"/Views/*.axaml 2>/dev/null)
-[ -n "$sizes" ] && report "Font sizes in view XAML (use a text class or a UiFontSize token):" "$sizes"
+colors=$(grep -nE '#[0-9A-Fa-f]{3,8}\b|rgba?\(' $xaml 2>/dev/null)
+[ -n "$colors" ] && report "Color literals in XAML (use a Ui*Brush token):" "$colors"
+
+sizes=$(grep -nE 'FontSize="[0-9]' $xaml 2>/dev/null)
+[ -n "$sizes" ] && report "Font sizes in XAML (use a text class or a UiFontSize token):" "$sizes"
+
+# Code draws with UiPalette and ActivityPalette, which read the tokens.
+code=$(grep -rnE 'Color\.Parse|Brush\.Parse|new SolidColorBrush|Color\.From(Rgb|Argb|UInt32)|\bColors\.|\bBrushes\.' \
+    --include='*.cs' "$app/Views" "$app/ViewModels" 2>/dev/null)
+[ -n "$code" ] && report "Colors built in code (use UiPalette or ActivityPalette):" "$code"
+
+# View models expose states; XAML maps them to tokens with classes or a converter.
+brushes=$(grep -rnE '\bI?Brush\b|\bIBrush\b' --include='*.cs' "$app/ViewModels" 2>/dev/null)
+[ -n "$brushes" ] && report "Brushes in view models (expose a state instead):" "$brushes"
 
 [ "$status" -eq 0 ] && echo "UI tokens check passed."
 exit "$status"

@@ -5,11 +5,13 @@ using System.Globalization;
 using System.Linq;
 using AlbionDataAvalonia.Activity;
 using AlbionDataAvalonia.Activity.Models;
+using AlbionDataAvalonia.Ui;
 using AlbionDataAvalonia.ViewModels;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
+using Avalonia.Media.Immutable;
 using Avalonia.Threading;
 
 namespace AlbionDataAvalonia.Views;
@@ -17,38 +19,30 @@ namespace AlbionDataAvalonia.Views;
 /// <summary>Bounded drawing of the rolling projection; has no capture or accounting logic.</summary>
 internal sealed class ActivityLiveTimelineCanvas : Control
 {
-    internal static readonly Color DamageColor = Color.Parse("#69B2F0");
-    internal static readonly Color HealingColor = Color.Parse("#69D2A0");
-    internal static readonly Color GatheringColor = Color.Parse("#A0D477");
-    internal static readonly Color FishingColor = Color.Parse("#64CBDD");
     private static readonly Series[] CombatDealtSeries =
     [
-        new("Damage dealt", DamageColor, sample => sample.DamageDealt),
-        new("Healing done", HealingColor, sample => sample.HealingDone)
+        new("Damage dealt", ActivityPalette.Damage, sample => sample.DamageDealt),
+        new("Healing done", ActivityPalette.Healing, sample => sample.HealingDone)
     ];
     private static readonly Series[] CombatReceivedSeries =
     [
-        new("Damage received", DamageColor, sample => sample.DamageReceived),
-        new("Healing received", HealingColor, sample => sample.HealingReceived)
+        new("Damage received", ActivityPalette.Damage, sample => sample.DamageReceived),
+        new("Healing received", ActivityPalette.Healing, sample => sample.HealingReceived)
     ];
     private static readonly Series[] GatheringSeries =
     [
-        new("Gathering", GatheringColor, sample => sample.GatheringQuantity),
-        new("Fishing", FishingColor, sample => sample.FishingQuantity)
+        new("Gathering", ActivityPalette.Gathering, sample => sample.GatheringQuantity),
+        new("Fishing", ActivityPalette.Fishing, sample => sample.FishingQuantity)
     ];
     private static readonly Series[] FameSeries =
     [
-        new("PvE fame", DamageColor, sample => sample.PveFame),
-        new("PvP fame", Color.Parse("#EB9C64"), sample => sample.PvpFame),
-        new("Gathering fame", GatheringColor, sample => sample.GatheringFame),
-        new("Fishing fame", FishingColor, sample => sample.FishingFame),
-        new("Unknown fame", Color.Parse("#C5C5C5"), sample => sample.UnknownFame)
+        new("PvE fame", ActivityPalette.Damage, sample => sample.PveFame),
+        new("PvP fame", ActivityPalette.Kill, sample => sample.PvpFame),
+        new("Gathering fame", ActivityPalette.Gathering, sample => sample.GatheringFame),
+        new("Fishing fame", ActivityPalette.Fishing, sample => sample.FishingFame),
+        new("Unknown fame", ActivityPalette.Unknown, sample => sample.UnknownFame)
     ];
-    private static readonly IBrush TextBrush = new SolidColorBrush(Color.Parse("#EFEFEF"));
-    private static readonly IBrush MutedBrush = new SolidColorBrush(Color.Parse("#C5C5C5"));
-    private static readonly IBrush ChartBrush = new SolidColorBrush(Color.Parse("#343434"));
-    private static readonly IBrush PillBrush = new SolidColorBrush(Color.Parse("#3D3D3D"));
-    private static readonly Pen GridPen = new(new SolidColorBrush(Color.Parse("#505050")), 1);
+    private static ImmutablePen GridPen => UiPalette.Pen(UiPalette.Grid);
     private readonly List<MarkerHit> markerHits = new();
     private readonly List<EncounterHit> encounterHits = new();
     private readonly Dictionary<string, long> introducedMarkers = new();
@@ -142,7 +136,7 @@ internal sealed class ActivityLiveTimelineCanvas : Control
         var plot = Plot;
         markerHits.Clear();
         encounterHits.Clear();
-        context.DrawRectangle(ChartBrush, null, plot, 4, 4);
+        context.DrawRectangle(UiPalette.Brush(UiPalette.Chart), null, plot, 4, 4);
         var samples = snapshot?.Samples ?? Array.Empty<ActivityLiveTimelineSample>();
         var series = VisibleSeries;
         var maximum = 0d;
@@ -156,9 +150,9 @@ internal sealed class ActivityLiveTimelineCanvas : Control
         {
             var y = plot.Bottom - plot.Height * line / 3;
             context.DrawLine(GridPen, new Point(plot.Left, y), new Point(plot.Right, y));
-            Text(context, Compact(max * line / 3), new Point(plot.Left - 7, y - 7), 11, MutedBrush, rightAligned: true);
+            Text(context, UiFormat.Compact(max * line / 3), new Point(plot.Left - 7, y - 7), 11, UiPalette.Muted, rightAligned: true);
         }
-        Text(context, RateUnit, new Point(3, ChartTop - 19), 10, MutedBrush);
+        Text(context, RateUnit, new Point(3, ChartTop - 19), 10, UiPalette.Muted);
         using (context.PushClip(plot))
         {
             foreach (var item in series) DrawArea(context, samples, max, item.Value, item.Color);
@@ -168,10 +162,10 @@ internal sealed class ActivityLiveTimelineCanvas : Control
         DrawEncounters(context);
         DrawMarkers(context);
         if (snapshot?.HasContext != true || (samples.Count == 0 && snapshot.Markers.Count == 0))
-            Text(context, "No activity in this period", new Point(plot.Center.X, plot.Center.Y - 8), 12, MutedBrush, centered: true);
+            Text(context, "No activity in this period", new Point(plot.Center.X, plot.Center.Y - 8), 12, UiPalette.Muted, centered: true);
         if (pointer is { } position && position.X >= plot.Left && position.X <= plot.Right)
         {
-            context.DrawLine(new Pen(new SolidColorBrush(Color.Parse("#969696")), 1), new Point(position.X, ChartTop), new Point(position.X, ChartBottom));
+            context.DrawLine(UiPalette.Pen(UiPalette.Cursor), new Point(position.X, ChartTop), new Point(position.X, ChartBottom));
         }
         // The chart moves under a stationary pointer. Refresh against the newly drawn hit bounds,
         // after rendering finishes so tooltip layout changes do not mutate the visual tree here.
@@ -198,7 +192,7 @@ internal sealed class ActivityLiveTimelineCanvas : Control
                 path.LineTo(new Point(points[^1].X, ChartBottom));
                 path.EndFigure(true);
             }
-            context.DrawGeometry(new SolidColorBrush(Color.FromArgb(65, color.R, color.G, color.B)), null, area);
+            context.DrawGeometry(UiPalette.Brush(UiPalette.WithAlpha(color, 65)), null, area);
             var line = new StreamGeometry();
             using (var path = line.Open())
             {
@@ -206,7 +200,7 @@ internal sealed class ActivityLiveTimelineCanvas : Control
                 foreach (var point in points.Skip(1)) path.LineTo(point);
                 path.EndFigure(false);
             }
-            context.DrawGeometry(null, new Pen(new SolidColorBrush(color), 1.5), line);
+            context.DrawGeometry(null, UiPalette.Pen(color, 1.5), line);
             points.Clear();
         }
         var gaps = snapshot?.Gaps.OrderBy(gap => gap.StartedAtUtc).ToArray() ?? [];
@@ -246,13 +240,13 @@ internal sealed class ActivityLiveTimelineCanvas : Control
             var right = Math.Min(Plot.Right, X(gap.EndedAtUtc));
             if (right <= left) continue;
             var rect = new Rect(left, ChartTop, right - left, Plot.Height);
-            context.DrawRectangle(new SolidColorBrush(Color.Parse("#494949")), null, rect);
+            context.DrawRectangle(UiPalette.Brush(UiPalette.Gap), null, rect);
             using (context.PushClip(rect))
                 for (var x = left - Plot.Height; x < right; x += 10)
-                    context.DrawLine(new Pen(new SolidColorBrush(Color.Parse("#626262")), 1), new Point(x, ChartBottom), new Point(x + Plot.Height, ChartTop));
+                    context.DrawLine(UiPalette.Pen(UiPalette.Hatch), new Point(x, ChartBottom), new Point(x + Plot.Height, ChartTop));
             var label = GapLabel(gap.Reason);
-            if (right - left > MakeText(label, 11, TextBrush).Width + 12)
-                Text(context, label, new Point(rect.Center.X, rect.Center.Y - 6), 11, TextBrush, centered: true);
+            if (right - left > MakeText(label, 11, UiPalette.Text).Width + 12)
+                Text(context, label, new Point(rect.Center.X, rect.Center.Y - 6), 11, UiPalette.Text, centered: true);
         }
     }
 
@@ -263,9 +257,9 @@ internal sealed class ActivityLiveTimelineCanvas : Control
         {
             var x = Plot.Left + Plot.Width * step / divisions;
             var time = StartUtc.AddSeconds(WindowSeconds * step / divisions);
-            var label = step == divisions && IsLive ? "Now" : time.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture);
+            var label = step == divisions && IsLive ? "Now" : UiFormat.LocalTime(time);
             context.DrawLine(GridPen, new Point(x, ChartBottom), new Point(x, ChartBottom + 4));
-            Text(context, label, new Point(x, ChartBottom + 10), 11, MutedBrush, centered: step != divisions, rightAligned: step == divisions);
+            Text(context, label, new Point(x, ChartBottom + 10), 11, UiPalette.Muted, centered: step != divisions, rightAligned: step == divisions);
         }
     }
 
@@ -280,23 +274,17 @@ internal sealed class ActivityLiveTimelineCanvas : Control
             var right = Math.Min(Plot.Right, X(combatEnd));
             if (right < Plot.Left || left > Plot.Right || right <= left) continue;
             var rect = new Rect(left, EncounterTop, Math.Max(3, right - left), 23);
-            var color = encounter.Kind switch
-            {
-                ActivityEncounterKind.Pvp => Color.Parse("#CE8585"),
-                ActivityEncounterKind.Mixed => Color.Parse("#B499CB"),
-                ActivityEncounterKind.Healing => HealingColor,
-                _ => DamageColor
-            };
-            context.DrawRectangle(new SolidColorBrush(Color.FromArgb(35, color.R, color.G, color.B)), new Pen(new SolidColorBrush(color), encounter.State == ActivityState.Open ? 1.5 : 0.7), rect, 3, 3);
+            var color = ActivityPalette.Encounter(encounter.Kind);
+            context.DrawRectangle(UiPalette.Brush(UiPalette.WithAlpha(color, 35)), UiPalette.Pen(color, encounter.State == ActivityState.Open ? 1.5 : 0.7), rect, 3, 3);
             encounterHits.Add(new EncounterHit(rect, encounter));
             using (context.PushClip(rect.Deflate(3)))
             {
                 var label = ("#" + encounter.Number + " " + EncounterKind(encounter.Kind)).TrimEnd();
-                if (rect.Width >= 64) Text(context, label, new Point(rect.Center.X, rect.Top + 4), 11, TextBrush, centered: true);
-                else if (rect.Width >= 22) Text(context, "#" + encounter.Number, new Point(rect.Center.X, rect.Top + 4), 10, TextBrush, centered: true);
+                if (rect.Width >= 64) Text(context, label, new Point(rect.Center.X, rect.Top + 4), 11, UiPalette.Text, centered: true);
+                else if (rect.Width >= 22) Text(context, "#" + encounter.Number, new Point(rect.Center.X, rect.Top + 4), 10, UiPalette.Text, centered: true);
             }
         }
-        if (encounterHits.Count == 0) Text(context, "Encounters", new Point(Plot.Left, EncounterTop + 5), 11, MutedBrush);
+        if (encounterHits.Count == 0) Text(context, "Encounters", new Point(Plot.Left, EncounterTop + 5), 11, UiPalette.Muted);
     }
 
     private void DrawMarkers(DrawingContext context)
@@ -347,7 +335,7 @@ internal sealed class ActivityLiveTimelineCanvas : Control
             }
             var time = group[0].CapturedAtUtc;
             var lines = group.Take(4).Select(marker => (marker.Tooltip?.TimeText ??
-                marker.CapturedAtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture)) +
+                UiFormat.LocalTime(marker.CapturedAtUtc)) +
                 " · " + marker.Label + " · " + marker.ValueText).ToList();
             if (group.Count > 4) lines.Add($"+{group.Count - 4:N0} more groups");
             var tooltip = new ActivityLiveTimelineTooltip("More activity", "", $"{group.Count:N0} groups", lines);
@@ -357,9 +345,9 @@ internal sealed class ActivityLiveTimelineCanvas : Control
                 EndedAtUtc: group.Max(marker => marker.EndedAtUtc ?? marker.CapturedAtUtc));
             var x = X(time);
             context.DrawLine(GridPen, new Point(x, rect.Bottom), new Point(x, ChartTop));
-            context.DrawEllipse(MutedBrush, null, new Point(x, ChartTop), 2, 2);
-            context.DrawRectangle(PillBrush, GridPen, rect, 4, 4);
-            Text(context, overflow.ValueText, new Point(rect.Center.X, rect.Top + 2), 11, TextBrush, centered: true);
+            context.DrawEllipse(UiPalette.Brush(UiPalette.Muted), null, new Point(x, ChartTop), 2, 2);
+            context.DrawRectangle(UiPalette.Brush(UiPalette.Pill), GridPen, rect, 4, 4);
+            Text(context, overflow.ValueText, new Point(rect.Center.X, rect.Top + 2), 11, UiPalette.Text, centered: true);
             markerHits.Add(new MarkerHit(rect, overflow));
         }
     }
@@ -379,7 +367,7 @@ internal sealed class ActivityLiveTimelineCanvas : Control
         return groupedMarkers;
     }
 
-    private static double MarkerWidth(ActivityLiveTimelineMarker marker) => MakeText(marker.ValueText, 11, TextBrush).Width + 25;
+    private static double MarkerWidth(ActivityLiveTimelineMarker marker) => MakeText(marker.ValueText, 11, UiPalette.Text).Width + 25;
 
     private Rect MarkerBounds(DateTime time, double width, int lane)
     {
@@ -390,20 +378,20 @@ internal sealed class ActivityLiveTimelineCanvas : Control
 
     private Rect CrowdedBounds(IReadOnlyList<ActivityLiveTimelineMarker> group) => MarkerBounds(group[0].CapturedAtUtc,
         group.Count == 1 ? MarkerWidth(group[0]) :
-            Math.Max(30, MakeText($"+{group.Count:N0}", 11, TextBrush).Width + 12), MarkerLanes - 1);
+            Math.Max(30, MakeText($"+{group.Count:N0}", 11, UiPalette.Text).Width + 12), MarkerLanes - 1);
 
     private void DrawMarker(DrawingContext context, ActivityLiveTimelineMarker marker, Rect rect)
     {
         var x = X(marker.CapturedAtUtc);
-        var color = MarkerColor(marker.Kind);
-        context.DrawLine(new Pen(new SolidColorBrush(Color.FromArgb(65, color.R, color.G, color.B)), 1), new Point(x, rect.Bottom), new Point(x, ChartTop));
+        var color = ActivityPalette.Marker(marker.Kind);
+        context.DrawLine(UiPalette.Pen(UiPalette.WithAlpha(color, 65)), new Point(x, rect.Bottom), new Point(x, ChartTop));
         var highlight = introducedMarkers.TryGetValue(marker.Id, out var introduced)
             ? Math.Max(0, 1 - Stopwatch.GetElapsedTime(introduced).TotalSeconds / 1.2) : 0;
-        var fill = highlight > 0 ? new SolidColorBrush(Color.FromArgb((byte)(45 + highlight * 65), color.R, color.G, color.B)) : PillBrush;
-        context.DrawRectangle(fill, new Pen(new SolidColorBrush(color), 1 + highlight), rect, 4, 4);
+        var fill = UiPalette.Brush(highlight > 0 ? UiPalette.WithAlpha(color, 45 + highlight * 65) : UiPalette.Pill);
+        context.DrawRectangle(fill, new ImmutablePen(UiPalette.Brush(color), 1 + highlight), rect, 4, 4);
         DrawIcon(context, marker.Kind, new Point(rect.Left + 10, rect.Center.Y), color);
-        Text(context, marker.ValueText, new Point(rect.Left + 20, rect.Top + 2), 11, TextBrush);
-        context.DrawEllipse(new SolidColorBrush(color), null, new Point(x, ChartTop), 2, 2);
+        Text(context, marker.ValueText, new Point(rect.Left + 20, rect.Top + 2), 11, UiPalette.Text);
+        context.DrawEllipse(UiPalette.Brush(color), null, new Point(x, ChartTop), 2, 2);
         markerHits.Add(new MarkerHit(rect, marker));
     }
 
@@ -414,9 +402,9 @@ internal sealed class ActivityLiveTimelineCanvas : Control
         var encounter = encounterHits.LastOrDefault(hit => hit.Bounds.Contains(point));
         var time = StartUtc.AddSeconds(Math.Clamp((point.X - Plot.Left) / Plot.Width, 0, 1) * WindowSeconds);
         var gap = snapshot?.Gaps.FirstOrDefault(item => time >= item.StartedAtUtc && time < item.EndedAtUtc);
-        var timeText = time.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture);
+        var timeText = UiFormat.LocalTime(time);
         if (marker != null) tooltip = marker.Marker.Tooltip ?? new(marker.Marker.Label,
-            marker.Marker.CapturedAtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture), "", [marker.Marker.Detail]);
+            UiFormat.LocalTime(marker.Marker.CapturedAtUtc), "", [marker.Marker.Detail]);
         else if (encounter != null) tooltip = EncounterTooltip(encounter.Encounter);
         else if (gap != null && Plot.Contains(point)) tooltip = new(GapLabel(gap.Reason), timeText, "", []);
         else
@@ -435,7 +423,7 @@ internal sealed class ActivityLiveTimelineCanvas : Control
                 _ => ShowReceived ? "Combat received" : "Combat dealt"
             };
             tooltip = new(title, timeText, "", VisibleSeries.Select(item =>
-                $"{item.Label}: {ActivityDisplay.Number(sample != null ? item.Value(sample) : 0)} {RateUnit}").ToArray());
+                $"{item.Label}: {UiFormat.Compact(sample != null ? item.Value(sample) : 0)} {RateUnit}").ToArray());
         }
         Cursor = new Cursor(encounter != null ? StandardCursorType.Hand : StandardCursorType.Cross);
         var text = tooltip.Title + "\n" + tooltip.TimeText + "\n" + tooltip.ContextText + "\n" + string.Join("\n", tooltip.Lines);
@@ -449,26 +437,26 @@ internal sealed class ActivityLiveTimelineCanvas : Control
         var open = encounter.State == ActivityState.Open;
         var kind = EncounterKind(encounter.Kind);
         var seconds = Math.Max(1, (encounter.LastCombatAtUtc - encounter.StartedAtUtc).TotalSeconds);
-        var duration = ActivityDisplay.Duration(seconds) + (IsReplay && open ? " so far" : " of combat");
+        var duration = UiFormat.Duration(seconds) + (IsReplay && open ? " so far" : " of combat");
         var lines = new List<string>();
         if (encounter.Summary is { } summary)
         {
             var rates = ActivityProjection.GetRates(summary, seconds);
             void Add(string label, double value, string rate = "")
             {
-                if (value > 0) lines.Add($"{label}: {ActivityDisplay.Number(value)}{rate}");
+                if (value > 0) lines.Add($"{label}: {UiFormat.Compact(value)}{rate}");
             }
-            Add("Damage dealt", summary.DamageDealt, $" ({ActivityDisplay.Number(rates.DamagePerSecond)} DPS)");
+            Add("Damage dealt", summary.DamageDealt, $" ({UiFormat.Compact(rates.DamagePerSecond)} DPS)");
             Add("Damage received", summary.DamageReceived);
-            Add("Healing done", summary.HealingDone, $" ({ActivityDisplay.Number(rates.HealingPerSecond)} HPS)");
+            Add("Healing done", summary.HealingDone, $" ({UiFormat.Compact(rates.HealingPerSecond)} HPS)");
             Add("Healing received", summary.HealingReceived);
-            Add("Combat fame", summary.CombatFame, summary.PvpFame > 0 ? $" (PvP {ActivityDisplay.Number(summary.PvpFame)})" : "");
+            Add("Combat fame", summary.CombatFame, summary.PvpFame > 0 ? $" (PvP {UiFormat.Compact(summary.PvpFame)})" : "");
             Add("Silver", summary.Silver);
             if (summary.LootItems > 0)
-                lines.Add($"Loot: {ActivityDisplay.Number(summary.LootItems)} items · " + (summary.LootValue > 0 ? $"EMV {ActivityDisplay.Number(summary.LootValue)} silver" : "EMV unavailable"));
+                lines.Add($"Loot: {UiFormat.Compact(summary.LootItems)} items · " + (summary.LootValue > 0 ? $"EMV {UiFormat.Compact(summary.LootValue)} silver" : "EMV unavailable"));
             var kills = new List<string>();
-            if (summary.MobKills > 0) kills.Add($"{summary.MobKills:N0} {(summary.MobKills == 1 ? "mob" : "mobs")}");
-            if (summary.PlayerKills > 0) kills.Add($"{summary.PlayerKills:N0} {(summary.PlayerKills == 1 ? "player" : "players")}{ActivityDisplay.NonLethal(summary.NonLethalPlayerKills)}");
+            if (summary.MobKills > 0) kills.Add(UiFormat.Count(summary.MobKills, "mob"));
+            if (summary.PlayerKills > 0) kills.Add(UiFormat.Count(summary.PlayerKills, "player") + ActivityDisplay.NonLethal(summary.NonLethalPlayerKills));
             var outcomes = new List<string>();
             if (kills.Count > 0) outcomes.Add("Kills: " + string.Join(" · ", kills));
             if (summary.Deaths > 0) outcomes.Add($"Deaths: {summary.Deaths:N0}{ActivityDisplay.NonLethal(summary.NonLethalDeaths)}");
@@ -477,7 +465,7 @@ internal sealed class ActivityLiveTimelineCanvas : Control
         }
         lines.Add("Click to open in History");
         return new($"Encounter #{encounter.Number}{(kind.Length == 0 ? "" : " · " + kind)} · {(open ? "in progress" : "ended")}",
-            encounter.StartedAtUtc.ToLocalTime().ToString("HH:mm:ss", CultureInfo.CurrentCulture),
+            UiFormat.LocalTime(encounter.StartedAtUtc),
             string.Join(" · ", new[] { encounter.LocationName, duration }.Where(x => !string.IsNullOrWhiteSpace(x))), lines);
     }
 
@@ -530,22 +518,10 @@ internal sealed class ActivityLiveTimelineCanvas : Control
         ActivityLiveTimelineMarkerKind.Fame => 2,
         _ => 1
     };
-    private static Color MarkerColor(ActivityLiveTimelineMarkerKind kind) => kind switch
-    {
-        ActivityLiveTimelineMarkerKind.Death or ActivityLiveTimelineMarkerKind.Knockdown => Color.Parse("#F47D7D"),
-        ActivityLiveTimelineMarkerKind.PlayerKill => Color.Parse("#EB9C64"),
-        ActivityLiveTimelineMarkerKind.Loot => Color.Parse("#BF91F0"),
-        ActivityLiveTimelineMarkerKind.Gathering => GatheringColor,
-        ActivityLiveTimelineMarkerKind.Fishing => FishingColor,
-        ActivityLiveTimelineMarkerKind.Fame => Color.Parse("#86D1A2"),
-        ActivityLiveTimelineMarkerKind.Silver => Color.Parse("#E7BD64"),
-        ActivityLiveTimelineMarkerKind.Party => Color.Parse("#8FA8F5"),
-        _ => Color.Parse("#64CBDD")
-    };
     private static void DrawIcon(DrawingContext context, ActivityLiveTimelineMarkerKind kind, Point center, Color color)
     {
-        var brush = new SolidColorBrush(color);
-        var pen = new Pen(brush, 1.5);
+        var brush = UiPalette.Brush(color);
+        var pen = UiPalette.Pen(color, 1.5);
         switch (kind)
         {
             case ActivityLiveTimelineMarkerKind.Death:
@@ -619,14 +595,9 @@ internal sealed class ActivityLiveTimelineCanvas : Control
         var ratio = maximum / magnitude;
         return (ratio <= 2 ? 2 : ratio <= 5 ? 5 : 10) * magnitude;
     }
-    private static string Compact(double number) => number >= 1000000 ? (number / 1000000).ToString("0.#") + "m" : number >= 1000 ? (number / 1000).ToString("0.#") + "k" : number.ToString("0.#");
-    private static FormattedText MakeText(string value, double size, IBrush brush) => new(value, CultureInfo.CurrentCulture,
-        FlowDirection.LeftToRight, Typeface.Default, size, brush);
-    private static void Text(DrawingContext context, string value, Point position, double size, IBrush brush, bool centered = false, bool rightAligned = false)
-    {
-        var text = MakeText(value, size, brush);
-        context.DrawText(text, new Point(position.X - (centered ? text.Width / 2 : rightAligned ? text.Width : 0), position.Y));
-    }
+    private static FormattedText MakeText(string value, double size, Color color) => ChartDrawing.Text(value, size, color);
+    private static void Text(DrawingContext context, string value, Point position, double size, Color color, bool centered = false, bool rightAligned = false) =>
+        ChartDrawing.DrawText(context, value, position, size, color, centered ? TextAlign.Center : rightAligned ? TextAlign.Right : TextAlign.Left);
     internal sealed record Series(string Label, Color Color, Func<ActivityLiveTimelineSample, double> Value);
     private sealed record MarkerHit(Rect Bounds, ActivityLiveTimelineMarker Marker);
     private sealed record EncounterHit(Rect Bounds, ActivityLiveTimelineEncounter Encounter);

@@ -1,5 +1,6 @@
 ﻿using AlbionDataAvalonia.Logging;
 using AlbionDataAvalonia.Settings;
+using AlbionDataAvalonia.Ui;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
 using Serilog.Events;
@@ -14,28 +15,10 @@ namespace AlbionDataAvalonia.ViewModels
     public partial class LogsViewModel : ViewModelBase, IDisposable
     {
         private const int MaxIncrementalLogBatchCount = 100;
-        private readonly TimeSpan _filterDebounceInterval = TimeSpan.FromMilliseconds(250);
 
         private readonly record struct PendingLogEvent(
             LogEventWrapper LogEvent,
             LogEventWrapper? RemovedBufferedEvent);
-
-        public sealed class AmountShownOption
-        {
-            public int Value { get; }
-            public string Label { get; }
-
-            public AmountShownOption(int value, string label)
-            {
-                Value = value;
-                Label = label;
-            }
-
-            public override string ToString()
-            {
-                return Label;
-            }
-        }
 
         private readonly ListSink _listSink;
         private readonly SettingsManager _settingsManager;
@@ -43,21 +26,11 @@ namespace AlbionDataAvalonia.ViewModels
         private readonly List<LogEventWrapper> _allEventsNewestFirst = new();
         private readonly List<PendingLogEvent> _pendingLogEvents = new();
         private readonly object _sync = new();
-        private IDisposable? _pendingFilterRefreshRegistration;
+        private UiDebouncer? _filterDebounce;
         private string _appliedFilterText = string.Empty;
         private bool _logDispatchScheduled;
         private bool _pendingLogEventsRequireRebuild;
         private volatile bool _isDisposed;
-        private static readonly IReadOnlyList<AmountShownOption> _amountShownOptions =
-        [
-            new AmountShownOption(100, "100"),
-            new AmountShownOption(500, "500"),
-            new AmountShownOption(1000, "1,000"),
-            new AmountShownOption(2000, "2,000"),
-            new AmountShownOption(3000, "3,000"),
-            new AmountShownOption(4000, "4,000"),
-            new AmountShownOption(5000, "5,000")
-        ];
         private static readonly IReadOnlyList<LogEventLevel> _logVerbosityOptions = Enum
             .GetValues<LogEventLevel>()
             .Cast<LogEventLevel>()
@@ -69,17 +42,14 @@ namespace AlbionDataAvalonia.ViewModels
         public ObservableCollection<LogEventWrapper> Events { get; } = new();
 
         public UserSettings UserSettings => _settingsManager.UserSettings;
-        public IReadOnlyList<AmountShownOption> AmountShownOptions => _amountShownOptions;
+        public IReadOnlyList<Option<int>> AmountShownOptions => UiOptions.LogCounts;
         public IReadOnlyList<LogEventLevel> LogVerbosityOptions => _logVerbosityOptions;
 
         partial void OnFilterTextChanged(string? oldValue, string newValue) => ScheduleFilterEvents();
 
-        public AmountShownOption SelectedAmountShown
+        public Option<int> SelectedAmountShown
         {
-            get
-            {
-                return _amountShownOptions.First(option => option.Value == GetVisibleLimit());
-            }
+            get => UiOptions.Nearest(UiOptions.LogCounts, GetVisibleLimit());
             set
             {
                 if (value is null)
@@ -341,51 +311,18 @@ namespace AlbionDataAvalonia.ViewModels
             }
         }
 
-        private static int NormalizeVisibleLimit(int count)
+        private static int NormalizeVisibleLimit(int count) => UiOptions.Nearest(UiOptions.LogCounts, count).Value;
+
+        private UiDebouncer FilterDebounce => _filterDebounce ??= new(TimeSpan.FromMilliseconds(250), () =>
         {
-            if (_amountShownOptions.Count == 0)
-            {
-                return 100;
-            }
-
-            var nearest = _amountShownOptions
-                .OrderBy(option => Math.Abs(option.Value - count))
-                .First();
-
-            return nearest.Value;
-        }
+            if (_isDisposed) return;
+            _appliedFilterText = FilterText;
+            RebuildVisibleEvents();
+        });
 
         private void ScheduleFilterEvents()
         {
-            if (_isDisposed)
-            {
-                return;
-            }
-
-            if (!Dispatcher.UIThread.CheckAccess())
-            {
-                Dispatcher.UIThread.Post(ScheduleFilterEvents);
-                return;
-            }
-
-            CancelPendingFilterRefresh();
-            _pendingFilterRefreshRegistration = DispatcherTimer.RunOnce(() =>
-            {
-                _pendingFilterRefreshRegistration = null;
-                if (_isDisposed)
-                {
-                    return;
-                }
-
-                _appliedFilterText = FilterText;
-                RebuildVisibleEvents();
-            }, _filterDebounceInterval);
-        }
-
-        private void CancelPendingFilterRefresh()
-        {
-            _pendingFilterRefreshRegistration?.Dispose();
-            _pendingFilterRefreshRegistration = null;
+            if (!_isDisposed) FilterDebounce.Trigger();
         }
 
         private static string NormalizeFilterText(string? value)
@@ -420,7 +357,7 @@ namespace AlbionDataAvalonia.ViewModels
                 _logDispatchScheduled = false;
             }
 
-            CancelPendingFilterRefresh();
+            _filterDebounce?.Dispose();
         }
     }
 }

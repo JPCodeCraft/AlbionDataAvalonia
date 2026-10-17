@@ -22,6 +22,8 @@ using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.ViewModels;
 
+public enum LegendarySaleFilter { All, Active, Sold, Canceled, NotListed }
+
 public partial class LegendaryViewModel : ViewModelBase
 {
     private readonly LegendaryItemTrackerService tracker;
@@ -35,30 +37,37 @@ public partial class LegendaryViewModel : ViewModelBase
     private IReadOnlyDictionary<(int ServerId, Guid SoulId), LegendarySaleListing> saleListings =
         new Dictionary<(int ServerId, Guid SoulId), LegendarySaleListing>();
     private bool loaded;
-    private int refreshQueued;
+    private UiDebouncer? itemsChanged;
     private readonly SemaphoreSlim itemLoadGate = new(1, 1);
-    private int itemLoadVersion;
-    private int saleListingsVersion;
+    private readonly LatestLoad itemLoads = new();
+    private readonly LatestLoad saleListingLoads = new();
     private Task? definitionsLoadTask;
     private string? currentUserId;
     private (int ServerId, string PlayerName)? lastKnownPlayer;
     private (int ServerId, string PlayerName)? filterPlayer;
 
     public ObservableCollection<LegendaryItemRowViewModel> Items { get; } = new();
-    public IReadOnlyList<string> Servers { get; } = ["Any", .. AlbionServers.GetAll().Select(server => server.Name)];
-    public IReadOnlyList<string> SaleStatuses { get; } = ["All", "Active", "Sold", "Canceled", "Not listed"];
+    public IReadOnlyList<Option<int?>> Servers => UiOptions.Servers;
+    public IReadOnlyList<Option<LegendarySaleFilter>> SaleStatuses { get; } =
+    [
+        new(LegendarySaleFilter.All, UiText.All),
+        new(LegendarySaleFilter.Active, "Active"),
+        new(LegendarySaleFilter.Sold, "Sold"),
+        new(LegendarySaleFilter.Canceled, "Canceled"),
+        new(LegendarySaleFilter.NotListed, "Not listed")
+    ];
 
     [ObservableProperty]
     private string filterText = string.Empty;
 
     [ObservableProperty]
-    private string selectedServer = "Any";
+    private Option<int?> selectedServer = UiOptions.Servers[0];
 
     [ObservableProperty]
     private bool onlyAttunedToMe;
 
     [ObservableProperty]
-    private string selectedSaleStatus = "All";
+    private Option<LegendarySaleFilter>? selectedSaleStatus = new(LegendarySaleFilter.All, UiText.All);
 
     [ObservableProperty]
     private LegendaryItemRowViewModel? selectedItem;
@@ -166,7 +175,7 @@ public partial class LegendaryViewModel : ViewModelBase
         catch (Exception ex)
         {
             Log.Warning(ex, "Failed to refresh awakened items");
-            LoadError = "Could not refresh awakened items. Try Reload.";
+            LoadError = "Could not refresh awakened items. Select Refresh to try again.";
         }
     }
 
@@ -284,9 +293,9 @@ public partial class LegendaryViewModel : ViewModelBase
     }
 
     partial void OnFilterTextChanged(string value) => ApplyFilter();
-    partial void OnSelectedServerChanged(string value) => ApplyFilter();
+    partial void OnSelectedServerChanged(Option<int?> value) => ApplyFilter();
     partial void OnOnlyAttunedToMeChanged(bool value) => ApplyFilter();
-    partial void OnSelectedSaleStatusChanged(string value) => ApplyFilter();
+    partial void OnSelectedSaleStatusChanged(Option<LegendarySaleFilter>? value) => ApplyFilter();
     partial void OnSelectedItemChanged(LegendaryItemRowViewModel? value)
     {
         OnPropertyChanged(nameof(HasSelectedItem));
@@ -323,7 +332,7 @@ public partial class LegendaryViewModel : ViewModelBase
             return;
         }
         currentUserId = userId;
-        Interlocked.Increment(ref saleListingsVersion);
+        saleListingLoads.Invalidate();
         saleListings = new Dictionary<(int ServerId, Guid SoulId), LegendarySaleListing>();
         OnPropertyChanged(nameof(IsSignedIn));
         OnPropertyChanged(nameof(CanListSelectedItem));
@@ -337,7 +346,7 @@ public partial class LegendaryViewModel : ViewModelBase
 
     private async Task LoadSaleListingsAsync()
     {
-        var version = Interlocked.Increment(ref saleListingsVersion);
+        var version = saleListingLoads.Begin();
         var userId = authService.FirebaseUserId;
         var listings = new Dictionary<(int ServerId, Guid SoulId), LegendarySaleListing>();
         if (!string.IsNullOrWhiteSpace(userId))
@@ -351,7 +360,7 @@ public partial class LegendaryViewModel : ViewModelBase
             }
         }
         // An older request must not overwrite an account change or a sale just updated here.
-        if (version != Volatile.Read(ref saleListingsVersion)
+        if (!saleListingLoads.IsCurrent(version)
             || !string.Equals(userId, authService.FirebaseUserId, StringComparison.Ordinal))
         {
             return;
@@ -366,7 +375,7 @@ public partial class LegendaryViewModel : ViewModelBase
         {
             return;
         }
-        Interlocked.Increment(ref saleListingsVersion);
+        saleListingLoads.Invalidate();
         saleListings = new Dictionary<(int ServerId, Guid SoulId), LegendarySaleListing>(saleListings)
         {
             [(listing.ServerId, soulId)] = listing
@@ -375,11 +384,11 @@ public partial class LegendaryViewModel : ViewModelBase
 
     private async Task LoadItemsAsync()
     {
-        var version = Interlocked.Increment(ref itemLoadVersion);
+        var version = itemLoads.Begin();
         await itemLoadGate.WaitAsync().ConfigureAwait(false);
         try
         {
-            if (version != Volatile.Read(ref itemLoadVersion))
+            if (!itemLoads.IsCurrent(version))
             {
                 return;
             }
@@ -394,7 +403,7 @@ public partial class LegendaryViewModel : ViewModelBase
                     : null)).ToList();
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (version != Volatile.Read(ref itemLoadVersion))
+                if (!itemLoads.IsCurrent(version))
                 {
                     return;
                 }
@@ -410,9 +419,9 @@ public partial class LegendaryViewModel : ViewModelBase
             Log.Warning(ex, "Failed to load legendary items");
             await Dispatcher.UIThread.InvokeAsync(() =>
             {
-                if (version == Volatile.Read(ref itemLoadVersion))
+                if (itemLoads.IsCurrent(version))
                 {
-                    LoadError = "Could not load awakened items. Your current list is unchanged. Try Reload.";
+                    LoadError = "Could not load awakened items. Your current list is unchanged. Select Refresh to try again.";
                 }
             });
         }
@@ -436,37 +445,22 @@ public partial class LegendaryViewModel : ViewModelBase
         };
     }
 
-    private void HandleItemsChanged()
-    {
-        if (Interlocked.Exchange(ref refreshQueued, 1) != 0)
-        {
-            return;
-        }
-        Dispatcher.UIThread.Post(async () =>
-        {
-            await Task.Delay(150);
-            Interlocked.Exchange(ref refreshQueued, 0);
-            await LoadItemsAsync();
-        });
-    }
+    // The tracker reports each item it sees; a bag full of items reloads the list once.
+    private void HandleItemsChanged() => (itemsChanged ??= new(TimeSpan.FromMilliseconds(150), () => _ = LoadItemsAsync())).Trigger();
 
     private void ApplyFilter()
     {
-        if (!Dispatcher.UIThread.CheckAccess())
-        {
-            Dispatcher.UIThread.Post(ApplyFilter);
-            return;
-        }
+        if (UiDispatch.Repost(ApplyFilter)) return;
         var filter = FilterText.Trim();
         UpdateFilterPlayer();
         var player = filterPlayer;
         var rows = unfilteredItems.Where(row =>
-            (SelectedServer == "Any" || string.Equals(row.ServerName, SelectedServer, StringComparison.OrdinalIgnoreCase))
+            (SelectedServer?.Value is not { } serverId || row.Source.AlbionServerId == serverId)
             && (!OnlyAttunedToMe
                 || (player is { } identity
                     && row.Source.AlbionServerId == identity.ServerId
                     && string.Equals(row.Source.AttunedToPlayerName, identity.PlayerName, StringComparison.OrdinalIgnoreCase)))
-            && MatchesSaleStatus(row, SelectedSaleStatus)
+            && MatchesSaleStatus(row, SelectedSaleStatus?.Value ?? LegendarySaleFilter.All)
             && (string.IsNullOrWhiteSpace(filter) || row.SearchText.Contains(filter, StringComparison.OrdinalIgnoreCase)))
             .ToList();
         Items.Clear();
@@ -490,9 +484,7 @@ public partial class LegendaryViewModel : ViewModelBase
             lastKnownPlayer = null;
         }
 
-        var serverId = SelectedServer == "Any"
-            ? liveServerId
-            : AlbionServers.GetAll().FirstOrDefault(server => server.Name == SelectedServer)?.Id;
+        var serverId = SelectedServer?.Value ?? liveServerId;
         var next = lastKnownPlayer;
         if (serverId.HasValue && next?.ServerId != serverId)
         {
@@ -531,14 +523,14 @@ public partial class LegendaryViewModel : ViewModelBase
             && !string.Equals(playerName, "Not set", StringComparison.OrdinalIgnoreCase);
     }
 
-    private static bool MatchesSaleStatus(LegendaryItemRowViewModel row, string status)
+    private static bool MatchesSaleStatus(LegendaryItemRowViewModel row, LegendarySaleFilter status)
     {
         return status switch
         {
-            "Active" => row.IsActiveListing,
-            "Sold" => row.IsSold,
-            "Canceled" => row.IsCanceled,
-            "Not listed" => !row.HasListing,
+            LegendarySaleFilter.Active => row.IsActiveListing,
+            LegendarySaleFilter.Sold => row.IsSold,
+            LegendarySaleFilter.Canceled => row.IsCanceled,
+            LegendarySaleFilter.NotListed => !row.HasListing,
             _ => true
         };
     }
@@ -601,7 +593,7 @@ public sealed class LegendaryItemRowViewModel
     public string ItemUniqueName => Source.ItemUniqueName;
     public string? CalculatorUrl { get; }
     public bool CanViewInCalculator => CalculatorUrl is not null;
-    public string ServerName => AlbionServers.Get(Source.AlbionServerId)?.Name ?? "Unknown";
+    public string ServerName => AlbionServers.Get(Source.AlbionServerId)?.Name ?? UiText.Unknown;
     public string Quality => ItemQuality.Format(Source.Quality);
     public int ImageQuality => Source.Quality <= 0 ? 1 : Source.Quality;
     public string AttunedTo => string.IsNullOrWhiteSpace(Source.AttunedToPlayerName)
@@ -640,10 +632,10 @@ public sealed class LegendaryItemRowViewModel
         : $"Order history · {SellOrders.Count:N0} orders";
     public string LatestPrice => Listing is null ? "-" : FormatPrice(Listing.LatestPriceSilver);
     public string LastListed => Listing is { } listing
-        ? FormatUtc(listing.LastListedAt)
+        ? UiFormat.LocalDateTime(listing.LastListedAt.UtcDateTime)
         : "-";
-    public string LastSeen => FormatUtc(Source.LastSeenAtUtc);
-    public string FirstSeen => FormatUtc(Source.FirstSeenAtUtc);
+    public string LastSeen => UiFormat.LocalDateTime(Source.LastSeenAtUtc);
+    public string FirstSeen => UiFormat.LocalDateTime(Source.FirstSeenAtUtc);
     public bool CanPost => Source.HasItemDetails
         && Source.HasLegendaryDetails
         && Source.AlbionServerId is >= 1 and <= 3
@@ -654,16 +646,6 @@ public sealed class LegendaryItemRowViewModel
         && Source.AttunementSpent is not null
         && LegendaryRatingValue is not null
         && !string.IsNullOrWhiteSpace(Source.ItemUniqueName);
-
-    private static string FormatUtc(DateTime value)
-    {
-        return $"{DateTime.SpecifyKind(value, DateTimeKind.Utc).ToString("g", CultureInfo.CurrentCulture)} UTC";
-    }
-
-    private static string FormatUtc(DateTimeOffset value)
-    {
-        return $"{value.UtcDateTime.ToString("g", CultureInfo.CurrentCulture)} UTC";
-    }
 
     private static string FormatPrice(string value)
     {
@@ -684,7 +666,7 @@ public sealed partial class LegendarySellOrderRowViewModel
     public LegendarySellOrder Source { get; }
     public bool IsLatest { get; }
     public string OrderLabel => IsLatest ? "Latest order" : "Previous order";
-    public string ListedAt => $"{Source.CreatedAt.UtcDateTime.ToString("g", CultureInfo.CurrentCulture)} UTC";
+    public string ListedAt => UiFormat.LocalDateTime(Source.CreatedAt.UtcDateTime);
     public string Price => long.TryParse(Source.PriceSilver, NumberStyles.None, CultureInfo.InvariantCulture, out var price)
         ? $"{price.ToString("N0", CultureInfo.CurrentCulture)} silver"
         : $"{Source.PriceSilver} silver";
