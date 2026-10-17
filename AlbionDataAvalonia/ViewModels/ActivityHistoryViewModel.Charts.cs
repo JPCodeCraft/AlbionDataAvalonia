@@ -7,19 +7,38 @@ using Serilog;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using static AlbionDataAvalonia.ViewModels.ActivityReads;
 
 namespace AlbionDataAvalonia.ViewModels;
 
-public partial class ActivityViewModel
+// The Charts tab: an overview of the whole selection, and a replay window the chart asks for while playing.
+public partial class ActivityHistoryViewModel
 {
     private const string ReplayReadError = "Could not load replay. Try again.";
     private CancellationTokenSource historyReplayCancellation = new();
     private long historyReplayReadVersion;
 
+    [ObservableProperty] private ActivityLiveTimelineSnapshot? historyLiveTimeline;
     [ObservableProperty] private ActivityLiveTimelineSnapshot? historyReplayTimeline;
 
     private static string HistoryTimelineContextKey(ActivityQuery query, ActivityCategories categories) =>
         $"history:{query.PlaySessionId}:{query.SessionId}:{query.EncounterId}:{query.Scope}:{query.ActorKey}:{categories}";
+
+    private async Task LoadChartAsync(long version, ActivityQuery query)
+    {
+        if (page.Persistence is not { } persistence || query.PlaySessionId is not { } playSessionId || cachedDetailHeader is not { } header ||
+            header.PlaySession.Id != playSessionId) return;
+        var categories = Filters.VisibleCategories;
+        var selectedEncounter = SelectedEncounter?.Source;
+        var run = SelectedSession?.Source;
+        var fromUtc = selectedEncounter?.StartedAtUtc ?? run?.StartedAtUtc ?? PlaySessionStart(header);
+        var toUtc = selectedEncounter is not null ? selectedEncounter.ClosedAtUtc ?? selectedEncounter.LastObservedAtUtc :
+            run is not null ? run.ClosedAtUtc ?? run.LastObservedAtUtc : PlaySessionEnd(header);
+        var snapshot = await persistence.GetTimelineAsync(query with { ShowCategories = categories },
+            fromUtc, toUtc, detailQueryCancellation.Token);
+        if (!IsCurrentDetail(version, playSessionId) || Filters.VisibleCategories != categories || DetailQuery() != query) return;
+        HistoryLiveTimeline = snapshot with { ContextKey = HistoryTimelineContextKey(query, categories) };
+    }
 
     partial void OnHistoryLiveTimelineChanged(ActivityLiveTimelineSnapshot? oldValue, ActivityLiveTimelineSnapshot? newValue)
     {
@@ -31,9 +50,9 @@ public partial class ActivityViewModel
     [RelayCommand]
     private async Task LoadHistoryReplayAsync(ActivityTimelineReplayRequest request)
     {
-        if (request is null || persistence is null || isDisposed || !isActive ||
-            SelectedTab != ActivityTab.History || SelectedDetailTab != ActivityDetailTab.Charts || HistoryLiveTimeline is not { HasContext: true } overview) return;
-        var categories = VisibleCategories;
+        if (request is null || page.Persistence is not { } persistence || !page.IsShowing(ActivityTab.History) ||
+            SelectedDetailTab != ActivityDetailTab.Charts || HistoryLiveTimeline is not { HasContext: true } overview) return;
+        var categories = Filters.VisibleCategories;
         var query = DetailQuery() with { ShowCategories = categories };
         var contextKey = HistoryTimelineContextKey(query, categories);
         var span = (request.WindowEndUtc - request.WindowStartUtc).TotalSeconds;
@@ -53,17 +72,17 @@ public partial class ActivityViewModel
                 ToUtc = request.WindowEndUtc
             }, request.WindowEndUtc, null, null, cancellationToken, (int)span);
             cancellationToken.ThrowIfCancellationRequested();
-            if (isDisposed || !isActive || SelectedTab != ActivityTab.History || SelectedDetailTab != ActivityDetailTab.Charts ||
+            if (!page.IsShowing(ActivityTab.History) || SelectedDetailTab != ActivityDetailTab.Charts ||
                 version != historyReplayReadVersion || HistoryLiveTimeline?.ContextKey != contextKey ||
-                HistoryTimelineContextKey(DetailQuery(), VisibleCategories) != contextKey) return;
+                HistoryTimelineContextKey(DetailQuery(), Filters.VisibleCategories) != contextKey) return;
             HistoryReplayTimeline = snapshot with { ContextKey = contextKey };
-            if (ErrorText == ReplayReadError) ErrorText = "";
+            if (page.ErrorText == ReplayReadError) page.ErrorText = "";
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
         catch (Exception error)
         {
             Log.Warning(error, "Unable to load activity replay");
-            if (!isDisposed && version == historyReplayReadVersion) ErrorText = ReplayReadError;
+            if (!page.IsDisposed && version == historyReplayReadVersion) page.ErrorText = ReplayReadError;
         }
     }
 

@@ -1,5 +1,3 @@
-using AlbionDataAvalonia.Activity;
-using AlbionDataAvalonia.Activity.Models;
 using AlbionDataAvalonia.Party;
 using AlbionDataAvalonia.Party.Models;
 using AlbionDataAvalonia.Ui;
@@ -8,12 +6,10 @@ using System;
 using System.Collections.Generic;
 using System.Collections.ObjectModel;
 using System.Linq;
-using System.Threading;
-using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.ViewModels;
 
-public partial class ActivityViewModel
+public partial class ActivityCurrentViewModel
 {
     private const int MaximumPartyChanges = 12;
     private PartyTrackerService? partyTracker;
@@ -26,24 +22,16 @@ public partial class ActivityViewModel
     [ObservableProperty] private string currentPartyHeaderText = "";
     [ObservableProperty] private string currentPartyDetailsText = "";
     [ObservableProperty] private ObservableCollection<ActivityPartyMemberChip> currentPartyMembers = new();
-    [ObservableProperty] private ActivityPartyHistory partyHistory = ActivityPartyHistory.Empty;
 
     public ObservableCollection<ActivityPartyChangeRow> CurrentPartyChanges { get; } = new();
     public bool HasCurrentParty => !string.IsNullOrEmpty(CurrentPartyText);
     public bool HasCurrentPartyPreview => !string.IsNullOrEmpty(CurrentPartyPreviewText);
     public bool HasCurrentPartyChanges => CurrentPartyChanges.Count > 0;
-    public bool HasPartyHistory => PartyHistory.Members.Count > 0;
-    public bool HasPartyChanges => PartyHistory.Changes.Count > 0;
 
     partial void OnCurrentPartyTextChanged(string value) => OnPropertyChanged(nameof(HasCurrentParty));
     partial void OnCurrentPartyPreviewTextChanged(string value) => OnPropertyChanged(nameof(HasCurrentPartyPreview));
-    partial void OnPartyHistoryChanged(ActivityPartyHistory value)
-    {
-        OnPropertyChanged(nameof(HasPartyHistory));
-        OnPropertyChanged(nameof(HasPartyChanges));
-    }
 
-    private void AttachPartyTracker(PartyTrackerService? party)
+    internal void AttachPartyTracker(PartyTrackerService? party)
     {
         if (party is null) return;
         partyTracker = party;
@@ -57,7 +45,7 @@ public partial class ActivityViewModel
 
     private void ApplyPartySnapshot(PartyTrackerSnapshot snapshot)
     {
-        if (isDisposed) return;
+        if (page.IsDisposed) return;
         var local = snapshot.Members.FirstOrDefault(member => member.IsLocalPlayer);
         var others = snapshot.Members.Where(member => !member.IsLocalPlayer && member.UserGuid is not null)
             .GroupBy(member => member.UserGuid!.Value).ToDictionary(group => group.Key, group => ActivityDisplay.ActorName(group.First().Name));
@@ -108,29 +96,6 @@ public partial class ActivityViewModel
             at - latest.AtUtc <= ActivityPartyChangeRow.MergeWindow)
             CurrentPartyChanges[0] = latest with { Players = latest.Players.Concat(names).ToArray(), PartySize = size };
         else CurrentPartyChanges.Insert(0, new(at, joined, names, size));
-    }
-
-    // Party members are derived from the recorded events, so they stay accurate for history
-    // without storing a roster. A whole play session spans all of its runs.
-    private async Task LoadPartyHistoryAsync(long version, ActivityPlaySessionHeader header, ActivitySession? run,
-        CancellationToken cancellationToken)
-    {
-        if (persistence is null) return;
-        var playSessionId = header.PlaySession.Id;
-        var runs = run is null ? header.Runs : [run];
-        var events = await persistence.GetPartyEventsAsync(new ActivityQuery { PlaySessionId = playSessionId, SessionId = run?.Id }, cancellationToken);
-        var members = await persistence.GetSessionPartyMembersAsync(runs.Select(x => x.Id), cancellationToken);
-        if (!IsCurrentDetail(version, playSessionId) || SelectedDetailTab != ActivityDetailTab.Party) return;
-        var names = runs.SelectMany(x => members.TryGetValue(x.Id, out var found) ? found : [])
-            .Distinct(StringComparer.OrdinalIgnoreCase).Order(StringComparer.OrdinalIgnoreCase).ToArray();
-        var span = run ?? new ActivitySession
-        {
-            StartedAtUtc = PlaySessionStart(header),
-            ClosedAtUtc = header.PlaySession.State == ActivityState.Open ? null : PlaySessionEnd(header),
-            LastObservedAtUtc = PlaySessionEnd(header),
-            State = header.PlaySession.State
-        };
-        PartyHistory = ActivityPartyHistory.Build(events, span, names, DateTime.UtcNow);
     }
 
     private void DisposeParty()

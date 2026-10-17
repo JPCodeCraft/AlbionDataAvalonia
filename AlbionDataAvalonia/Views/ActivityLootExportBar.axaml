@@ -1,10 +1,9 @@
 <!-- Export loot…, Cancel export and progress, shared by the Current, History and Items loot lists. -->
 <UserControl xmlns="https://github.com/avaloniaui"
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-             xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
              xmlns:views="clr-namespace:AlbionDataAvalonia.Views"
              x:Class="AlbionDataAvalonia.Views.ActivityLootExportBar"
-             x:DataType="vm:ActivityViewModel">
+             x:DataType="views:ActivityLootExportBar">
     <StackPanel Orientation="Horizontal" Spacing="8">
         <Button Classes="UiAction" Content="Export loot…" ToolTip.Tip="Export all pages"
                 IsEnabled="{Binding $parent[views:ActivityLootExportBar].CanExport}">
@@ -15,10 +14,13 @@
                 </MenuFlyout>
             </Button.Flyout>
         </Button>
-        <Button Classes="UiAction" Content="Cancel export" Command="{Binding CancelLootExportCommand}" IsVisible="{Binding IsLootExporting}" />
-        <ProgressBar Minimum="0" Maximum="100" Value="{Binding LootExportProgress}" IsIndeterminate="{Binding IsPreparingLootExport}" IsVisible="{Binding IsLootExporting}"
+        <Button Classes="UiAction" Content="Cancel export" Command="{Binding $parent[views:ActivityLootExportBar].Export.CancelCommand, FallbackValue={x:Null}}"
+                IsVisible="{Binding $parent[views:ActivityLootExportBar].Export.IsExporting, FallbackValue=False}" />
+        <ProgressBar Minimum="0" Maximum="100" Value="{Binding $parent[views:ActivityLootExportBar].Export.Percent, FallbackValue=0}"
+                     IsIndeterminate="{Binding $parent[views:ActivityLootExportBar].Export.IsPreparing, FallbackValue=False}"
+                     IsVisible="{Binding $parent[views:ActivityLootExportBar].Export.IsExporting, FallbackValue=False}"
                      Width="140" Height="6" VerticalAlignment="Center" />
-        <Button Classes="UiLink" Content="Open AFM Loot Logger" Command="{Binding OpenLootLoggerCommand}" VerticalAlignment="Center"
+        <Button Classes="UiLink" Content="Open AFM Loot Logger" Command="{Binding $parent[views:ActivityLootExportBar].Export.OpenLootLoggerCommand, FallbackValue={x:Null}}" VerticalAlignment="Center"
                 IsVisible="{Binding $parent[views:ActivityLootExportBar].ShowLootLoggerLink}" ToolTip.Tip="View your AFM CSV export on the website" />
     </StackPanel>
 </UserControl>

@@ -10,7 +10,7 @@ using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.ViewModels;
 
-public partial class ActivityViewModel
+public partial class ActivityCurrentViewModel
 {
     private ActivityPeriodSnapshot? currentPeriodSnapshot;
     private CurrentPeriodKey? currentPeriodKey;
@@ -27,7 +27,9 @@ public partial class ActivityViewModel
     [ObservableProperty] private Option<ActivityPeriodMode> selectedPeriod = new(ActivityPeriodMode.PlaySession, "Session");
     [ObservableProperty] private decimal lastHours = 1;
     [ObservableProperty] private string currentPeriodDescription = "Waiting for activity";
-    [ObservableProperty] private string currentPeriodWarning = "";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasCurrentPeriodWarning))]
+    private string currentPeriodWarning = "";
 
     public bool IsLastHoursPeriod => SelectedPeriod.Value == ActivityPeriodMode.LastHours;
     public bool IsPlaySessionPeriod => SelectedPeriod.Value == ActivityPeriodMode.PlaySession;
@@ -40,20 +42,20 @@ public partial class ActivityViewModel
 
     private CurrentObservationKey GetCurrentObservationKey()
     {
-        var observed = tracker?.GetCurrentContext().Session;
+        var observed = Tracker?.GetCurrentContext().Session;
         return new(observed?.Id, observed?.ObservationStartedAtUtc, observed?.LastObservedAtUtc, observed?.State, observed?.VisitsJson);
     }
 
     private CurrentPeriodKey? GetCurrentPeriodKey()
     {
-        if (tracker is null) return null;
-        var context = tracker.GetCurrentContext();
+        if (Tracker is null) return null;
+        var context = Tracker.GetCurrentContext();
         if (context.Owner is not { } owner) return null;
         var mode = SelectedPeriod.Value;
         if (mode == ActivityPeriodMode.CurrentRun && context.Session is null) return null;
         // A play session waiting for its first activity has nothing to total yet.
         if (mode == ActivityPeriodMode.PlaySession && context.PlaySession is null) return null;
-        return new(mode, IsLastHoursPeriod ? LastHours : 0, SelectedScope.Value,
+        return new(mode, IsLastHoursPeriod ? LastHours : 0, Filters.Scope,
             owner.Server, owner.CharacterId, owner.CharacterName,
             mode == ActivityPeriodMode.CurrentRun ? context.Session?.Id : null,
             mode == ActivityPeriodMode.PlaySession ? context.PlaySession?.Id : null);
@@ -61,7 +63,7 @@ public partial class ActivityViewModel
 
     private DateTime CurrentPeriodStartUtc(DateTime nowUtc) => SelectedPeriod.Value switch
     {
-        ActivityPeriodMode.PlaySession => currentPlayFromUtc ?? tracker?.GetCurrentContext().PlaySession?.StartedAtUtc ?? nowUtc,
+        ActivityPeriodMode.PlaySession => currentPlayFromUtc ?? Tracker?.GetCurrentContext().PlaySession?.StartedAtUtc ?? nowUtc,
         ActivityPeriodMode.LastHours => nowUtc.AddHours(-(double)LastHours),
         _ => currentSession?.StartedAtUtc ?? nowUtc
     };
@@ -81,13 +83,13 @@ public partial class ActivityViewModel
             Scope = key.Scope,
             FromUtc = CurrentPeriodStartUtc(nowUtc),
             ToUtc = nowUtc,
-            ShowCategories = timeline ? VisibleCategories : ActivityCategories.All
+            ShowCategories = timeline ? Filters.VisibleCategories : ActivityCategories.All
         };
     }
 
     private async Task RefreshCurrentPeriodAsync(CancellationToken cancellationToken)
     {
-        if (tracker is null) return;
+        if (Tracker is not { } tracker) return;
         var nowUtc = DateTime.UtcNow;
         var key = GetCurrentPeriodKey();
         if (key is null)
@@ -116,7 +118,7 @@ public partial class ActivityViewModel
         {
             var snapshot = await tracker.GetPeriodSnapshotAsync(query, nowUtc, cancellationToken);
             cancellationToken.ThrowIfCancellationRequested();
-            if (isDisposed || !isActive || SelectedTab != ActivityTab.Current || key != GetCurrentPeriodKey()) return;
+            if (!page.IsShowing(ActivityTab.Current) || key != GetCurrentPeriodKey()) return;
             currentPeriodKey = key;
             currentPeriodSnapshot = snapshot;
             currentObservationKey = observationKey;
@@ -132,7 +134,7 @@ public partial class ActivityViewModel
     {
         if (currentPeriodSnapshot is not { } snapshot || currentPeriodKey is not { } key || key != GetCurrentPeriodKey() ||
             currentObservationKey?.SessionId != GetCurrentObservationKey().SessionId) return;
-        if (key.Mode == ActivityPeriodMode.PlaySession && tracker?.GetCurrentContext().PlaySession is { } playSession)
+        if (key.Mode == ActivityPeriodMode.PlaySession && Tracker?.GetCurrentContext().PlaySession is { } playSession)
         {
             // Time pauses one grace period after the last activity; a run within the idle limit adds the gap back.
             var end = ActivityPlaySessionProjection.LiveEnd(playSession, nowUtc);
@@ -192,7 +194,7 @@ public partial class ActivityViewModel
         OnPropertyChanged(nameof(IsLastHoursPeriod));
         OnPropertyChanged(nameof(IsPlaySessionPeriod));
         OnPropertyChanged(nameof(ShowCurrentRuns));
-        if (isActive && SelectedTab == ActivityTab.Current) _ = RunSafelyAsync(RefreshVisibleAsync);
+        page.RefreshIfShowing(ActivityTab.Current);
     }
 
     partial void OnSelectedPeriodChanged(Option<ActivityPeriodMode> value) => ChangeCurrentPeriod();
@@ -202,5 +204,4 @@ public partial class ActivityViewModel
         if (normalized != value) { LastHours = normalized; return; }
         if (IsLastHoursPeriod) ChangeCurrentPeriod();
     }
-    partial void OnCurrentPeriodWarningChanged(string value) => OnPropertyChanged(nameof(HasCurrentPeriodWarning));
 }

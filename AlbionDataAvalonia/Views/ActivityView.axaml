@@ -58,7 +58,7 @@
             <controls:ItemCell ItemUniqueName="{Binding ItemUniqueName}" ImageQuality="{Binding ImageQuality}" Title="{Binding ItemName}" Subtitle="{Binding Quality}" />
         </DataTemplate>
 
-        <DataTemplate x:Key="ActivityVisibilityTemplate" x:DataType="vm:ActivityViewModel">
+        <DataTemplate x:Key="ActivityVisibilityTemplate" x:DataType="vm:ActivityFilterState">
             <!-- Several kinds can be on at once; All turns the others off. The negative margin drops the last row's gap. -->
             <WrapPanel Margin="0,0,0,-4">
                 <TextBlock Text="Show" Classes="UiLabel" VerticalAlignment="Center" Margin="0,0,12,4" />
@@ -112,7 +112,7 @@
                             <TextBlock Text="{Binding StatusText}" />
                         </StackPanel>
                     </Border>
-                    <controls:SegmentedSelector ItemsSource="{Binding ScopeOptions}" SelectedItem="{Binding SelectedScope, Mode=TwoWay}" IsVisible="{Binding ShowActivityScope}"
+                    <controls:SegmentedSelector ItemsSource="{Binding Filters.ScopeOptions}" SelectedItem="{Binding Filters.SelectedScope, Mode=TwoWay}" IsVisible="{Binding ShowActivityScope}"
                                                 AutomationProperties.Name="Activity scope" VerticalAlignment="Center" />
                 </WrapPanel>
                 <WrapPanel Grid.Column="1" HorizontalAlignment="Right" VerticalAlignment="Center">
@@ -121,7 +121,7 @@
                     <Button Classes="UiAction" Content="{Binding MapWindowButtonText}" Command="{Binding ToggleMapWindowCommand}" IsVisible="{Binding CanOpenMapWindow}"
                             ToolTip.Tip="Live map of your current zone with your path and events, and a replay of past runs." Margin="10,0,0,4" />
                     <Button Classes="UiAction" Content="{Binding RecordingButtonText}" Command="{Binding ToggleRecordingCommand}" Margin="10,0,0,4" />
-                    <Button Classes="UiAction" Content="New session…" Command="{Binding NewSessionCommand}" IsEnabled="{Binding HasCurrentPlaySession}" Margin="10,0,0,4"
+                    <Button Classes="UiAction" Content="New session…" Command="{Binding NewSessionCommand}" IsEnabled="{Binding Current.HasCurrentPlaySession}" Margin="10,0,0,4"
                             ToolTip.Tip="Ends at your last activity. Your next activity starts a new session." />
                 </WrapPanel>
             </Grid>
@@ -130,7 +130,7 @@
         </StackPanel>
         <TabControl Grid.Row="1" SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}">
             <TabItem Header="Current">
-                <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled" DataContext="{Binding Current}" x:DataType="vm:ActivityCurrentViewModel">
                     <StackPanel Spacing="12" Margin="0,8,12,8">
                         <StackPanel Spacing="8">
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
@@ -212,7 +212,7 @@
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="vm:ActivitySessionRow">
                                             <Button Classes="UiChipButton" Classes.Accent="{Binding IsLive}" Margin="0,0,6,6" ToolTip.Tip="{Binding RunDetailsText}"
-                                                    Command="{Binding $parent[ItemsControl].((vm:ActivityViewModel)DataContext).OpenRunRowCommand}" CommandParameter="{Binding}">
+                                                    Command="{Binding $parent[ItemsControl].((vm:ActivityCurrentViewModel)DataContext).OpenRunRowCommand}" CommandParameter="{Binding}">
                                                 <StackPanel Spacing="1">
                                                     <TextBlock Text="{Binding RunLabel}" FontSize="{DynamicResource UiFontSizeSmall}" FontWeight="SemiBold" MaxWidth="180" TextTrimming="CharacterEllipsis" />
                                                     <TextBlock Text="{Binding RunSummaryText}" Classes="UiLabel" />
@@ -258,19 +258,19 @@
                                         <TextBlock Text="silver" Classes="UiLabel" />
                                     </StackPanel>
                                     <Button Classes="UiAction" Content="Load more" Command="{Binding LoadMoreCurrentLootCommand}" IsVisible="{Binding HasMoreCurrentLoot}" Margin="0,0,8,0" />
-                                    <views:ActivityLootExportBar ExportCommand="{Binding ExportCurrentLootCommand}" CanExport="{Binding CanStartLootExport}" />
+                                    <views:ActivityLootExportBar Export="{Binding Export}" ExportCommand="{Binding ExportCurrentLootCommand}" CanExport="{Binding Export.CanStart}" />
                                 </WrapPanel>
-                                <TextBlock Classes="UiLabel" Text="{Binding LootExportStatusText}" IsVisible="{Binding HasLootExportStatus}" TextWrapping="Wrap" Margin="4,0,4,6" />
+                                <TextBlock Classes="UiLabel" Text="{Binding Export.StatusText}" IsVisible="{Binding Export.HasStatus}" TextWrapping="Wrap" Margin="4,0,4,6" />
                             </StackPanel>
                         </Expander>
-                        <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ActivityVisibilityTemplate}" />
-                        <views:ActivityLiveTimelineView ChartMode="{Binding ChartMode, Mode=TwoWay}" Snapshot="{Binding CurrentLiveTimeline}" WindowMinutes="{Binding LiveTimelineMinutes, Mode=TwoWay}"
+                        <ContentControl Content="{Binding Filters}" ContentTemplate="{StaticResource ActivityVisibilityTemplate}" />
+                        <views:ActivityLiveTimelineView ChartMode="{Binding Filters.ChartMode, Mode=TwoWay}" Snapshot="{Binding CurrentLiveTimeline}" WindowMinutes="{Binding LiveTimelineMinutes, Mode=TwoWay}"
                                                         OpenEncounterCommand="{Binding OpenTimelineEncounterCommand}" />
                     </StackPanel>
                 </ScrollViewer>
             </TabItem>
             <TabItem Header="History">
-                <Grid Margin="0,8,0,0">
+                <Grid Margin="0,8,0,0" DataContext="{Binding History}" x:DataType="vm:ActivityHistoryViewModel">
                     <Grid.ColumnDefinitions>
                         <ColumnDefinition Width="*" MinWidth="180" MaxWidth="320" />
                         <ColumnDefinition Width="12" />
@@ -293,7 +293,7 @@
                         </ListBox>
                     </Border>
                     <StackPanel Grid.Row="2" Spacing="8">
-                        <WrapPanel><Button Classes="UiAction" Content="Load more" Command="{Binding LoadMoreSessionsCommand}" IsVisible="{Binding HasMoreSessions}" Margin="0,0,8,6" /><Button Classes="UiAction UiDanger" Content="{Binding DeleteButtonText}" Command="{Binding DeleteSessionCommand}" IsEnabled="{Binding CanDeleteSelectedSession}" Margin="0,0,0,6" /></WrapPanel>
+                        <WrapPanel><Button Classes="UiAction" Content="Load more" Command="{Binding LoadMoreSessionsCommand}" IsVisible="{Binding HasMoreSessions}" Margin="0,0,8,6" /><Button Classes="UiAction UiDanger" Content="{Binding Detail.DeleteButtonText}" Command="{Binding DeleteSessionCommand}" IsEnabled="{Binding Detail.CanDelete}" Margin="0,0,0,6" /></WrapPanel>
                     </StackPanel>
                     </Grid>
                     <GridSplitter Grid.Column="1" Width="1" HorizontalAlignment="Center" />
@@ -301,16 +301,16 @@
                     <ScrollViewer x:Name="HistorySessionDetailScroll" Grid.Column="2" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding HasSelectedPlaySession}">
                     <StackPanel Spacing="12">
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                            <StackPanel Spacing="4"><TextBlock Classes="UiHeading" Text="{Binding DetailTitle}" /><TextBlock Text="{Binding DetailMapMetadataText}" IsVisible="{Binding HasDetailMapMetadata}" Classes="UiLabel" /><TextBlock Text="{Binding DetailDurationText}" TextWrapping="Wrap" /><TextBlock Text="{Binding SelectedPlaySession.PartyText, FallbackValue=''}" IsVisible="{Binding SelectedPlaySession.HasParty, FallbackValue=False}" ToolTip.Tip="{Binding SelectedPlaySession.PartyDetailsText, FallbackValue=''}" TextWrapping="Wrap" Foreground="{DynamicResource UiAccentTextBrush}" /><TextBlock Text="{Binding DetailScopeText}" IsVisible="{Binding DetailScopeText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" Classes="UiLabel" /><TextBlock Text="{Binding DetailTagsText}" IsVisible="{Binding DetailTagsText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" Foreground="{DynamicResource UiPositiveTextBrush}" /><TextBlock Text="{Binding ImportedDetailText}" IsVisible="{Binding IsImportedDetail}" Classes="UiLabel" ToolTip.Tip="{Binding ImportedDetailTooltipText}" /></StackPanel>
+                            <StackPanel Spacing="4"><TextBlock Classes="UiHeading" Text="{Binding Detail.Title}" /><TextBlock Text="{Binding Detail.MapMetadataText}" IsVisible="{Binding Detail.HasMapMetadata}" Classes="UiLabel" /><TextBlock Text="{Binding Detail.DurationText}" TextWrapping="Wrap" /><TextBlock Text="{Binding SelectedPlaySession.PartyText, FallbackValue=''}" IsVisible="{Binding SelectedPlaySession.HasParty, FallbackValue=False}" ToolTip.Tip="{Binding SelectedPlaySession.PartyDetailsText, FallbackValue=''}" TextWrapping="Wrap" Foreground="{DynamicResource UiAccentTextBrush}" /><TextBlock Text="{Binding Detail.ScopeText}" IsVisible="{Binding Detail.ScopeText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" Classes="UiLabel" /><TextBlock Text="{Binding Detail.TagsText}" IsVisible="{Binding Detail.TagsText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" Foreground="{DynamicResource UiPositiveTextBrush}" /><TextBlock Text="{Binding Detail.ImportedText}" IsVisible="{Binding Detail.IsImported}" Classes="UiLabel" ToolTip.Tip="{Binding Detail.ImportedTooltipText}" /></StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                <Button Classes="UiAction" Content="Show on map" Command="{Binding ShowRunOnMapCommand}" IsVisible="{Binding CanShowRunOnMap}"
+                                <Button Classes="UiAction" Content="Show on map" Command="{Binding ShowRunOnMapCommand}" IsVisible="{Binding Detail.CanShowOnMap}"
                                         ToolTip.Tip="Replay this run's path and events on the map" />
-                                <Button Classes="UiAction" Content="All runs" Command="{Binding ClearRunCommand}" IsVisible="{Binding HasSelectedSession}" />
-                                <Button Classes="UiAction" Content="{Binding ClearSelectionText}" Command="{Binding ClearEncounterCommand}" IsVisible="{Binding HasSelectedDetailSelection}" />
-                                <Button Classes="UiAction" Content="All players" Command="{Binding ClearPlayerCommand}" IsVisible="{Binding HasSelectedPlayer}" />
+                                <Button Classes="UiAction" Content="All runs" Command="{Binding ClearRunCommand}" IsVisible="{Binding Detail.HasRun}" />
+                                <Button Classes="UiAction" Content="{Binding Detail.ClearSelectionText}" Command="{Binding ClearEncounterCommand}" IsVisible="{Binding Detail.HasEncounterOrMap}" />
+                                <Button Classes="UiAction" Content="All players" Command="{Binding ClearPlayerCommand}" IsVisible="{Binding Detail.HasPlayer}" />
                             </StackPanel>
                         </Grid>
-                        <StackPanel Spacing="4" IsVisible="{Binding HasMultipleRuns}">
+                        <StackPanel Spacing="4" IsVisible="{Binding Detail.HasMultipleRuns}">
                             <TextBlock Text="Runs · choose one to see only that run" Classes="UiLabel" />
                             <ListBox Classes="UiChipList" ItemsSource="{Binding Sessions}" SelectedItem="{Binding SelectedSession, Mode=TwoWay}" SelectionMode="Single" AutomationProperties.Name="Runs in this session">
                                 <ListBox.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ListBox.ItemsPanel>
@@ -326,7 +326,7 @@
                         </StackPanel>
                         <ContentControl Content="{Binding DetailSummary}" ContentTemplate="{StaticResource SummaryTemplate}" />
                         <TabControl Classes="ActivityDetails" SelectedIndex="{Binding SelectedDetailTabIndex, Mode=TwoWay}">
-                            <TabItem Header="Encounters" IsEnabled="{Binding HasDetailedHistory}">
+                            <TabItem Header="Encounters" IsEnabled="{Binding Detail.HasDetailedHistory}">
                                 <Grid RowDefinitions="Auto,Auto" RowSpacing="6">
                                     <DataGrid ItemsSource="{Binding Encounters}" Height="{Binding Encounters.Count, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}" SelectedItem="{Binding SelectedEncounter, Mode=TwoWay}" SelectionMode="Single">
                                         <DataGrid.Columns>
@@ -344,13 +344,13 @@
                                     <Button Grid.Row="1" Classes="UiAction" Content="Load more" Command="{Binding LoadMoreEncountersCommand}" IsVisible="{Binding HasMoreEncounters}" HorizontalAlignment="Left" />
                                 </Grid>
                             </TabItem>
-                            <TabItem Header="Charts" IsEnabled="{Binding HasDetailedHistory}">
+                            <TabItem Header="Charts" IsEnabled="{Binding Detail.HasDetailedHistory}">
                                 <StackPanel Spacing="12">
-                                    <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ActivityVisibilityTemplate}" />
-                                    <views:ActivityLiveTimelineView Snapshot="{Binding HistoryLiveTimeline}" ReplaySnapshot="{Binding HistoryReplayTimeline}" ReplayWindowCommand="{Binding LoadHistoryReplayCommand}" ShowReplayControls="True" ChartMode="{Binding ChartMode, Mode=TwoWay}" IsRolling="False" ShowWindowSelector="False" Title="Activity over time" OpenEncounterCommand="{Binding OpenTimelineEncounterCommand}" />
+                                    <ContentControl Content="{Binding Filters}" ContentTemplate="{StaticResource ActivityVisibilityTemplate}" />
+                                    <views:ActivityLiveTimelineView Snapshot="{Binding HistoryLiveTimeline}" ReplaySnapshot="{Binding HistoryReplayTimeline}" ReplayWindowCommand="{Binding LoadHistoryReplayCommand}" ShowReplayControls="True" ChartMode="{Binding Filters.ChartMode, Mode=TwoWay}" IsRolling="False" ShowWindowSelector="False" Title="Activity over time" OpenEncounterCommand="{Binding OpenTimelineEncounterCommand}" />
                                 </StackPanel>
                             </TabItem>
-                            <TabItem Header="Players" IsEnabled="{Binding HasDetailedHistory}">
+                            <TabItem Header="Players" IsEnabled="{Binding Detail.HasDetailedHistory}">
                                 <DataGrid x:Name="HistoryPlayersTable" ItemsSource="{Binding Players}" Height="{Binding Players.Count, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}" SelectedItem="{Binding SelectedPlayer, Mode=TwoWay}" SelectionMode="Single">
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="Player" Binding="{Binding Name}" Width="*" MinWidth="160" />
@@ -368,7 +368,7 @@
                                     </DataGrid.Columns>
                                 </DataGrid>
                             </TabItem>
-                            <TabItem Header="Killed mobs" IsEnabled="{Binding HasDetailedHistory}">
+                            <TabItem Header="Killed mobs" IsEnabled="{Binding Detail.HasDetailedHistory}">
                                 <DataGrid ItemsSource="{Binding Mobs}" Height="{Binding Mobs.Count, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}">
                                     <DataGrid.Columns><DataGridTextColumn Header="Mob" Binding="{Binding Name}" Width="*" /><DataGridTextColumn Header="Kills" Binding="{Binding Count}" /></DataGrid.Columns>
                                 </DataGrid>
@@ -376,13 +376,13 @@
                             <TabItem Header="Items">
                                 <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="12">
                                     <StackPanel Spacing="4">
-                                        <controls:SegmentedSelector ItemsSource="{Binding LootScopeOptions}" SelectedItem="{Binding SelectedSessionLootScope, Mode=TwoWay}" AutomationProperties.Name="Session item scope" />
-                                        <controls:SegmentedSelector ItemsSource="{Binding ItemSourceOptions}" SelectedItem="{Binding SelectedSessionItemSource, Mode=TwoWay}" AutomationProperties.Name="Session item source" />
+                                        <controls:SegmentedSelector ItemsSource="{Binding Filters.LootScopeOptions}" SelectedItem="{Binding SelectedSessionLootScope, Mode=TwoWay}" AutomationProperties.Name="Session item scope" />
+                                        <controls:SegmentedSelector ItemsSource="{Binding Filters.ItemSourceOptions}" SelectedItem="{Binding SelectedSessionItemSource, Mode=TwoWay}" AutomationProperties.Name="Session item source" />
                                     </StackPanel>
                                     <Expander Grid.Row="1" Header="Gathered" IsVisible="{Binding HasSessionResources}" IsExpanded="False" Padding="0" HorizontalAlignment="Stretch">
                                         <ItemsControl ItemsSource="{Binding SessionResources}" ItemTemplate="{StaticResource ActivityResourceTileTemplate}" Margin="8,8,8,2"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel></ItemsControl>
                                     </Expander>
-                                    <Expander Grid.Row="2" Header="Loot" IsVisible="{Binding ShowSessionLootPanel}" IsExpanded="False" Padding="0" HorizontalAlignment="Stretch">
+                                    <Expander Grid.Row="2" Header="Loot" IsVisible="{Binding Detail.ShowLootPanel}" IsExpanded="False" Padding="0" HorizontalAlignment="Stretch">
                                     <DataGrid ItemsSource="{Binding SessionLoot}" RowHeight="56" Height="{Binding SessionLoot.Count, Converter={x:Static views:ActivityView.HistoryLootTableHeightConverter}}">
                                         <DataGrid.Columns>
                                             <DataGridTextColumn Header="Time" Binding="{Binding TimeText}" />
@@ -402,15 +402,15 @@
                                     <Grid Grid.Row="3" RowDefinitions="Auto,Auto" RowSpacing="6">
                                         <WrapPanel>
                                             <Button Classes="UiAction" Content="Load more" Command="{Binding LoadMoreSessionLootCommand}" IsVisible="{Binding HasMoreSessionLoot}" Margin="0,0,8,0" />
-                                            <views:ActivityLootExportBar ExportCommand="{Binding ExportSessionLootCommand}" CanExport="{Binding CanExportSessionLoot}" ShowLootLoggerLink="True" />
+                                            <views:ActivityLootExportBar Export="{Binding Export}" ExportCommand="{Binding ExportSessionLootCommand}" CanExport="{Binding Detail.CanExportLoot}" ShowLootLoggerLink="True" />
                                         </WrapPanel>
-                                        <TextBlock Grid.Row="1" Classes="UiLabel" Text="{Binding LootExportStatusText}" IsVisible="{Binding HasLootExportStatus}" TextWrapping="Wrap" />
+                                        <TextBlock Grid.Row="1" Classes="UiLabel" Text="{Binding Export.StatusText}" IsVisible="{Binding Export.HasStatus}" TextWrapping="Wrap" />
                                     </Grid>
                                 </Grid>
                             </TabItem>
-                            <TabItem Header="Timeline" IsEnabled="{Binding HasDetailedHistory}">
+                            <TabItem Header="Timeline" IsEnabled="{Binding Detail.HasDetailedHistory}">
                                 <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
-                                    <ContentControl Content="{Binding}" ContentTemplate="{StaticResource ActivityVisibilityTemplate}" />
+                                    <ContentControl Content="{Binding Filters}" ContentTemplate="{StaticResource ActivityVisibilityTemplate}" />
                                     <DataGrid x:Name="HistoryTimelineTable" Grid.Row="1" ItemsSource="{Binding Timeline}" Height="{Binding Timeline.Count, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}"
                                               MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto">
                                         <DataGrid.Columns><DataGridTextColumn Header="Time" Binding="{Binding TimeText}" /><DataGridTextColumn Header="Event" Binding="{Binding Kind}" /><DataGridTextColumn Header="Source" Binding="{Binding Source}" /><DataGridTextColumn Header="Target" Binding="{Binding Target}" /><DataGridTextColumn Header="Details" Binding="{Binding Description}" Width="*" MinWidth="160" /><DataGridTextColumn Header="Location" Binding="{Binding Location}" /></DataGrid.Columns>
@@ -418,7 +418,7 @@
                                     <Button Grid.Row="2" Classes="UiAction" Content="Load more" Command="{Binding LoadMoreTimelineCommand}" IsVisible="{Binding HasMoreTimeline}" HorizontalAlignment="Left" />
                                 </Grid>
                             </TabItem>
-                            <TabItem Header="Maps" IsEnabled="{Binding HasDetailedHistory}">
+                            <TabItem Header="Maps" IsEnabled="{Binding Detail.HasDetailedHistory}">
                                 <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
                                     <TextBlock Text="Select a map to see its totals." Classes="UiLabel" />
                                     <DataGrid x:Name="HistoryMapsTable" Grid.Row="1" ItemsSource="{Binding Maps}" SelectedItem="{Binding SelectedMap, Mode=TwoWay}" SelectionMode="Single" RowHeight="48"
@@ -443,7 +443,7 @@
                                     <Button Grid.Row="2" Classes="UiAction" Content="Load more" Command="{Binding LoadMoreMapsCommand}" IsVisible="{Binding HasMoreMaps}" HorizontalAlignment="Left" />
                                 </Grid>
                             </TabItem>
-                            <TabItem Header="Party" IsEnabled="{Binding HasDetailedHistory}">
+                            <TabItem Header="Party" IsEnabled="{Binding Detail.HasDetailedHistory}">
                                 <StackPanel Spacing="12">
                                     <controls:EmptyState Classes="Inline" Message="No party members were recorded in this session." IsVisible="{Binding !HasPartyHistory}" />
                                     <TextBlock Text="{Binding PartyHistory.SummaryText}" IsVisible="{Binding HasPartyHistory}" Classes="UiLabel" />
@@ -486,12 +486,12 @@
                 </Grid>
             </TabItem>
             <TabItem Header="Items">
-                <ScrollViewer HorizontalScrollBarVisibility="Disabled">
+                <ScrollViewer HorizontalScrollBarVisibility="Disabled" DataContext="{Binding Items}" x:DataType="vm:ActivityItemsViewModel">
                 <StackPanel Spacing="12" Margin="0,8,12,8">
                     <StackPanel Spacing="4">
                         <WrapPanel>
-                            <controls:SegmentedSelector ItemsSource="{Binding LootScopeOptions}" SelectedItem="{Binding SelectedLootScope, Mode=TwoWay}" AutomationProperties.Name="Item scope" Margin="0,0,12,0" />
-                            <controls:SegmentedSelector ItemsSource="{Binding ItemSourceOptions}" SelectedItem="{Binding SelectedItemSource, Mode=TwoWay}" AutomationProperties.Name="Item source" />
+                            <controls:SegmentedSelector ItemsSource="{Binding Filters.LootScopeOptions}" SelectedItem="{Binding SelectedLootScope, Mode=TwoWay}" AutomationProperties.Name="Item scope" Margin="0,0,12,0" />
+                            <controls:SegmentedSelector ItemsSource="{Binding Filters.ItemSourceOptions}" SelectedItem="{Binding SelectedItemSource, Mode=TwoWay}" AutomationProperties.Name="Item source" />
                         </WrapPanel>
                         <WrapPanel Margin="0,0,0,-8">
                             <controls:FilterField Label="Search loot">
@@ -528,10 +528,10 @@
                         <TextBlock Text="{Binding GlobalLootTotalsText}" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap" ToolTip.Tip="{Binding GlobalLootDetailsText}" />
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
                             <Button Classes="UiAction" Content="Load more" Command="{Binding LoadMoreGlobalLootCommand}" IsVisible="{Binding HasMoreGlobalLoot}" />
-                            <views:ActivityLootExportBar ExportCommand="{Binding ExportGlobalLootCommand}" CanExport="{Binding CanStartLootExport}" IsVisible="{Binding ShowGlobalLootPanel}" />
+                            <views:ActivityLootExportBar Export="{Binding Export}" ExportCommand="{Binding ExportGlobalLootCommand}" CanExport="{Binding Export.CanStart}" IsVisible="{Binding ShowGlobalLootPanel}" />
                         </StackPanel>
                     </Grid>
-                    <TextBlock Classes="UiLabel" Text="{Binding LootExportStatusText}" IsVisible="{Binding HasLootExportStatus}" TextWrapping="Wrap" />
+                    <TextBlock Classes="UiLabel" Text="{Binding Export.StatusText}" IsVisible="{Binding Export.HasStatus}" TextWrapping="Wrap" />
                 </StackPanel>
                 </ScrollViewer>
             </TabItem>

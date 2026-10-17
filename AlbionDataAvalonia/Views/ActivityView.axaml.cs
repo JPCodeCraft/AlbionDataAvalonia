@@ -31,7 +31,6 @@ public partial class ActivityView : UserControl
         DataContextChanged += (_, _) => SynchronizeViewModel();
     }
 
-
     private void HistoryTable_PointerWheelChanged(object? sender, PointerWheelEventArgs args)
     {
         if (sender is not ScrollViewer scroll || args.Delta.Y == 0 || args.KeyModifiers.HasFlag(KeyModifiers.Shift)
@@ -55,23 +54,23 @@ public partial class ActivityView : UserControl
         if (activeViewModel != DataContext)
         {
             activeViewModel?.SetActive(false);
-            if (activeViewModel is not null) activeViewModel.PropertyChanged -= ViewModelPropertyChanged;
+            if (activeViewModel is not null) activeViewModel.History.PropertyChanged -= HistoryPropertyChanged;
             activeViewModel = DataContext as ActivityViewModel;
-            if (activeViewModel is not null) activeViewModel.PropertyChanged += ViewModelPropertyChanged;
+            if (activeViewModel is not null) activeViewModel.History.PropertyChanged += HistoryPropertyChanged;
             ApplyPlayerColumns();
         }
         activeViewModel?.SetActive(isAttached);
     }
 
-    private void ViewModelPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
+    private void HistoryPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)
     {
-        if (args.PropertyName == nameof(ActivityViewModel.PlayerColumns)) ApplyPlayerColumns();
+        if (args.PropertyName == nameof(ActivityHistoryViewModel.PlayerColumns)) ApplyPlayerColumns();
     }
 
     // DataGrid columns are outside the visual tree, so their visibility follows the model here.
     private void ApplyPlayerColumns()
     {
-        var columns = activeViewModel?.PlayerColumns ?? ActivityPlayerColumns.None;
+        var columns = activeViewModel?.History.PlayerColumns ?? ActivityPlayerColumns.None;
         foreach (var column in HistoryPlayersTable.Columns)
             column.IsVisible = column.Tag switch
             {

@@ -10,6 +10,7 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using static AlbionDataAvalonia.ViewModels.ActivityReads;
 
 namespace AlbionDataAvalonia.ViewModels;
 
@@ -55,7 +56,7 @@ public sealed class ActivityMapRow(ActivityMap source, DateTime? durationEndUtc 
     }
 }
 
-public partial class ActivityViewModel
+public partial class ActivityHistoryViewModel
 {
     private int mapPage;
     private (Guid PlaySessionId, Guid? RunId)? mapsOwner;
@@ -67,19 +68,17 @@ public partial class ActivityViewModel
     [ObservableProperty] private ActivityMapRow? selectedMap;
     [ObservableProperty] private bool hasMoreMaps;
 
-    public bool IsShowingMap => SelectedDetailTab == ActivityDetailTab.Maps && SelectedMap is not null;
-    public bool HasSelectedDetailSelection => HasSelectedEncounter || IsShowingMap;
-    public string DetailMapMetadataText => IsShowingMap ? SelectedMap!.DetailsText : string.Empty;
-    public bool HasDetailMapMetadata => DetailMapMetadataText.Length > 0;
+    // A session with a single run maps that run; with several, a run chip picks one.
+    private Guid? MapRunId => SelectedSession?.Id ?? (SelectedPlaySession?.Runs is { Count: 1 } runs ? runs[0].Id : null);
 
     // Maps cover the chosen run, or every run of the play session.
     private async Task RefreshMapsAsync(long version, ActivityPlaySessionHeader header, ActivitySession? run, CancellationToken cancellationToken)
     {
         var playSessionId = header.PlaySession.Id;
         await LoadMapsAsync(false, version);
-        if (!IsCurrentDetail(version, playSessionId) || SelectedDetailTab != ActivityDetailTab.Maps || persistence is null) return;
+        if (!IsCurrentDetail(version, playSessionId) || SelectedDetailTab != ActivityDetailTab.Maps || page.Persistence is not { } persistence) return;
         var map = SelectedMap;
-        var scope = SelectedScope.Value;
+        var scope = Filters.Scope;
         var owner = new ActivityQuery { PlaySessionId = playSessionId, SessionId = run?.Id, Scope = scope };
         var key = (playSessionId, run?.Id, map?.RawMapId, scope, detailDataVersion);
         var totals = cachedMapSummary;
@@ -91,30 +90,29 @@ public partial class ActivityViewModel
                 : await persistence.GetMapSummaryAsync(owner, map.RawMapId, scope, cancellationToken);
         }
         if (!IsCurrentDetail(version, playSessionId) || SelectedDetailTab != ActivityDetailTab.Maps ||
-            SelectedMap?.RawMapId != map?.RawMapId || SelectedScope.Value != scope) return;
+            SelectedMap?.RawMapId != map?.RawMapId || Filters.Scope != scope) return;
         cachedMapSummary = totals;
         mapSummaryKey = key;
         var duration = map?.DurationSeconds ?? (run is not null ? ActivityProjection.GetDurationSeconds(run, DateTime.UtcNow)
             : ActivityPlaySessionProjection.Durations(header.PlaySession, header.Runs, null, DateTime.UtcNow).PlaySeconds);
         DetailSummary = new(totals.Summary, ActivityProjection.GetRates(totals.Summary, duration, totals.CombatDurationSeconds),
             true, map is null || map.Source.Visits > 0);
-        NotifyDetailProperties();
     }
 
     private async Task LoadMapsAsync(bool append, long version)
     {
-        if (persistence is null || SelectedPlaySession is not { } playSession || SelectedDetailTab != ActivityDetailTab.Maps) return;
+        if (page.Persistence is not { } persistence || SelectedPlaySession is not { } playSession || SelectedDetailTab != ActivityDetailTab.Maps) return;
         var run = SelectedSession;
         var owner = (playSession.Id, run?.Id);
         var dataVersion = detailDataVersion;
         if (!append && mapsOwner == owner && mapsDataVersion == dataVersion) return;
-        var page = append ? mapPage + 1 : mapPage;
+        var pageIndex = append ? mapPage + 1 : mapPage;
         var query = new ActivityQuery { PlaySessionId = playSession.Id, SessionId = run?.Id };
-        var result = await ReadPagesAsync(index => persistence.GetMapsAsync(query, index, detailQueryCancellation.Token), page, append);
+        var result = await ReadPagesAsync(index => persistence.GetMapsAsync(query, index, detailQueryCancellation.Token), pageIndex, append);
         if (!IsCurrentDetail(version, playSession.Id) || SelectedSession?.Id != run?.Id || SelectedDetailTab != ActivityDetailTab.Maps) return;
         var selectedId = SelectedMap?.RawMapId;
         // A visit still open keeps counting; a closed run or session ends at its last observation.
-        var live = run is not null ? tracker?.CurrentSessionId == run.Id : playSession.IsOpen;
+        var live = run is not null ? page.Tracker?.CurrentSessionId == run.Id : playSession.IsOpen;
         var durationEndUtc = live ? (DateTime?)null : run?.Source.LastObservedAtUtc ?? playSession.Source.EndedAtUtc ?? playSession.Source.LastActivityAtUtc;
         applyingSelection = true;
         try
@@ -122,7 +120,7 @@ public partial class ActivityViewModel
             ApplyHeaderRows(Maps, result.Items, row => row.RawMapId, source => source.RawMapId,
                 source => new ActivityMapRow(source, durationEndUtc), (row, source) => row.Update(source, durationEndUtc), append);
             SelectedMap = selectedId is null ? null : Maps.FirstOrDefault(row => row.RawMapId == selectedId);
-            mapPage = page;
+            mapPage = pageIndex;
             HasMoreMaps = result.HasMore;
             mapsOwner = owner;
             mapsDataVersion = dataVersion;
@@ -132,14 +130,14 @@ public partial class ActivityViewModel
 
     partial void OnSelectedMapChanged(ActivityMapRow? value)
     {
-        NotifyDetailProperties();
+        UpdateDetail();
         if (applyingSelection) return;
         ++detailChangeVersion;
         ++detailVersion;
         // Never briefly label the previous map's totals as the newly selected map.
         DetailSummary = ActivitySummaryPresentation.Empty;
-        if (isActive && SelectedTab == ActivityTab.History && SelectedDetailTab == ActivityDetailTab.Maps)
-            _ = RunSafelyAsync(RefreshDetailsAsync);
+        if (page.IsShowing(ActivityTab.History) && SelectedDetailTab == ActivityDetailTab.Maps)
+            _ = page.RunSafelyAsync(RefreshDetailsAsync);
     }
 
     private void ResetMaps()
@@ -154,6 +152,11 @@ public partial class ActivityViewModel
         cachedMapSummary = null;
     }
 
+    [RelayCommand] private Task LoadMoreMapsAsync() => page.RunSafelyAsync(() => LoadMapsAsync(true, detailVersion));
+
     [RelayCommand]
-    private async Task LoadMoreMapsAsync() => await RunSafelyAsync(() => LoadMapsAsync(true, detailVersion));
+    private void ShowRunOnMap()
+    {
+        if (MapRunId is { } id) page.MapWindow?.ShowRun(id);
+    }
 }

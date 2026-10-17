@@ -1,14 +1,14 @@
 using AlbionDataAvalonia.Activity;
 using CommunityToolkit.Mvvm.ComponentModel;
-using CommunityToolkit.Mvvm.Input;
 using Serilog;
 using System;
 using System.Threading;
 using System.Threading.Tasks;
+using static AlbionDataAvalonia.ViewModels.ActivityReads;
 
 namespace AlbionDataAvalonia.ViewModels;
 
-public partial class ActivityViewModel
+public partial class ActivityCurrentViewModel
 {
     private const string LiveTimelineReadError = "Could not update the chart. Retrying…";
     private CancellationTokenSource liveTimelineCancellation = new();
@@ -16,7 +16,6 @@ public partial class ActivityViewModel
     private bool liveTimelineReadFailed;
 
     [ObservableProperty] private ActivityLiveTimelineSnapshot? currentLiveTimeline;
-    [ObservableProperty] private ActivityLiveTimelineSnapshot? historyLiveTimeline;
     [ObservableProperty] private int liveTimelineMinutes = 5;
 
     partial void OnLiveTimelineMinutesChanged(int value)
@@ -24,14 +23,14 @@ public partial class ActivityViewModel
         if (value is not (5 or 15 or 30 or 60 or 120)) { LiveTimelineMinutes = 5; return; }
         liveTimelineCancellation.Cancel();
         CurrentLiveTimeline = null;
-        if (isActive && SelectedTab == ActivityTab.Current) _ = RefreshLiveTimelineSafelyAsync();
+        if (page.IsShowing(ActivityTab.Current)) _ = RefreshLiveTimelineSafelyAsync();
     }
 
     private async Task RefreshLiveTimelineSafelyAsync()
     {
-        if (tracker is null || !isActive || SelectedTab != ActivityTab.Current || liveTimelineRefreshing || isDisposed) return;
+        if (Tracker is not { } tracker || !page.IsShowing(ActivityTab.Current) || liveTimelineRefreshing) return;
         var key = GetCurrentPeriodKey();
-        var categories = VisibleCategories;
+        var categories = Filters.VisibleCategories;
         var windowMinutes = LiveTimelineMinutes;
         var query = CurrentPeriodQuery(DateTime.UtcNow, true);
         if (key is null || query is null)
@@ -46,9 +45,9 @@ public partial class ActivityViewModel
         {
             var snapshot = await tracker.GetLiveTimelineAsync(query, DateTime.UtcNow, cancellationToken, windowMinutes * 60);
             cancellationToken.ThrowIfCancellationRequested();
-            if (isDisposed || !isActive || SelectedTab != ActivityTab.Current || GetCurrentPeriodKey() != key || VisibleCategories != categories || LiveTimelineMinutes != windowMinutes) return;
+            if (!page.IsShowing(ActivityTab.Current) || GetCurrentPeriodKey() != key || Filters.VisibleCategories != categories || LiveTimelineMinutes != windowMinutes) return;
             CurrentLiveTimeline = snapshot with { ContextKey = $"{snapshot.ContextKey}|{key.Mode}|{key.Hours}|{windowMinutes}" };
-            if (liveTimelineReadFailed && ErrorText == LiveTimelineReadError) ErrorText = "";
+            if (liveTimelineReadFailed && page.ErrorText == LiveTimelineReadError) page.ErrorText = "";
             liveTimelineReadFailed = false;
         }
         catch (OperationCanceledException) when (cancellationToken.IsCancellationRequested) { }
@@ -56,19 +55,8 @@ public partial class ActivityViewModel
         {
             if (!liveTimelineReadFailed) Log.Warning(exception, "Unable to refresh the live activity timeline");
             liveTimelineReadFailed = true;
-            if (!isDisposed) ErrorText = LiveTimelineReadError;
+            if (!page.IsDisposed) page.ErrorText = LiveTimelineReadError;
         }
         finally { liveTimelineRefreshing = false; }
-    }
-
-    [RelayCommand]
-    private async Task OpenTimelineEncounterAsync(Guid encounterId)
-    {
-        if (persistence is null) return;
-        await RunSafelyAsync(async () =>
-        {
-            if (await persistence.GetEncounterAsync(encounterId) is { } encounter)
-                await OpenSessionDetailsAsync(encounter.SessionId, encounter.Id);
-        });
     }
 }

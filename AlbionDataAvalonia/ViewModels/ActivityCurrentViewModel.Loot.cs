@@ -6,10 +6,11 @@ using System.Collections.ObjectModel;
 using System.Linq;
 using System.Threading;
 using System.Threading.Tasks;
+using static AlbionDataAvalonia.ViewModels.ActivityReads;
 
 namespace AlbionDataAvalonia.ViewModels;
 
-public partial class ActivityViewModel
+public partial class ActivityCurrentViewModel
 {
     private CancellationTokenSource currentLootCancellation = new();
     private CurrentPeriodKey? currentLootKey;
@@ -27,7 +28,7 @@ public partial class ActivityViewModel
 
     private async Task RefreshCurrentLootAsync(bool append = false)
     {
-        if (persistence is null || tracker is null || isDisposed) return;
+        if (Persistence is not { } persistence || Tracker is null || page.IsDisposed) return;
         var key = GetCurrentPeriodKey();
         var contextChanged = key != currentLootKey;
         if (contextChanged)
@@ -35,12 +36,12 @@ public partial class ActivityViewModel
             ClearCurrentLoot();
             currentLootKey = key;
         }
-        if (key is null || !IsCurrentLootExpanded || !isActive || SelectedTab != ActivityTab.Current) return;
+        if (key is null || !IsCurrentLootExpanded || !page.IsShowing(ActivityTab.Current)) return;
         if (append && !HasMoreCurrentLoot) return;
 
         var nowUtc = DateTime.UtcNow;
         if (!append && !contextChanged && (nowUtc - currentLootReadAtUtc < TimeSpan.FromSeconds(5) ||
-            currentLootReadVersion == itemChangeVersion && !IsLastHoursPeriod)) return;
+            currentLootReadVersion == page.ItemChangeVersion && !IsLastHoursPeriod)) return;
         var query = append ? currentLootQuery : CurrentPeriodQuery(nowUtc);
         if (query is null) return;
         // A session ID selects all its pickups, including when a new session's live
@@ -52,19 +53,19 @@ public partial class ActivityViewModel
             CharacterName = string.IsNullOrWhiteSpace(query.CharacterId) ? query.CharacterName : null
         };
         var version = ++currentLootVersion;
-        var dataVersion = itemChangeVersion;
+        var dataVersion = page.ItemChangeVersion;
         var cancellationToken = BeginRead(ref currentLootCancellation);
-        var page = append ? currentLootPage + 1 : currentLootPage;
-        var result = await ReadEventRowsAsync(query, page, append, cancellationToken);
+        var pageIndex = append ? currentLootPage + 1 : currentLootPage;
+        var result = await ReadEventRowsAsync(persistence, query, pageIndex, append, cancellationToken);
         cancellationToken.ThrowIfCancellationRequested();
-        if (isDisposed || !isActive || SelectedTab != ActivityTab.Current || !IsCurrentLootExpanded ||
+        if (!page.IsShowing(ActivityTab.Current) || !IsCurrentLootExpanded ||
             version != currentLootVersion || key != GetCurrentPeriodKey()) return;
 
         ApplyEventRows(CurrentLoot, result.Items.Select(value => new ActivityLootRow(value)).ToArray(), row => row.SourceEvent, append);
-        valuations?.RequestMissing(result.Items);
+        page.Valuations?.RequestMissing(result.Items);
         currentLootKey = key;
         currentLootQuery = query;
-        currentLootPage = page;
+        currentLootPage = pageIndex;
         currentLootReadVersion = dataVersion;
         currentLootReadAtUtc = DateTime.UtcNow;
         HasMoreCurrentLoot = result.HasMore;
@@ -72,12 +73,16 @@ public partial class ActivityViewModel
     }
 
     [RelayCommand]
-    private Task LoadMoreCurrentLootAsync() => RunSafelyAsync(() => RefreshCurrentLootAsync(true));
+    private Task LoadMoreCurrentLootAsync() => page.RunSafelyAsync(() => RefreshCurrentLootAsync(true));
+
+    [RelayCommand]
+    private Task ExportCurrentLoot(LootExportFormat format) =>
+        Export.ExportToFileAsync(Export.CanStart && HasCurrentLoot ? currentLootQuery : null, format);
 
     partial void OnIsCurrentLootExpandedChanged(bool value)
     {
         if (!value) CancelCurrentLootRead();
-        else if (isActive && SelectedTab == ActivityTab.Current) _ = RunSafelyAsync(() => RefreshCurrentLootAsync());
+        else if (page.IsShowing(ActivityTab.Current)) _ = page.RunSafelyAsync(() => RefreshCurrentLootAsync());
     }
 
     partial void OnCurrentLootChanged(ObservableCollection<ActivityLootRow> value) => OnPropertyChanged(nameof(HasCurrentLoot));
