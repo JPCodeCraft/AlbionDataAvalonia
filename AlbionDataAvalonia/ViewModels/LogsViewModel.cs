@@ -1,5 +1,4 @@
 ﻿using AlbionDataAvalonia.Logging;
-using AlbionDataAvalonia.Logging;
 using AlbionDataAvalonia.Settings;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
