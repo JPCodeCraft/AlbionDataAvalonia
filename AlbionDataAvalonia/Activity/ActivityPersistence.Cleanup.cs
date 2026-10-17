@@ -178,7 +178,7 @@ public sealed partial class ActivityPersistence
         try
         {
             activityBytes = await ScalarLongAsync(connection, transaction,
-                "SELECT COALESCE(SUM(pgsize),0) FROM dbstat WHERE name IN (SELECT name FROM sqlite_schema WHERE tbl_name IN ('ActivitySessions','ActivityEncounters','ActivityEvents'))", cancellationToken);
+                "SELECT COALESCE(SUM(pgsize),0) FROM dbstat WHERE name IN (SELECT name FROM sqlite_schema WHERE tbl_name IN ('ActivitySessions','ActivityEncounters','ActivityEvents','ActivityPathSegments'))", cancellationToken);
         }
         catch (SqliteException error) when (error.SqliteErrorCode == 1)
         {
@@ -188,7 +188,8 @@ public sealed partial class ActivityPersistence
             activityBytes = await ScalarLongAsync(connection, transaction,
                 "SELECT COALESCE((SELECT SUM(280+length(CAST(PersonalSummaryJson||PartySummaryJson||ObservedSummaryJson||VisitsJson||KnownInstancesJson||Title||LocationName||CharacterName AS BLOB))) FROM ActivitySessions),0) + " +
                 "COALESCE((SELECT SUM(220+length(CAST(PersonalSummaryJson||PartySummaryJson||ObservedSummaryJson||LocationName AS BLOB))) FROM ActivityEncounters),0) + " +
-                "COALESCE((SELECT SUM(480+length(CAST(DetailsJson||SourceName||TargetName||ItemName||LocationName||LootSourceName||COALESCE(OriginKey,'')||COALESCE(ItemUniqueName,'') AS BLOB))) FROM ActivityEvents),0)", cancellationToken);
+                "COALESCE((SELECT SUM(480+length(CAST(DetailsJson||SourceName||TargetName||ItemName||LocationName||LootSourceName||COALESCE(OriginKey,'')||COALESCE(ItemUniqueName,'') AS BLOB))) FROM ActivityEvents),0) + " +
+                "COALESCE((SELECT SUM(160+length(Points)) FROM ActivityPathSegments),0)", cancellationToken);
         }
         var databaseBytes = FileLength(connection.DataSource) + FileLength(connection.DataSource + "-wal") + FileLength(connection.DataSource + "-shm");
         return new(sessions, encounters, events, items, activityBytes, databaseBytes, estimated);

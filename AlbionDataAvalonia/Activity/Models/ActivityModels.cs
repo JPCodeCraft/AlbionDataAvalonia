@@ -186,6 +186,9 @@ public sealed record ActivityEvent
     public string LootSourceKind { get; init; } = "";
     public int PayloadVersion { get; init; } = 1;
     public string DetailsJson { get; init; } = "{}";
+    // Where the local character stood on RawMapId, for kills, deaths, pickups, catches and map entries.
+    public double? PositionX { get; init; }
+    public double? PositionY { get; init; }
 }
 
 public sealed record ActivitySummary

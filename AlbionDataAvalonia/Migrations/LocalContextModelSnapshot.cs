@@ -187,6 +187,12 @@ namespace AlbionDataAvalonia.Migrations
                     b.Property<int>("PayloadVersion")
                         .HasColumnType("INTEGER");
 
+                    b.Property<double?>("PositionX")
+                        .HasColumnType("REAL");
+
+                    b.Property<double?>("PositionY")
+                        .HasColumnType("REAL");
+
                     b.Property<DateTime?>("PriceObservedAtUtc")
                         .HasColumnType("TEXT");
 
@@ -273,6 +279,39 @@ namespace AlbionDataAvalonia.Migrations
                     b.HasIndex("Kind", "Server", "ItemId", "Quality", "EstimatedUnitValue");
 
                     b.ToTable("ActivityEvents", (string)null);
+                });
+
+            modelBuilder.Entity("AlbionDataAvalonia.Activity.Models.ActivityPathSegment", b =>
+                {
+                    b.Property<long>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("INTEGER");
+
+                    b.Property<DateTime>("EndedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.Property<int>("PointCount")
+                        .HasColumnType("INTEGER");
+
+                    b.Property<byte[]>("Points")
+                        .IsRequired()
+                        .HasColumnType("BLOB");
+
+                    b.Property<string>("RawMapId")
+                        .IsRequired()
+                        .HasColumnType("TEXT");
+
+                    b.Property<Guid>("SessionId")
+                        .HasColumnType("TEXT");
+
+                    b.Property<DateTime>("StartedAtUtc")
+                        .HasColumnType("TEXT");
+
+                    b.HasKey("Id");
+
+                    b.HasIndex("SessionId", "StartedAtUtc");
+
+                    b.ToTable("ActivityPathSegments", (string)null);
                 });
 
             modelBuilder.Entity("AlbionDataAvalonia.Activity.Models.ActivityPlaySession", b =>
@@ -863,6 +902,15 @@ namespace AlbionDataAvalonia.Migrations
                         .WithMany()
                         .HasForeignKey("SessionId")
                         .OnDelete(DeleteBehavior.Cascade);
+                });
+
+            modelBuilder.Entity("AlbionDataAvalonia.Activity.Models.ActivityPathSegment", b =>
+                {
+                    b.HasOne("AlbionDataAvalonia.Activity.Models.ActivitySession", null)
+                        .WithMany()
+                        .HasForeignKey("SessionId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
                 });
 
             modelBuilder.Entity("AlbionDataAvalonia.Gathering.Models.GatheringCompletedSessionItem", b =>

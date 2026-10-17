@@ -26,6 +26,7 @@ namespace AlbionDataAvalonia.DB
         public DbSet<ActivitySession> ActivitySessions { get; set; }
         public DbSet<ActivityEncounter> ActivityEncounters { get; set; }
         public DbSet<ActivityEvent> ActivityEvents { get; set; }
+        public DbSet<ActivityPathSegment> ActivityPathSegments { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -76,12 +77,19 @@ namespace AlbionDataAvalonia.DB
                 entity.HasIndex(x => new { x.Kind, x.Server, x.ItemId, x.Quality, x.EstimatedUnitValue });
                 entity.HasIndex(x => new { x.SourceActorId, x.TargetActorId, x.SessionId, x.Kind });
             });
+            modelBuilder.Entity<ActivityPathSegment>(entity =>
+            {
+                entity.ToTable("ActivityPathSegments");
+                entity.HasKey(x => x.Id);
+                entity.HasOne<ActivitySession>().WithMany().HasForeignKey(x => x.SessionId).OnDelete(DeleteBehavior.Cascade);
+                entity.HasIndex(x => new { x.SessionId, x.StartedAtUtc });
+            });
 
             // SQLite preserves the UTC ticks but drops DateTime.Kind. Restore it on reads
             // so historical chart ranges and event times are not shifted a second time.
             var utcDateTime = new ValueConverter<DateTime, DateTime>(
                 value => value, value => DateTime.SpecifyKind(value, DateTimeKind.Utc));
-            foreach (var activityType in new[] { typeof(ActivityPlaySession), typeof(ActivitySession), typeof(ActivityEncounter), typeof(ActivityEvent) })
+            foreach (var activityType in new[] { typeof(ActivityPlaySession), typeof(ActivitySession), typeof(ActivityEncounter), typeof(ActivityEvent), typeof(ActivityPathSegment) })
             {
                 foreach (var property in modelBuilder.Entity(activityType).Metadata.GetProperties())
                 {

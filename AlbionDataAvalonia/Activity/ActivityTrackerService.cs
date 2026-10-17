@@ -227,6 +227,7 @@ public sealed partial class ActivityTrackerService : IDisposable
         captureSuspended = true;
         awaitingContext = true;
         actors.Suspend();
+        ForgetPosition();
         map = null;
         mapMetadata = new();
         locationObservation = null;
@@ -374,6 +375,7 @@ public sealed partial class ActivityTrackerService : IDisposable
     {
         // Pickups and catches waiting on their correlation window belong to the map being left.
         ResolvePending(at);
+        ForgetPosition();
         var next = packet.ActivityLocation;
         var previous = map;
         // An unrecognised server IP (VPN, routing tools) keeps the last known server, else 0.
@@ -858,7 +860,9 @@ public sealed partial class ActivityTrackerService : IDisposable
         LocationName = map?.DisplayName ?? "Unknown",
         MapKind = map?.Kind.ToString() ?? "Unknown",
         InstanceId = map?.InstanceId?.ToString(),
-        ParentMapId = map?.SourceClusterId ?? map?.ParentClusterId
+        ParentMapId = map?.SourceClusterId ?? map?.ParentClusterId,
+        PositionX = PositionXForStamp,
+        PositionY = PositionYForStamp
     };
 
     internal ActivityActor ResolveActor(long? objectId, string? name = null)
@@ -1001,6 +1005,7 @@ public sealed partial class ActivityTrackerService : IDisposable
 
     private void Persist(ActivityEvent value)
     {
+        if (value.PositionX is not null && !IsPlaced(value.Kind)) value = value with { PositionX = null, PositionY = null };
         if (!persistence.Create(value)) { storageSuspended = true; gathering.Reset(); fameCollector.Reset(); }
         if (session is not null && value.SessionId == session.Id)
         {
@@ -1030,6 +1035,7 @@ public sealed partial class ActivityTrackerService : IDisposable
 
     private ActivitySession? CloseSession(DateTime at, ActivityEndReason reason)
     {
+        FlushPath();
         CloseEncounter(at, reason);
         unidentifiedDeaths.Clear();
         gathering.Reset();
@@ -1109,7 +1115,7 @@ public sealed partial class ActivityTrackerService : IDisposable
         lock (sync)
         {
             if (disposed) return;
-            try { Expire(DateTime.UtcNow, fromTimer: true); if (headersDirty) SaveHeaders(); }
+            try { Expire(DateTime.UtcNow, fromTimer: true); FlushStalePath(DateTime.UtcNow); if (headersDirty) SaveHeaders(); }
             catch (Exception error) { Log.Warning(error, "Failed to update activity recording state."); }
         }
         Changed?.Invoke(this, EventArgs.Empty);
@@ -1269,6 +1275,7 @@ public sealed partial class ActivityTrackerService : IDisposable
             ClearPendingActorMetadata();
             gathering.Reset();
             fameCollector.Reset();
+            pathPoints.Clear(); pathSessionId = null; lastPathPoint = null;
             session = null; encounter = null; timedOutEncounter = null; headersDirty = false;
             mapEnteredAt = DateTime.UtcNow;
             mobParticipation.Clear(); pendingTerminals.Clear();

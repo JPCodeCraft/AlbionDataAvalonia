@@ -45,6 +45,7 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
     public bool Create(ActivityEvent observation) => Enqueue(new EventCommand(observation, false));
     public bool Amend(ActivityEvent observation) => Enqueue(new EventCommand(observation, true));
     public bool Retract(Guid eventId, int revision) => Enqueue(new RetractCommand(eventId, revision));
+    public bool EnqueuePath(ActivityPathSegment segment) => Enqueue(new PathCommand(segment));
 
     public async Task FillMissingLootPricesAsync(IReadOnlyCollection<ActivityLootPrice> prices, CancellationToken cancellationToken = default)
     {
@@ -103,8 +104,11 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
         {
             if (commands.Writer.TryWrite(command))
             {
-                acceptedWrites.Add(command);
-                Interlocked.Increment(ref readVersion);
+                if (command.AffectsReads)
+                {
+                    acceptedWrites.Add(command);
+                    Interlocked.Increment(ref readVersion);
+                }
                 return true;
             }
         }
@@ -165,7 +169,7 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                         lock (acceptedSync)
                         {
                             foreach (var accepted in batch) acceptedWrites.Remove(accepted);
-                            if (batch.Count > 0) Interlocked.Increment(ref readVersion);
+                            if (batch.Any(x => x.AffectsReads)) Interlocked.Increment(ref readVersion);
                         }
                         Interlocked.Add(ref pending, -(batch.Count + (control is null ? 0 : 1)));
                         PublishStatus(false, null);
@@ -296,6 +300,8 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                             OriginKey = previous.OriginKey,
                             MapEpoch = previous.MapEpoch,
                             CaptureGeneration = previous.CaptureGeneration,
+                            PositionX = previous.PositionX ?? observation.PositionX,
+                            PositionY = previous.PositionX is null ? observation.PositionY : previous.PositionY,
                             EstimatedUnitValue = frozenPrice ? previous.EstimatedUnitValue : observation.EstimatedUnitValue,
                             PriceObservedAtUtc = frozenPrice ? previous.PriceObservedAtUtc : observation.PriceObservedAtUtc
                         };
@@ -313,6 +319,11 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                     await ApplyContributionAsync(context, observation, 1, sessions, encounters, cancellationToken);
                     if (previous is null) context.ActivityEvents.Add(observation);
                     else context.Entry(previous).CurrentValues.SetValues(observation);
+                    break;
+                // A path point can outrun its run's first header write; without the run there is nothing to attach it to.
+                case PathCommand path when !deletedSessions.Contains(path.Value.SessionId):
+                    if (await context.ActivitySessions.FindAsync([path.Value.SessionId], cancellationToken) is null) break;
+                    context.ActivityPathSegments.Add(path.Value);
                     break;
                 case RetractCommand retract:
                     var existing = await context.ActivityEvents.FindAsync([retract.Id], cancellationToken);
@@ -479,11 +490,19 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
         shutdown.Dispose();
     }
 
-    private abstract record WriteCommand;
+    private abstract record WriteCommand
+    {
+        // Path points are not shown yet, so they skip the live-read bookkeeping and refreshes.
+        public virtual bool AffectsReads => true;
+    }
     private sealed record SessionCommand(ActivitySession Value) : WriteCommand;
     private sealed record EncounterCommand(ActivityEncounter Value) : WriteCommand;
     private sealed record EventCommand(ActivityEvent Value, bool IsAmendment, bool IsPriceOnly = false) : WriteCommand;
     private sealed record RetractCommand(Guid Id, int Revision) : WriteCommand;
+    private sealed record PathCommand(ActivityPathSegment Value) : WriteCommand
+    {
+        public override bool AffectsReads => false;
+    }
     private abstract record ControlCommand(TaskCompletionSource Completion) : WriteCommand;
     private sealed record FlushCommand(TaskCompletionSource Completion) : ControlCommand(Completion);
     private sealed record RecoverCommand(TaskCompletionSource Completion) : ControlCommand(Completion);
