@@ -64,6 +64,9 @@ public class TradeService
             query = query.Where(x => !x.Deleted);
         }
 
+        // Expired orders with nothing filled were once saved as empty trades.
+        query = query.Where(x => x.Amount > 0);
+
         var result = await query.OrderByDescending(x => x.DateTime).AsNoTracking().Skip(countPerPage * pageNumber).Take(countPerPage).ToListAsync();
 
         SetTradeProperties(result);
@@ -347,8 +350,39 @@ public class TradeService
         Log.Debug("Confirmed trade");
     }
 
+    public static async Task BackfillOrderAmountsAsync(CancellationToken cancellationToken = default)
+    {
+        try
+        {
+            using var db = new LocalContext();
+            // Mail trades copy the mail's item, received time, filled amount and player, so an exact match finds the source mail.
+            var updated = await db.Database.ExecuteSqlRawAsync(
+                "UPDATE Trades SET OrderAmount = m.TotalAmount FROM AlbionMails AS m " +
+                "WHERE Trades.Type = {0} AND Trades.OrderAmount IS NULL AND m.IsSet = 1 " +
+                "AND m.ItemId = Trades.ItemId AND m.Received = Trades.DateTime " +
+                "AND m.PartialAmount = Trades.Amount AND m.PlayerName = Trades.PlayerName",
+                new object[] { (int)TradeType.Order },
+                cancellationToken);
+
+            if (updated > 0)
+            {
+                Log.Information("Backfilled order size for {Count} trades", updated);
+            }
+        }
+        catch (Exception e)
+        {
+            Log.Warning(e, "Could not backfill trade order sizes");
+        }
+    }
+
     private async Task HandleOnMailDataAdded(AlbionMail mail)
     {
+        if (mail.PartialAmount <= 0)
+        {
+            Log.Debug("Skipped trade for mail {MailId} with nothing filled", mail.Id);
+            return;
+        }
+
         var trade = new Trade(mail);
         await AddTradeToDb(trade);
         Log.Debug("Added trade from mail: {TradeId}", trade.Id);

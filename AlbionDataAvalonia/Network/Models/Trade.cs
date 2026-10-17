@@ -18,6 +18,8 @@ public class Trade
     public DateTime DateTime { get; set; }
     public int? AlbionServerId { get; set; }
     public int Amount { get; set; }
+    // Total order size for trades created from market mails; null for instant trades.
+    public int? OrderAmount { get; set; }
     public string ItemId { get; set; } = string.Empty;
     public byte QualityLevel { get; set; }
     public double UnitSilver { get; set; }
@@ -68,6 +70,12 @@ public class Trade
             }
         }
     }
+
+    [NotMapped]
+    public bool IsPartialOrder => OrderAmount is { } orderAmount && orderAmount > Amount;
+
+    [NotMapped]
+    public string OrderAmountFormatted => OrderAmount is { } orderAmount ? $"of {orderAmount:N0}" : string.Empty;
 
     [NotMapped]
     public string QualityLevelFormatted
@@ -131,6 +139,7 @@ public class Trade
                 break;
         }
         Amount = mail.PartialAmount;
+        OrderAmount = mail.TotalAmount;
         AlbionServerId = mail.AlbionServerId;
         RawLocationId = mail.RawLocationId;
         LocationId = mail.LocationId;

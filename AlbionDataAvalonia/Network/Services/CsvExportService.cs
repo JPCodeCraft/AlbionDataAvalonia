@@ -39,11 +39,11 @@ public class CsvExportService
         await writer.WriteLineAsync(string.Join(delimiter, new[]
         {
             "Server", "Player", "Received", "Type", "Operation", "Quality",
-            "Item", "Location", "Full Location", "Amount", "Unit Silver", "Total Silver"
+            "Item", "Location", "Full Location", "Amount", "Unit Silver", "Total Silver", "Order Amount"
         }));
 
         using var db = new LocalContext();
-        var totalCount = await db.Trades.Where(x => !x.Deleted).CountAsync(cancellationToken);
+        var totalCount = await db.Trades.Where(x => !x.Deleted && x.Amount > 0).CountAsync(cancellationToken);
 
         if (totalCount == 0)
         {
@@ -61,7 +61,7 @@ public class CsvExportService
             cancellationToken.ThrowIfCancellationRequested();
 
             var trades = await db.Trades
-                .Where(x => !x.Deleted)
+                .Where(x => !x.Deleted && x.Amount > 0)
                 .OrderByDescending(x => x.DateTime)
                 .Skip(i * batchSize)
                 .Take(batchSize)
@@ -89,7 +89,8 @@ public class CsvExportService
                     Escape(fullName, delimiter),
                     trade.Amount.ToString(culture),
                     trade.UnitSilver.ToString("F2", culture),
-                    trade.TotalSilver.ToString("F0", culture)
+                    trade.TotalSilver.ToString("F0", culture),
+                    trade.OrderAmount?.ToString(culture) ?? ""
                 });
 
                 await writer.WriteLineAsync(line);
@@ -104,84 +105,6 @@ public class CsvExportService
         progress?.Report(100);
 
         Log.Information("Exported {Count} trades to CSV", processed);
-    }
-
-    public async Task ExportMailsToCsvAsync(Stream stream, CsvExportOptions? options = null, IProgress<int>? progress = null, CancellationToken cancellationToken = default)
-    {
-        options ??= CsvExportOptions.FromCurrentCulture();
-        var culture = options.CreateFormattingCulture();
-        var delimiter = options.Delimiter;
-
-        using var writer = new StreamWriter(stream, Encoding.UTF8);
-
-        // Write header - matches the columns shown in MailsView.axaml DataGrid
-        await writer.WriteLineAsync(string.Join(delimiter, new[]
-        {
-            "Server", "Player", "Received", "Type", "Item", "Location", "Full Location",
-            "Amount", "Order Amount", "Unit Silver", "Total Silver"
-        }));
-
-        using var db = new LocalContext();
-        var totalCount = await db.AlbionMails.Where(x => !x.Deleted).CountAsync(cancellationToken);
-
-        if (totalCount == 0)
-        {
-            progress?.Report(100);
-            return;
-        }
-
-        const int batchSize = 500;
-        int processed = 0;
-
-        var batches = (int)Math.Ceiling(totalCount / (double)batchSize);
-
-        for (int i = 0; i < batches; i++)
-        {
-            cancellationToken.ThrowIfCancellationRequested();
-
-            var mails = await db.AlbionMails
-                .Where(x => !x.Deleted)
-                .OrderByDescending(x => x.Received)
-                .Skip(i * batchSize)
-                .Take(batchSize)
-                .AsNoTracking()
-                .ToListAsync(cancellationToken);
-
-            foreach (var mail in mails)
-            {
-                var server = AlbionServers.GetAll().SingleOrDefault(x => x.Id == mail.AlbionServerId);
-                var location = AlbionLocations.ResolveStoredLocation(mail.RawLocationId, mail.LocationId);
-                var marketName = location?.MarketLocation?.FriendlyName ?? location?.FriendlyName ?? "";
-                var fullName = location?.FriendlyName ?? "";
-                var itemName = itemsIdsService.GetUsNameByUniqueName(mail.ItemId);
-
-                var line = string.Join(delimiter, new[]
-                {
-                    Escape(server?.Name ?? "", delimiter),
-                    Escape(mail.PlayerName, delimiter),
-                    Escape(mail.Received.ToString(culture), delimiter),
-                    Escape(mail.AuctionTypeFormatted, delimiter),
-                    Escape(itemName, delimiter),
-                    Escape(marketName, delimiter),
-                    Escape(fullName, delimiter),
-                    mail.PartialAmount.ToString("F0", culture),
-                    mail.TotalAmount.ToString("F0", culture),
-                    mail.UnitSilver.ToString("F2", culture),
-                    mail.TotalSilver.ToString("F0", culture)
-                });
-
-                await writer.WriteLineAsync(line);
-                processed++;
-            }
-
-            var percent = (int)((double)processed / totalCount * 100);
-            progress?.Report(percent);
-        }
-
-        await writer.FlushAsync(cancellationToken);
-        progress?.Report(100);
-
-        Log.Information("Exported {Count} mails to CSV", processed);
     }
 
     public async Task ExportLootToCsvAsync(

@@ -813,6 +813,9 @@ namespace AlbionDataAvalonia.Migrations
                     b.Property<int>("Operation")
                         .HasColumnType("INTEGER");
 
+                    b.Property<int?>("OrderAmount")
+                        .HasColumnType("INTEGER");
+
                     b.Property<string>("PlayerName")
                         .IsRequired()
                         .HasColumnType("TEXT");

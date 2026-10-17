@@ -33,7 +33,6 @@ public partial class MainViewModel : ViewModelBase
         Activity,
         Legendary,
         Trades,
-        Mails,
         Settings,
         Logs
     }
@@ -44,7 +43,6 @@ public partial class MainViewModel : ViewModelBase
     private readonly SettingsManager _settingsManager;
     private readonly SettingsViewModel _settingsViewModel;
     private readonly LogsViewModel _logsViewModel;
-    private readonly MailsViewModel _mailsViewModel;
     private readonly TradesViewModel _tradesViewModel;
     private readonly ActivityViewModel _activityViewModel;
     private readonly LegendaryViewModel _legendaryViewModel;
@@ -261,7 +259,7 @@ public partial class MainViewModel : ViewModelBase
         SidebarStatusItems.Add(SidebarStatusItem.Ok("Ready", "Capture state looks ready."));
     }
 
-    public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, PlayerIdentityService playerIdentityService, SettingsManager settingsManager, SettingsViewModel settingsViewModel, LogsViewModel logsViewModel, MailsViewModel mailsViewModel, TradesViewModel tradesViewModel, ActivityViewModel activityViewModel, LegendaryViewModel legendaryViewModel, Uploader uploader, AuthService authService)
+    public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, PlayerIdentityService playerIdentityService, SettingsManager settingsManager, SettingsViewModel settingsViewModel, LogsViewModel logsViewModel, TradesViewModel tradesViewModel, ActivityViewModel activityViewModel, LegendaryViewModel legendaryViewModel, Uploader uploader, AuthService authService)
     {
         _playerState = playerState;
         _playerIdentityService = playerIdentityService;
@@ -269,7 +267,6 @@ public partial class MainViewModel : ViewModelBase
         _settingsManager = settingsManager;
         _settingsViewModel = settingsViewModel;
         _logsViewModel = logsViewModel;
-        _mailsViewModel = mailsViewModel;
         _tradesViewModel = tradesViewModel;
         _activityViewModel = activityViewModel;
         _legendaryViewModel = legendaryViewModel;
@@ -330,7 +327,6 @@ public partial class MainViewModel : ViewModelBase
     public bool IsActivitySelected => _selectedPage == MainPage.Activity;
     public bool IsLegendarySelected => _selectedPage == MainPage.Legendary;
     public bool IsTradesSelected => _selectedPage == MainPage.Trades;
-    public bool IsMailsSelected => _selectedPage == MainPage.Mails;
     public bool IsSettingsSelected => _selectedPage == MainPage.Settings;
     public bool IsLogsSelected => _selectedPage == MainPage.Logs;
 
@@ -343,7 +339,6 @@ public partial class MainViewModel : ViewModelBase
             OnPropertyChanged(nameof(IsActivitySelected));
             OnPropertyChanged(nameof(IsLegendarySelected));
             OnPropertyChanged(nameof(IsTradesSelected));
-            OnPropertyChanged(nameof(IsMailsSelected));
             OnPropertyChanged(nameof(IsSettingsSelected));
             OnPropertyChanged(nameof(IsLogsSelected));
         }
@@ -354,7 +349,6 @@ public partial class MainViewModel : ViewModelBase
             MainPage.Activity => new ActivityView(_activityViewModel),
             MainPage.Legendary => new LegendaryView(_legendaryViewModel),
             MainPage.Trades => new TradesView(_tradesViewModel),
-            MainPage.Mails => new MailsView(_mailsViewModel),
             MainPage.Settings => new SettingsView(_settingsViewModel),
             MainPage.Logs => new LogsView(_logsViewModel),
             _ => NpCapInstallationChecker.IsNpCapInstalled() ? new DashboardView() : new PCapView()
@@ -367,10 +361,6 @@ public partial class MainViewModel : ViewModelBase
         else if (page == MainPage.Trades)
         {
             _tradesViewModel.EnsureLoaded();
-        }
-        else if (page == MainPage.Mails)
-        {
-            _mailsViewModel.EnsureLoaded();
         }
     }
 
@@ -702,12 +692,6 @@ public partial class MainViewModel : ViewModelBase
     private void ShowLogs()
     {
         NavigateTo(MainPage.Logs);
-    }
-
-    [RelayCommand]
-    private void ShowMails()
-    {
-        NavigateTo(MainPage.Mails);
     }
 
     [RelayCommand]

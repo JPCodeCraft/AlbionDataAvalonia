@@ -162,21 +162,6 @@ public class UserSettings : INotifyPropertyChanged
         }
     }
 
-    private int mailsPerPage = 1000;
-    public int MailsPerPage
-    {
-        get => mailsPerPage;
-        set
-        {
-            if (mailsPerPage != value)
-            {
-                mailsPerPage = value;
-                OnPropertyChanged(nameof(MailsPerPage));
-                Log.Information("Mails per page set to {MailsPerPage}", mailsPerPage);
-            }
-        }
-    }
-
     private int tradesToShow = 1000;
     public int TradesToShow
     {

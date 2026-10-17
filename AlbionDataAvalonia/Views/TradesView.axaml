@@ -83,7 +83,11 @@
                 <DataGridTemplateColumn Header="Amount" CanUserSort="True" SortMemberPath="Amount">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate>
-                            <TextBlock Text="{Binding Amount, Converter={x:Static views:UiValueConverters.WholeNumber}}" Classes="TableNumber" />
+                            <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right" VerticalAlignment="Center">
+                                <TextBlock Text="{Binding Amount, Converter={x:Static views:UiValueConverters.WholeNumber}}" Classes="TableNumber" />
+                                <TextBlock Text="{Binding OrderAmountFormatted}" Classes="UiLabel" VerticalAlignment="Center"
+                                           IsVisible="{Binding IsPartialOrder}" ToolTip.Tip="Filled amount of the full order" />
+                            </StackPanel>
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>

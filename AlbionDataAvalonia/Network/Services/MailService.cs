@@ -21,7 +21,6 @@ public class MailService
     private readonly ItemsIdsService _itemsIdsService;
     private List<AlbionMail> Mails { get; set; } = new();
 
-    public Action<List<AlbionMail>>? OnMailAdded;
     public Action<AlbionMail>? OnMailDataAdded;
 
     public MailService(PlayerState playerState, SettingsManager settingsManager, ItemsIdsService itemsIdsService)
@@ -29,52 +28,6 @@ public class MailService
         _playerState = playerState;
         _settingsManager = settingsManager;
         _itemsIdsService = itemsIdsService;
-    }
-
-    public async Task<List<AlbionMail>> GetMails(int countPerPage, int pageNumber = 0, int? albionServerId = null, bool showDeleted = false, int? locationId = null, AuctionType? auctionType = null)
-    {
-        using var db = new LocalContext();
-        var query = db.AlbionMails.AsQueryable();
-
-        if (albionServerId.HasValue)
-        {
-            query = query.Where(x => x.AlbionServerId == albionServerId);
-        }
-
-        if (locationId.HasValue)
-        {
-            query = query.Where(x => x.LocationId == locationId);
-        }
-
-        if (auctionType != null)
-        {
-            query = query.Where(x => x.AuctionType == auctionType);
-        }
-
-        if (!showDeleted)
-        {
-            query = query.Where(x => !x.Deleted);
-        }
-
-        var result = await query.OrderByDescending(x => x.Received).AsNoTracking().Skip(countPerPage * pageNumber).Take(countPerPage).ToListAsync();
-
-        SetMailProperties(result);
-
-        Log.Debug("Loaded {Count} mails", result.Count);
-
-        return result;
-    }
-
-    public async Task<List<int>> GetDistinctLocationIds(int? albionServerId = null)
-    {
-        using var db = new LocalContext();
-        var query = db.AlbionMails.Where(x => !x.Deleted);
-        if (albionServerId.HasValue)
-        {
-            query = query.Where(x => x.AlbionServerId == albionServerId);
-        }
-
-        return await query.Select(x => x.LocationId).Distinct().ToListAsync();
     }
 
     public async Task<CleanupPreview> GetCleanupPreviewAsync(CancellationToken cancellationToken = default)
@@ -201,11 +154,6 @@ public class MailService
                 {
                     await db.SaveChangesAsync();
 
-                    SetMailProperties(newMails);
-                    SetMailProperties(repairedMails);
-
-                    OnMailAdded?.Invoke(newMails.Concat(repairedMails).ToList());
-
                     Log.Debug("Added {Count} new mails", newMails.Count);
                     Log.Debug("Repaired {Count} mail locations", repairedMails.Count);
                 }
@@ -248,61 +196,6 @@ public class MailService
         catch (Exception e)
         {
             Log.Error(e, e.Message);
-        }
-    }
-
-    public async Task DeleteMail(long mailId)
-    {
-        try
-        {
-            using (var db = new LocalContext())
-            {
-                var mail = await db.AlbionMails.Where(x => x.Id == mailId).SingleOrDefaultAsync();
-
-                if (mail == null) return;
-
-                mail.Deleted = true;
-
-                await db.SaveChangesAsync();
-
-                Log.Debug("Deleted mail {MailId}", mailId);
-            }
-        }
-        catch (Exception e)
-        {
-            Log.Error(e, e.Message);
-        }
-    }
-
-    public async Task<int> DeleteMailsAsync(IEnumerable<long> mailIds, CancellationToken cancellationToken = default)
-    {
-        var ids = mailIds.Distinct().ToList();
-        if (ids.Count == 0)
-        {
-            return 0;
-        }
-
-        try
-        {
-            using var db = new LocalContext();
-            var mails = await db.AlbionMails
-                .Where(x => !x.Deleted && ids.Contains(x.Id))
-                .ToListAsync(cancellationToken);
-
-            foreach (var mail in mails)
-            {
-                mail.Deleted = true;
-            }
-
-            await db.SaveChangesAsync(cancellationToken);
-
-            Log.Information("Deleted {Count} selected mails", mails.Count);
-            return mails.Count;
-        }
-        catch (Exception e)
-        {
-            Log.Error(e, e.Message);
-            return 0;
         }
     }
 

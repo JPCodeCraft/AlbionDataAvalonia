@@ -130,6 +130,7 @@ public partial class App : Application
 
                 await db.Database.MigrateAsync();
                 Log.Information("Migrations [if any] completed successfully");
+                await TradeService.BackfillOrderAmountsAsync();
             }
             catch (Exception e)
             {
@@ -551,7 +552,6 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<MainViewModel>();
         collection.AddSingleton<SettingsViewModel>();
         collection.AddSingleton<LogsViewModel>();
-        collection.AddSingleton<MailsViewModel>();
         collection.AddSingleton<TradesViewModel>();
         collection.AddSingleton<ActivityViewModel>();
         collection.AddSingleton<LegendaryViewModel>();

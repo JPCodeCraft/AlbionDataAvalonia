@@ -969,6 +969,8 @@ public sealed class TradeRowViewModel : ObservableObject
     public string ItemName => Source.ItemName;
     public AlbionLocation? Location => Source.Location;
     public int Amount => Source.Amount;
+    public bool IsPartialOrder => Source.IsPartialOrder;
+    public string OrderAmountFormatted => Source.OrderAmountFormatted;
     public string ItemId => Source.ItemId;
     public byte QualityLevel => Source.QualityLevel;
     public int ImageQuality => QualityLevel > 0 ? QualityLevel : 1;

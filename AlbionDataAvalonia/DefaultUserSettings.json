@@ -7,7 +7,6 @@
   "JoinBetaProgram": false,
   "DesiredThreadCount": 1,
   "MaxLogCount": 1000,
-  "MailsPerPage": 1000,
   "TradesToShow": 1000,
   "UploadToAfmOnly": false,
   "ContributeToPublic": false,
