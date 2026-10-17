@@ -91,6 +91,19 @@ namespace AlbionDataAvalonia.Network.Services
                 && HasLegacyMacOSCapturePermissionSetup();
         }
 
+        /// <summary>A cheap snapshot of the capture session for the setup checklist.</summary>
+        public CaptureStatus GetCaptureStatus()
+        {
+            var session = Volatile.Read(ref _activeSession);
+            if (session is null)
+            {
+                return CaptureStatus.NotStarted;
+            }
+
+            var selected = Volatile.Read(ref session.SelectedRegistration);
+            return new CaptureStatus(true, session.GetActiveDeviceCount(), session.AvailableDeviceCount, selected?.DisplayName);
+        }
+
         public Task StartNetworkListeningAsync()
         {
             return RequestStartAsync(forceRestart: false, applyStartDelay: true);

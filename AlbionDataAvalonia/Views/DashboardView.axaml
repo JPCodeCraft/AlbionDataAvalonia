@@ -5,549 +5,478 @@
 	xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
 	xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
 	xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
-	d:DesignHeight="450"
-	d:DesignWidth="800"
+	d:DesignHeight="600"
+	d:DesignWidth="860"
 	x:DataType="vm:MainViewModel"
 	Classes="AppPage"
 	mc:Ignorable="d">
 
+	<UserControl.Resources>
+		<DataTemplate x:Key="SetupStepTemplate" x:DataType="vm:SetupStepViewModel">
+			<Border Classes="Step" Classes.Current="{Binding HasHint}">
+				<Grid ColumnDefinitions="Auto,*">
+					<Grid Width="18" Height="18" Margin="0,1,12,0" VerticalAlignment="Top">
+						<Ellipse IsVisible="{Binding IsChecked}" Fill="{Binding StateBrush}" />
+						<Path IsVisible="{Binding IsChecked}" Data="M5,9.3 L7.9,12.1 L13.1,6.6" Stroke="White"
+							  StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round" />
+						<Ellipse IsVisible="{Binding NeedsAttention}" Fill="{Binding StateBrush}" />
+						<Canvas IsVisible="{Binding NeedsAttention}" Width="18" Height="18">
+							<Path Data="M9,4.4 L9,10" Stroke="#1E1E1E" StrokeThickness="2.2" StrokeLineCap="Round" />
+							<Ellipse Canvas.Left="7.7" Canvas.Top="11.8" Width="2.6" Height="2.6" Fill="#1E1E1E" />
+						</Canvas>
+						<Ellipse IsVisible="{Binding IsActive}" Margin="1" Stroke="#40FFA726" StrokeThickness="2" />
+						<Path IsVisible="{Binding IsActive}" Data="M9,2 A7,7 0 1 1 2,9" Stroke="{StaticResource AFMOrange}"
+							  StrokeThickness="2" StrokeLineCap="Round" />
+						<Ellipse IsVisible="{Binding IsPending}" Margin="1" Stroke="#59FFFFFF" StrokeThickness="1.2"
+								 StrokeDashArray="2,2" />
+					</Grid>
+					<StackPanel Grid.Column="1" Spacing="4">
+						<Grid ColumnDefinitions="Auto,*">
+							<TextBlock Classes="StepLabel" Classes.Pending="{Binding IsPending}" Text="{Binding Label}" />
+							<TextBlock Grid.Column="1" Classes="StepValue" Classes.Pending="{Binding IsPending}"
+									   Classes.Warning="{Binding IsWarning}" Classes.Blocked="{Binding IsBlocked}"
+									   Classes.Stale="{Binding IsStale}" Text="{Binding Value}" />
+						</Grid>
+						<TextBlock Classes="StepHint" IsVisible="{Binding HasHint}" Text="{Binding Hint}" />
+						<Border Classes="Code" IsVisible="{Binding HasCode}">
+							<SelectableTextBlock Text="{Binding Code}" TextWrapping="Wrap" />
+						</Border>
+						<ItemsControl IsVisible="{Binding HasActions}" ItemsSource="{Binding Actions}" Margin="0,4,0,2">
+							<ItemsControl.ItemsPanel>
+								<ItemsPanelTemplate>
+									<WrapPanel />
+								</ItemsPanelTemplate>
+							</ItemsControl.ItemsPanel>
+							<ItemsControl.ItemTemplate>
+								<DataTemplate x:DataType="vm:SetupStepAction">
+									<Button Classes="StepAction" Classes.Primary="{Binding IsPrimary}" Content="{Binding Label}"
+											Command="{Binding Command}" />
+								</DataTemplate>
+							</ItemsControl.ItemTemplate>
+						</ItemsControl>
+					</StackPanel>
+				</Grid>
+			</Border>
+		</DataTemplate>
+	</UserControl.Resources>
+
 	<UserControl.Styles>
-		<Style Selector="Rectangle.Indicator">
-			<Setter Property="Width" Value="30" />
-			<Setter Property="Height" Value="15" />
-		</Style>
-
-		<Style Selector="Rectangle.Green">
-			<Setter Property="Fill" Value="rgba(5, 100, 2, .4)" />
-		</Style>
-		<Style Selector="Rectangle.Red">
-			<Setter Property="Fill" Value="rgba(102, 43, 0, .4)" />
-		</Style>
-
-		<Style Selector="Rectangle.GreenBlink">
-			<Setter Property="Fill" Value="rgb(13, 245, 5)" />
-		</Style>
-		<Style Selector="Rectangle.RedBlink">
-			<Setter Property="Fill" Value="rgb(250, 104, 0)" />
-		</Style>
-
-		<Style Selector="Border.GreenBlink">
-			<Setter Property="BoxShadow" Value="0 0 10 2 #0df505" />
-		</Style>
-		<Style Selector="Border.RedBlink">
-			<Setter Property="BoxShadow" Value="0 0 10 2 #fa6800" />
-		</Style>
-
-		<Style Selector="Label.Orange">
-			<Setter Property="Foreground" Value="{StaticResource AFMOrange}" />
-		</Style>
-		<Style Selector="Border.SectionCard">
-			<Setter Property="Padding" Value="12" />
-			<Setter Property="CornerRadius" Value="8" />
-			<Setter Property="BorderThickness" Value="1" />
-			<Setter Property="Background" Value="rgba(255,255,255,0.03)" />
-			<Setter Property="BorderBrush" Value="rgba(255,255,255,0.15)" />
-		</Style>
-		<Style Selector="Border.StatCard">
-			<Setter Property="Padding" Value="10" />
-			<Setter Property="Margin" Value="4" />
-			<Setter Property="CornerRadius" Value="6" />
-			<Setter Property="BorderThickness" Value="1" />
-			<Setter Property="BorderBrush" Value="rgba(255,255,255,0.15)" />
-			<Setter Property="Background" Value="rgba(255,255,255,0.02)" />
-			<Setter Property="MinWidth" Value="220" />
-		</Style>
-		<Style Selector="Border.CompactStatCard">
-			<Setter Property="Width" Value="160" />
-			<Setter Property="MinWidth" Value="0" />
-			<Setter Property="Padding" Value="7" />
-			<Setter Property="Margin" Value="3" />
-		</Style>
-		<Style Selector="Border.CompactStatCard TextBlock.StatLabel">
-			<Setter Property="FontSize" Value="12" />
-		</Style>
-		<Style Selector="Border.CompactStatCard TextBlock.StatValue">
-			<Setter Property="FontSize" Value="16" />
-		</Style>
-		<Style Selector="Label.SectionTitle">
-			<Setter Property="FontSize" Value="16" />
-			<Setter Property="FontWeight" Value="Bold" />
-			<Setter Property="HorizontalAlignment" Value="Center" />
-		</Style>
-		<Style Selector="TextBlock.StatLabel">
-			<Setter Property="FontWeight" Value="DemiBold" />
-			<Setter Property="HorizontalAlignment" Value="Center" />
-			<Setter Property="TextAlignment" Value="Center" />
+		<Style Selector="TextBlock.HeroTitle">
+			<Setter Property="FontSize" Value="20" />
+			<Setter Property="FontWeight" Value="SemiBold" />
 			<Setter Property="TextWrapping" Value="Wrap" />
 		</Style>
-		<Style Selector="TextBlock.StatValue">
-			<Setter Property="FontSize" Value="17" />
-			<Setter Property="FontWeight" Value="Bold" />
-			<Setter Property="HorizontalAlignment" Value="Center" />
-			<Setter Property="TextAlignment" Value="Center" />
+		<Style Selector="TextBlock.HeroText">
+			<Setter Property="FontSize" Value="13" />
+			<Setter Property="Opacity" Value="0.8" />
+			<Setter Property="TextWrapping" Value="Wrap" />
 		</Style>
-		<Style Selector="Border.PrivateOrdersCard">
-			<Setter Property="Margin" Value="4" />
+		<Style Selector="TextBlock.HeroMeta">
+			<Setter Property="FontSize" Value="12" />
+			<Setter Property="Opacity" Value="0.5" />
 		</Style>
-		<Style Selector="Border.PrivateOrdersCard.PrivateFlipsGlow">
-			<Setter Property="BorderBrush" Value="{StaticResource AFMOrange}" />
-			<Setter Property="Background" Value="rgba(255,167,38,0.12)" />
-			<Setter Property="BoxShadow" Value="0 0 10 1 #8CFFA726" />
+		<Style Selector="Border.Step">
+			<Setter Property="Padding" Value="10,8" />
+			<Setter Property="CornerRadius" Value="6" />
 		</Style>
-		<Style Selector="Border.DimmedUploadCard">
-			<Setter Property="Background" Value="rgba(0,0,0,0.22)" />
-			<Setter Property="BorderBrush" Value="rgba(255,255,255,0.07)" />
-			<Setter Property="Opacity" Value="0.6" />
+		<Style Selector="Border.Step.Current">
+			<Setter Property="Background" Value="#12FFFFFF" />
+		</Style>
+		<Style Selector="TextBlock.StepLabel">
+			<Setter Property="FontSize" Value="13" />
+			<Setter Property="FontWeight" Value="SemiBold" />
+			<Setter Property="Margin" Value="0,0,16,0" />
+		</Style>
+		<Style Selector="TextBlock.StepLabel.Pending">
+			<Setter Property="Opacity" Value="0.45" />
+		</Style>
+		<Style Selector="TextBlock.StepValue">
+			<Setter Property="FontSize" Value="12.5" />
+			<Setter Property="Opacity" Value="0.8" />
+			<Setter Property="HorizontalAlignment" Value="Right" />
+			<Setter Property="TextAlignment" Value="Right" />
+			<Setter Property="TextTrimming" Value="CharacterEllipsis" />
+		</Style>
+		<Style Selector="TextBlock.StepValue.Pending">
+			<Setter Property="Opacity" Value="0.4" />
+		</Style>
+		<Style Selector="TextBlock.StepValue.Stale">
+			<Setter Property="Opacity" Value="0.55" />
+		</Style>
+		<Style Selector="TextBlock.StepValue.Warning">
+			<Setter Property="Opacity" Value="1" />
+			<Setter Property="Foreground" Value="{StaticResource AFMOrange}" />
+		</Style>
+		<Style Selector="TextBlock.StepValue.Blocked">
+			<Setter Property="Opacity" Value="1" />
+			<Setter Property="Foreground" Value="{StaticResource AFMRed}" />
+		</Style>
+		<Style Selector="TextBlock.StepHint">
+			<Setter Property="FontSize" Value="12.5" />
+			<Setter Property="Opacity" Value="0.75" />
+			<Setter Property="TextWrapping" Value="Wrap" />
+			<Setter Property="MaxWidth" Value="620" />
+			<Setter Property="HorizontalAlignment" Value="Left" />
+		</Style>
+		<Style Selector="Border.Code">
+			<Setter Property="Background" Value="#33000000" />
+			<Setter Property="CornerRadius" Value="4" />
+			<Setter Property="Padding" Value="8,5" />
+			<Setter Property="HorizontalAlignment" Value="Left" />
+		</Style>
+		<Style Selector="Border.Code SelectableTextBlock">
+			<Setter Property="FontFamily" Value="Cascadia Mono, Consolas, Menlo, DejaVu Sans Mono, monospace" />
+			<Setter Property="FontSize" Value="12" />
+		</Style>
+		<Style Selector="Button.StepAction">
+			<Setter Property="Margin" Value="0,0,8,0" />
+			<Setter Property="Padding" Value="14,6" />
+			<Setter Property="MinHeight" Value="32" />
+		</Style>
+		<Style Selector="Button.StepAction.Primary /template/ ContentPresenter#PART_ContentPresenter">
+			<Setter Property="Background" Value="#F57C00" />
+			<Setter Property="Foreground" Value="White" />
+		</Style>
+		<Style Selector="Button.StepAction.Primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+			<Setter Property="Background" Value="#FB8C00" />
+			<Setter Property="Foreground" Value="White" />
 		</Style>
 
+		<Style Selector="Expander.Bare">
+			<Setter Property="Background" Value="Transparent" />
+			<Setter Property="BorderThickness" Value="0" />
+			<Setter Property="Padding" Value="0,4,0,0" />
+		</Style>
+		<Style Selector="Expander.Bare /template/ ToggleButton">
+			<Setter Property="Background" Value="Transparent" />
+			<Setter Property="MinHeight" Value="30" />
+			<Setter Property="Padding" Value="0" />
+		</Style>
+		<Style Selector="Expander.Trouble /template/ ToggleButton">
+			<Setter Property="MinHeight" Value="40" />
+		</Style>
+
+		<Style Selector="Border.Card">
+			<Setter Property="Background" Value="#0DFFFFFF" />
+			<Setter Property="CornerRadius" Value="8" />
+			<Setter Property="Padding" Value="14,12" />
+		</Style>
+		<Style Selector="Border.UploadCard">
+			<Setter Property="CornerRadius" Value="8" />
+			<Setter Property="Padding" Value="14,12" />
+			<Setter Property="BorderThickness" Value="1" />
+			<Setter Property="BorderBrush" Value="#26FFFFFF" />
+		</Style>
+		<Style Selector="TextBlock.Caption">
+			<Setter Property="FontSize" Value="11" />
+			<Setter Property="Opacity" Value="0.55" />
+		</Style>
+		<Style Selector="TextBlock.IdentityValue">
+			<Setter Property="FontSize" Value="15" />
+			<Setter Property="FontWeight" Value="SemiBold" />
+			<Setter Property="TextTrimming" Value="CharacterEllipsis" />
+		</Style>
+		<Style Selector="TextBlock.BigNumber">
+			<Setter Property="FontSize" Value="26" />
+			<Setter Property="FontWeight" Value="Bold" />
+		</Style>
+		<Style Selector="TextBlock.Sub">
+			<Setter Property="FontSize" Value="12.5" />
+			<Setter Property="Opacity" Value="0.75" />
+			<Setter Property="TextWrapping" Value="Wrap" />
+		</Style>
+		<Style Selector="Grid.DetailRow">
+			<Setter Property="Margin" Value="0,3" />
+		</Style>
+		<Style Selector="Grid.DetailRow TextBlock">
+			<Setter Property="FontSize" Value="12.5" />
+		</Style>
+		<Style Selector="Grid.DetailRow.Dimmed">
+			<Setter Property="Opacity" Value="0.45" />
+		</Style>
+		<Style Selector="Border.Banner">
+			<Setter Property="Background" Value="#1AFFA726" />
+			<Setter Property="BorderBrush" Value="#59FFA726" />
+			<Setter Property="BorderThickness" Value="1" />
+			<Setter Property="CornerRadius" Value="8" />
+			<Setter Property="Padding" Value="12,10" />
+		</Style>
+
+		<Style Selector="Button.FooterLink">
+			<Setter Property="Background" Value="Transparent" />
+			<Setter Property="BorderThickness" Value="0" />
+			<Setter Property="Padding" Value="8,4" />
+			<Setter Property="FontSize" Value="12.5" />
+		</Style>
+		<Style Selector="Button.FooterLink:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+			<Setter Property="Background" Value="#17FFFFFF" />
+		</Style>
+		<Style Selector="Ellipse.QueueDot">
+			<Setter Property="Width" Value="7" />
+			<Setter Property="Height" Value="7" />
+			<Setter Property="Fill" Value="#73FFFFFF" />
+		</Style>
+		<Style Selector="Ellipse.QueueDot.Busy">
+			<Setter Property="Fill" Value="{StaticResource AFMOrange}" />
+		</Style>
 	</UserControl.Styles>
 
-	<ScrollViewer Padding="0,0,20,20">
-		<Grid
-			Margin="10,10,10,10"
-			ColumnDefinitions="*"
-			RowDefinitions="Auto, Auto, Auto, Auto, Auto">
+	<ScrollViewer HorizontalScrollBarVisibility="Disabled">
+		<StackPanel Margin="10,6,20,16" Spacing="14">
 
-			<!--  QUEUE LINE  -->
-			<Grid
-				Margin="0,10,0,20"
-				ColumnDefinitions="*, 200, 200, *"
-				RowDefinitions="Auto, Auto">
-				<Border
-					Grid.Row="0"
-					Grid.Column="0"
-					HorizontalAlignment="Right"
-					VerticalAlignment="Top"
-					BorderBrush="Silver"
-					BorderThickness="2"
-					Classes.RedBlink="{Binding RedBlinking}"
-					CornerRadius="2">
-					<Rectangle
-						Classes="Indicator Red"
-						Classes.RedBlink="{Binding RedBlinking}"
-						RadiusX="1"
-						RadiusY="1" />
-				</Border>
-
-				<StackPanel
-					Grid.Row="0"
-					Grid.Column="1"
-					VerticalAlignment="Center">
-					<Label
-						HorizontalAlignment="Center"
-						Content="{Binding UploadQueueSize}"
-						FontSize="24" />
-					<Label HorizontalAlignment="Center" Content="Data Upload Queue" />
-				</StackPanel>
-
-				<StackPanel
-					Grid.Row="0"
-					Grid.Column="2"
-					VerticalAlignment="Center">
-					<Label
-						HorizontalAlignment="Center"
-						Content="{Binding RunningTasksCount}"
-						FontSize="24" />
-					<Label HorizontalAlignment="Center" Content="Running Upload Task" />
-				</StackPanel>
-
-				<Border
-					Grid.Row="0"
-					Grid.Column="3"
-					HorizontalAlignment="Left"
-					VerticalAlignment="Top"
-					BorderBrush="Silver"
-					BorderThickness="2"
-					Classes.GreenBlink="{Binding GreenBlinking}"
-					CornerRadius="2">
-					<Rectangle
-						Classes="Indicator Green"
-						Classes.GreenBlink="{Binding GreenBlinking}"
-						RadiusX="1"
-						RadiusY="1" />
-				</Border>
-
-			</Grid>
-
-			<!--  LOCATION AND WARNINGS LINE  -->
-			<Grid
-				Grid.Row="1"
-				Margin="0,10,0,10"
-				ColumnDefinitions="*"
-				IsVisible="{Binding ShowEncrypted}"
-				RowDefinitions="Auto">
-				<WrapPanel
-					Grid.Row="0"
-					Grid.Column="0"
-					HorizontalAlignment="Center"
-					VerticalAlignment="Center"
-					Orientation="Horizontal">
-					<TextBlock
-						FontWeight="Bold"
-						Foreground="{StaticResource AFMOrange}"
-						Text="Your market orders are encrypted! Go to"
-						Margin="0,0,4,0"
-						TextAlignment="Center"
-						TextWrapping="Wrap" />
-					<TextBlock
-						Cursor="Hand"
-						FontWeight="Bold"
-						Foreground="{StaticResource AFMOrange}"
-						PointerReleased="AFMDiscordLink_PointerReleased"
-						Text="AFM Discord"
-						Margin="0,0,4,0"
-						TextDecorations="Underline" />
-					<TextBlock
-						FontWeight="Bold"
-						Foreground="{StaticResource AFMOrange}"
-						Text="to understand what's going on."
-						TextAlignment="Center"
-						TextWrapping="Wrap" />
-				</WrapPanel>
-			</Grid>
-
-			<Grid
-				Grid.Row="2"
-				Margin="0,10,0,10"
-				ColumnDefinitions="*, *, *"
-				IsVisible="{Binding ShowDataUi}"
-				RowDefinitions="30, Auto">
-				<Label
-					Grid.Row="0"
-					Grid.Column="0"
-					HorizontalAlignment="Center"
-					VerticalAlignment="Center"
-					Content="Server"
-					FontWeight="Bold" />
-				<Label
-					Grid.Row="1"
-					Grid.Column="0"
-					HorizontalAlignment="Center"
-					VerticalAlignment="Center"
-					Content="{Binding AlbionServerName}" />
-
-				<Label
-					Grid.Row="0"
-					Grid.Column="1"
-					HorizontalAlignment="Center"
-					VerticalAlignment="Center"
-					Content="Player Name"
-					FontWeight="Bold" />
-				<StackPanel
-					Grid.Row="1"
-					Grid.Column="1"
-					HorizontalAlignment="Center"
-					VerticalAlignment="Center"
-					Spacing="1">
-					<StackPanel
-						HorizontalAlignment="Center"
-						Orientation="Horizontal"
-						Spacing="8">
-						<Label
-							VerticalAlignment="Center"
-							Content="{Binding PlayerName}" />
-						<Border
-							Padding="7,2"
-							VerticalAlignment="Center"
-							Background="{Binding PremiumStatusBackground}"
-							CornerRadius="8">
-							<StackPanel
-								VerticalAlignment="Center"
-								Orientation="Horizontal"
-								Spacing="4">
-								<Image
-									Width="18"
-									Height="18"
-									VerticalAlignment="Center"
-									Source="/Assets/Icons/icon_shop_premium.png"
-									Stretch="Uniform" />
-								<TextBlock
-									VerticalAlignment="Center"
-									FontSize="11"
-									FontWeight="SemiBold"
-									Foreground="{Binding PremiumStatusForeground}"
-									Text="{Binding PremiumStatusText}" />
-							</StackPanel>
-						</Border>
+			<!--  SETUP: shown until the client knows the server, character and location  -->
+			<StackPanel IsVisible="{Binding !ShowReadyView}" Spacing="12">
+				<Grid ColumnDefinitions="Auto,*" Margin="0,4,0,2">
+					<Grid Width="56" Height="56" Margin="0,0,16,0" VerticalAlignment="Top">
+						<Grid IsVisible="{Binding HeroIsRadar}">
+							<Ellipse Fill="#1FFFA726" Stroke="#59FFA726" StrokeThickness="1.5" />
+							<Ellipse Width="18" Height="18" Fill="{StaticResource AFMOrange}" />
+						</Grid>
+						<Grid IsVisible="{Binding HeroIsIdle}">
+							<Ellipse Fill="#14FFFFFF" Stroke="#33FFFFFF" StrokeThickness="1.5" />
+							<Ellipse Width="18" Height="18" Fill="#73FFFFFF" />
+						</Grid>
+						<Grid IsVisible="{Binding HeroIsWarning}">
+							<Ellipse Fill="#33FFA726" />
+							<PathIcon Width="28" Height="28" Foreground="{StaticResource AFMOrange}"
+									  Data="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M11,7H13V13H11V7M11,15H13V17H11V15Z" />
+						</Grid>
+						<Grid IsVisible="{Binding HeroIsBlocked}">
+							<Ellipse Fill="#33FF7043" />
+							<PathIcon Width="28" Height="28" Foreground="{StaticResource AFMRed}"
+									  Data="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M11,7H13V13H11V7M11,15H13V17H11V15Z" />
+						</Grid>
+						<Grid IsVisible="{Binding HeroIsZone}">
+							<Ellipse Fill="#33FFA726" />
+							<Canvas Width="32" Height="32">
+								<Ellipse Canvas.Left="7" Canvas.Top="5" Width="12" Height="22" Stroke="{StaticResource AFMOrange}" StrokeThickness="2.4" />
+								<Path Data="M15,16 L28,16 M23,11 L28,16 L23,21" Stroke="{StaticResource AFMOrange}" StrokeThickness="2.4"
+									  StrokeLineCap="Round" StrokeJoin="Round" />
+							</Canvas>
+						</Grid>
+					</Grid>
+					<StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
+						<TextBlock Classes="HeroTitle" Text="{Binding HeroTitle}" />
+						<TextBlock Classes="HeroText" Text="{Binding HeroText}" />
+						<TextBlock Classes="HeroMeta" Text="{Binding HeroMeta}" Margin="0,4,0,0"
+								   IsVisible="{Binding HeroMeta, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
 					</StackPanel>
-					<TextBlock
-						HorizontalAlignment="Center"
-						FontSize="11"
-						IsVisible="{Binding HasPlayerAffiliation}"
-						Opacity="0.7"
-						Text="{Binding PlayerAffiliationText}" />
-				</StackPanel>
+				</Grid>
 
-				<Label
-					Grid.Row="0"
-					Grid.Column="2"
-					HorizontalAlignment="Center"
-					VerticalAlignment="Center"
-					Content="Location"
-					FontWeight="Bold" />
-				<Label
-					Grid.Row="1"
-					Grid.Column="2"
-					HorizontalAlignment="Center"
-					VerticalAlignment="Center"
-					Content="{Binding LocationName}" />
-			</Grid>
+				<ItemsControl ItemsSource="{Binding SetupSteps}" ItemTemplate="{StaticResource SetupStepTemplate}" />
 
-			<Grid
-				Grid.Row="2"
-				Margin="0,10,0,10"
-				ColumnDefinitions="*"
-				IsVisible="{Binding ShowChangeCity}"
-				RowDefinitions="60">
-				<Label
-					HorizontalAlignment="Center"
-					VerticalAlignment="Center"
-					Content="{Binding ChangeCityText}"
-					FontSize="20"
-					FontWeight="Bold" />
-			</Grid>
+				<Expander Classes="Trouble" IsVisible="{Binding ShowTroubleshooting}"
+						  IsExpanded="{Binding IsTroubleshootingOpen, Mode=TwoWay}">
+					<Expander.Header>
+						<TextBlock Text="{Binding TroubleshootingTitle}" Foreground="{StaticResource AFMOrange}" FontWeight="SemiBold" />
+					</Expander.Header>
+					<ItemsControl ItemsSource="{Binding TroubleshootingSteps}">
+						<ItemsControl.ItemTemplate>
+							<DataTemplate x:DataType="vm:TroubleshootingStep">
+								<Grid ColumnDefinitions="22,*" Margin="0,3">
+									<TextBlock Text="{Binding Number}" FontSize="13" Opacity="0.7" />
+									<StackPanel Grid.Column="1" Spacing="5">
+										<TextBlock FontSize="13" TextWrapping="Wrap">
+											<Run Text="{Binding Title}" FontWeight="SemiBold" />
+											<Run Text="{Binding Text}" />
+										</TextBlock>
+										<Border Classes="Code" IsVisible="{Binding HasCode}">
+											<SelectableTextBlock Text="{Binding Code}" TextWrapping="Wrap" />
+										</Border>
+									</StackPanel>
+								</Grid>
+							</DataTemplate>
+						</ItemsControl.ItemTemplate>
+					</ItemsControl>
+				</Expander>
+			</StackPanel>
 
-			<Grid
-				Grid.Row="2"
-				Margin="0,10,0,10"
-				ColumnDefinitions="*"
-				IsVisible="{Binding ShowGetInGame}"
-				RowDefinitions="Auto,Auto">
-				<Label
-					Grid.Row="0"
-					HorizontalAlignment="Center"
-					VerticalAlignment="Center"
-					Content="Ready to connect. Enter the game."
-					FontSize="20"
-					FontWeight="Bold" />
-				<Border
-					Grid.Row="1"
-					Classes="UiCard"
-					Margin="0,10,0,0"
-					Padding="12">
-					<StackPanel
-						HorizontalAlignment="Center"
-						VerticalAlignment="Center"
-						Spacing="6">
-						<TextBlock
-							HorizontalAlignment="Center"
-							FontSize="14"
-							FontWeight="Bold"
-							Text="If you're stuck here, try these recovery steps:"
-							TextAlignment="Center"
-							TextWrapping="Wrap" />
-						<TextBlock
-							FontSize="14"
-							Text="1. Close the AFM data client (right click the system tray icon to close)."
-							TextAlignment="Center"
-							TextWrapping="Wrap" />
-						<TextBlock
-							FontSize="14"
-							Text="2. Uninstall Winpcap from Windows Control Panel."
-							TextAlignment="Center"
-							TextWrapping="Wrap" />
-						<WrapPanel
-							HorizontalAlignment="Center"
-							Orientation="Horizontal">
-							<TextBlock
-								FontSize="14"
-								Text="3. Install Npcap from"
-								Margin="0,0,4,0"
-								TextAlignment="Center"
-								TextWrapping="Wrap" />
-							<TextBlock
-								VerticalAlignment="Center"
-								Cursor="Hand"
-								FontSize="14"
-								Foreground="{StaticResource AFMOrange}"
-								PointerReleased="NpcapLink_PointerReleased"
-								Text="https://npcap.com/#download"
-								Margin="0,0,4,0"
-								TextDecorations="Underline" />
-							<TextBlock
-								FontSize="14"
-								Text="and retry."
-								TextAlignment="Center"
-								TextWrapping="Wrap" />
-						</WrapPanel>
-						<WrapPanel
-							HorizontalAlignment="Center"
-							Orientation="Horizontal">
-							<TextBlock FontSize="14" Text="Need more help? Join our" Margin="0,0,4,0" />
-							<TextBlock
-								VerticalAlignment="Center"
-								Cursor="Hand"
-								FontSize="14"
-								Foreground="{StaticResource AFMOrange}"
-								PointerReleased="AFMDiscordLink_PointerReleased"
-								Text="Discord"
-								Margin="0,0,4,0"
-								TextDecorations="Underline" />
-							<TextBlock FontSize="14" Text="for support." />
-						</WrapPanel>
+			<!--  READY: everything detected  -->
+			<StackPanel IsVisible="{Binding ShowReadyView}" Spacing="12">
+				<Border Classes="Banner" IsVisible="{Binding ShowEncrypted}">
+					<StackPanel Spacing="3">
+						<TextBlock Text="Market orders are encrypted right now" FontWeight="SemiBold" Foreground="{StaticResource AFMOrange}" />
+						<TextBlock Classes="Sub" Text="The client can’t read buy and sell orders, so it can’t upload them. Other tracking continues." />
+						<Button Classes="link" FontSize="12.5" Margin="0,2,0,0" Content="Updates on the AFM Discord" Command="{Binding OpenDiscordCommand}" />
 					</StackPanel>
 				</Border>
-			</Grid>
+				<Border Classes="Banner" IsVisible="{Binding IsLocationUnrecognized}">
+					<StackPanel Spacing="3">
+						<TextBlock Text="Unrecognized zone" FontWeight="SemiBold" Foreground="{StaticResource AFMOrange}" />
+						<TextBlock Classes="Sub" Text="Market uploads pause until you reach a city or another known zone." />
+					</StackPanel>
+				</Border>
 
-			<!--  PUBLIC DATA LINE  -->
-			<Border
-				Grid.Row="3"
-				Margin="0,10,0,10"
-				Classes="SectionCard"
-				IsVisible="{Binding ShowDataUi}">
-				<StackPanel Spacing="8" HorizontalAlignment="Center">
-					<Label Classes="SectionTitle" Content="Public Data (AODP)" />
+				<Border Classes="Card">
+					<StackPanel Spacing="10">
+						<Grid ColumnDefinitions="*,*,*">
+							<StackPanel Spacing="2" Margin="0,0,12,0">
+								<TextBlock Classes="Caption" Text="SERVER" />
+								<TextBlock Classes="IdentityValue" Text="{Binding AlbionServerName}" />
+							</StackPanel>
+							<StackPanel Grid.Column="1" Spacing="2" Margin="0,0,12,0">
+								<TextBlock Classes="Caption" Text="CHARACTER" />
+								<StackPanel Orientation="Horizontal" Spacing="8">
+									<TextBlock Classes="IdentityValue" Text="{Binding PlayerName}" VerticalAlignment="Center" />
+									<Border Padding="7,2" VerticalAlignment="Center" Background="{Binding PremiumStatusBackground}" CornerRadius="8">
+										<StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
+											<Image Width="16" Height="16" VerticalAlignment="Center" Source="/Assets/Icons/icon_shop_premium.png" Stretch="Uniform" />
+											<TextBlock VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold"
+													   Foreground="{Binding PremiumStatusForeground}" Text="{Binding PremiumStatusText}" />
+										</StackPanel>
+									</Border>
+								</StackPanel>
+								<TextBlock FontSize="12" Opacity="0.7" IsVisible="{Binding HasPlayerAffiliation}" Text="{Binding PlayerAffiliationText}" />
+							</StackPanel>
+							<StackPanel Grid.Column="2" Spacing="2">
+								<TextBlock Classes="Caption" Text="LOCATION" />
+								<TextBlock Classes="IdentityValue" Text="{Binding LocationName}"
+										   Foreground="{StaticResource AFMOrange}" IsVisible="{Binding IsLocationUnrecognized}" />
+								<TextBlock Classes="IdentityValue" Text="{Binding LocationName}" IsVisible="{Binding !IsLocationUnrecognized}" />
+							</StackPanel>
+						</Grid>
+						<Rectangle Height="1" Fill="#1AFFFFFF" />
+						<StackPanel Orientation="Horizontal" Spacing="7">
+							<Ellipse Width="7" Height="7" Fill="#4CAF50" VerticalAlignment="Center" />
+							<TextBlock Text="Live" FontSize="12.5" Opacity="0.8" VerticalAlignment="Center" />
+						</StackPanel>
+					</StackPanel>
+				</Border>
 
-					<WrapPanel HorizontalAlignment="Center" ItemsAlignment="Center">
-						<Border Classes="StatCard">
-							<StackPanel Spacing="4">
-								<TextBlock Classes="StatLabel" Text="Success" />
-								<TextBlock Classes="StatValue" Text="{Binding PublicUploadSuccessCount, StringFormat=N0}" />
-							</StackPanel>
-						</Border>
-						<Border Classes="StatCard">
-							<StackPanel Spacing="4">
-								<TextBlock Classes="StatLabel" Text="Failed" />
-								<TextBlock Classes="StatValue" Text="{Binding PublicUploadFailedCount, StringFormat=N0}" />
-							</StackPanel>
-						</Border>
-					</WrapPanel>
+				<Expander Classes="Bare">
+					<Expander.Header>
+						<StackPanel Orientation="Horizontal" Spacing="8">
+							<Grid Width="16" Height="16" VerticalAlignment="Center">
+								<Ellipse Fill="#4CAF50" IsVisible="{Binding AllChecksPassed}" />
+								<Path IsVisible="{Binding AllChecksPassed}" Data="M4.4,8.3 L7,10.8 L11.6,5.9" Stroke="White"
+									  StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" />
+								<Ellipse Fill="{StaticResource AFMOrange}" IsVisible="{Binding !AllChecksPassed}" />
+								<TextBlock IsVisible="{Binding !AllChecksPassed}" Text="!" FontWeight="Bold" FontSize="11" Foreground="#1E1E1E"
+										   HorizontalAlignment="Center" VerticalAlignment="Center" />
+							</Grid>
+							<TextBlock Text="{Binding ChecksPassedText}" FontSize="13" Opacity="0.85" VerticalAlignment="Center" />
+						</StackPanel>
+					</Expander.Header>
+					<ItemsControl ItemsSource="{Binding SetupSteps}" ItemTemplate="{StaticResource SetupStepTemplate}" />
+				</Expander>
 
-					<WrapPanel HorizontalAlignment="Center" ItemsAlignment="Center">
-						<Border
-							Classes="StatCard"
-							Classes.DimmedUploadCard="{Binding UploadToAfmOnly}">
-							<StackPanel Spacing="4">
-								<TextBlock Classes="StatLabel" Text="Market Offers" />
-								<TextBlock Classes="StatValue" Text="{Binding PublicUploadedMarketOffersCount, StringFormat=N0}" />
+				<Grid ColumnDefinitions="*,12,*">
+					<Border Classes="UploadCard">
+						<StackPanel Spacing="2">
+							<TextBlock Classes="Caption" Text="PUBLIC · AODP" />
+							<TextBlock Classes="BigNumber" Text="{Binding PublicUploadSuccessCount, StringFormat=N0}" />
+							<WrapPanel>
+								<TextBlock Classes="Sub" Text="uploads since start" />
+								<TextBlock Classes="Sub" Opacity="1" Foreground="{StaticResource AFMOrange}" IsVisible="{Binding HasPublicUploadFailures}"
+										   Text="{Binding PublicUploadFailedCount, StringFormat=' · {0:N0} failed'}" />
+							</WrapPanel>
+						</StackPanel>
+					</Border>
+					<Border Grid.Column="2" Classes="UploadCard">
+						<StackPanel Spacing="2">
+							<TextBlock Classes="Caption" Text="PRIVATE · AFM" />
+							<StackPanel IsVisible="{Binding UserLoggedIn}" Spacing="2">
+								<TextBlock Classes="BigNumber" Text="{Binding PrivateUploadSuccessCount, StringFormat=N0}" />
+								<WrapPanel>
+									<TextBlock Classes="Sub" Text="uploads since start" />
+									<TextBlock Classes="Sub" Opacity="1" Foreground="{StaticResource AFMOrange}" IsVisible="{Binding HasPrivateUploadFailures}"
+											   Text="{Binding PrivateUploadFailedCount, StringFormat=' · {0:N0} failed'}" />
+									<TextBlock Classes="Sub" IsVisible="{Binding UploadToAfmOnly}" Text=" · private mode on" />
+								</WrapPanel>
 							</StackPanel>
-						</Border>
-						<Border
-							Classes="StatCard"
-							Classes.DimmedUploadCard="{Binding UploadToAfmOnly}">
-							<StackPanel Spacing="4">
-								<TextBlock Classes="StatLabel" Text="Market Requests" />
-								<TextBlock Classes="StatValue" Text="{Binding PublicUploadedMarketRequestsCount, StringFormat=N0}" />
+							<StackPanel IsVisible="{Binding !UserLoggedIn}" Spacing="2">
+								<TextBlock Classes="BigNumber" Text="—" Opacity="0.4" />
+								<TextBlock Classes="Sub" Text="Sign in to upload specs, island data and private orders." />
 							</StackPanel>
-						</Border>
-						<Border Classes="StatCard">
-							<StackPanel Spacing="4">
-								<TextBlock Classes="StatLabel" Text="Gold Histories" />
-								<TextBlock Classes="StatValue" Text="{Binding PublicUploadedGoldHistoriesCount, StringFormat=N0}" />
-							</StackPanel>
-						</Border>
-					</WrapPanel>
+						</StackPanel>
+					</Border>
+				</Grid>
 
-					<WrapPanel HorizontalAlignment="Center" ItemsAlignment="Center">
-						<Border Classes="StatCard CompactStatCard">
-							<StackPanel Spacing="2">
-								<TextBlock Classes="StatLabel" Text="Monthly Histories" />
-								<TextBlock Classes="StatValue" Text="{Binding PublicUploadedMonthlyHistoriesCount, StringFormat=N0}" />
-							</StackPanel>
-						</Border>
-						<Border Classes="StatCard CompactStatCard">
-							<StackPanel Spacing="2">
-								<TextBlock Classes="StatLabel" Text="Weekly Histories" />
-								<TextBlock Classes="StatValue" Text="{Binding PublicUploadedWeeklyHistoriesCount, StringFormat=N0}" />
-							</StackPanel>
-						</Border>
-						<Border Classes="StatCard CompactStatCard">
-							<StackPanel Spacing="2">
-								<TextBlock Classes="StatLabel" Text="Daily Histories" />
-								<TextBlock Classes="StatValue" Text="{Binding PublicUploadedDailyHistoriesCount, StringFormat=N0}" />
-							</StackPanel>
-						</Border>
-						<Border Classes="StatCard CompactStatCard">
-							<StackPanel Spacing="2">
-								<TextBlock Classes="StatLabel" Text="Bandit Events" />
-								<TextBlock Classes="StatValue" Text="{Binding PublicUploadedBanditEventsCount, StringFormat=N0}" />
-							</StackPanel>
-						</Border>
-					</WrapPanel>
-				</StackPanel>
+				<Expander Classes="Bare">
+					<Expander.Header>
+						<TextBlock Text="Upload details" FontSize="13" Opacity="0.85" />
+					</Expander.Header>
+					<Grid ColumnDefinitions="*,32,*" Margin="10,4,12,4">
+						<StackPanel>
+							<TextBlock Classes="Caption" Text="PUBLIC · AODP" Margin="0,0,0,4" />
+							<Grid Classes="DetailRow" Classes.Dimmed="{Binding UploadToAfmOnly}" ColumnDefinitions="*,Auto">
+								<TextBlock Text="Market offers" />
+								<TextBlock Grid.Column="1" Text="{Binding PublicUploadedMarketOffersCount, StringFormat=N0}" />
+							</Grid>
+							<Grid Classes="DetailRow" Classes.Dimmed="{Binding UploadToAfmOnly}" ColumnDefinitions="*,Auto">
+								<TextBlock Text="Market requests" />
+								<TextBlock Grid.Column="1" Text="{Binding PublicUploadedMarketRequestsCount, StringFormat=N0}" />
+							</Grid>
+							<Grid Classes="DetailRow" ColumnDefinitions="*,Auto">
+								<TextBlock Text="Gold histories" />
+								<TextBlock Grid.Column="1" Text="{Binding PublicUploadedGoldHistoriesCount, StringFormat=N0}" />
+							</Grid>
+							<Grid Classes="DetailRow" ColumnDefinitions="*,Auto">
+								<TextBlock Text="Monthly histories" />
+								<TextBlock Grid.Column="1" Text="{Binding PublicUploadedMonthlyHistoriesCount, StringFormat=N0}" />
+							</Grid>
+							<Grid Classes="DetailRow" ColumnDefinitions="*,Auto">
+								<TextBlock Text="Weekly histories" />
+								<TextBlock Grid.Column="1" Text="{Binding PublicUploadedWeeklyHistoriesCount, StringFormat=N0}" />
+							</Grid>
+							<Grid Classes="DetailRow" ColumnDefinitions="*,Auto">
+								<TextBlock Text="Daily histories" />
+								<TextBlock Grid.Column="1" Text="{Binding PublicUploadedDailyHistoriesCount, StringFormat=N0}" />
+							</Grid>
+							<Grid Classes="DetailRow" ColumnDefinitions="*,Auto">
+								<TextBlock Text="Bandit events" />
+								<TextBlock Grid.Column="1" Text="{Binding PublicUploadedBanditEventsCount, StringFormat=N0}" />
+							</Grid>
+						</StackPanel>
+						<StackPanel Grid.Column="2">
+							<TextBlock Classes="Caption" Text="PRIVATE · AFM" Margin="0,0,0,4" />
+							<Grid Classes="DetailRow" Classes.Dimmed="{Binding !UploadToAfmOnly}" ColumnDefinitions="*,Auto">
+								<TextBlock Text="Market offers" />
+								<TextBlock Grid.Column="1" Text="{Binding PrivateUploadedMarketOffersCount, StringFormat=N0}" />
+							</Grid>
+							<Grid Classes="DetailRow" Classes.Dimmed="{Binding !UploadToAfmOnly}" ColumnDefinitions="*,Auto">
+								<TextBlock Text="Market requests" />
+								<TextBlock Grid.Column="1" Text="{Binding PrivateUploadedMarketRequestsCount, StringFormat=N0}" />
+							</Grid>
+							<Grid Classes="DetailRow" ColumnDefinitions="*,Auto">
+								<TextBlock Text="Specs" />
+								<TextBlock Grid.Column="1" Text="{Binding PrivateUploadedAchievementsCount, StringFormat=N0}" />
+							</Grid>
+							<Grid Classes="DetailRow" ColumnDefinitions="*,Auto">
+								<TextBlock Text="Global multipliers" />
+								<TextBlock Grid.Column="1" Text="{Binding PrivateUploadedGlobalMultipliersCount, StringFormat=N0}" />
+							</Grid>
+							<Grid Classes="DetailRow" ColumnDefinitions="*,Auto">
+								<TextBlock Text="Estimated market values" />
+								<TextBlock Grid.Column="1" Text="{Binding PrivateUploadedItemEstimatedMarketValuesCount, StringFormat=N0}" />
+							</Grid>
+							<Grid Classes="DetailRow" ColumnDefinitions="*,Auto">
+								<TextBlock Text="Festivities" />
+								<TextBlock Grid.Column="1" Text="{Binding PrivateUploadedFestivitiesCount, StringFormat=N0}" />
+							</Grid>
+							<Grid Classes="DetailRow" Classes.Dimmed="{Binding !UserSettings.AfmIslandTrackerEnabled}" ColumnDefinitions="*,Auto"
+								  ToolTip.Tip="Successful uploads of island, plot and farming collection data during this client session.">
+								<TextBlock Text="Island uploads" />
+								<TextBlock Grid.Column="1" Text="{Binding PrivateIslandUploadsCount, StringFormat=N0}" />
+							</Grid>
+						</StackPanel>
+					</Grid>
+				</Expander>
+			</StackPanel>
+
+			<!--  FOOTER  -->
+			<Border BorderBrush="#1AFFFFFF" BorderThickness="0,1,0,0" Padding="0,10,0,0">
+				<Grid ColumnDefinitions="*,Auto,Auto,Auto">
+					<StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+						<Ellipse Classes="QueueDot" Classes.Busy="{Binding IsUploading}" VerticalAlignment="Center" />
+						<TextBlock Text="{Binding UploadStatusText}" FontSize="12.5" Opacity="0.75" VerticalAlignment="Center" />
+					</StackPanel>
+					<Button Grid.Column="1" Classes="FooterLink" Content="Logs" Command="{Binding ShowLogsCommand}" />
+					<Button Grid.Column="2" Classes="FooterLink" Content="{Binding CopyDiagnosticsLabel}" Click="CopyDiagnostics_Click"
+							ToolTip.Tip="Copies a short summary of the checks above to paste in the AFM Discord." />
+					<Button Grid.Column="3" Classes="FooterLink" Content="Discord" Command="{Binding OpenDiscordCommand}" />
+				</Grid>
 			</Border>
-
-			<!--  PRIVATE DATA LINE  -->
-			<Border
-				Grid.Row="4"
-				Margin="0,10,0,10"
-				Classes="SectionCard"
-				IsVisible="{Binding ShowDataUi}">
-				<StackPanel Spacing="8" HorizontalAlignment="Center">
-					<Label Classes="SectionTitle" Content="Private Data (AFM)" />
-
-					<WrapPanel HorizontalAlignment="Center" ItemsAlignment="Center">
-						<Border Classes="StatCard">
-							<StackPanel Spacing="4">
-								<TextBlock Classes="StatLabel" Text="Success" />
-								<TextBlock Classes="StatValue" Text="{Binding PrivateUploadSuccessCount, StringFormat=N0}" />
-							</StackPanel>
-						</Border>
-						<Border Classes="StatCard">
-							<StackPanel Spacing="4">
-								<TextBlock Classes="StatLabel" Text="Failed" />
-								<TextBlock Classes="StatValue" Text="{Binding PrivateUploadFailedCount, StringFormat=N0}" />
-							</StackPanel>
-						</Border>
-					</WrapPanel>
-
-					<WrapPanel HorizontalAlignment="Center" ItemsAlignment="Center">
-						<Border
-							Classes="StatCard PrivateOrdersCard"
-							Classes.PrivateFlipsGlow="{Binding UploadToAfmOnly}"
-							Classes.DimmedUploadCard="{Binding !UploadToAfmOnly}">
-							<StackPanel Spacing="4">
-								<TextBlock Classes="StatLabel" Text="Market Offers" />
-								<TextBlock Classes="StatValue" Text="{Binding PrivateUploadedMarketOffersCount, StringFormat=N0}" />
-							</StackPanel>
-						</Border>
-						<Border
-							Classes="StatCard PrivateOrdersCard"
-							Classes.PrivateFlipsGlow="{Binding UploadToAfmOnly}"
-							Classes.DimmedUploadCard="{Binding !UploadToAfmOnly}">
-							<StackPanel Spacing="4">
-								<TextBlock Classes="StatLabel" Text="Market Requests" />
-								<TextBlock Classes="StatValue" Text="{Binding PrivateUploadedMarketRequestsCount, StringFormat=N0}" />
-							</StackPanel>
-						</Border>
-					</WrapPanel>
-
-					<WrapPanel HorizontalAlignment="Center" ItemsAlignment="Center">
-						<Border Classes="StatCard CompactStatCard">
-							<StackPanel Spacing="2">
-								<TextBlock Classes="StatLabel" Text="Specs" />
-								<TextBlock Classes="StatValue" Text="{Binding PrivateUploadedAchievementsCount, StringFormat=N0}" />
-							</StackPanel>
-						</Border>
-						<Border Classes="StatCard CompactStatCard">
-							<StackPanel Spacing="2">
-								<TextBlock Classes="StatLabel" Text="Global Multipliers" />
-								<TextBlock Classes="StatValue" Text="{Binding PrivateUploadedGlobalMultipliersCount, StringFormat=N0}" />
-							</StackPanel>
-						</Border>
-						<Border Classes="StatCard CompactStatCard">
-							<StackPanel Spacing="2">
-								<TextBlock Classes="StatLabel" Text="EMV" />
-								<TextBlock Classes="StatValue" Text="{Binding PrivateUploadedItemEstimatedMarketValuesCount, StringFormat=N0}" />
-							</StackPanel>
-						</Border>
-						<Border Classes="StatCard CompactStatCard">
-							<StackPanel Spacing="2">
-								<TextBlock Classes="StatLabel" Text="Festivities" />
-								<TextBlock Classes="StatValue" Text="{Binding PrivateUploadedFestivitiesCount, StringFormat=N0}" />
-							</StackPanel>
-						</Border>
-						<Border Classes="StatCard CompactStatCard"
-							Classes.DimmedUploadCard="{Binding !UserSettings.AfmIslandTrackerEnabled}"
-							ToolTip.Tip="Successful uploads of island, plot and farming collection data during this client session.">
-							<StackPanel Spacing="2">
-								<TextBlock Classes="StatLabel" Text="Island Uploads" />
-								<TextBlock Classes="StatValue" Text="{Binding PrivateIslandUploadsCount, StringFormat=N0}" />
-							</StackPanel>
-						</Border>
-					</WrapPanel>
-				</StackPanel>
-			</Border>
-		</Grid>
+		</StackPanel>
 	</ScrollViewer>
 </UserControl>

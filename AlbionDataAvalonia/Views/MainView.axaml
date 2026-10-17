@@ -45,17 +45,17 @@
 			<Setter Property="HorizontalAlignment" Value="Stretch" />
 		</Style>
 
-		<Style Selector="Border.sidebarStatus">
+		<Style Selector="Button.sidebarStatus">
 			<Setter Property="Margin" Value="10,0,10,10" />
 			<Setter Property="Padding" Value="10" />
 			<Setter Property="CornerRadius" Value="4" />
 			<Setter Property="Background" Value="rgba(255,255,255,0.05)" />
+			<Setter Property="HorizontalAlignment" Value="Stretch" />
+			<Setter Property="HorizontalContentAlignment" Value="Stretch" />
 		</Style>
 
-		<Style Selector="TextBlock.sidebarSectionTitle">
-			<Setter Property="FontSize" Value="11" />
-			<Setter Property="Opacity" Value="0.7" />
-			<Setter Property="Margin" Value="0,0,0,6" />
+		<Style Selector="Button.sidebarStatus:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+			<Setter Property="Background" Value="rgba(255,255,255,0.08)" />
 		</Style>
 
 		<Style Selector="Ellipse.statusDot">
@@ -64,21 +64,25 @@
 			<Setter Property="VerticalAlignment" Value="Center" />
 		</Style>
 
-		<Style Selector="Ellipse.statusDot.Ok">
-			<Setter Property="Fill" Value="rgba(75, 181, 67, 0.85)" />
+		<Style Selector="Ellipse.statusDot">
+			<Setter Property="Fill" Value="rgba(255,255,255,0.45)" />
 		</Style>
 
-		<Style Selector="Ellipse.statusDot.Warning">
+		<Style Selector="Ellipse.statusDot.Ok">
+			<Setter Property="Fill" Value="#4CAF50" />
+		</Style>
+
+		<Style Selector="Ellipse.statusDot.Waiting, Ellipse.statusDot.Warning">
 			<Setter Property="Fill" Value="{StaticResource AFMOrange}" />
+		</Style>
+
+		<Style Selector="Ellipse.statusDot.Blocked">
+			<Setter Property="Fill" Value="{StaticResource AFMRed}" />
 		</Style>
 
 		<Style Selector="TextBlock.statusText">
 			<Setter Property="FontSize" Value="12" />
 			<Setter Property="TextWrapping" Value="Wrap" />
-		</Style>
-
-		<Style Selector="TextBlock.statusText.Ok">
-			<Setter Property="Opacity" Value="0.85" />
 		</Style>
 
 		<Style Selector="TextBlock.statusText.Warning">
@@ -190,47 +194,59 @@
 			<Rectangle Grid.Row="0" Grid.RowSpan="3" Grid.Column="1" Width="1"
 				Fill="rgba(255,255,255,.1)" VerticalAlignment="Stretch" />
 
-			<!-- Capture State Section -->
-			<Border Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2"
-				Classes="sidebarStatus">
-				<StackPanel>
-					<TextBlock Classes="sidebarSectionTitle" Text="STATUS" />
-					<ItemsControl ItemsSource="{Binding SidebarStatusItems}">
-						<ItemsControl.ItemTemplate>
-							<DataTemplate x:DataType="vm:SidebarStatusItem">
-								<Grid ColumnDefinitions="Auto,*" Margin="0,2"
-									ToolTip.Tip="{Binding Tooltip}">
-									<Ellipse Grid.Column="0"
-										Classes="statusDot"
-										Classes.Ok="{Binding IsOk}"
-										Classes.Warning="{Binding IsWarning}"
-										Margin="0,0,7,0" />
-									<TextBlock Grid.Column="1"
-										Classes="statusText"
-										Classes.Ok="{Binding IsOk}"
-										Classes.Warning="{Binding IsWarning}"
-										Text="{Binding Text}" />
-								</Grid>
-							</DataTemplate>
-						</ItemsControl.ItemTemplate>
-					</ItemsControl>
-					<Button IsVisible="{Binding ShowMacOSCapturePermissionSetup}"
-						IsEnabled="{Binding !IsInstallingMacOSCapturePermissions}"
-						Command="{Binding InstallMacOSCapturePermissionsCommand}"
-						HorizontalAlignment="Stretch"
-						Margin="0,8,0,0"
-						ToolTip.Tip="Runs the bundled macOS packet capture setup through Apple's administrator prompt.">
-						<StackPanel Orientation="Horizontal">
-							<PathIcon
-								Data="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M11,7H13V13H11V7M11,15H13V17H11V15Z"
-								Width="14" Height="14" Margin="0,0,6,0" />
-							<TextBlock Text="{Binding MacOSCapturePermissionButtonText}"
-								FontSize="11"
-								VerticalAlignment="Center" />
-						</StackPanel>
-					</Button>
-				</StackPanel>
-			</Border>
+			<!-- Capture State Section: summarizes the Main tab checklist -->
+			<StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2">
+				<Button Classes="sidebarStatus"
+					Command="{Binding ShowDashboardCommand}"
+					ToolTip.Tip="{Binding StatusTooltip}">
+					<StackPanel Spacing="3">
+						<Grid ColumnDefinitions="Auto,*">
+							<Ellipse Classes="statusDot"
+								Classes.Ok="{Binding StatusIsOk}"
+								Classes.Waiting="{Binding StatusIsWaiting}"
+								Classes.Warning="{Binding StatusIsWarning}"
+								Classes.Blocked="{Binding StatusIsBlocked}"
+								Margin="0,0,7,0" />
+							<TextBlock Grid.Column="1" Text="{Binding StatusTitle}"
+								FontSize="12.5" FontWeight="SemiBold" TextWrapping="Wrap" />
+						</Grid>
+						<TextBlock Text="{Binding StatusSubtitle}" FontSize="11" Opacity="0.7" Margin="15,0,0,4" />
+						<ItemsControl ItemsSource="{Binding SetupSteps}">
+							<ItemsControl.ItemsPanel>
+								<ItemsPanelTemplate>
+									<UniformGrid Rows="1" />
+								</ItemsPanelTemplate>
+							</ItemsControl.ItemsPanel>
+							<ItemsControl.ItemTemplate>
+								<DataTemplate x:DataType="vm:SetupStepViewModel">
+									<Border Height="3" Margin="1,0" CornerRadius="2" Background="{Binding StateBrush}" />
+								</DataTemplate>
+							</ItemsControl.ItemTemplate>
+						</ItemsControl>
+						<Grid ColumnDefinitions="Auto,*" Margin="0,8,0,0"
+							IsVisible="{Binding IsDiagnosticsEnabled}"
+							ToolTip.Tip="Writing every packet the client uses to a diagnostics file. Turn it off in Settings › About or the Logs tab.">
+							<Ellipse Classes="statusDot Warning" Margin="0,0,7,0" />
+							<TextBlock Grid.Column="1" Classes="statusText Warning" Text="Diagnostics On" />
+						</Grid>
+					</StackPanel>
+				</Button>
+				<Button IsVisible="{Binding ShowMacOSCapturePermissionSetup}"
+					IsEnabled="{Binding !IsInstallingMacOSCapturePermissions}"
+					Command="{Binding InstallMacOSCapturePermissionsCommand}"
+					HorizontalAlignment="Stretch"
+					Margin="10,0,10,10"
+					ToolTip.Tip="Runs the bundled macOS packet capture setup through Apple's administrator prompt.">
+					<StackPanel Orientation="Horizontal">
+						<PathIcon
+							Data="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M11,7H13V13H11V7M11,15H13V17H11V15Z"
+							Width="14" Height="14" Margin="0,0,6,0" />
+						<TextBlock Text="{Binding MacOSCapturePermissionButtonText}"
+							FontSize="11"
+							VerticalAlignment="Center" />
+					</StackPanel>
+				</Button>
+			</StackPanel>
 
 			<!-- Authentication Section -->
 			<Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
@@ -240,7 +256,20 @@
 				<!-- Single container for both states -->
 				<Grid>
 					<!-- Login Button (when logged out) -->
-					<StackPanel IsVisible="{Binding !UserLoggedIn}" Margin="0,5,0,5">
+					<StackPanel IsVisible="{Binding !UserLoggedIn}">
+						<Grid ColumnDefinitions="Auto,*" Margin="0,0,0,10">
+							<Border Width="26" Height="26" CornerRadius="13" Margin="0,0,9,0"
+								VerticalAlignment="Top" Background="rgba(255,255,255,0.1)">
+								<PathIcon
+									Data="M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z"
+									Width="13" Height="13" Opacity="0.8" />
+							</Border>
+							<StackPanel Grid.Column="1" Spacing="1">
+								<TextBlock Text="Signed out" FontSize="12.5" FontWeight="SemiBold" />
+								<TextBlock Text="Public uploads to AODP still work." FontSize="11" Opacity="0.7" TextWrapping="Wrap" />
+							</StackPanel>
+						</Grid>
+
 						<TextBlock IsVisible="{Binding ShowLoginStatus}"
 							Text="{Binding LoginStatus}"
 							TextWrapping="Wrap"
@@ -250,13 +279,10 @@
 
 						<Button IsVisible="{Binding !IsLoginPending}"
 							HorizontalAlignment="Stretch"
-							Command="{Binding LoginCommand}">
-							<StackPanel Orientation="Horizontal">
-								<PathIcon
-									Data="M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z"
-									Width="16" Height="16" Margin="0,0,6,0" />
-								<TextBlock Text="Sign In" VerticalAlignment="Center" />
-							</StackPanel>
+							HorizontalContentAlignment="Center"
+							Command="{Binding LoginCommand}"
+							ToolTip.Tip="Sign in with Google to send market orders privately to AFM, upload specs and track your island.">
+							<TextBlock Text="Sign in for private mode" TextWrapping="Wrap" TextAlignment="Center" />
 						</Button>
 
 						<StackPanel IsVisible="{Binding IsLoginPending}" Spacing="5">

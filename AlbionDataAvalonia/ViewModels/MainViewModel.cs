@@ -1,6 +1,5 @@
 ﻿using AlbionDataAvalonia.Auth.Models;
 using AlbionDataAvalonia.Auth.Services;
-using AlbionDataAvalonia.Locations;
 using AlbionDataAvalonia.Logging;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Players;
@@ -17,7 +16,6 @@ using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 using Serilog;
 using System;
-using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
@@ -59,7 +57,7 @@ public partial class MainViewModel : ViewModelBase
     private string locationName;
 
     [ObservableProperty]
-    private string playerName = "Not set";
+    private string playerName = "Detecting…";
 
     [ObservableProperty]
     private string playerAffiliationText = string.Empty;
@@ -139,17 +137,7 @@ public partial class MainViewModel : ViewModelBase
     private UserSettings userSettings;
 
     [ObservableProperty]
-    private bool showGetInGame = false;
-
-    [ObservableProperty]
-    private bool showChangeCity = false;
-    [ObservableProperty]
-    private string changeCityText;
-    [ObservableProperty]
     private bool showEncrypted = false;
-
-    [ObservableProperty]
-    private bool showDataUi = false;
 
     [ObservableProperty]
     private object currentView;
@@ -164,6 +152,7 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private int publicUploadSuccessCount;
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPublicUploadFailures))]
     private int publicUploadFailedCount;
     [ObservableProperty]
     private int publicUploadedMarketOffersCount;
@@ -183,6 +172,7 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private int privateUploadSuccessCount;
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasPrivateUploadFailures))]
     private int privateUploadFailedCount;
     [ObservableProperty]
     private int privateUploadedMarketOffersCount;
@@ -199,10 +189,8 @@ public partial class MainViewModel : ViewModelBase
     [ObservableProperty]
     private int privateIslandUploadsCount;
 
-    [ObservableProperty]
-    private bool redBlinking = false;
-    [ObservableProperty]
-    private bool greenBlinking = false;
+    public bool HasPublicUploadFailures => PublicUploadFailedCount > 0;
+    public bool HasPrivateUploadFailures => PrivateUploadFailedCount > 0;
 
     [ObservableProperty]
     private bool isInstallingMacOSCapturePermissions = false;
@@ -236,7 +224,6 @@ public partial class MainViewModel : ViewModelBase
         OnPropertyChanged(nameof(HasLoginAuthorizationUrl));
     }
 
-    public ObservableCollection<SidebarStatusItem> SidebarStatusItems { get; } = new();
     public bool IsMacOSCapturePermissionSetupOutdated =>
         RuntimeInformation.IsOSPlatform(OSPlatform.OSX)
         && _networkListener?.IsMacOSCapturePermissionSetupOutdated == true;
@@ -251,15 +238,11 @@ public partial class MainViewModel : ViewModelBase
                 ? "Update permissions"
                 : "Install permissions";
 
-    private int oldUploadQueueSize = 0;
-    private int oldRunningTasksCount = 0;
-    private bool sidebarStatusRefreshQueued;
     private CancellationTokenSource? loginCancellationTokenSource;
     private bool loginCanceledByUser;
 
     public MainViewModel()
     {
-        SidebarStatusItems.Add(SidebarStatusItem.Ok("Ready", "Capture state looks ready."));
     }
 
     public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, PlayerIdentityService playerIdentityService, SettingsManager settingsManager, SettingsViewModel settingsViewModel, LogsViewModel logsViewModel, TradesViewModel tradesViewModel, ActivityViewModel activityViewModel, LegendaryViewModel legendaryViewModel, Uploader uploader, AuthService authService, PacketDiagnostics? packetDiagnostics = null)
@@ -282,15 +265,13 @@ public partial class MainViewModel : ViewModelBase
         _settingsManager.UserSettings.PropertyChanged += OnUserSettingsPropertyChanged;
 
         LocationName = _playerState.Location.FriendlyName;
-        PlayerName = string.IsNullOrWhiteSpace(_playerState.PlayerName) ? "Not set" : _playerState.PlayerName;
+        PlayerName = string.IsNullOrWhiteSpace(_playerState.PlayerName) ? "Detecting…" : _playerState.PlayerName;
         HasPremium = _playerState.HasPremium;
-        AlbionServerName = _playerState.AlbionServer?.Name ?? "Unknown";
+        AlbionServerName = _playerState.AlbionServer?.Name ?? "Detecting…";
         RefreshPlayerAffiliation();
 
         UploadQueueSize = _uploader.uploadQueueCount;
-        oldUploadQueueSize = UploadQueueSize;
         RunningTasksCount = _uploader.runningTasksCount;
-        oldRunningTasksCount = RunningTasksCount;
 
         AppVersion = ClientUpdater.GetVersion() ?? "Unknown";
 
@@ -309,18 +290,20 @@ public partial class MainViewModel : ViewModelBase
         {
             FirebaseUser = user;
             UserLoggedIn = FirebaseUser is not null;
-            RefreshSidebarStatus();
         };
 
         FirebaseUser = _authService.CurrentFirebaseUser;
         UserLoggedIn = FirebaseUser is not null;
-        RefreshSidebarStatus();
 
         _networkListener.MacOSCapturePermissionSetupRequiredChanged += NetworkListener_MacOSCapturePermissionSetupRequiredChanged;
-        if (_packetDiagnostics is not null) _packetDiagnostics.IsEnabledChanged += (_, _) => RefreshSidebarStatus();
+        if (_packetDiagnostics is not null)
+        {
+            _packetDiagnostics.IsEnabledChanged += (_, _) => Dispatcher.UIThread.Post(() => IsDiagnosticsEnabled = _packetDiagnostics.IsEnabled);
+        }
 
         userSettings = _settingsManager.UserSettings;
 
+        InitializeSetup();
         NavigateTo(MainPage.Dashboard);
     }
 
@@ -351,13 +334,13 @@ public partial class MainViewModel : ViewModelBase
 
         CurrentView = page switch
         {
-            MainPage.Dashboard => NpCapInstallationChecker.IsNpCapInstalled() ? new DashboardView() : new PCapView(),
+            MainPage.Dashboard => new DashboardView(),
             MainPage.Activity => new ActivityView(_activityViewModel),
             MainPage.Legendary => new LegendaryView(_legendaryViewModel),
             MainPage.Trades => new TradesView(_tradesViewModel),
             MainPage.Settings => new SettingsView(_settingsViewModel),
             MainPage.Logs => new LogsView(_logsViewModel),
-            _ => NpCapInstallationChecker.IsNpCapInstalled() ? new DashboardView() : new PCapView()
+            _ => new DashboardView()
         };
 
         if (page == MainPage.Legendary)
@@ -393,19 +376,7 @@ public partial class MainViewModel : ViewModelBase
 
     private void UpdateVisibilities()
     {
-        ShowChangeCity = !_playerState.CheckLocationIsSet() && _playerState.IsInGame;
-        ShowGetInGame = !_playerState.IsInGame;
         ShowEncrypted = _playerState.HasEncryptedData;
-        ShowDataUi = !(ShowChangeCity || ShowGetInGame);
-
-        if (_playerState.Location == AlbionLocations.Unknown)
-        {
-            ChangeCityText = "Current location is not supported. Go to a relevant market.";
-        }
-        else if (_playerState.Location == AlbionLocations.Unset)
-        {
-            ChangeCityText = "Location has not been set. Please change maps.";
-        }
     }
 
     private void ApplyPublicUploadStats(PublicUploadStatsSnapshot stats)
@@ -442,10 +413,11 @@ public partial class MainViewModel : ViewModelBase
             return;
         }
 
-        LocationName = e.Location.FriendlyName;
-        PlayerName = string.IsNullOrWhiteSpace(e.Name) ? "Not set" : e.Name;
-        HasPremium = e.HasPremium;
-        AlbionServerName = e.AlbionServer?.Name ?? "Unknown";
+        // Snapshots raised on capture threads are posted, so a late one can be older than the current state.
+        LocationName = _playerState.Location.FriendlyName;
+        PlayerName = string.IsNullOrWhiteSpace(_playerState.PlayerName) ? "Detecting…" : _playerState.PlayerName;
+        HasPremium = _playerState.HasPremium;
+        AlbionServerName = _playerState.AlbionServer?.Name ?? "Detecting…";
         RefreshPlayerAffiliation();
         // Queued player snapshots must not overwrite newer saved preferences.
         UploadToAfmOnly = _settingsManager.UserSettings.UploadToAfmOnly;
@@ -453,7 +425,7 @@ public partial class MainViewModel : ViewModelBase
         ShareWithFriends = _settingsManager.UserSettings.ShareWithFriends;
 
         UpdateVisibilities();
-        RefreshSidebarStatus();
+        UpdateSetup();
     }
 
     private void OnPlayerIdentityChanged(PlayerIdentitySnapshot identity)
@@ -510,100 +482,6 @@ public partial class MainViewModel : ViewModelBase
             : $"[{alliance}] {guild}";
     }
 
-    private void RefreshSidebarStatus()
-    {
-        if (!Dispatcher.UIThread.CheckAccess())
-        {
-            if (sidebarStatusRefreshQueued)
-            {
-                return;
-            }
-
-            sidebarStatusRefreshQueued = true;
-            Dispatcher.UIThread.Post(RefreshSidebarStatus);
-            return;
-        }
-
-        sidebarStatusRefreshQueued = false;
-
-        if (_playerState == null)
-        {
-            return;
-        }
-
-        SidebarStatusItems.Clear();
-
-        if (_packetDiagnostics?.IsEnabled == true)
-        {
-            AddSidebarStatus(SidebarStatusItem.Warning(
-                "Diagnostics On",
-                "Writing every packet the client uses to a diagnostics file. Turn it off in Settings › About or the Logs tab."));
-        }
-
-        if (!UserLoggedIn)
-        {
-            AddSidebarStatus(SidebarStatusItem.Warning(
-                "AFM Logged Out",
-                "Sign in to upload private AFM data."));
-        }
-
-        if (_networkListener.IsMacOSCapturePermissionSetupRequired)
-        {
-            AddSidebarStatus(SidebarStatusItem.Warning(
-                "Capture Blocked",
-                "macOS denied packet capture access. Install capture permissions to allow AFM Data Client to read network packets."));
-        }
-        else if (IsMacOSCapturePermissionSetupOutdated)
-        {
-            AddSidebarStatus(SidebarStatusItem.Warning(
-                "Permissions Update Available",
-                "Update the macOS packet capture permissions to remove the legacy recurring service."));
-        }
-
-        if (!_playerState.IsInGame)
-        {
-            AddSidebarStatus(SidebarStatusItem.Warning(
-                "Not In Game",
-                "Open Albion Online and enter the game."));
-        }
-
-        if (_playerState.HasEncryptedData)
-        {
-            AddSidebarStatus(SidebarStatusItem.Warning(
-                "Encrypted",
-                "Market orders are encrypted. Go to AFM Discord to understand what's going on."));
-        }
-
-        if (_playerState.AlbionServer is null)
-        {
-            AddSidebarStatus(SidebarStatusItem.Warning(
-                "Server Undetected",
-                "The Albion server has not been detected yet."));
-        }
-
-        if (string.IsNullOrWhiteSpace(_playerState.PlayerName)
-            || string.Equals(_playerState.PlayerName, "Not set", StringComparison.OrdinalIgnoreCase))
-        {
-            AddSidebarStatus(SidebarStatusItem.Warning(
-                "User Undetected",
-                "Your character has not been detected yet. Change maps."));
-        }
-
-        if (_playerState.Location == AlbionLocations.Unset || _playerState.Location == AlbionLocations.Unknown)
-        {
-            AddSidebarStatus(SidebarStatusItem.Warning(
-                "Location Undetected",
-                "Your location has not been detected yet. Change maps."));
-        }
-
-        if (SidebarStatusItems.Count == 0)
-        {
-            AddSidebarStatus(SidebarStatusItem.Ok(
-                "Ready",
-                "Capture state looks ready."));
-        }
-    }
-
     private void NetworkListener_MacOSCapturePermissionSetupRequiredChanged(object? sender, EventArgs e)
     {
         if (!Dispatcher.UIThread.CheckAccess())
@@ -613,53 +491,20 @@ public partial class MainViewModel : ViewModelBase
         }
 
         OnPropertyChanged(nameof(ShowMacOSCapturePermissionSetup));
-        RefreshSidebarStatus();
-    }
-
-    private void AddSidebarStatus(SidebarStatusItem item)
-    {
-        foreach (var existingItem in SidebarStatusItems)
-        {
-            if (string.Equals(existingItem.Text, item.Text, StringComparison.Ordinal)
-                && existingItem.Severity == item.Severity)
-            {
-                return;
-            }
-        }
-
-        SidebarStatusItems.Add(item);
+        UpdateSetup();
     }
 
     private void UpdateUploadStats()
     {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(UpdateUploadStats);
+            return;
+        }
+
         UploadQueueSize = _uploader.uploadQueueCount;
         RunningTasksCount = _uploader.runningTasksCount;
-
-        if (UploadQueueSize > oldUploadQueueSize)
-        {
-            BlinkRed().ConfigureAwait(false);
-        }
-        else if (RunningTasksCount < oldRunningTasksCount)
-        {
-            BlinkGreen().ConfigureAwait(false);
-        }
-
-        oldUploadQueueSize = UploadQueueSize;
-        oldRunningTasksCount = RunningTasksCount;
-    }
-
-    private async Task BlinkRed()
-    {
-        RedBlinking = true;
-        await Task.Delay(TimeSpan.FromSeconds(0.25));
-        RedBlinking = false;
-    }
-
-    private async Task BlinkGreen()
-    {
-        GreenBlinking = true;
-        await Task.Delay(TimeSpan.FromSeconds(0.25));
-        GreenBlinking = false;
+        UpdateUploadStatus();
     }
 
     [RelayCommand]
@@ -807,7 +652,7 @@ public partial class MainViewModel : ViewModelBase
             OnPropertyChanged(nameof(IsMacOSCapturePermissionSetupOutdated));
             OnPropertyChanged(nameof(ShowMacOSCapturePermissionSetup));
             OnPropertyChanged(nameof(MacOSCapturePermissionButtonText));
-            RefreshSidebarStatus();
+            UpdateSetup();
         }
     }
 
@@ -1002,29 +847,4 @@ public partial class MainViewModel : ViewModelBase
             ? "Waiting for Google sign-in in your browser..."
             : "AFM could not open your browser. Copy the sign-in link and open it in a browser on this computer.");
     }
-}
-
-public sealed class SidebarStatusItem
-{
-    private SidebarStatusItem(string text, string tooltip, SidebarStatusSeverity severity)
-    {
-        Text = text;
-        Tooltip = tooltip;
-        Severity = severity;
-    }
-
-    public string Text { get; }
-    public string Tooltip { get; }
-    public SidebarStatusSeverity Severity { get; }
-    public bool IsOk => Severity == SidebarStatusSeverity.Ok;
-    public bool IsWarning => Severity == SidebarStatusSeverity.Warning;
-
-    public static SidebarStatusItem Ok(string text, string tooltip) => new(text, tooltip, SidebarStatusSeverity.Ok);
-    public static SidebarStatusItem Warning(string text, string tooltip) => new(text, tooltip, SidebarStatusSeverity.Warning);
-}
-
-public enum SidebarStatusSeverity
-{
-    Ok,
-    Warning
 }

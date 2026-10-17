@@ -1,5 +1,6 @@
+using AlbionDataAvalonia.ViewModels;
 using Avalonia.Controls;
-using Avalonia.Input;
+using Avalonia.Interactivity;
 using Serilog;
 using System;
 
@@ -12,30 +13,30 @@ namespace AlbionDataAvalonia.Views
             InitializeComponent();
         }
 
-        private void AFMDiscordLink_PointerReleased(object? sender, PointerReleasedEventArgs e)
+        private async void CopyDiagnostics_Click(object? sender, RoutedEventArgs e)
         {
-            if (e.InitialPressMouseButton != MouseButton.Left)
+            if (DataContext is not MainViewModel viewModel)
             {
                 return;
             }
 
-            var uri = new Uri(SystemLauncher.AfmDiscordUrl);
-            OpenUrl(uri);
-            e.Handled = true;
-        }
-
-        private void NpcapLink_PointerReleased(object? sender, PointerReleasedEventArgs e)
-        {
-            if (e.InitialPressMouseButton != MouseButton.Left)
+            var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
+            try
             {
-                return;
+                if (clipboard is null)
+                {
+                    viewModel.ShowDiagnosticsCopied(false);
+                    return;
+                }
+
+                await clipboard.SetTextAsync(viewModel.BuildDiagnosticsText());
+                viewModel.ShowDiagnosticsCopied(true);
             }
-
-            var uri = new Uri("https://npcap.com/#download");
-            OpenUrl(uri);
-            e.Handled = true;
+            catch (Exception error)
+            {
+                Log.Warning(error, "Could not copy diagnostics to the clipboard.");
+                viewModel.ShowDiagnosticsCopied(false);
+            }
         }
-
-        private static void OpenUrl(Uri uri) => SystemLauncher.TryOpenUrl(uri);
     }
 }

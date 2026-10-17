@@ -37,6 +37,7 @@ An alternative client for [The Albion Online Data Project](https://www.albion-on
 | System Tray            | Runs quietly in system tray for minimal interference                           |
 | Auto-Updates           | Silent, automatic updates                                                      |
 | Configurable Settings  | Uploads and sharing, trackers, streamer window, data cleanup with storage per type, and a diagnostics mode for bug reports |
+| Setup Checklist        | The Main tab checks capture, adapters, game traffic, server, character and location, with help for your OS when something is missing |
 | User-Friendly          | No admin permissions required (except for NpCap installation)                  |
 | Free and Open Source   | This software is free to use and is open source                                |
 
@@ -122,11 +123,11 @@ The macOS app is not signed, so macOS may say `"AFMDataClient_MacOS" is damaged 
    open /Applications/AFMDataClient_MacOS.app
    ```
 
-If packet capture is blocked, the app shows a `Capture Blocked` status.
+If packet capture is blocked, the Main tab shows `Allow packet capture on this Mac` and the sidebar status reads `Capture not set up`.
 
 <img width="177" height="166" alt="image" src="https://github.com/user-attachments/assets/3775d64b-e785-4d9c-a5f9-c08cfb41007c" />
 
-It also shows an `Install permissions` button. Click it, approve the macOS administrator prompt, and let the app restart.
+Click `Install permissions` on the Main tab or in the sidebar, approve the macOS administrator prompt, and let the app restart.
 
 <img width="242" height="296" alt="image" src="https://github.com/user-attachments/assets/35751693-36b9-459e-b9a5-fbef9a356767" />
 
