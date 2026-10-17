@@ -88,55 +88,19 @@ public class TradeService
         return await query.Select(x => x.LocationId).Distinct().ToListAsync();
     }
 
-    public async Task<CleanupPreview> GetCleanupPreviewAsync(CancellationToken cancellationToken = default)
+    public async Task<int> CountTradesOlderThanAsync(DateTime cutoffUtc, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            using var db = new LocalContext();
-            var totalCount = await db.Trades.CountAsync(x => !x.Deleted, cancellationToken);
-            var options = new List<CleanupCountOption>();
-
-            foreach (var threshold in CleanupThresholds.Create(DateTime.UtcNow))
-            {
-                var count = await db.Trades.CountAsync(
-                    x => !x.Deleted && x.DateTime < threshold.CutoffUtc,
-                    cancellationToken);
-                options.Add(new CleanupCountOption(threshold.Label, threshold.CutoffUtc, count));
-            }
-
-            return new CleanupPreview(totalCount, options);
-        }
-        catch (Exception e)
-        {
-            Log.Error(e, e.Message);
-            return new CleanupPreview(0, []);
-        }
+        using var db = new LocalContext();
+        return await db.Trades.CountAsync(x => x.DateTime < cutoffUtc, cancellationToken);
     }
 
-    public async Task<int> CleanupTradesOlderThanAsync(DateTime cutoffUtc, CancellationToken cancellationToken = default)
+    // Removes rows outright, including trades hidden with Delete selected, so the space can be reclaimed.
+    public async Task<int> DeleteTradesOlderThanAsync(DateTime cutoffUtc, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            using var db = new LocalContext();
-            var trades = await db.Trades
-                .Where(x => !x.Deleted && x.DateTime < cutoffUtc)
-                .ToListAsync(cancellationToken);
-
-            foreach (var trade in trades)
-            {
-                trade.Deleted = true;
-            }
-
-            await db.SaveChangesAsync(cancellationToken);
-
-            Log.Information("Cleaned up {Count} trades older than {CutoffUtc:O}", trades.Count, cutoffUtc);
-            return trades.Count;
-        }
-        catch (Exception e)
-        {
-            Log.Error(e, e.Message);
-            return 0;
-        }
+        using var db = new LocalContext();
+        var deleted = await db.Trades.Where(x => x.DateTime < cutoffUtc).ExecuteDeleteAsync(cancellationToken);
+        Log.Information("Deleted {Count} trades older than {CutoffUtc:O}", deleted, cutoffUtc);
+        return deleted;
     }
 
     private async Task AddTradeToDb(Trade trade)
@@ -381,6 +345,17 @@ public class TradeService
         {
             Log.Debug("Skipped trade for mail {MailId} with nothing filled", mail.Id);
             return;
+        }
+
+        // A mail removed by cleanup can be listed and read again while its trade still exists.
+        using (var db = new LocalContext())
+        {
+            if (await db.Trades.AnyAsync(x => x.Type == TradeType.Order && x.ItemId == mail.ItemId
+                && x.DateTime == mail.Received && x.Amount == mail.PartialAmount && x.PlayerName == mail.PlayerName))
+            {
+                Log.Debug("Skipped duplicate trade for mail {MailId}", mail.Id);
+                return;
+            }
         }
 
         var trade = new Trade(mail);

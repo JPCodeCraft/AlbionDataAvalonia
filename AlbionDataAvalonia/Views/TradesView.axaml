@@ -41,7 +41,6 @@
             <Button Classes="UiAction UiSecondary" Margin="0,0,8,6" Content="Export CSV" Name="ExportCsvButton" Click="ExportCsvButton_Click" IsEnabled="{Binding !IsExporting}" />
             <Button Classes="UiAction UiSecondary" Margin="0,0,8,6" Content="Set quality" Name="SetQualityButton" Click="SetQualityButton_Click" IsEnabled="{Binding CanSetSelectedTradeQuality}" />
             <Button Classes="UiAction UiSecondary" Margin="0,0,8,6" Content="Add to portfolio" Name="AddToPortfolioButton" Click="AddToPortfolioButton_Click" IsEnabled="{Binding CanAddSelectedTradesToPortfolio}" />
-            <Button Classes="UiAction UiSecondary" Margin="0,0,8,6" Content="Cleanup..." Name="CleanupButton" Click="CleanupButton_Click" />
             <Button Classes="UiAction UiSecondary" Margin="0,0,8,6" Content="Delete selected..." Name="DeleteButton" Click="DeleteButton_Click" IsEnabled="{Binding HasSelectedRows}" />
         </WrapPanel>
         <StackPanel Grid.Row="2" Margin="0,0,0,6" Spacing="4">

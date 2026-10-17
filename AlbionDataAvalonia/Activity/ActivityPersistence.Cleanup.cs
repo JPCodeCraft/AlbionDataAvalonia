@@ -45,6 +45,17 @@ public sealed partial class ActivityPersistence
         return command.Result!;
     }
 
+    // Rewrites the database file without its free pages. It runs on the writer, so activity writes wait for it.
+    public Task CompactDatabaseAsync(CancellationToken cancellationToken = default) =>
+        ControlAsync(new CompactCommand(NewCompletion()), cancellationToken);
+
+    private async Task ExecuteCompactAsync(CancellationToken cancellationToken)
+    {
+        await using var context = contextFactory();
+        await context.Database.ExecuteSqlRawAsync("VACUUM;", cancellationToken);
+        await context.Database.ExecuteSqlRawAsync("PRAGMA wal_checkpoint(TRUNCATE);", cancellationToken);
+    }
+
     private static void ValidateCleanupRequest(ActivityCleanupRequest request)
     {
         ArgumentNullException.ThrowIfNull(request);
@@ -202,4 +213,6 @@ public sealed partial class ActivityPersistence
     {
         public ActivityCleanupResult? Result { get; set; }
     }
+
+    private sealed record CompactCommand(TaskCompletionSource Completion) : ControlCommand(Completion);
 }

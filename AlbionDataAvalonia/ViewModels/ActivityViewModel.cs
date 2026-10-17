@@ -271,7 +271,6 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
                 if (SelectedPlaySession is not null && detailReadVersion != detailChangeVersion) await RefreshDetailsAsync();
             }
             else if (SelectedTabIndex == 2 && itemReadVersion != itemChangeVersion) await LoadGlobalLootAsync(false, true);
-            else if (SelectedTabIndex == 3) await RefreshCleanupAsync();
         }
         finally { refreshing = false; }
     }
@@ -754,7 +753,6 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
             if (detailQueryCancellation.IsCancellationRequested) BeginRead(ref detailQueryCancellation);
         }
         if (value != 2) itemsQueryCancellation.Cancel();
-        if (value == 3) cleanupReadVersion = -1;
         if (isActive && !applyingSelection) _ = RunSafelyAsync(RefreshVisibleAsync);
     }
     partial void OnSelectedDetailTabIndexChanged(int oldValue, int newValue)
@@ -871,18 +869,11 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         });
     }
 
-    public async Task DeleteUnassignedLootAsync()
-    {
-        if (persistence is null) return;
-        await RunSafelyAsync(async () => { await persistence.DeleteUnassignedLootAsync(); await LoadGlobalLootAsync(false); });
-    }
-
     private static string? EmptyToNull(string value) => string.IsNullOrWhiteSpace(value) ? null : value.Trim();
     public void Dispose()
     {
         if (isDisposed) return;
         isDisposed = true;
-        DisposeCleanup();
         DisposeHistoryReplay();
         lootExportCancellation?.Cancel();
         ++detailVersion;

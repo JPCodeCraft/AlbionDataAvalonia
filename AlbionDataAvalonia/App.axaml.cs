@@ -549,6 +549,7 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<LegendarySaleService>();
         collection.AddSingleton<WindowsStartupService>();
         collection.AddSingleton<DatabaseBackupService>();
+        collection.AddSingleton<DataCleanupService>();
 
         collection.AddSingleton<MainViewModel>();
         collection.AddSingleton<SettingsViewModel>();

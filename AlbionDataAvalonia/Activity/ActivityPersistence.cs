@@ -386,6 +386,7 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
         if (command is ImportLegacyCommand import) { import.Result = await ImportLegacyRunsAsync(cancellationToken); return; }
         if (command is RebuildTagsCommand) { await RebuildTagsAsync(cancellationToken); return; }
         if (command is CleanupCommand cleanup) { await ExecuteCleanupAsync(cleanup, cancellationToken); return; }
+        if (command is CompactCommand) { await ExecuteCompactAsync(cancellationToken); return; }
         if (command is DeletePlaySessionCommand deletePlay) { await ExecuteDeletePlaySessionAsync(deletePlay, cancellationToken); return; }
         await using var context = contextFactory();
         await using var transaction = await context.Database.BeginTransactionAsync(cancellationToken);

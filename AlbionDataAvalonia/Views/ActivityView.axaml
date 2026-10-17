@@ -575,44 +575,6 @@
                 </StackPanel>
                 </ScrollViewer>
             </TabItem>
-            <TabItem Header="Cleanup">
-                <ScrollViewer HorizontalScrollBarVisibility="Disabled">
-                    <StackPanel Spacing="12" Margin="0,8,12,8" MaxWidth="1000" HorizontalAlignment="Stretch">
-                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                            <StackPanel Spacing="4"><TextBlock Text="Stored activity" FontSize="20" FontWeight="DemiBold" /><TextBlock Text="All characters and servers" Classes="UiLabel" /></StackPanel>
-                            <Button Grid.Column="1" Classes="UiAction UiSecondary" Content="Refresh" Command="{Binding RefreshCleanupCommand}" IsEnabled="{Binding !IsCleanupBusy}" />
-                        </Grid>
-                        <Grid ColumnDefinitions="*,*,*" RowDefinitions="Auto,Auto" ColumnSpacing="6" RowSpacing="6">
-                            <Border Classes="UiCard ActivityMetricCard"><StackPanel><TextBlock Classes="UiLabel" Text="Activity storage" /><TextBlock Classes="ActivityValue" Text="{Binding CleanupActivitySizeText}" /><TextBlock Classes="UiLabel" Text="Includes history and items" /></StackPanel></Border>
-                            <Border Grid.Column="1" Classes="UiCard ActivityMetricCard"><StackPanel><TextBlock Classes="UiLabel" Text="Sessions" /><TextBlock Classes="ActivityValue" Text="{Binding CleanupSessionsText}" /></StackPanel></Border>
-                            <Border Grid.Column="2" Classes="UiCard ActivityMetricCard"><StackPanel><TextBlock Classes="UiLabel" Text="Encounters" /><TextBlock Classes="ActivityValue" Text="{Binding CleanupEncountersText}" /></StackPanel></Border>
-                            <Border Grid.Row="1" Classes="UiCard ActivityMetricCard"><StackPanel><TextBlock Classes="UiLabel" Text="Whole local database" /><TextBlock Classes="ActivityValue" Text="{Binding CleanupDatabaseSizeText}" /><TextBlock Classes="UiLabel" Text="Includes other app data" /></StackPanel></Border>
-                            <Border Grid.Row="1" Grid.Column="1" Classes="UiCard ActivityMetricCard"><StackPanel><TextBlock Classes="UiLabel" Text="Events" /><TextBlock Classes="ActivityValue" Text="{Binding CleanupEventsText}" /></StackPanel></Border>
-                            <Border Grid.Row="1" Grid.Column="2" Classes="UiCard ActivityMetricCard"><StackPanel><TextBlock Classes="UiLabel" Text="Item pickups" /><TextBlock Classes="ActivityValue" Text="{Binding CleanupItemsText}" /></StackPanel></Border>
-                        </Grid>
-                        <Border Classes="UiCard" Padding="16">
-                            <StackPanel Spacing="12">
-                                <TextBlock Text="Clean up history" FontSize="18" FontWeight="DemiBold" />
-                                <WrapPanel>
-                                    <CheckBox Content="Remove activity older than" IsChecked="{Binding CleanupDeleteOld, Mode=TwoWay}" VerticalAlignment="Center" Margin="0,0,10,0" />
-                                    <NumericUpDown Value="{Binding CleanupOlderThanDays, Mode=TwoWay}" Minimum="1" Maximum="36500" FormatString="0" Width="110" Height="32" Background="{DynamicResource UiInputBrush}" IsEnabled="{Binding CleanupDeleteOld}" />
-                                    <TextBlock Text="days" Classes="UiLabel" Margin="8,0,0,0" VerticalAlignment="Center" />
-                                </WrapPanel>
-                                <CheckBox Content="Remove loot picked up by others outside your party" IsChecked="{Binding CleanupDeleteOutsidePartyLoot, Mode=TwoWay}" />
-                                <TextBlock Text="Current sessions and original gathering records are kept." Classes="UiLabel" />
-                                <WrapPanel>
-                                    <Button Classes="UiAction UiSecondary" Content="Preview cleanup" Command="{Binding PreviewCleanupCommand}" IsEnabled="{Binding CanPreviewCleanup}" Margin="0,0,8,4" />
-                                    <Button Classes="UiAction" Content="Delete matching data…" Click="CleanupActivity_Click" IsEnabled="{Binding CanApplyCleanup}" Margin="0,0,0,4" />
-                                </WrapPanel>
-                                <TextBlock Text="{Binding CleanupPreviewText}" IsVisible="{Binding HasCleanupPreview}" TextWrapping="Wrap" />
-                                <TextBlock Text="{Binding CleanupStatusText}" Classes="UiLabel" TextWrapping="Wrap" />
-                            </StackPanel>
-                        </Border>
-                        <WrapPanel><Button Classes="UiAction UiSecondary" Content="Delete loot outside sessions…" Click="DeleteUnassignedLoot_Click" /></WrapPanel>
-                        <TextBlock Text="Removed data cannot be restored here. Storage is reused for new activity; the database file may stay the same size." Classes="UiLabel" TextWrapping="Wrap" />
-                    </StackPanel>
-                </ScrollViewer>
-            </TabItem>
         </TabControl>
     </Grid>
 </UserControl>

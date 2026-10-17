@@ -30,55 +30,18 @@ public class MailService
         _itemsIdsService = itemsIdsService;
     }
 
-    public async Task<CleanupPreview> GetCleanupPreviewAsync(CancellationToken cancellationToken = default)
+    public async Task<int> CountMailsOlderThanAsync(DateTime cutoffUtc, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            using var db = new LocalContext();
-            var totalCount = await db.AlbionMails.CountAsync(x => !x.Deleted, cancellationToken);
-            var options = new List<CleanupCountOption>();
-
-            foreach (var threshold in CleanupThresholds.Create(DateTime.UtcNow))
-            {
-                var count = await db.AlbionMails.CountAsync(
-                    x => !x.Deleted && x.Received < threshold.CutoffUtc,
-                    cancellationToken);
-                options.Add(new CleanupCountOption(threshold.Label, threshold.CutoffUtc, count));
-            }
-
-            return new CleanupPreview(totalCount, options);
-        }
-        catch (Exception e)
-        {
-            Log.Error(e, e.Message);
-            return new CleanupPreview(0, []);
-        }
+        using var db = new LocalContext();
+        return await db.AlbionMails.CountAsync(x => x.Received < cutoffUtc, cancellationToken);
     }
 
-    public async Task<int> CleanupMailsOlderThanAsync(DateTime cutoffUtc, CancellationToken cancellationToken = default)
+    public async Task<int> DeleteMailsOlderThanAsync(DateTime cutoffUtc, CancellationToken cancellationToken = default)
     {
-        try
-        {
-            using var db = new LocalContext();
-            var mails = await db.AlbionMails
-                .Where(x => !x.Deleted && x.Received < cutoffUtc)
-                .ToListAsync(cancellationToken);
-
-            foreach (var mail in mails)
-            {
-                mail.Deleted = true;
-            }
-
-            await db.SaveChangesAsync(cancellationToken);
-
-            Log.Information("Cleaned up {Count} mails older than {CutoffUtc:O}", mails.Count, cutoffUtc);
-            return mails.Count;
-        }
-        catch (Exception e)
-        {
-            Log.Error(e, e.Message);
-            return 0;
-        }
+        using var db = new LocalContext();
+        var deleted = await db.AlbionMails.Where(x => x.Received < cutoffUtc).ExecuteDeleteAsync(cancellationToken);
+        Log.Information("Deleted {Count} mails older than {CutoffUtc:O}", deleted, cutoffUtc);
+        return deleted;
     }
 
     private void SetMailProperties(List<AlbionMail> mails)

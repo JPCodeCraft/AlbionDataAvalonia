@@ -105,7 +105,11 @@ public partial class SettingsViewModel : ViewModelBase
 
     [RelayCommand] private void ToggleStreamerWindow() => streamerWindow?.Toggle();
 
-    partial void OnSelectedTabIndexChanged(int value) => UpdateStreamerPreview(value == StreamerTabIndex);
+    partial void OnSelectedTabIndexChanged(int value)
+    {
+        UpdateStreamerPreview(value == StreamerTabIndex);
+        if (value == DataTabIndex) _ = RefreshStorageAsync();
+    }
 
     public void UpdateStreamerPreview(bool visible)
     {
@@ -134,7 +138,8 @@ public partial class SettingsViewModel : ViewModelBase
         AuthService authService,
         AFMUploader afmUploader,
         DatabaseBackupService databaseBackupService,
-        ActivityStreamerWindowService? streamerWindow = null)
+        ActivityStreamerWindowService? streamerWindow = null,
+        DataCleanupService? dataCleanup = null)
     {
         _settingsManager = settingsManager;
         _playerState = playerState;
@@ -143,6 +148,8 @@ public partial class SettingsViewModel : ViewModelBase
         this.afmUploader = afmUploader;
         this.databaseBackupService = databaseBackupService;
         this.streamerWindow = streamerWindow;
+        this.dataCleanup = dataCleanup;
+        InitializeCleanup();
         if (streamerWindow is not null)
             streamerWindow.IsOpenChanged += (_, _) => OnPropertyChanged(nameof(StreamerWindowButtonText));
 

@@ -329,6 +329,23 @@ public sealed class LegendaryItemTrackerService : IDisposable
             .ConfigureAwait(false);
     }
 
+    public async Task<int> CountItemsNotSeenSinceAsync(DateTime cutoffUtc, CancellationToken cancellationToken = default)
+    {
+        await using var db = new LocalContext();
+        return await db.LegendaryItems.CountAsync(item => item.LastSeenAtUtc < cutoffUtc, cancellationToken);
+    }
+
+    public async Task<int> DeleteItemsNotSeenSinceAsync(DateTime cutoffUtc, CancellationToken cancellationToken = default)
+    {
+        Guid[] ids;
+        await using (var db = new LocalContext())
+        {
+            ids = await db.LegendaryItems.Where(item => item.LastSeenAtUtc < cutoffUtc).Select(item => item.Id).ToArrayAsync(cancellationToken);
+        }
+
+        return await DeleteItemsAsync(ids, cancellationToken);
+    }
+
     public async Task<int> DeleteItemsAsync(IEnumerable<Guid> itemIds, CancellationToken cancellationToken = default)
     {
         var ids = itemIds.Distinct().ToArray();

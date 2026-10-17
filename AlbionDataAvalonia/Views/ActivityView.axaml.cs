@@ -173,55 +173,6 @@ public partial class ActivityView : UserControl
             await viewModel.DeleteSelectedSessionAsync();
     }
 
-    private async void DeleteUnassignedLoot_Click(object? sender, RoutedEventArgs args)
-    {
-        if (DataContext is not ActivityViewModel viewModel || TopLevel.GetTopLevel(this) is not Window owner) return;
-        if (await ConfirmAsync(owner, "Delete loot outside sessions?", "Permanently delete pickups outside sessions for all characters and servers? This ignores the current filters. Session loot is kept.", "Delete loot"))
-            await viewModel.DeleteUnassignedLootAsync();
-    }
-
-    private async void CleanupActivity_Click(object? sender, RoutedEventArgs args)
-    {
-        if (DataContext is not ActivityViewModel viewModel || !viewModel.CanApplyCleanup ||
-            viewModel.CleanupPreview is not { } preview || TopLevel.GetTopLevel(this) is not Window owner) return;
-        try
-        {
-            if (await ConfirmAsync(owner, "Delete activity?", ActivityViewModel.CleanupConfirmationText(preview), "Delete data"))
-                await viewModel.ApplyCleanupAsync(preview);
-        }
-        catch (Exception error)
-        {
-            Log.Warning(error, "Could not clean up activity.");
-            viewModel.CleanupStatusText = "Cleanup failed. Refresh and try again.";
-        }
-    }
-
-    private static Task<bool> ConfirmAsync(Window owner, string title, string message, string action)
-    {
-        var cancel = new Button { Content = "Cancel" };
-        var confirm = new Button { Content = action };
-        var dialog = new Window
-        {
-            Title = title,
-            Width = 460,
-            SizeToContent = SizeToContent.Height,
-            CanResize = false,
-            ShowInTaskbar = false,
-            WindowStartupLocation = WindowStartupLocation.CenterOwner,
-            Content = new StackPanel
-            {
-                Margin = new Thickness(20),
-                Spacing = 16,
-                Children =
-                {
-                    new TextBlock { Text = title, FontSize = 18, FontWeight = Avalonia.Media.FontWeight.DemiBold },
-                    new TextBlock { Text = message, TextWrapping = Avalonia.Media.TextWrapping.Wrap },
-                    new StackPanel { Orientation = Orientation.Horizontal, HorizontalAlignment = HorizontalAlignment.Right, Spacing = 8, Children = { cancel, confirm } }
-                }
-            }
-        };
-        cancel.Click += (_, _) => dialog.Close(false);
-        confirm.Click += (_, _) => dialog.Close(true);
-        return dialog.ShowDialog<bool>(owner);
-    }
+    private static Task<bool> ConfirmAsync(Window owner, string title, string message, string action) =>
+        CleanupConfirmWindow.ShowAsync(owner, title, message, action);
 }

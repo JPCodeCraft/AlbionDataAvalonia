@@ -468,6 +468,95 @@
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Classes="Page">
                     <StackPanel>
+                        <TextBlock Classes="GroupTitle" Text="STORAGE" />
+                        <Border Classes="Group">
+                            <StackPanel>
+                                <Border Classes="Row">
+                                    <StackPanel Spacing="8">
+                                        <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
+                                            <TextBlock Classes="RowTitle" Text="{Binding DatabaseSizeText}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="1" Classes="RowHint" Margin="0" Text="{Binding StorageNoteText}" VerticalAlignment="Center" />
+                                            <Button Grid.Column="2" Classes="UiSecondary" Content="Refresh" Padding="10,3" FontSize="12"
+                                                    Command="{Binding RefreshStorageCommand}" IsEnabled="{Binding !IsMeasuringStorage}" />
+                                        </Grid>
+                                        <views:StorageBar Height="12" Segments="{Binding StorageSegments}" />
+                                        <ItemsControl ItemsSource="{Binding StorageLegend}">
+                                            <ItemsControl.ItemsPanel>
+                                                <ItemsPanelTemplate>
+                                                    <WrapPanel Orientation="Horizontal" />
+                                                </ItemsPanelTemplate>
+                                            </ItemsControl.ItemsPanel>
+                                            <ItemsControl.ItemTemplate>
+                                                <DataTemplate x:DataType="vm:StorageLegendItem">
+                                                    <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,16,2">
+                                                        <Border Width="9" Height="9" CornerRadius="2" Background="{Binding Brush}" VerticalAlignment="Center" />
+                                                        <TextBlock FontSize="12" Opacity="0.75" VerticalAlignment="Center">
+                                                            <Run Text="{Binding Label}" />
+                                                            <Run Text="{Binding SizeText}" />
+                                                        </TextBlock>
+                                                    </StackPanel>
+                                                </DataTemplate>
+                                            </ItemsControl.ItemTemplate>
+                                        </ItemsControl>
+                                    </StackPanel>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel>
+                        <TextBlock Classes="GroupTitle" Text="CLEAN UP" />
+                        <Border Classes="Group" IsEnabled="{Binding !IsCleanupBusy}">
+                            <StackPanel>
+                                <ItemsControl ItemsSource="{Binding CleanupRows}">
+                                    <ItemsControl.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:DataCleanupRowViewModel">
+                                            <Border Padding="14,9" BorderBrush="#14FFFFFF" BorderThickness="0,0,0,1">
+                                                <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="10">
+                                                    <CheckBox IsChecked="{Binding IsSelected}" VerticalAlignment="Center" MinWidth="0" Padding="0"
+                                                              AutomationProperties.Name="{Binding Label}" />
+                                                    <Border Grid.Column="1" Width="9" Height="9" CornerRadius="2" Background="{Binding Brush}" VerticalAlignment="Center" />
+                                                    <StackPanel Grid.Column="2" VerticalAlignment="Center">
+                                                        <TextBlock Classes="RowTitle" Text="{Binding Label}" />
+                                                        <TextBlock Classes="RowHint" Margin="0" Text="{Binding CountText}" />
+                                                    </StackPanel>
+                                                    <TextBlock Grid.Column="3" Text="{Binding SizeText}" VerticalAlignment="Center" />
+                                                </Grid>
+                                            </Border>
+                                        </DataTemplate>
+                                    </ItemsControl.ItemTemplate>
+                                </ItemsControl>
+                                <Border Padding="44,8,14,8" BorderBrush="#14FFFFFF" BorderThickness="0,0,0,1" IsVisible="{Binding ShowPartyLootOption}">
+                                    <CheckBox IsChecked="{Binding RemoveOutsidePartyLoot}" FontSize="12"
+                                              Content="Also loot picked up by others outside your party, at any age" />
+                                </Border>
+                                <Border Padding="14,10" Background="#14000000" BorderBrush="#14FFFFFF" BorderThickness="0,0,0,1">
+                                    <WrapPanel>
+                                        <TextBlock Classes="RowHint" Margin="0,0,12,0" VerticalAlignment="Center" Text="Older than" />
+                                        <views:ActivitySegmentedSelector ItemsSource="{Binding CleanupAgeOptions}"
+                                                                         SelectedIndex="{Binding SelectedCleanupAgeIndex}"
+                                                                         AutomationProperties.Name="Remove records older than" />
+                                    </WrapPanel>
+                                </Border>
+                                <Border Padding="14,10" Background="#14000000">
+                                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
+                                        <StackPanel VerticalAlignment="Center" Spacing="2">
+                                            <TextBlock Text="{Binding CleanupPreviewText}" FontSize="12.5" TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding CleanupStatusText}" Classes="RowHint" Margin="0"
+                                                       IsVisible="{Binding CleanupStatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                                        </StackPanel>
+                                        <CheckBox Grid.Column="1" IsChecked="{Binding CompactAfterCleanup}" FontSize="12" VerticalAlignment="Center"
+                                                  Content="Compact afterwards"
+                                                  ToolTip.Tip="Rewrites the database file so it gets smaller. Recording pauses briefly while it runs." />
+                                        <Button Grid.Column="2" Classes="UiAction" Content="Delete…" VerticalAlignment="Center"
+                                                Click="DeleteData_Click" IsEnabled="{Binding CanDeleteData}" />
+                                    </Grid>
+                                </Border>
+                            </StackPanel>
+                        </Border>
+                    </StackPanel>
+
+                    <StackPanel>
                         <TextBlock Classes="GroupTitle" Text="BACKUPS" />
                         <Border Classes="Group">
                             <StackPanel>

@@ -19,6 +19,7 @@ namespace AlbionDataAvalonia.Views
             if (DataContext is SettingsViewModel vm)
             {
                 vm.UpdateStreamerPreview(vm.SelectedTabIndex == SettingsViewModel.StreamerTabIndex);
+                if (vm.SelectedTabIndex == SettingsViewModel.DataTabIndex) _ = vm.RefreshStorageAsync();
             }
         }
 
@@ -37,6 +38,17 @@ namespace AlbionDataAvalonia.Views
             if (clipboard == null) return;
 
             await clipboard.SetTextAsync(vm.CurrentFirebaseUserId);
+        }
+
+        private async void DeleteData_Click(object? sender, RoutedEventArgs e)
+        {
+            if (DataContext is not SettingsViewModel vm || !vm.CanDeleteData) return;
+            if (TopLevel.GetTopLevel(this) is not Window owner) return;
+
+            if (await CleanupConfirmWindow.ShowAsync(owner, "Delete stored data?", vm.CleanupConfirmationText(), "Delete"))
+            {
+                await vm.ApplyCleanupAsync();
+            }
         }
 
         private void RemoveSharedUserButton_Click(object? sender, RoutedEventArgs e)

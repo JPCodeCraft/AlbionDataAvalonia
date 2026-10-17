@@ -6,14 +6,15 @@ using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.Views;
 
+/// <summary>Asks before a destructive action; used by deletes and cleanups across the app.</summary>
 public sealed class CleanupConfirmWindow : Window
 {
     private bool _confirmed;
 
-    private CleanupConfirmWindow(string itemNamePlural, int count)
+    private CleanupConfirmWindow(string title, string heading, string message, string action)
     {
         Classes.Add("AppPage");
-        Title = $"Delete {itemNamePlural}?";
+        Title = title;
         Width = 460;
         SizeToContent = SizeToContent.Height;
         CanResize = false;
@@ -28,14 +29,15 @@ public sealed class CleanupConfirmWindow : Window
 
         root.Children.Add(new TextBlock
         {
-            Text = $"Delete {count:N0} {itemNamePlural}?",
+            Text = heading,
             FontSize = 18,
-            FontWeight = FontWeight.DemiBold
+            FontWeight = FontWeight.DemiBold,
+            TextWrapping = TextWrapping.Wrap
         });
 
         root.Children.Add(new TextBlock
         {
-            Text = $"This will delete {count:N0} {itemNamePlural} and cannot be recovered from the app.",
+            Text = message,
             TextWrapping = TextWrapping.Wrap,
             Opacity = 0.85
         });
@@ -51,7 +53,7 @@ public sealed class CleanupConfirmWindow : Window
         cancelButton.Click += CancelButton_Click;
         buttons.Children.Add(cancelButton);
 
-        var deleteButton = new Button { Content = "Delete", Classes = { "UiAction" } };
+        var deleteButton = new Button { Content = action, Classes = { "UiAction" } };
         deleteButton.Click += DeleteButton_Click;
         buttons.Children.Add(deleteButton);
 
@@ -59,9 +61,19 @@ public sealed class CleanupConfirmWindow : Window
         Content = root;
     }
 
-    public static async Task<bool> ShowAsync(Window owner, string itemNamePlural, int count)
+    public static Task<bool> ShowAsync(Window owner, string itemNamePlural, int count) => ShowAsync(
+        owner,
+        $"Delete {itemNamePlural}?",
+        $"Delete {count:N0} {itemNamePlural}?",
+        $"This will delete {count:N0} {itemNamePlural} and cannot be recovered from the app.",
+        "Delete");
+
+    public static Task<bool> ShowAsync(Window owner, string title, string message, string action) =>
+        ShowAsync(owner, title, title, message, action);
+
+    private static async Task<bool> ShowAsync(Window owner, string title, string heading, string message, string action)
     {
-        var window = new CleanupConfirmWindow(itemNamePlural, count);
+        var window = new CleanupConfirmWindow(title, heading, message, action);
         await window.ShowDialog(owner);
         return window._confirmed;
     }
