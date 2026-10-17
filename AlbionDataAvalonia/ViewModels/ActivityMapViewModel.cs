@@ -279,7 +279,7 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
         var geometry = zone?.Geometry ?? LiveFallbackGeometry();
         Note = live.Position is null ? "Waiting for your position. Take a few steps in game."
             : zone is { Failed: true } ? "Couldn't load map data. Check your connection; your path still shows."
-            : zone is { Zone: null } ? "No map image for this zone. Showing your path only."
+            : zone is { Image: null } ? "No map image for this zone. Showing your path only."
             : "";
         if (geometry is null)
         {
@@ -423,7 +423,7 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
         var geometry = zone?.Geometry ?? (points.Length == 0 ? null
             : FallbackGeometry((points.Min(x => x.X), points.Min(x => x.Y), points.Max(x => x.X), points.Max(x => x.Y))));
         Note = zone is { Failed: true } ? "Couldn't load map data. Check your connection; your path still shows."
-            : zone is { Zone: null } ? "No map image for this zone. Showing your path only."
+            : zone is { Image: null } ? "No map image for this zone. Showing your path only."
             : "";
         if (geometry is null)
         {
@@ -453,9 +453,17 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
             var icons = await iconsTask;
             var iconImages = new Dictionary<string, Bitmap?>();
             foreach (var type in icons.Select(x => x.MarkerType).Distinct()) iconImages[type] = await maps.GetIconImageAsync(type);
-            var image = await imageTask;
+            // Without its minimap a zone still has its name, exits and icons; the path draws on a grid.
+            Bitmap? image = null;
+            var failed = false;
+            try { image = await imageTask; }
+            catch (Exception error) when (error is HttpRequestException or TaskCanceledException or System.IO.IOException)
+            {
+                Log.Warning(error, "Could not load the minimap for {RawMapId}", rawMapId);
+                failed = true;
+            }
             return new ZoneView(rawMapId, zone, image, exits, icons.Select(x => new ActivityMapIcon(x.Position, x.Label, iconImages.GetValueOrDefault(x.MarkerType), x.Scale)).ToArray(),
-                zone.DisplayName, ZoneDescription(zone), zone.Geometry, image is null);
+                zone.DisplayName, ZoneDescription(zone), zone.Geometry, failed);
         }
         catch (Exception error) when (error is HttpRequestException or TaskCanceledException or System.IO.IOException or JsonException)
         {

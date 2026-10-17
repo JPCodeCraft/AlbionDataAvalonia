@@ -1,3 +1,4 @@
+using AlbionDataAvalonia.Locations;
 using AlbionDataAvalonia.Settings;
 using Avalonia.Media.Imaging;
 using Serilog;
@@ -7,6 +8,7 @@ using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Text;
 using System.Text.Json;
@@ -67,12 +69,15 @@ public sealed class MapDataService : IDisposable
     public async Task<MapZone?> ZoneAsync(string id, CancellationToken cancellationToken = default) =>
         (await GetCatalogAsync(cancellationToken).ConfigureAwait(false)).GetValueOrDefault(id);
 
+    /// <summary>The zone's minimap, or null when the CDN has none. A failed download throws.</summary>
     public Task<Bitmap?> GetImageAsync(MapZone zone)
     {
         lock (sync)
         {
             var cached = images.FirstOrDefault(x => x.File == zone.ImageFile);
-            if (cached.Image is not null)
+            // A failed download is tried again; a missing image is not.
+            if (cached.Image is { IsFaulted: true } or { IsCanceled: true }) images.Remove(cached);
+            else if (cached.Image is not null)
             {
                 images.Remove(cached);
                 images.AddFirst(cached);
@@ -92,8 +97,23 @@ public sealed class MapDataService : IDisposable
         icons.GetOrAdd(zone.Id, _ => LoadIconsAsync(zone));
 
     public Task<Bitmap?> GetIconImageAsync(string markerType) =>
-        iconImages.GetOrAdd(markerType, type => LoadBitmapAsync($"{FeaturesBase}/icons/minimap/{Uri.EscapeDataString(type)}.png",
-            Path.Combine("icons", SafeFileName(type) + ".png")));
+        iconImages.GetOrAdd(markerType, LoadIconImageAsync);
+
+    // A map still shows without an icon, so a failed icon download only leaves it out until it is asked for again.
+    private async Task<Bitmap?> LoadIconImageAsync(string markerType)
+    {
+        try
+        {
+            return await LoadBitmapAsync($"{FeaturesBase}/icons/minimap/{Uri.EscapeDataString(markerType)}.png",
+                Path.Combine("icons", SafeFileName(markerType) + ".png")).ConfigureAwait(false);
+        }
+        catch (Exception error) when (error is HttpRequestException or IOException or TaskCanceledException)
+        {
+            Log.Warning(error, "Could not load map icon {MarkerType}", markerType);
+            iconImages.TryRemove(markerType, out _);
+            return null;
+        }
+    }
 
     private Task<IReadOnlyDictionary<string, MapZone>> GetCatalogAsync(CancellationToken cancellationToken)
     {
@@ -155,6 +175,7 @@ public sealed class MapDataService : IDisposable
         }
     }
 
+    // Null when the CDN has no such file or it can't be decoded; a failed download throws.
     private async Task<Bitmap?> LoadBitmapAsync(string url, string relativePath)
     {
         try
@@ -162,9 +183,14 @@ public sealed class MapDataService : IDisposable
             var path = await DownloadAsync(url, relativePath).ConfigureAwait(false);
             return new Bitmap(path);
         }
-        catch (Exception error) when (error is HttpRequestException or IOException or TaskCanceledException or ArgumentException or InvalidOperationException)
+        catch (HttpRequestException error) when (error.StatusCode is HttpStatusCode.NotFound or HttpStatusCode.Forbidden)
         {
-            Log.Warning(error, "Could not load map image {Url}", url);
+            Log.Information("No map image at {Url}", url);
+            return null;
+        }
+        catch (Exception error) when (error is ArgumentException or InvalidOperationException)
+        {
+            Log.Warning(error, "Could not read map image {Url}", url);
             return null;
         }
     }
@@ -216,14 +242,22 @@ public sealed class MapDataService : IDisposable
         }
     }
 
+    // A generated instance (a random dungeon, the Mists, an island, a hideout) has no catalog minimap,
+    // and its id can name the zone it sits in ("@HIDEOUT@2306@<guid>"), so only its full id may match.
     private static IEnumerable<string> Candidates(string rawMapId)
     {
         var trimmed = rawMapId.Trim().Trim('"', '\'');
         if (trimmed.Length == 0) yield break;
         yield return trimmed;
+        if (IsGeneratedInstance(trimmed)) yield break;
         foreach (var part in trimmed.Split('@', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries).Reverse())
             if (!string.Equals(part, trimmed, StringComparison.Ordinal)) yield return part;
     }
+
+    private static bool IsGeneratedInstance(string id) => id.Contains('@') && AlbionLocations.ResolveActivityLocation(id).Kind is
+        ActivityMapKind.RandomDungeon or ActivityMapKind.CorruptedDungeon or ActivityMapKind.Hellgate or ActivityMapKind.Expedition
+        or ActivityMapKind.Mists or ActivityMapKind.MistsDungeon or ActivityMapKind.AbyssalDepths or ActivityMapKind.DragonArea
+        or ActivityMapKind.Arena or ActivityMapKind.Island or ActivityMapKind.Hideout;
 
     private static MapPoint? Point(double[]? values) =>
         values is { Length: >= 2 } && double.IsFinite(values[0]) && double.IsFinite(values[1]) ? new MapPoint(values[0], values[1]) : null;
