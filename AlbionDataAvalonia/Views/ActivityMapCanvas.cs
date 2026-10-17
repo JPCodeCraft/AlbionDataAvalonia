@@ -38,6 +38,8 @@ public sealed class ActivityMapCanvas : Control
     private static readonly Pen OutlinePen = new(new SolidColorBrush(Color.Parse("#CC111111")), 1.4);
     private static readonly Pen WhitePen = new(Brushes.White, 1.6, lineJoin: PenLineJoin.Round);
     private static readonly Pen PartyRingPen = new(new SolidColorBrush(Color.Parse("#D0FFFFFF")), 1.4);
+    private static readonly IBrush CountBrush = new SolidColorBrush(Color.Parse("#E6202020"));
+    private static readonly Pen CountPen = new(new SolidColorBrush(Color.Parse("#80FFFFFF")), 1);
     private const double LiveZoom = 3.5;
     private const double MinZoom = 0.5;
     private const double MaxZoom = 40;
@@ -45,6 +47,10 @@ public sealed class ActivityMapCanvas : Control
     private const double PathBreakDistance = 50;
     private const int FadeBuckets = 8;
     private const int GradientBuckets = 12;
+    // Markers of one kind closer than this on screen are drawn as one group.
+    private const double ClusterRadius = 16;
+    private const int GroupLinesShown = 4;
+    private const double SpotSpacing = 22;
 
     private readonly List<Hit> hits = new();
     private string? viewKey;
@@ -202,7 +208,7 @@ public sealed class ActivityMapCanvas : Control
             if (!Visible(at, iconSize)) continue;
             var rect = new Rect(at.X - iconSize / 2, at.Y - iconSize / 2, iconSize, iconSize);
             context.DrawImage(image, new Rect(image.Size), rect);
-            hits.Add(new Hit(at, iconSize / 2 + 2, icon.Label, "", null));
+            hits.Add(new Hit(at, iconSize / 2 + 2, icon.Label, []));
         }
     }
 
@@ -213,7 +219,7 @@ public sealed class ActivityMapCanvas : Control
             var at = ToScreen(ImagePoint(scene, exit.Position.X, exit.Position.Y), scale);
             if (!Visible(at, 8)) continue;
             context.DrawEllipse(exit.Fill, OutlinePen, at, 6, 6);
-            hits.Add(new Hit(at, 9, exit.Label, "", null));
+            hits.Add(new Hit(at, 9, exit.Label, []));
         }
     }
 
@@ -290,14 +296,19 @@ public sealed class ActivityMapCanvas : Control
             {
                 var start = ToScreen(ImagePoint(scene, visible[0].X, visible[0].Y), scale);
                 context.DrawEllipse(new SolidColorBrush(PathStartColor), WhitePen, start, 5, 5);
-                hits.Add(new Hit(start, 7, "Run started here", "", visible[0].CapturedAtUtc));
+                hits.Add(new Hit(start, 7, "Run started here", Lines(When(visible[0].CapturedAtUtc, scene))));
             }
         }
     }
 
+    // Events of one kind close together on screen merge into one marker with a count, so a cleared mob pack
+    // or a looted chest reads as one spot. Zooming in spreads them apart again.
     private void DrawMarkers(DrawingContext context, ActivityMapScene scene, double scale)
     {
-        foreach (var marker in scene.Markers)
+        var clusters = new List<MarkerCluster>();
+        var grid = new Dictionary<(ActivityMapMarkerKind Kind, int X, int Y), List<MarkerCluster>>();
+        // Newest first: a group sits on its latest event and fades with it.
+        foreach (var marker in scene.Markers.OrderByDescending(x => x.CapturedAtUtc))
         {
             var layer = marker.Kind switch
             {
@@ -311,16 +322,99 @@ public sealed class ActivityMapCanvas : Control
             var opacity = scene.IsLive ? Math.Max(0, Strength(scene, marker.CapturedAtUtc)) : 1;
             if (opacity <= 0) continue;
             var at = ToScreen(ImagePoint(scene, marker.X, marker.Y), scale);
-            if (!Visible(at, 10)) continue;
-            using (context.PushOpacity(Math.Max(0.2, opacity)))
+            if (!Visible(at, ClusterRadius)) continue;
+            var cellX = (int)Math.Floor(at.X / ClusterRadius);
+            var cellY = (int)Math.Floor(at.Y / ClusterRadius);
+            MarkerCluster? cluster = null;
+            for (var dx = -1; dx <= 1 && cluster is null; dx++)
+                for (var dy = -1; dy <= 1 && cluster is null; dy++)
+                    if (grid.TryGetValue((marker.Kind, cellX + dx, cellY + dy), out var nearby))
+                        cluster = nearby.FirstOrDefault(x => Distance(x.At, at) <= ClusterRadius);
+            if (cluster is null)
             {
-                // A party member's event gets a light ring so it reads apart from the character's own.
-                if (!marker.IsOwn) context.DrawEllipse(null, PartyRingPen, at, 10.5, 10.5);
-                DrawMarkerShape(context, marker.Kind, at, 6.5);
+                cluster = new MarkerCluster(marker.Kind, at, opacity);
+                clusters.Add(cluster);
+                var key = (marker.Kind, cellX, cellY);
+                if (!grid.TryGetValue(key, out var cell)) grid[key] = cell = new List<MarkerCluster>();
+                cell.Add(cluster);
             }
-            hits.Add(new Hit(at, 9, marker.Title, marker.Detail, marker.CapturedAtUtc));
+
+            cluster.Members.Add(marker);
+        }
+
+        // Groups of different kinds on the same spot sit side by side instead of hiding each other.
+        var spots = new List<List<MarkerCluster>>();
+        foreach (var cluster in clusters)
+        {
+            var spot = spots.FirstOrDefault(x => Distance(x[0].At, cluster.At) <= ClusterRadius);
+            if (spot is null) spots.Add([cluster]);
+            else spot.Add(cluster);
+        }
+
+        // Oldest first, so the newest spots end up on top.
+        foreach (var spot in Enumerable.Reverse(spots))
+        {
+            var row = spot.OrderBy(x => x.Kind).ToArray();
+            var center = new Point(row.Average(x => x.At.X), row.Average(x => x.At.Y));
+            for (var index = 0; index < row.Length; index++)
+            {
+                var cluster = row[index];
+                var at = row.Length == 1 ? cluster.At : new Point(center.X + (index - (row.Length - 1) / 2d) * SpotSpacing, center.Y);
+                var count = cluster.Members.Count;
+                using (context.PushOpacity(Math.Max(0.2, cluster.Opacity)))
+                {
+                    // A party member's event gets a light ring so it reads apart from the character's own.
+                    if (cluster.Members.All(x => !x.IsOwn)) context.DrawEllipse(null, PartyRingPen, at, count > 1 ? 12 : 10.5, count > 1 ? 12 : 10.5);
+                    DrawMarkerShape(context, cluster.Kind, at, count > 1 ? 7.5 : 6.5);
+                    if (count > 1) DrawCount(context, at, count);
+                }
+
+                hits.Add(count == 1 ? new Hit(at, 9, cluster.Members[0].Title,
+                        Lines(cluster.Members[0].Detail, When(cluster.Members[0].CapturedAtUtc, scene)))
+                    : new Hit(at, 11, GroupTitle(cluster.Kind, count), GroupLines(cluster.Members, scene)));
+            }
         }
     }
+
+    private static void DrawCount(DrawingContext context, Point at, int count)
+    {
+        var text = new FormattedText(count > 99 ? "99+" : count.ToString(CultureInfo.CurrentCulture), CultureInfo.CurrentCulture,
+            FlowDirection.LeftToRight, new Typeface(FontFamily.Default, FontStyle.Normal, FontWeight.Bold), 10, Brushes.White);
+        var width = Math.Max(15, text.Width + 7);
+        var badge = new Rect(at.X + 4, at.Y - 15, width, 14);
+        context.DrawRectangle(CountBrush, CountPen, badge, 7, 7);
+        context.DrawText(text, new Point(badge.X + (width - text.Width) / 2, badge.Y + (14 - text.Height) / 2));
+    }
+
+    private static string GroupTitle(ActivityMapMarkerKind kind, int count) => kind switch
+    {
+        ActivityMapMarkerKind.Kill => $"{count} kills",
+        ActivityMapMarkerKind.Loot => $"{count} pickups",
+        ActivityMapMarkerKind.Gathering => $"{count} gathered",
+        _ => $"{count} deaths"
+    };
+
+    // The most common entries first, then the time the group covers.
+    private static IReadOnlyList<string> GroupLines(IReadOnlyList<ActivityMapMarker> members, ActivityMapScene scene)
+    {
+        var groups = members.GroupBy(x => x.Title).OrderByDescending(x => x.Count()).ThenBy(x => x.Key).ToArray();
+        var lines = groups.Take(GroupLinesShown).Select(x => x.Count() > 1 ? $"{x.Key} ×{x.Count()}" : x.Key).ToList();
+        if (groups.Length > GroupLinesShown)
+        {
+            var rest = groups.Skip(GroupLinesShown).Sum(x => x.Count());
+            lines.Add(rest == 1 ? "and 1 more" : $"and {rest} more");
+        }
+
+        var oldest = members.Min(x => x.CapturedAtUtc);
+        var newest = members.Max(x => x.CapturedAtUtc);
+        var first = When(oldest, scene);
+        var last = When(newest, scene);
+        lines.Add(first == last ? first : scene.IsLive ? $"{last} to {first}" : $"{first} – {last}");
+        return lines;
+    }
+
+    private static IReadOnlyList<string> Lines(params string[] parts) =>
+        [string.Join(" · ", parts.Where(x => !string.IsNullOrWhiteSpace(x)))];
 
     private static void DrawMarkerShape(DrawingContext context, ActivityMapMarkerKind kind, Point at, double radius)
     {
@@ -410,8 +504,7 @@ public sealed class ActivityMapCanvas : Control
     private void DrawTooltip(DrawingContext context, Hit hit, Point at, ActivityMapScene scene)
     {
         var lines = new List<(string Text, IBrush Brush, double Size, FontWeight Weight)> { (hit.Title, TextBrush, 13, FontWeight.SemiBold) };
-        var detail = string.Join(" · ", new[] { hit.Detail, When(hit.Time, scene) }.Where(x => !string.IsNullOrWhiteSpace(x)));
-        if (detail.Length > 0) lines.Add((detail, MutedBrush, 12, FontWeight.Normal));
+        lines.AddRange(hit.Lines.Where(x => !string.IsNullOrWhiteSpace(x)).Select(x => (x, MutedBrush, 12d, FontWeight.Normal)));
         var texts = lines.Select(x => new FormattedText(x.Text, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
             new Typeface(FontFamily.Default, FontStyle.Normal, x.Weight), x.Size, x.Brush)).ToArray();
         var width = texts.Max(x => x.Width) + 20;
@@ -534,5 +627,13 @@ public sealed class ActivityMapCanvas : Control
     private static Color Blend(Color from, Color to, double fraction) => Color.FromRgb(
         (byte)(from.R + (to.R - from.R) * fraction), (byte)(from.G + (to.G - from.G) * fraction), (byte)(from.B + (to.B - from.B) * fraction));
 
-    private sealed record Hit(Point At, double Radius, string Title, string Detail, DateTime? Time);
+    private sealed record Hit(Point At, double Radius, string Title, IReadOnlyList<string> Lines);
+
+    private sealed class MarkerCluster(ActivityMapMarkerKind kind, Point at, double opacity)
+    {
+        public ActivityMapMarkerKind Kind { get; } = kind;
+        public Point At { get; } = at;
+        public double Opacity { get; } = opacity;
+        public List<ActivityMapMarker> Members { get; } = new();
+    }
 }
