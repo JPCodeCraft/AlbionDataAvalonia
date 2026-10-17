@@ -9,6 +9,7 @@
 		<ResourceDictionary>
 			<ResourceDictionary.MergedDictionaries>
 				<ResourceInclude Source="avares://AlbionDataAvalonia/Themes/Tokens.axaml" />
+				<ResourceInclude Source="avares://AlbionDataAvalonia/Themes/ControlThemes.axaml" />
 			</ResourceDictionary.MergedDictionaries>
 		</ResourceDictionary>
 	</Application.Resources>

@@ -1,0 +1,387 @@
+<!--
+    Looks for the shared controls in Views/Controls. Template parts set their own sizes and colors from the tokens
+    instead of using the text classes, so the classes on each control (Card, Large, Stacked…) can change them.
+-->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
+                    xmlns:controls="using:AlbionDataAvalonia.Views.Controls"
+                    xmlns:items="using:AlbionDataAvalonia.Items">
+
+    <!-- SegmentedSelector -->
+    <ControlTheme x:Key="SegmentItemTheme" TargetType="ListBoxItem">
+        <Setter Property="Height" Value="32" />
+        <Setter Property="Margin" Value="0,0,4,4" />
+        <Setter Property="Padding" Value="12,4" />
+        <Setter Property="Background" Value="{DynamicResource UiInputBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource UiBorderStrongBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{DynamicResource UiRadiusControl}" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border x:Name="SelectionBorder"
+                        Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}"
+                        Padding="{TemplateBinding Padding}">
+                    <ContentPresenter x:Name="PART_ContentPresenter"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}"
+                                      VerticalContentAlignment="{TemplateBinding VerticalContentAlignment}" />
+                </Border>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:pointerover">
+            <Setter Property="Background" Value="{DynamicResource UiInputHoverBrush}" />
+        </Style>
+        <Style Selector="^:selected">
+            <Setter Property="Background" Value="{DynamicResource UiSelectedBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource UiAccentTextBrush}" />
+            <Setter Property="FontWeight" Value="SemiBold" />
+        </Style>
+        <Style Selector="^:selected:pointerover">
+            <Setter Property="Background" Value="{DynamicResource UiSelectedHoverBrush}" />
+        </Style>
+        <Style Selector="^:focus-visible /template/ Border#SelectionBorder">
+            <Setter Property="BorderBrush" Value="{DynamicResource UiFocusBrush}" />
+            <Setter Property="BorderThickness" Value="2" />
+        </Style>
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="{DynamicResource UiDisabledOpacity}" />
+        </Style>
+    </ControlTheme>
+
+    <ControlTheme x:Key="{x:Type controls:SegmentedSelector}" TargetType="controls:SegmentedSelector">
+        <Setter Property="SelectionMode" Value="AlwaysSelected" />
+        <!-- Selecting a segment must not scroll the page it sits on. -->
+        <Setter Property="AutoScrollToSelectedItem" Value="False" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+        <Setter Property="KeyboardNavigation.TabNavigation" Value="Once" />
+        <Setter Property="ItemContainerTheme" Value="{StaticResource SegmentItemTheme}" />
+        <Setter Property="ItemsPanel">
+            <ItemsPanelTemplate>
+                <WrapPanel Orientation="Horizontal" />
+            </ItemsPanelTemplate>
+        </Setter>
+        <Setter Property="ItemTemplate">
+            <DataTemplate>
+                <TextBlock Text="{ReflectionBinding Label}" FontSize="{DynamicResource UiFontSizeCompact}" VerticalAlignment="Center" />
+            </DataTemplate>
+        </Setter>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <ItemsPresenter x:Name="PART_ItemsPresenter" ItemsPanel="{TemplateBinding ItemsPanel}" />
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+
+    <!-- SettingsGroup and SettingsRow -->
+    <ControlTheme x:Key="{x:Type controls:SettingsGroup}" TargetType="controls:SettingsGroup">
+        <Setter Property="Background" Value="{DynamicResource UiSurfaceBrush}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource UiRadiusCard}" />
+        <Setter Property="ItemsPanel">
+            <ItemsPanelTemplate>
+                <StackPanel />
+            </ItemsPanelTemplate>
+        </Setter>
+        <Setter Property="Template">
+            <ControlTemplate>
+                <StackPanel>
+                    <ContentPresenter x:Name="PART_HeaderPresenter"
+                                      Content="{TemplateBinding Header}"
+                                      IsVisible="{TemplateBinding Header, Converter={x:Static ObjectConverters.IsNotNull}}"
+                                      Margin="2,0,0,6"
+                                      FontSize="{DynamicResource UiFontSizeCaption}"
+                                      FontWeight="SemiBold"
+                                      Foreground="{DynamicResource UiTextTertiaryBrush}" />
+                    <Border x:Name="PART_Card" Background="{TemplateBinding Background}" CornerRadius="{TemplateBinding CornerRadius}" ClipToBounds="True">
+                        <ItemsPresenter x:Name="PART_ItemsPresenter" ItemsPanel="{TemplateBinding ItemsPanel}" />
+                    </Border>
+                </StackPanel>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:disabled /template/ Border#PART_Card">
+            <Setter Property="Opacity" Value="{DynamicResource UiDisabledOpacity}" />
+        </Style>
+    </ControlTheme>
+
+    <ControlTheme x:Key="{x:Type controls:SettingsRow}" TargetType="controls:SettingsRow">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Padding" Value="{DynamicResource UiRowPadding}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource UiDividerBrush}" />
+        <Setter Property="BorderThickness" Value="0,1,0,0" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        Padding="{TemplateBinding Padding}">
+                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                        <StackPanel x:Name="PART_Text" VerticalAlignment="Center">
+                            <TextBlock Classes="UiRowTitle" Text="{TemplateBinding Title}" />
+                            <TextBlock x:Name="PART_Hint" Classes="UiLabel" Margin="0,2,0,0" Text="{TemplateBinding Hint}" IsVisible="False" />
+                        </StackPanel>
+                        <ContentPresenter x:Name="PART_ContentPresenter"
+                                          Grid.Column="1"
+                                          Margin="12,0,0,0"
+                                          VerticalAlignment="Center"
+                                          Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}"
+                                          HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}" />
+                    </Grid>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:hinted /template/ TextBlock#PART_Hint">
+            <Setter Property="IsVisible" Value="True" />
+        </Style>
+        <Style Selector="^:untitled /template/ StackPanel#PART_Text">
+            <Setter Property="IsVisible" Value="False" />
+        </Style>
+        <Style Selector="^:untitled /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Grid.Column" Value="0" />
+            <Setter Property="Grid.ColumnSpan" Value="2" />
+            <Setter Property="Margin" Value="0" />
+        </Style>
+        <Style Selector="^.Stacked /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Grid.Column" Value="0" />
+            <Setter Property="Grid.Row" Value="1" />
+            <Setter Property="Grid.ColumnSpan" Value="2" />
+            <Setter Property="Margin" Value="0,8,0,0" />
+        </Style>
+        <Style Selector="^:nth-child(1)">
+            <Setter Property="BorderThickness" Value="0" />
+        </Style>
+        <Style Selector="^:disabled">
+            <Setter Property="Opacity" Value="{DynamicResource UiDisabledOpacity}" />
+        </Style>
+        <!-- A darker inset under the row above, such as the friend list under its switch. -->
+        <Style Selector="^.Inset">
+            <Setter Property="Background" Value="{DynamicResource UiInsetBrush}" />
+        </Style>
+    </ControlTheme>
+
+    <!-- StatTile -->
+    <ControlTheme x:Key="{x:Type controls:StatTile}" TargetType="controls:StatTile">
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}"
+                        Padding="{TemplateBinding Padding}">
+                    <StackPanel>
+                        <TextBlock x:Name="PART_Label"
+                                   Text="{TemplateBinding Label}"
+                                   FontSize="{DynamicResource UiFontSizeSmall}"
+                                   Foreground="{DynamicResource UiTextSecondaryBrush}"
+                                   TextWrapping="Wrap" />
+                        <TextBlock x:Name="PART_Value"
+                                   Text="{TemplateBinding Value}"
+                                   Margin="0,2"
+                                   FontSize="{DynamicResource UiFontSizeTitle}"
+                                   FontWeight="SemiBold"
+                                   TextWrapping="Wrap" />
+                        <TextBlock x:Name="PART_Detail"
+                                   Text="{TemplateBinding Detail}"
+                                   IsVisible="{TemplateBinding Detail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                   FontSize="{DynamicResource UiFontSizeSmall}"
+                                   Foreground="{DynamicResource UiTextSecondaryBrush}"
+                                   TextWrapping="Wrap" />
+                    </StackPanel>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^.Card">
+            <Setter Property="Background" Value="{DynamicResource UiSurfaceBrush}" />
+            <Setter Property="CornerRadius" Value="{DynamicResource UiRadiusCard}" />
+            <Setter Property="Padding" Value="10,8" />
+        </Style>
+        <Style Selector="^.Outlined">
+            <Setter Property="BorderBrush" Value="{DynamicResource UiBorderBrush}" />
+            <Setter Property="BorderThickness" Value="1" />
+        </Style>
+        <Style Selector="^.Small /template/ TextBlock#PART_Value">
+            <Setter Property="FontSize" Value="{DynamicResource UiFontSizeSection}" />
+        </Style>
+        <Style Selector="^.Heading /template/ TextBlock#PART_Value">
+            <Setter Property="FontSize" Value="{DynamicResource UiFontSizeHeading}" />
+        </Style>
+        <Style Selector="^.Large /template/ TextBlock#PART_Value">
+            <Setter Property="FontSize" Value="{DynamicResource UiFontSizeValueLarge}" />
+        </Style>
+        <Style Selector="^.Text /template/ TextBlock#PART_Value">
+            <Setter Property="FontSize" Value="{DynamicResource UiFontSizeBody}" />
+            <Setter Property="Margin" Value="0" />
+        </Style>
+        <Style Selector="^.Accent /template/ TextBlock#PART_Value">
+            <Setter Property="Foreground" Value="{DynamicResource UiAccentTextBrush}" />
+        </Style>
+        <Style Selector="^.Compact /template/ TextBlock">
+            <Setter Property="TextWrapping" Value="NoWrap" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+            <Setter Property="MaxLines" Value="1" />
+        </Style>
+    </ControlTheme>
+
+    <!-- EmptyState -->
+    <ControlTheme x:Key="{x:Type controls:EmptyState}" TargetType="controls:EmptyState">
+        <Setter Property="HorizontalAlignment" Value="Center" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="20" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <StackPanel x:Name="PART_Panel" Spacing="6" MaxWidth="440">
+                    <TextBlock x:Name="PART_Message"
+                               Text="{TemplateBinding Message}"
+                               Foreground="{DynamicResource UiTextSecondaryBrush}"
+                               TextAlignment="Center"
+                               TextWrapping="Wrap" />
+                    <TextBlock x:Name="PART_Hint"
+                               Text="{TemplateBinding Hint}"
+                               IsVisible="{TemplateBinding Hint, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                               FontSize="{DynamicResource UiFontSizeSmall}"
+                               Foreground="{DynamicResource UiTextTertiaryBrush}"
+                               TextAlignment="Center"
+                               TextWrapping="Wrap" />
+                    <ContentPresenter x:Name="PART_ContentPresenter"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}"
+                                      HorizontalAlignment="Center"
+                                      Margin="0,6,0,0" />
+                </StackPanel>
+            </ControlTemplate>
+        </Setter>
+        <!-- Inline: a short note inside a card or list, aligned with the content around it. -->
+        <Style Selector="^.Inline">
+            <Setter Property="HorizontalAlignment" Value="Left" />
+            <Setter Property="VerticalAlignment" Value="Top" />
+            <Setter Property="Margin" Value="0" />
+        </Style>
+        <Style Selector="^.Inline /template/ TextBlock">
+            <Setter Property="TextAlignment" Value="Left" />
+        </Style>
+        <Style Selector="^.Inline /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="HorizontalAlignment" Value="Left" />
+        </Style>
+    </ControlTheme>
+
+    <!-- InfoBanner -->
+    <ControlTheme x:Key="{x:Type controls:InfoBanner}" TargetType="controls:InfoBanner">
+        <Setter Property="Background" Value="{DynamicResource UiAccentTintSubtleBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource UiAccentEdgeBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{DynamicResource UiRadiusCard}" />
+        <Setter Property="Padding" Value="{DynamicResource UiBannerPadding}" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Border Background="{TemplateBinding Background}"
+                        BorderBrush="{TemplateBinding BorderBrush}"
+                        BorderThickness="{TemplateBinding BorderThickness}"
+                        CornerRadius="{TemplateBinding CornerRadius}"
+                        Padding="{TemplateBinding Padding}">
+                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto">
+                        <StackPanel Spacing="3" VerticalAlignment="Center">
+                            <TextBlock x:Name="PART_Title"
+                                       Text="{TemplateBinding Title}"
+                                       IsVisible="{TemplateBinding Title, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                       FontWeight="SemiBold"
+                                       Foreground="{DynamicResource UiWarningBrush}"
+                                       TextWrapping="Wrap" />
+                            <TextBlock x:Name="PART_Message"
+                                       Text="{TemplateBinding Message}"
+                                       IsVisible="{TemplateBinding Message, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                       FontSize="{DynamicResource UiFontSizeSmall}"
+                                       Foreground="{DynamicResource UiTextSecondaryBrush}"
+                                       TextWrapping="Wrap" />
+                        </StackPanel>
+                        <ContentPresenter x:Name="PART_ContentPresenter"
+                                          Grid.Column="1"
+                                          Margin="12,0,0,0"
+                                          VerticalAlignment="Center"
+                                          Content="{TemplateBinding Content}"
+                                          ContentTemplate="{TemplateBinding ContentTemplate}" />
+                    </Grid>
+                </Border>
+            </ControlTemplate>
+        </Setter>
+        <Style Selector="^:error">
+            <Setter Property="Background" Value="{DynamicResource UiDangerTintBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource UiDangerEdgeBrush}" />
+        </Style>
+        <Style Selector="^:error /template/ TextBlock#PART_Title">
+            <Setter Property="Foreground" Value="{DynamicResource UiErrorTextBrush}" />
+        </Style>
+        <Style Selector="^:info">
+            <Setter Property="Background" Value="{DynamicResource UiSurfaceSubtleBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource UiBorderSubtleBrush}" />
+        </Style>
+        <Style Selector="^:info /template/ TextBlock#PART_Title">
+            <Setter Property="Foreground" Value="{DynamicResource UiTextBrush}" />
+        </Style>
+        <Style Selector="^.Stacked /template/ ContentPresenter#PART_ContentPresenter">
+            <Setter Property="Grid.Column" Value="0" />
+            <Setter Property="Grid.Row" Value="1" />
+            <Setter Property="Margin" Value="0,4,0,0" />
+            <Setter Property="HorizontalAlignment" Value="Left" />
+        </Style>
+    </ControlTheme>
+
+    <!-- FilterField -->
+    <ControlTheme x:Key="{x:Type controls:FilterField}" TargetType="controls:FilterField">
+        <Setter Property="Margin" Value="0,0,10,8" />
+        <Setter Property="VerticalAlignment" Value="Top" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <StackPanel Spacing="3">
+                    <TextBlock Text="{TemplateBinding Label}"
+                               FontSize="{DynamicResource UiFontSizeSmall}"
+                               Foreground="{DynamicResource UiTextSecondaryBrush}" />
+                    <ContentPresenter x:Name="PART_ContentPresenter"
+                                      Content="{TemplateBinding Content}"
+                                      ContentTemplate="{TemplateBinding ContentTemplate}" />
+                </StackPanel>
+            </ControlTemplate>
+        </Setter>
+    </ControlTheme>
+
+    <!-- ItemCell -->
+    <ControlTheme x:Key="{x:Type controls:ItemCell}" TargetType="controls:ItemCell">
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                    <Image Width="{TemplateBinding IconSize}"
+                           Height="{TemplateBinding IconSize}"
+                           Stretch="Uniform"
+                           VerticalAlignment="Center"
+                           items:LazyItemImage.ItemUniqueName="{TemplateBinding ItemUniqueName}"
+                           items:LazyItemImage.Quality="{TemplateBinding ImageQuality}" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
+                        <TextBlock x:Name="PART_Title" Text="{TemplateBinding Title}" TextWrapping="Wrap" />
+                        <TextBlock Text="{TemplateBinding Subtitle}"
+                                   IsVisible="{TemplateBinding Subtitle, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                   FontSize="{DynamicResource UiFontSizeSmall}"
+                                   Foreground="{DynamicResource UiTextSecondaryBrush}" />
+                        <TextBlock Text="{TemplateBinding Detail}"
+                                   IsVisible="{TemplateBinding Detail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                   FontSize="{DynamicResource UiFontSizeSmall}"
+                                   Foreground="{DynamicResource UiTextSecondaryBrush}" />
+                    </StackPanel>
+                </Grid>
+            </ControlTemplate>
+        </Setter>
+        <!-- One line for the name, for tables whose rows are a fixed height. -->
+        <Style Selector="^.SingleLine /template/ TextBlock#PART_Title">
+            <Setter Property="TextWrapping" Value="NoWrap" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+    </ControlTheme>
+</ResourceDictionary>

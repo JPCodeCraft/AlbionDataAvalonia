@@ -20,4 +20,7 @@ public static class UiValueConverters
 
     public static readonly FuncValueConverter<object?, string> WholeNumber = new(value =>
         value is IFormattable number ? number.ToString("N0", CultureInfo.CurrentCulture) : "");
+
+    // Shows an empty state while a collection has no items.
+    public static readonly FuncValueConverter<int, bool> IsZero = new(count => count == 0);
 }

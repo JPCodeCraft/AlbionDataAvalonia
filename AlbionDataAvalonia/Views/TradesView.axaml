@@ -4,37 +4,31 @@
              xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
              xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
              xmlns:views="clr-namespace:AlbionDataAvalonia.Views"
-             xmlns:items="clr-namespace:AlbionDataAvalonia.Items"
+             xmlns:controls="using:AlbionDataAvalonia.Views.Controls"
              mc:Ignorable="d" d:DesignWidth="1100" d:DesignHeight="650"
              x:Class="AlbionDataAvalonia.Views.TradesView"
              x:DataType="vm:TradesViewModel"
              Classes="AppPage">
     <Grid RowDefinitions="Auto,Auto,Auto,*,Auto">
         <WrapPanel Margin="0,8,0,0">
-            <StackPanel Margin="0,0,10,8" Spacing="3">
-                <TextBlock Classes="UiLabel" Text="Search loaded items" />
+            <controls:FilterField Label="Search loaded items">
                 <TextBox Text="{Binding FilterText}" Name="FilterBox" Width="230" Watermark="Item name" />
-            </StackPanel>
-            <StackPanel Margin="0,0,10,8" Spacing="3">
-                <TextBlock Classes="UiLabel" Text="Trades to load" />
+            </controls:FilterField>
+            <controls:FilterField Label="Trades to load">
                 <ComboBox ItemsSource="{Binding TradesToLoadOptions}" SelectedItem="{Binding SelectedTradesToLoad}" Width="120" />
-            </StackPanel>
-            <StackPanel Margin="0,0,10,8" Spacing="3">
-                <TextBlock Classes="UiLabel" Text="Server" />
+            </controls:FilterField>
+            <controls:FilterField Label="Server">
                 <ComboBox ItemsSource="{Binding Servers}" SelectedItem="{Binding SelectedServer}" Width="145" />
-            </StackPanel>
-            <StackPanel Margin="0,0,10,8" Spacing="3">
-                <TextBlock Classes="UiLabel" Text="Trade type" />
+            </controls:FilterField>
+            <controls:FilterField Label="Trade type">
                 <ComboBox ItemsSource="{Binding TradeTypes}" SelectedItem="{Binding SelectedTradeType}" Width="120" />
-            </StackPanel>
-            <StackPanel Margin="0,0,10,8" Spacing="3">
-                <TextBlock Classes="UiLabel" Text="Operation" />
+            </controls:FilterField>
+            <controls:FilterField Label="Operation">
                 <ComboBox ItemsSource="{Binding TradeOperations}" SelectedItem="{Binding SelectedOperation}" Width="120" />
-            </StackPanel>
-            <StackPanel Margin="0,0,10,8" Spacing="3">
-                <TextBlock Classes="UiLabel" Text="Location" />
+            </controls:FilterField>
+            <controls:FilterField Label="Location">
                 <ComboBox ItemsSource="{Binding Locations}" SelectedItem="{Binding SelectedLocation}" Width="170" />
-            </StackPanel>
+            </controls:FilterField>
         </WrapPanel>
         <WrapPanel Grid.Row="1" Margin="0,0,0,2">
             <Button Classes="UiAction" Margin="0,0,8,6" Content="Refresh" Command="{Binding LoadTradesCommand}" />
@@ -65,12 +59,7 @@
                 <DataGridTemplateColumn Header="Item" SortMemberPath="ItemName" CanUserSort="True">
                     <DataGridTemplateColumn.CellTemplate>
                         <DataTemplate x:DataType="vm:TradeRowViewModel">
-                            <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                                <Image Width="30" Height="30" Stretch="Uniform"
-                                       items:LazyItemImage.ItemUniqueName="{Binding ItemId}"
-                                       items:LazyItemImage.Quality="{Binding ImageQuality}" />
-                                <TextBlock Text="{Binding ItemName}" VerticalAlignment="Center" />
-                            </StackPanel>
+                            <controls:ItemCell Classes="SingleLine" IconSize="30" ItemUniqueName="{Binding ItemId}" ImageQuality="{Binding ImageQuality}" Title="{Binding ItemName}" />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
@@ -106,6 +95,9 @@
 
             </DataGrid.Columns>
         </DataGrid>
+        <controls:EmptyState Grid.Row="3" IsVisible="{Binding Trades.Count, Converter={x:Static views:UiValueConverters.IsZero}}"
+                             Message="No trades to show."
+                             Hint="Market trades you make while the client runs appear here. If you expected some, check the filters above." />
         <Grid Grid.Row="4" ColumnDefinitions="*,150" MinHeight="42" Margin="0,6,0,0" ColumnSpacing="12">
             <WrapPanel VerticalAlignment="Center">
                 <TextBlock Classes="UiLabel" Text="Selected:" Margin="0,0,8,0" VerticalAlignment="Center" />

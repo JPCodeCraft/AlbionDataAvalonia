@@ -5,6 +5,7 @@
              xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
              xmlns:items="clr-namespace:AlbionDataAvalonia.Items"
              xmlns:views="clr-namespace:AlbionDataAvalonia.Views"
+             xmlns:controls="using:AlbionDataAvalonia.Views.Controls"
              mc:Ignorable="d"
              d:DesignWidth="1100" d:DesignHeight="650"
              x:Class="AlbionDataAvalonia.Views.LegendaryView"
@@ -12,18 +13,14 @@
              Classes="AppPage">
 
     <Grid RowDefinitions="Auto,Auto,*" ColumnDefinitions="*">
-        <WrapPanel Margin="0,8,0,8"
-                   VerticalAlignment="Top">
-            <StackPanel Margin="0,0,10,0">
-                <TextBlock Text="Search" Classes="UiLabel" />
-                <TextBox Text="{Binding FilterText}" Width="260" />
-            </StackPanel>
-            <StackPanel Margin="0,0,10,0">
-                <TextBlock Text="Server" Classes="UiLabel" />
+        <WrapPanel Margin="0,8,0,0" VerticalAlignment="Top">
+            <controls:FilterField Label="Search">
+                <TextBox Text="{Binding FilterText}" Width="230" />
+            </controls:FilterField>
+            <controls:FilterField Label="Server">
                 <ComboBox ItemsSource="{Binding Servers}" SelectedItem="{Binding SelectedServer}" Width="140" />
-            </StackPanel>
-            <StackPanel Margin="0,0,10,0">
-                <TextBlock Text="Ownership" Classes="UiLabel" />
+            </controls:FilterField>
+            <controls:FilterField Label="Ownership">
                 <CheckBox Content="Attuned to me"
                           IsChecked="{Binding OnlyAttunedToMe}"
                           IsEnabled="{Binding CanFilterAttunedToMe}"
@@ -32,18 +29,16 @@
                           MinHeight="36"
                           VerticalContentAlignment="Center"
                           Padding="8,0,0,0" />
-            </StackPanel>
-            <StackPanel Margin="0,0,10,0">
-                <TextBlock Text="Sale status" Classes="UiLabel" />
-                <ComboBox ItemsSource="{Binding SaleStatuses}"
-                          SelectedItem="{Binding SelectedSaleStatus}"
-                          Width="140" />
-            </StackPanel>
+            </controls:FilterField>
+            <controls:FilterField Label="Sale status">
+                <ComboBox ItemsSource="{Binding SaleStatuses}" SelectedItem="{Binding SelectedSaleStatus}" Width="140" />
+            </controls:FilterField>
             <Button Content="Refresh" Classes="UiAction" Command="{Binding RefreshCommand}"
-                    VerticalAlignment="Bottom" Margin="0,0,10,0" />
+                    VerticalAlignment="Bottom" Margin="0,0,10,8" />
             <Button Content="Delete selected…"
                     Classes="UiAction UiDanger"
                     VerticalAlignment="Bottom"
+                    Margin="0,0,10,8"
                     IsEnabled="{Binding HasSelectedItem}"
                     Click="DeleteSelectedButton_Click" />
         </WrapPanel>
@@ -74,18 +69,8 @@
                     <DataGridTemplateColumn Header="Item" SortMemberPath="ItemName" CanUserSort="True">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate x:DataType="vm:LegendaryItemRowViewModel">
-                                <StackPanel Orientation="Horizontal" Spacing="6">
-                                    <Image Width="28" Height="28" Stretch="Uniform"
-                                           items:LazyItemImage.ItemUniqueName="{Binding ItemUniqueName}"
-                                           items:LazyItemImage.Quality="{Binding ImageQuality}" />
-                                    <StackPanel VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding ItemName}" />
-                                        <TextBlock Classes="UiFine" Text="{Binding Quality}" />
-                                        <TextBlock Classes="UiFine"
-                                                   Text="{Binding SoulName}"
-                                                   IsVisible="{Binding HasSoulName}" />
-                                    </StackPanel>
-                                </StackPanel>
+                                <controls:ItemCell Classes="SingleLine" IconSize="28" ItemUniqueName="{Binding ItemUniqueName}" ImageQuality="{Binding ImageQuality}"
+                                                   Title="{Binding ItemName}" Subtitle="{Binding Quality}" Detail="{Binding SoulName}" />
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>
@@ -106,12 +91,7 @@
                     MaxWidth="380"
                     Padding="10">
                 <Grid>
-                    <TextBlock Classes="UiMuted"
-                               Text="Select an item to view its details."
-                               IsVisible="{Binding !HasSelectedItem}"
-                               HorizontalAlignment="Center"
-                               VerticalAlignment="Center"
-                               TextAlignment="Center" />
+                    <controls:EmptyState Message="Select an item to view its details." IsVisible="{Binding !HasSelectedItem}" />
                     <ScrollViewer IsVisible="{Binding HasSelectedItem}">
                         <StackPanel Spacing="10" Margin="0,0,10,0">
                             <Border Classes="UiCard">
@@ -186,15 +166,9 @@
                                         <Grid IsVisible="{Binding HasListing}"
                                               ColumnDefinitions="*,*"
                                               ColumnSpacing="16">
-                                            <StackPanel>
-                                                <TextBlock Classes="UiLabel" Text="Current price" />
-                                                <TextBlock Classes="UiValue" Text="{Binding LatestPrice}" />
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="1">
-                                                <TextBlock Classes="UiLabel" Text="Last listed" />
-                                                <TextBlock Text="{Binding Listing.LastListedAt, Converter={x:Static views:UiValueConverters.LocalDateTime}}"
-                                                           TextWrapping="Wrap" />
-                                            </StackPanel>
+                                            <controls:StatTile Label="Current price" Value="{Binding LatestPrice}" />
+                                            <controls:StatTile Grid.Column="1" Classes="Text" Label="Last listed"
+                                                               Value="{Binding Listing.LastListedAt, Converter={x:Static views:UiValueConverters.LocalDateTime}}" />
                                         </Grid>
 
                                         <WrapPanel IsVisible="{Binding HasListing}">
@@ -217,10 +191,7 @@
                                                   HorizontalContentAlignment="Stretch">
 
                                             <StackPanel Margin="0,8,0,0">
-                                                <TextBlock Classes="UiMuted"
-                                                           Text="No sale orders have been recorded."
-                                                           IsVisible="{Binding !HasSellOrders}"
-                                                           TextWrapping="Wrap" />
+                                                <controls:EmptyState Classes="Inline" Message="No sale orders have been recorded." IsVisible="{Binding !HasSellOrders}" />
                                                 <ItemsControl ItemsSource="{Binding SellOrders}">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate x:DataType="vm:LegendarySellOrderRowViewModel">
@@ -261,7 +232,7 @@
                                 <Border Grid.Row="1" Classes="UiCard">
                                     <StackPanel Spacing="8">
                                         <TextBlock Classes="UiSectionTitle" Text="Traits" />
-                                        <TextBlock Classes="UiMuted" Text="No traits" IsVisible="{Binding !HasTraits}" />
+                                        <controls:EmptyState Classes="Inline" Message="No traits." IsVisible="{Binding !HasTraits}" />
                                         <ItemsControl ItemsSource="{Binding Traits}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate x:DataType="vm:LegendaryTraitRowViewModel">
@@ -288,26 +259,11 @@
                                     <StackPanel Spacing="9">
                                         <TextBlock Classes="UiSectionTitle" Text="Awakened stats" />
                                         <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="18" RowSpacing="8">
-                                            <StackPanel>
-                                                <TextBlock Classes="UiLabel" Text="Attuned to" />
-                                                <TextBlock Text="{Binding AttunedTo}" FontWeight="SemiBold" TextWrapping="Wrap" />
-                                            </StackPanel>
-                                            <StackPanel Grid.Column="1">
-                                                <TextBlock Classes="UiLabel" Text="Strain" />
-                                                <TextBlock Text="{Binding Strain}" FontWeight="SemiBold" />
-                                            </StackPanel>
-                                            <StackPanel Grid.Row="1">
-                                                <TextBlock Classes="UiLabel" Text="PvP fame gained" />
-                                                <TextBlock Text="{Binding PvPFameGained}" FontWeight="SemiBold" />
-                                            </StackPanel>
-                                            <StackPanel Grid.Row="1" Grid.Column="1">
-                                                <TextBlock Classes="UiLabel" Text="Attunement" />
-                                                <TextBlock Text="{Binding Attunement}" FontWeight="SemiBold" />
-                                            </StackPanel>
-                                            <StackPanel Grid.Row="2" Grid.ColumnSpan="2">
-                                                <TextBlock Classes="UiLabel" Text="Attunement spent" />
-                                                <TextBlock Text="{Binding AttunementSpent}" FontWeight="SemiBold" />
-                                            </StackPanel>
+                                            <controls:StatTile Classes="Text" Label="Attuned to" Value="{Binding AttunedTo}" />
+                                            <controls:StatTile Grid.Column="1" Classes="Text" Label="Strain" Value="{Binding Strain}" />
+                                            <controls:StatTile Grid.Row="1" Classes="Text" Label="PvP fame gained" Value="{Binding PvPFameGained}" />
+                                            <controls:StatTile Grid.Row="1" Grid.Column="1" Classes="Text" Label="Attunement" Value="{Binding Attunement}" />
+                                            <controls:StatTile Grid.Row="2" Grid.ColumnSpan="2" Classes="Text" Label="Attunement spent" Value="{Binding AttunementSpent}" />
                                         </Grid>
                                     </StackPanel>
                                 </Border>
@@ -336,10 +292,7 @@
                     </ScrollViewer>
                 </Grid>
             </Border>
-            <TextBlock Grid.ColumnSpan="2" Text="{Binding EmptyStateText}"
-                       IsVisible="{Binding !HasItems}"
-                       HorizontalAlignment="Center" VerticalAlignment="Center"
-                       Classes="UiLabel" TextAlignment="Center" />
+            <controls:EmptyState Grid.ColumnSpan="2" Message="{Binding EmptyStateText}" IsVisible="{Binding !HasItems}" />
         </Grid>
 
     </Grid>

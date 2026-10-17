@@ -5,6 +5,7 @@
 	xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
 	xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
 	xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
+	xmlns:controls="using:AlbionDataAvalonia.Views.Controls"
 	d:DesignHeight="600"
 	d:DesignWidth="860"
 	x:DataType="vm:MainViewModel"
@@ -176,19 +177,14 @@
 
 			<!--  READY: everything detected  -->
 			<StackPanel IsVisible="{Binding ShowReadyView}" Spacing="12">
-				<Border Classes="UiBanner" IsVisible="{Binding ShowEncrypted}">
-					<StackPanel Spacing="3">
-						<TextBlock Classes="UiWarning" Text="Market orders are encrypted right now" FontWeight="SemiBold" />
-						<TextBlock Classes="UiLabel" Text="The client can’t read buy and sell orders, so it can’t upload them. Other tracking continues." />
-						<Button Classes="UiLink" FontSize="{DynamicResource UiFontSizeSmall}" Margin="0,2,0,0" Content="Updates on the AFM Discord" Command="{Binding OpenDiscordCommand}" />
-					</StackPanel>
-				</Border>
-				<Border Classes="UiBanner" IsVisible="{Binding IsLocationUnrecognized}">
-					<StackPanel Spacing="3">
-						<TextBlock Classes="UiWarning" Text="Unrecognized zone" FontWeight="SemiBold" />
-						<TextBlock Classes="UiLabel" Text="Market uploads pause until you reach a city or another known zone." />
-					</StackPanel>
-				</Border>
+				<controls:InfoBanner Classes="Stacked" IsVisible="{Binding ShowEncrypted}"
+									 Title="Market orders are encrypted right now"
+									 Message="The client can’t read buy and sell orders, so it can’t upload them. Other tracking continues.">
+					<Button Classes="UiLink" FontSize="{DynamicResource UiFontSizeSmall}" Content="Updates on the AFM Discord" Command="{Binding OpenDiscordCommand}" />
+				</controls:InfoBanner>
+				<controls:InfoBanner IsVisible="{Binding IsLocationUnrecognized}"
+									 Title="Unrecognized zone"
+									 Message="Market uploads pause until you reach a city or another known zone." />
 
 				<Border Classes="UiCard Subtle">
 					<StackPanel Spacing="10">

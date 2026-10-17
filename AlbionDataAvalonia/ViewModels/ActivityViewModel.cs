@@ -73,7 +73,9 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     [ObservableProperty] private int selectedTabIndex;
     [ObservableProperty] private int selectedDetailTabIndex;
     [ObservableProperty] private string lootSearch = "";
-    [ObservableProperty] private string statusText = "Waiting for character";
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsStatusRecording), nameof(IsStatusWaiting))]
+    private string statusText = "Waiting for character";
     [ObservableProperty] private string errorText = "";
     [ObservableProperty] private bool isRecordingEnabled = true;
     [ObservableProperty] private bool isLoading;
@@ -121,6 +123,11 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
             (DetailSummary.RunSeconds is { } runSeconds ? $" · In runs: {ActivityDisplay.Duration(runSeconds)}" : "") +
             $" · Combat time: {ActivityDisplay.Duration(DetailSummary.Rates.CombatDurationSeconds)}";
     public string DetailScopeText => $"{SelectedPlayer?.Name ?? ""}{((SelectedSession?.Source.IsPartial ?? SelectedPlaySession?.IsPartial) == true ? $"{(SelectedPlayer is null ? "" : " · ")}Incomplete recording" : "")}";
+    private const string RecordingStatus = "Recording";
+    private const string WaitingStatus = "Waiting for character";
+    private const string PausedStatus = "Recording paused";
+    public bool IsStatusRecording => StatusText == RecordingStatus;
+    public bool IsStatusWaiting => StatusText == WaitingStatus;
     public string HistoryCountText => UiFormat.Count(PlaySessions.Count, "session");
     public string LootCountText => UiFormat.Count(GlobalLoot.Count, "pickup");
     public string GlobalLootTotalsText => string.Join(" · ", new[]
@@ -240,9 +247,9 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         HasCurrentPlaySession = tracker.CurrentPlaySessionId is not null;
         HasCurrentEncounter = tracker.CurrentEncounterId is not null;
         var status = persistence.Status;
-        StatusText = status.IsSuspended ? "Recording paused"
-            : !IsRecordingEnabled ? "Recording off" : tracker.IsAwaitingContext ? "Waiting for character"
-            : tracker.IsCaptureSuspended ? "Recording paused" : "Recording";
+        StatusText = status.IsSuspended ? PausedStatus
+            : !IsRecordingEnabled ? "Recording off" : tracker.IsAwaitingContext ? WaitingStatus
+            : tracker.IsCaptureSuspended ? PausedStatus : RecordingStatus;
         if (status.Error is { Length: > 0 }) ErrorText = "Activity could not be saved. Recording will resume when storage is available.";
         if (statusSessionId != tracker.CurrentSessionId)
         {

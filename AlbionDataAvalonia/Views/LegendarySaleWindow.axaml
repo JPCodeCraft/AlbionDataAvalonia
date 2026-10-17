@@ -4,6 +4,7 @@
         xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
         xmlns:items="clr-namespace:AlbionDataAvalonia.Items"
         xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
+        xmlns:controls="using:AlbionDataAvalonia.Views.Controls"
         mc:Ignorable="d"
         d:DesignWidth="500"
         d:DesignHeight="760"
@@ -73,29 +74,14 @@
                         </Grid>
 
                         <Grid ColumnDefinitions="*,*,*" ColumnSpacing="12">
-                            <StackPanel>
-                                <TextBlock Classes="UiLabel" Text="Attuned to" />
-                                <TextBlock Text="{Binding AttunedTo}"
-                                           FontWeight="SemiBold"
-                                           TextWrapping="Wrap" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="1">
-                                <TextBlock Classes="UiLabel" Text="Strain" />
-                                <TextBlock Text="{Binding Strain}"
-                                           FontWeight="SemiBold" />
-                            </StackPanel>
-                            <StackPanel Grid.Column="2">
-                                <TextBlock Classes="UiLabel" Text="PvP fame" />
-                                <TextBlock Text="{Binding PvPFameGained}"
-                                           FontWeight="SemiBold" />
-                            </StackPanel>
+                            <controls:StatTile Classes="Text" Label="Attuned to" Value="{Binding AttunedTo}" />
+                            <controls:StatTile Grid.Column="1" Classes="Text" Label="Strain" Value="{Binding Strain}" />
+                            <controls:StatTile Grid.Column="2" Classes="Text" Label="PvP fame" Value="{Binding PvPFameGained}" />
                         </Grid>
 
                         <StackPanel Spacing="7">
                             <TextBlock Classes="UiSectionTitle" Text="Traits" />
-                            <TextBlock Classes="UiMuted"
-                                       Text="No traits"
-                                       IsVisible="{Binding !HasTraits}" />
+                            <controls:EmptyState Classes="Inline" Message="No traits." IsVisible="{Binding !HasTraits}" />
                             <ItemsControl ItemsSource="{Binding Traits}">
                                 <ItemsControl.ItemTemplate>
                                     <DataTemplate x:DataType="vm:LegendaryTraitRowViewModel">

@@ -5,54 +5,29 @@
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
 			 xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
              xmlns:views="clr-namespace:AlbionDataAvalonia.Views"
+             xmlns:controls="using:AlbionDataAvalonia.Views.Controls"
              xmlns:logging="clr-namespace:AlbionDataAvalonia.Logging"
              xmlns:events="clr-namespace:Serilog.Events;assembly=Serilog"
              x:Class="AlbionDataAvalonia.Views.LogsView"
 			 Classes="AppPage"
 			 x:DataType="vm:LogsViewModel">
 
-	<UserControl.Styles>
-		<Style Selector="TextBox.Filter">
-			<Setter Property="Margin" Value="0,0,0,6" />
-		</Style>
-		<Style Selector="ComboBox.Filter">
-			<Setter Property="Margin" Value="0,0,0,6" />
-		</Style>
-	</UserControl.Styles>
 
 	<Grid RowDefinitions="Auto,Auto,*">
-		<Border Grid.Row="0" Classes="UiBanner" Margin="0,8,0,0" IsVisible="{Binding IsDiagnosticsEnabled}">
-			<Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-				<TextBlock VerticalAlignment="Center" TextWrapping="Wrap" FontSize="{DynamicResource UiFontSizeSmall}">
-					<Run Text="Diagnostics mode is on." FontWeight="SemiBold" />
-					<Run Text="Packets go to" />
-					<Run Text="{Binding DiagnosticsFileName, Mode=OneWay}" />
-					<Run Text="and are deleted after 2 days." />
-				</TextBlock>
-				<Button Grid.Column="1" Classes="UiAction" Content="Turn off" Command="{Binding TurnOffDiagnosticsCommand}" />
-			</Grid>
-		</Border>
-		<WrapPanel Grid.Row="1" VerticalAlignment="Top" Margin="0,8,0,8">
-			<StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
-				<TextBlock Classes="UiLabel" Text="Search logs" />
-				<TextBox Classes="Filter"
-						 Text="{Binding FilterText}"
-						 Name="FilterBox"
-						 Width="250" />
-			</StackPanel>
-
-			<StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
-				<TextBlock Classes="UiLabel" Text="Rows" />
-				<ComboBox Classes="Filter"
-						  ItemsSource="{Binding AmountShownOptions}"
-						  SelectedItem="{Binding SelectedAmountShown}"
-						  Width="100" />
-			</StackPanel>
-
-			<StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
-				<TextBlock Classes="UiLabel" Text="Show" />
-				<ComboBox Classes="Filter"
-						  ItemsSource="{Binding LogVerbosityOptions}"
+		<controls:InfoBanner Grid.Row="0" Margin="0,8,0,0" IsVisible="{Binding IsDiagnosticsEnabled}"
+							 Title="Diagnostics mode is on"
+							 Message="{Binding DiagnosticsFileName, StringFormat='Packets go to {0} and are deleted after 2 days.'}">
+			<Button Classes="UiAction" Content="Turn off" Command="{Binding TurnOffDiagnosticsCommand}" />
+		</controls:InfoBanner>
+		<WrapPanel Grid.Row="1" VerticalAlignment="Top" Margin="0,8,0,0">
+			<controls:FilterField Label="Search logs">
+				<TextBox Text="{Binding FilterText}" Name="FilterBox" Width="230" />
+			</controls:FilterField>
+			<controls:FilterField Label="Rows">
+				<ComboBox ItemsSource="{Binding AmountShownOptions}" SelectedItem="{Binding SelectedAmountShown}" Width="100" />
+			</controls:FilterField>
+			<controls:FilterField Label="Show">
+				<ComboBox ItemsSource="{Binding LogVerbosityOptions}"
 						  SelectedItem="{Binding SelectedLogVerbosity}"
 						  ToolTip.Tip="Filters this list only. The log file always keeps Debug and up."
 						  Width="170">
@@ -62,7 +37,7 @@
 						</DataTemplate>
 					</ComboBox.ItemTemplate>
 				</ComboBox>
-			</StackPanel>
+			</controls:FilterField>
 		</WrapPanel>
 
 		<DataGrid Grid.Row="2" Margin="0" ItemsSource="{Binding Events}"
@@ -95,6 +70,8 @@
 				</DataGridTemplateColumn>
 			</DataGrid.Columns>
 		</DataGrid>
+		<controls:EmptyState Grid.Row="2" IsVisible="{Binding Events.Count, Converter={x:Static views:UiValueConverters.IsZero}}"
+							 Message="No log entries to show." Hint="Try another search, or show more levels." />
 	</Grid>
 
 </UserControl>

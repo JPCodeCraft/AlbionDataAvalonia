@@ -6,6 +6,7 @@ using System.Windows.Input;
 using AlbionDataAvalonia.Activity;
 using AlbionDataAvalonia.Activity.Models;
 using AlbionDataAvalonia.ViewModels;
+using AlbionDataAvalonia.Views.Controls;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
@@ -54,13 +55,13 @@ public sealed class ActivityLiveTimelineView : UserControl
         BorderBrush = new SolidColorBrush(Color.Parse("#626262")),
         BorderThickness = new Thickness(1)
     };
-    private readonly ActivitySegmentedSelector mode = new()
+    private readonly SegmentedSelector mode = new()
     {
         ItemsSource = new[] { new ActivityOption<ActivityTimelineChartMode>(ActivityTimelineChartMode.Combat, "Combat"),
             new(ActivityTimelineChartMode.Gathering, "Gathering"), new(ActivityTimelineChartMode.Fame, "Fame") },
         SelectedIndex = 0
     };
-    private readonly ActivitySegmentedSelector direction = new()
+    private readonly SegmentedSelector direction = new()
     {
         ItemsSource = new[] { new ActivityOption<bool>(false, "Dealt"), new ActivityOption<bool>(true, "Received") },
         SelectedIndex = 0

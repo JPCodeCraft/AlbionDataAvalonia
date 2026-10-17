@@ -132,6 +132,21 @@
         <Setter Property="BorderBrush" Value="{DynamicResource UiBorderSubtleBrush}" />
     </Style>
 
+    <!-- A chip that opens something, such as a run. Accent marks the live one. -->
+    <Style Selector="Button.UiChipButton">
+        <Setter Property="Background" Value="{DynamicResource UiSurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource UiBorderBrush}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource UiRadiusOverlay}" />
+        <Setter Property="Padding" Value="10,4" />
+    </Style>
+    <Style Selector="Button.UiChipButton.Accent">
+        <Setter Property="BorderBrush" Value="{DynamicResource UiAccentTextBrush}" />
+    </Style>
+    <Style Selector="Button.UiChipButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource UiInputBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource UiAccentTextBrush}" />
+    </Style>
+
     <!-- A card that opens something when clicked. -->
     <Style Selector="Button.UiCardButton">
         <Setter Property="Background" Value="{DynamicResource UiSurfaceSubtleBrush}" />

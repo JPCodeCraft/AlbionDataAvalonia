@@ -2,31 +2,15 @@
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
         xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
         xmlns:views="clr-namespace:AlbionDataAvalonia.Views"
+        xmlns:controls="using:AlbionDataAvalonia.Views.Controls"
         x:Class="AlbionDataAvalonia.Views.ActivityMapWindow" Classes="AppPage"
         x:DataType="vm:ActivityMapViewModel"
         Title="AFM Map" Icon="/Assets/logo.ico"
         Width="980" Height="700" MinWidth="560" MinHeight="420"
         WindowStartupLocation="CenterScreen"
         Background="{DynamicResource UiWindowBrush}">
-    <!-- Legend toggles and zoom buttons are drawn over the map. -->
+    <!-- Zoom buttons are drawn over the map. -->
     <Window.Styles>
-        <Style Selector="ToggleButton.Legend">
-            <Setter Property="Background" Value="Transparent" />
-            <Setter Property="BorderThickness" Value="0" />
-            <Setter Property="Padding" Value="4,2" />
-            <Setter Property="Margin" Value="0,0,8,0" />
-            <Setter Property="FontSize" Value="{DynamicResource UiFontSizeSmall}" />
-            <Setter Property="Opacity" Value="0.45" />
-        </Style>
-        <Style Selector="ToggleButton.Legend:checked">
-            <Setter Property="Opacity" Value="1" />
-        </Style>
-        <Style Selector="ToggleButton.Legend:checked /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="Transparent" />
-        </Style>
-        <Style Selector="ToggleButton.Legend:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="{DynamicResource UiHoverBrush}" />
-        </Style>
         <Style Selector="Button.MapTool">
             <Setter Property="Background" Value="{DynamicResource UiOverlayBrush}" />
             <Setter Property="FontSize" Value="{DynamicResource UiFontSizeSection}" />
@@ -36,7 +20,7 @@
     <Grid RowDefinitions="Auto,*,Auto">
         <Border BorderBrush="{DynamicResource UiDividerBrush}" BorderThickness="0,0,0,1" Padding="12,8,12,4">
             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-                <views:ActivitySegmentedSelector ItemsSource="{Binding ModeOptions}" SelectedIndex="{Binding SelectedModeIndex}"
+                <controls:SegmentedSelector ItemsSource="{Binding ModeOptions}" SelectedIndex="{Binding SelectedModeIndex}"
                                                  AutomationProperties.Name="Map mode" VerticalAlignment="Center" />
                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center" Margin="0,0,0,4">
                     <ComboBox ItemsSource="{Binding Runs}" SelectedItem="{Binding SelectedRun}" IsVisible="{Binding IsHistory}"
@@ -62,11 +46,11 @@
                     </StackPanel>
                 </StackPanel>
                 <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-                    <views:ActivitySegmentedSelector ItemsSource="{Binding ScopeOptions}" SelectedIndex="{Binding SelectedScopeIndex}"
+                    <controls:SegmentedSelector ItemsSource="{Binding ScopeOptions}" SelectedIndex="{Binding SelectedScopeIndex}"
                                                      AutomationProperties.Name="Events shown"
                                                      ToolTip.Tip="Personal shows your own events. Party adds your party's, with a light ring, placed where you were when the client saw them. The path is always yours." />
                     <TextBlock Text="Fade after" Classes="UiLabel" VerticalAlignment="Center" Margin="8,0,0,4" IsVisible="{Binding IsLive}" />
-                    <views:ActivitySegmentedSelector ItemsSource="{Binding FadeOptions}" SelectedIndex="{Binding SelectedFadeIndex}"
+                    <controls:SegmentedSelector ItemsSource="{Binding FadeOptions}" SelectedIndex="{Binding SelectedFadeIndex}"
                                                      AutomationProperties.Name="Fade path and events after" IsVisible="{Binding IsLive}" />
                 </StackPanel>
             </Grid>
@@ -92,7 +76,7 @@
 
             <Border Classes="UiOverlay" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="12" Padding="6,4">
                 <WrapPanel MaxWidth="560">
-                    <ToggleButton Classes="Legend" IsChecked="{Binding ShowPath}" ToolTip.Tip="Show or hide your path">
+                    <ToggleButton Classes="UiLegend" IsChecked="{Binding ShowPath}" ToolTip.Tip="Show or hide your path">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <Border Width="16" Height="4" CornerRadius="2" VerticalAlignment="Center">
                                 <Border.Background>
@@ -105,31 +89,31 @@
                             <TextBlock Text="Path" />
                         </StackPanel>
                     </ToggleButton>
-                    <ToggleButton Classes="Legend" IsChecked="{Binding ShowKills}" ToolTip.Tip="Mobs and players killed">
+                    <ToggleButton Classes="UiLegend" IsChecked="{Binding ShowKills}" ToolTip.Tip="Mobs and players killed">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <Path Data="M5,0 L10,5 L5,10 L0,5 Z" Fill="{DynamicResource UiActivityKillBrush}" Stroke="{DynamicResource UiMarkerOutlineBrush}" StrokeThickness="1" VerticalAlignment="Center" />
                             <TextBlock Text="Kills" />
                         </StackPanel>
                     </ToggleButton>
-                    <ToggleButton Classes="Legend" IsChecked="{Binding ShowLoot}" ToolTip.Tip="Items picked up">
+                    <ToggleButton Classes="UiLegend" IsChecked="{Binding ShowLoot}" ToolTip.Tip="Items picked up">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <Ellipse Width="9" Height="9" Fill="{DynamicResource UiActivityLootBrush}" Stroke="{DynamicResource UiMarkerOutlineBrush}" StrokeThickness="1" VerticalAlignment="Center" />
                             <TextBlock Text="Loot" />
                         </StackPanel>
                     </ToggleButton>
-                    <ToggleButton Classes="Legend" IsChecked="{Binding ShowGathering}" ToolTip.Tip="Resources gathered and fish caught">
+                    <ToggleButton Classes="UiLegend" IsChecked="{Binding ShowGathering}" ToolTip.Tip="Resources gathered and fish caught">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <Path Data="M5,0 L10,9 L0,9 Z" Fill="{DynamicResource UiActivityGatheringBrush}" Stroke="{DynamicResource UiMarkerOutlineBrush}" StrokeThickness="1" VerticalAlignment="Center" />
                             <TextBlock Text="Gathering" />
                         </StackPanel>
                     </ToggleButton>
-                    <ToggleButton Classes="Legend" IsChecked="{Binding ShowDeaths}" ToolTip.Tip="Deaths and knockdowns">
+                    <ToggleButton Classes="UiLegend" IsChecked="{Binding ShowDeaths}" ToolTip.Tip="Deaths and knockdowns">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <Path Data="M1,1 L9,9 M9,1 L1,9" Stroke="{DynamicResource UiActivityDeathBrush}" StrokeThickness="2" VerticalAlignment="Center" />
                             <TextBlock Text="Deaths" />
                         </StackPanel>
                     </ToggleButton>
-                    <ToggleButton Classes="Legend" IsChecked="{Binding ShowFeatures}" ToolTip.Tip="Zone exits and the game's minimap icons">
+                    <ToggleButton Classes="UiLegend" IsChecked="{Binding ShowFeatures}" ToolTip.Tip="Zone exits and the game's minimap icons">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <Ellipse Width="9" Height="9" Fill="{DynamicResource UiMapExitBrush}" Stroke="{DynamicResource UiMarkerOutlineBrush}" StrokeThickness="1" VerticalAlignment="Center" />
                             <TextBlock Text="Exits &amp; icons" />

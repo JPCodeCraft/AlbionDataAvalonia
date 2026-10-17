@@ -73,6 +73,45 @@
         <Setter Property="OffContent" Value="" />
         <Setter Property="MinWidth" Value="0" />
         <Setter Property="VerticalAlignment" Value="Center" />
-        <Setter Property="Margin" Value="12,0,0,0" />
+    </Style>
+    <!-- A wrapping list of chips with one selected, such as the runs of a session. -->
+    <Style Selector="ListBox.UiChipList">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="0" />
+    </Style>
+    <Style Selector="ListBox.UiChipList ListBoxItem">
+        <Setter Property="Background" Value="{DynamicResource UiSurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource UiBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{DynamicResource UiRadiusOverlay}" />
+        <Setter Property="Padding" Value="10,4" />
+        <Setter Property="Margin" Value="0,0,6,6" />
+        <Setter Property="MinHeight" Value="0" />
+    </Style>
+    <Style Selector="ListBox.UiChipList ListBoxItem:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource UiInputBrush}" />
+    </Style>
+    <Style Selector="ListBox.UiChipList ListBoxItem:selected /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource UiSelectedBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource UiAccentTextBrush}" />
+    </Style>
+    <!-- A legend entry that shows or hides its layer; unchecked entries fade. -->
+    <Style Selector="ToggleButton.UiLegend">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="4,2" />
+        <Setter Property="Margin" Value="0,0,8,0" />
+        <Setter Property="FontSize" Value="{DynamicResource UiFontSizeSmall}" />
+        <Setter Property="Opacity" Value="0.45" />
+    </Style>
+    <Style Selector="ToggleButton.UiLegend:checked">
+        <Setter Property="Opacity" Value="1" />
+    </Style>
+    <Style Selector="ToggleButton.UiLegend:checked /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector="ToggleButton.UiLegend:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource UiHoverBrush}" />
     </Style>
 </Styles>

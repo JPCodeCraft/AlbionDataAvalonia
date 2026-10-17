@@ -2,6 +2,7 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
              xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
              xmlns:views="clr-namespace:AlbionDataAvalonia.Views"
+             xmlns:controls="using:AlbionDataAvalonia.Views.Controls"
              x:Class="AlbionDataAvalonia.Views.ActivityStreamerView"
              x:DataType="vm:ActivityStreamerViewModel">
     <UserControl.Resources>
@@ -48,14 +49,12 @@
         <Style Selector="TextBlock.StreamerLabel"><Setter Property="FontSize" Value="{DynamicResource UiFontSizeSmall}" /><Setter Property="Foreground" Value="{DynamicResource UiTextSecondaryBrush}" /></Style>
         <Style Selector="TextBlock.StreamerValue"><Setter Property="FontSize" Value="{DynamicResource UiFontSizeSection}" /><Setter Property="FontWeight" Value="SemiBold" /></Style>
         <Style Selector="TextBlock.StreamerSilver"><Setter Property="FontSize" Value="{DynamicResource UiFontSizeHeading}" /><Setter Property="FontWeight" Value="SemiBold" /><Setter Property="Foreground" Value="{DynamicResource UiAccentTextBrush}" /></Style>
-        <Style Selector="StackPanel.Large TextBlock.StreamerValue"><Setter Property="FontSize" Value="{DynamicResource UiFontSizeTitle}" /></Style>
-        <Style Selector="StackPanel.Large TextBlock.StreamerSilver"><Setter Property="FontSize" Value="{DynamicResource UiFontSizeValueLarge}" /></Style>
         <Style Selector="Grid.StreamerRow TextBlock.StreamerLabel"><Setter Property="VerticalAlignment" Value="Center" /></Style>
         <Style Selector="Grid.StreamerRow TextBlock.StreamerValue"><Setter Property="Margin" Value="10,0" /></Style>
         <Style Selector="Grid.StreamerRow TextBlock.StreamerSilver"><Setter Property="FontSize" Value="{DynamicResource UiFontSizeTitle}" /><Setter Property="Margin" Value="10,0" /></Style>
         <Style Selector="TextBlock"><Setter Property="TextTrimming" Value="CharacterEllipsis" /></Style>
     </UserControl.Styles>
-    <StackPanel Margin="8" Spacing="6" Classes.Large="{Binding IsLarge}">
+    <StackPanel Margin="8" Spacing="6">
         <!-- Small: one card with the headline numbers only. -->
         <Border Classes="StreamerCard" IsVisible="{Binding IsSmall}">
             <StackPanel Spacing="3" Grid.IsSharedSizeScope="True">
@@ -106,8 +105,10 @@
             <Border Classes="StreamerCard" IsVisible="{Binding Settings.StreamerShowSilver}">
                 <StackPanel Spacing="2">
                     <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                        <StackPanel><TextBlock Text="Total silver" Classes="StreamerLabel" /><TextBlock Text="{Binding Summary.TotalSilver}" Classes="StreamerSilver" /></StackPanel>
-                        <StackPanel Grid.Column="1"><TextBlock Text="Silver / hour" Classes="StreamerLabel" /><TextBlock Text="{Binding Summary.TotalSilverPerHour}" Classes="StreamerSilver" /></StackPanel>
+                        <controls:StatTile Classes="Accent Compact" Classes.Heading="{Binding !IsLarge}" Classes.Large="{Binding IsLarge}"
+                                           Label="Total silver" Value="{Binding Summary.TotalSilver}" />
+                        <controls:StatTile Grid.Column="1" Classes="Accent Compact" Classes.Heading="{Binding !IsLarge}" Classes.Large="{Binding IsLarge}"
+                                           Label="Silver / hour" Value="{Binding Summary.TotalSilverPerHour}" />
                     </Grid>
                     <TextBlock Text="{Binding SilverBreakdownText}" Classes="StreamerLabel" IsVisible="{Binding IsLarge}" />
                 </StackPanel>
@@ -116,8 +117,10 @@
             <Border Classes="StreamerCard" IsVisible="{Binding Settings.StreamerShowCombat}">
                 <StackPanel Spacing="2">
                     <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                        <StackPanel><TextBlock Text="Damage dealt" Classes="StreamerLabel" /><TextBlock Text="{Binding Summary.DamageDealt}" Classes="StreamerValue" /><TextBlock Text="{Binding Summary.DamageRate}" Classes="StreamerLabel" /></StackPanel>
-                        <StackPanel Grid.Column="1"><TextBlock Text="Combat fame" Classes="StreamerLabel" /><TextBlock Text="{Binding Summary.CombatFame}" Classes="StreamerValue" /><TextBlock Text="{Binding Summary.CombatFameRate}" Classes="StreamerLabel" /></StackPanel>
+                        <controls:StatTile Classes="Compact" Classes.Small="{Binding !IsLarge}"
+                                           Label="Damage dealt" Value="{Binding Summary.DamageDealt}" Detail="{Binding Summary.DamageRate}" />
+                        <controls:StatTile Grid.Column="1" Classes="Compact" Classes.Small="{Binding !IsLarge}"
+                                           Label="Combat fame" Value="{Binding Summary.CombatFame}" Detail="{Binding Summary.CombatFameRate}" />
                     </Grid>
                     <TextBlock Text="{Binding KillsText}" Classes="StreamerLabel" IsVisible="{Binding IsLarge}" />
                 </StackPanel>
@@ -126,8 +129,10 @@
             <Border Classes="StreamerCard" IsVisible="{Binding Settings.StreamerShowGathering}">
                 <StackPanel Spacing="2">
                     <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
-                        <StackPanel><TextBlock Text="Gathering EMV" Classes="StreamerLabel" /><TextBlock Text="{Binding Summary.ResourceValueText}" Classes="StreamerValue" /><TextBlock Text="{Binding Summary.ResourceItemsText}" Classes="StreamerLabel" /></StackPanel>
-                        <StackPanel Grid.Column="1"><TextBlock Text="Gathering fame" Classes="StreamerLabel" /><TextBlock Text="{Binding Summary.GatheringFame}" Classes="StreamerValue" /><TextBlock Text="{Binding Summary.GatheringFameRate}" Classes="StreamerLabel" /></StackPanel>
+                        <controls:StatTile Classes="Compact" Classes.Small="{Binding !IsLarge}"
+                                           Label="Gathering EMV" Value="{Binding Summary.ResourceValueText}" Detail="{Binding Summary.ResourceItemsText}" />
+                        <controls:StatTile Grid.Column="1" Classes="Compact" Classes.Small="{Binding !IsLarge}"
+                                           Label="Gathering fame" Value="{Binding Summary.GatheringFame}" Detail="{Binding Summary.GatheringFameRate}" />
                     </Grid>
                     <TextBlock Text="{Binding Summary.ResourceRateText}" Classes="StreamerLabel" IsVisible="{Binding IsLarge}" />
                 </StackPanel>

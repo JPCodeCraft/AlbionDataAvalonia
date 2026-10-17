@@ -66,14 +66,5 @@ namespace AlbionDataAvalonia.Views
                 Log.Error(error, "Could not delete the selected stored data.");
             }
         }
-
-        private void RemoveSharedUserButton_Click(object? sender, RoutedEventArgs e)
-        {
-            if (DataContext is not SettingsViewModel vm) return;
-            if (sender is not Button button) return;
-            if (button.Tag is not PrivateOrderShareEntryViewModel entry) return;
-
-            vm.RemoveSharedUserCommand.Execute(entry);
-        }
     }
 }
