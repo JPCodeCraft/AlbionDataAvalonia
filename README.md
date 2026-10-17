@@ -30,6 +30,7 @@ An alternative client for [The Albion Online Data Project](https://www.albion-on
 | Market Data Collection | Captures in-game market data and uploads to AODP servers                       |
 | Trade History          | Stores instant buy/sell trades and completed market orders read from your mails, including order size |
 | Activity Tracker       | Saves sessions containing combat encounters, gathering, fishing, loot, silver, observed fame, and participated mob deaths, with where each happened and the path you walked |
+| Activity Map           | Live map of your current zone with your path, kills, loot and gathering fading over time, zone exits and minimap icons, plus a replay of past runs |
 | Enhanced Capture       | Captures data from loadout's quick buy screen, market screens, and gold screen |
 | Specs Capture          | Uploads character specs for use with AFM website                               |
 | Farming Tracker        | Privately records island plots, farming inputs/outputs, focus usage, and observed EMV for your AFM account |

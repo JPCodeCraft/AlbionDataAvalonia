@@ -6,6 +6,7 @@ using AlbionDataAvalonia.Items;
 using AlbionDataAvalonia.Items.Services;
 using AlbionDataAvalonia.Locations;
 using AlbionDataAvalonia.Logging;
+using AlbionDataAvalonia.Maps;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Party;
 using AlbionDataAvalonia.Players;
@@ -300,6 +301,7 @@ public partial class App : Application
         {
             vm.CompleteInitialization();
             services.GetRequiredService<ActivityStreamerWindowService>().RestoreIfOpen();
+            services.GetRequiredService<ActivityMapWindowService>().RestoreIfOpen();
             Log.Information("Startup initialization completed in {ElapsedMilliseconds} ms", startupStopwatch.ElapsedMilliseconds);
         }
     }
@@ -544,6 +546,8 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<ActivityItemValuationService>();
         collection.AddSingleton<ActivityTrackerService>();
         collection.AddSingleton<ActivityStreamerWindowService>();
+        collection.AddSingleton<MapDataService>();
+        collection.AddSingleton<ActivityMapWindowService>();
         collection.AddSingleton<LegendaryDefinitionsService>();
         collection.AddSingleton<LegendaryItemTrackerService>();
         collection.AddSingleton<LegendarySaleService>();

@@ -1006,6 +1006,7 @@ public sealed partial class ActivityTrackerService : IDisposable
     private void Persist(ActivityEvent value)
     {
         if (value.PositionX is not null && !IsPlaced(value.Kind)) value = value with { PositionX = null, PositionY = null };
+        TrackLiveMarker(value);
         if (!persistence.Create(value)) { storageSuspended = true; gathering.Reset(); fameCollector.Reset(); }
         if (session is not null && value.SessionId == session.Id)
         {

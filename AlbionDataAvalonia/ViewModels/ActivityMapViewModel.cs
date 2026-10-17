@@ -1,0 +1,557 @@
+using AlbionDataAvalonia.Activity;
+using AlbionDataAvalonia.Activity.Models;
+using AlbionDataAvalonia.Maps;
+using AlbionDataAvalonia.Settings;
+using AlbionDataAvalonia.Views;
+using Avalonia.Media;
+using Avalonia.Media.Imaging;
+using Avalonia.Threading;
+using CommunityToolkit.Mvvm.ComponentModel;
+using CommunityToolkit.Mvvm.Input;
+using Serilog;
+using System;
+using System.Collections.Generic;
+using System.Globalization;
+using System.Linq;
+using System.Net.Http;
+using System.Text.Json;
+using System.Threading;
+using System.Threading.Tasks;
+
+namespace AlbionDataAvalonia.ViewModels;
+
+public sealed record ActivityMapRunOption(Guid Id, string Label);
+
+public sealed record ActivityMapRunMapOption(string RawMapId, string Label, DateTime StartUtc, DateTime EndUtc,
+    IReadOnlyList<ActivityPathPoint> Points, IReadOnlyList<ActivityMapMarker> Markers);
+
+/// <summary>Feeds the map window: the live map follows the tracker; history replays one recorded run.</summary>
+public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
+{
+    private const double TimelineMax = 1000;
+    private static readonly TimeSpan ReplayLength = TimeSpan.FromSeconds(20);
+    private static readonly TimeSpan FadeRefresh = TimeSpan.FromSeconds(1);
+    // Without a minimap, the path is shown on a grid at least this many units across.
+    private const double MinimumFallbackSize = 160;
+    private static readonly IBrush BlueZone = new SolidColorBrush(Color.Parse("#4A90E2"));
+    private static readonly IBrush YellowZone = new SolidColorBrush(Color.Parse("#F2C94C"));
+    private static readonly IBrush RedZone = new SolidColorBrush(Color.Parse("#E05555"));
+    private static readonly IBrush BlackZone = new SolidColorBrush(Color.Parse("#2B2B2B"));
+    private static readonly IBrush OtherZone = new SolidColorBrush(Color.Parse("#B0B0B0"));
+    internal static readonly IBrush KillBrush = new SolidColorBrush(ActivityMapCanvas.KillColor);
+    internal static readonly IBrush LootBrush = new SolidColorBrush(ActivityMapCanvas.LootColor);
+    internal static readonly IBrush GatheringBrush = new SolidColorBrush(ActivityMapCanvas.GatheringColor);
+    internal static readonly IBrush DeathBrush = new SolidColorBrush(ActivityMapCanvas.DeathColor);
+
+    private readonly ActivityTrackerService tracker;
+    private readonly ActivityPersistence persistence;
+    private readonly MapDataService maps;
+    private readonly UserSettings settings;
+    private readonly DispatcherTimer liveTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
+    private readonly DispatcherTimer replayTimer = new() { Interval = TimeSpan.FromMilliseconds(50) };
+    private ActivityLiveMap live = ActivityLiveMap.Empty;
+    private long liveVersion = -1;
+    private DateTime liveRenderedAt;
+    private ZoneView? liveZone;
+    private string liveZoneRequest = "";
+    private (double MinX, double MinY, double MaxX, double MaxY)? liveFallbackBounds;
+    private ActivityRunMap? runMap;
+    private ZoneView? historyZone;
+    private Guid? requestedRunId;
+    private bool runsLoaded;
+    private bool disposed;
+    private int loadVersion;
+
+    public ActivityMapViewModel(ActivityTrackerService tracker, ActivityPersistence persistence, MapDataService maps, UserSettings settings)
+    {
+        this.tracker = tracker;
+        this.persistence = persistence;
+        this.maps = maps;
+        this.settings = settings;
+        selectedFadeIndex = Math.Max(0, Array.FindIndex(FadeOptionValues, x => x == settings.MapFadeMinutes));
+        if (FadeOptionValues[selectedFadeIndex] != settings.MapFadeMinutes) selectedFadeIndex = 1;
+        liveTimer.Tick += (_, _) => RefreshLive();
+        replayTimer.Tick += (_, _) => AdvanceReplay();
+    }
+
+    private static readonly int[] FadeOptionValues = [1, 5, 15, 0];
+    public IReadOnlyList<ActivityOption<int>> ModeOptions { get; } = [new(0, "Live"), new(1, "History")];
+    public IReadOnlyList<ActivityOption<int>> FadeOptions { get; } = [new(1, "1 min"), new(5, "5 min"), new(15, "15 min"), new(0, "Never")];
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(IsLive), nameof(IsHistory), nameof(ShowFollow))]
+    private int selectedModeIndex;
+
+    [ObservableProperty] private int selectedFadeIndex;
+    [ObservableProperty] private bool follow = true;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowFollow))]
+    private ActivityMapScene? scene;
+    [ObservableProperty] private string title = "Map";
+    [ObservableProperty] private string subtitle = "";
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasNote))]
+    private string note = "";
+
+    [ObservableProperty] private bool showPath = true;
+    [ObservableProperty] private bool showKills = true;
+    [ObservableProperty] private bool showLoot = true;
+    [ObservableProperty] private bool showGathering = true;
+    [ObservableProperty] private bool showDeaths = true;
+    [ObservableProperty] private bool showFeatures = true;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasRuns))]
+    private IReadOnlyList<ActivityMapRunOption> runs = [];
+
+    [ObservableProperty] private ActivityMapRunOption? selectedRun;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasMultipleRunMaps))]
+    private IReadOnlyList<ActivityMapRunMapOption> runMaps = [];
+
+    [ObservableProperty] private ActivityMapRunMapOption? selectedRunMap;
+    [ObservableProperty] private double timelineValue = TimelineMax;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(PlayButtonText))]
+    private bool isPlaying;
+
+    [ObservableProperty] private string timelineStartText = "";
+    [ObservableProperty] private string timelineEndText = "";
+    [ObservableProperty] private string timelineNowText = "";
+    [ObservableProperty] private string runSummaryText = "";
+    [ObservableProperty] private IReadOnlyList<ActivityMapTick> ticks = [];
+
+    public bool IsLive => SelectedModeIndex == 0;
+    public bool IsHistory => SelectedModeIndex == 1;
+    public bool ShowFollow => IsLive && Scene?.Position is not null;
+    public bool HasNote => !string.IsNullOrEmpty(Note);
+    public bool HasRuns => Runs.Count > 0;
+    public bool HasMultipleRunMaps => RunMaps.Count > 1;
+    public string PlayButtonText => IsPlaying ? "❚❚" : "▶";
+    public double TimelineMaximum => TimelineMax;
+    public IBrush KillLegendBrush => KillBrush;
+    public IBrush LootLegendBrush => LootBrush;
+    public IBrush GatheringLegendBrush => GatheringBrush;
+    public IBrush DeathLegendBrush => DeathBrush;
+
+    private ActivityMapLayers Layers =>
+        (ShowPath ? ActivityMapLayers.Path : 0) | (ShowKills ? ActivityMapLayers.Kills : 0) | (ShowLoot ? ActivityMapLayers.Loot : 0)
+        | (ShowGathering ? ActivityMapLayers.Gathering : 0) | (ShowDeaths ? ActivityMapLayers.Deaths : 0) | (ShowFeatures ? ActivityMapLayers.Features : 0);
+
+    private double FadeSeconds => FadeOptionValues[Math.Clamp(SelectedFadeIndex, 0, FadeOptionValues.Length - 1)] * 60d;
+
+    public void Start()
+    {
+        liveTimer.Start();
+        RefreshLive();
+    }
+
+    /// <summary>Opens history on a run, for "Show on map" in the Activity tab.</summary>
+    public void ShowRun(Guid runId)
+    {
+        requestedRunId = runId;
+        runsLoaded = false;
+        if (IsHistory) _ = LoadRunsAsync();
+        else SelectedModeIndex = 1;
+    }
+
+    partial void OnSelectedModeIndexChanged(int value)
+    {
+        StopReplay();
+        if (IsHistory && !runsLoaded) _ = LoadRunsAsync();
+        Rebuild();
+    }
+
+    partial void OnSelectedFadeIndexChanged(int value)
+    {
+        settings.MapFadeMinutes = FadeOptionValues[Math.Clamp(value, 0, FadeOptionValues.Length - 1)];
+        Rebuild();
+    }
+
+    partial void OnShowPathChanged(bool value) => Rebuild();
+    partial void OnShowKillsChanged(bool value) => Rebuild();
+    partial void OnShowLootChanged(bool value) => Rebuild();
+    partial void OnShowGatheringChanged(bool value) => Rebuild();
+    partial void OnShowDeathsChanged(bool value) => Rebuild();
+    partial void OnShowFeaturesChanged(bool value) => Rebuild();
+
+    partial void OnSelectedRunChanged(ActivityMapRunOption? value)
+    {
+        StopReplay();
+        if (value is not null) _ = LoadRunAsync(value.Id);
+    }
+
+    partial void OnSelectedRunMapChanged(ActivityMapRunMapOption? value)
+    {
+        StopReplay();
+        if (value is not null) _ = LoadHistoryZoneAsync(value);
+    }
+
+    partial void OnTimelineValueChanged(double value)
+    {
+        if (IsHistory) RebuildHistory();
+    }
+
+    [RelayCommand]
+    private void TogglePlay()
+    {
+        if (IsPlaying)
+        {
+            StopReplay();
+            return;
+        }
+
+        if (SelectedRunMap is null) return;
+        if (TimelineValue >= TimelineMax) TimelineValue = 0;
+        IsPlaying = true;
+        replayTimer.Start();
+    }
+
+    [RelayCommand]
+    private void FollowMe() => Follow = true;
+
+    private void AdvanceReplay()
+    {
+        var next = TimelineValue + TimelineMax * replayTimer.Interval.TotalSeconds / ReplayLength.TotalSeconds;
+        TimelineValue = Math.Min(TimelineMax, next);
+        if (TimelineValue >= TimelineMax) StopReplay();
+    }
+
+    private void StopReplay()
+    {
+        replayTimer.Stop();
+        IsPlaying = false;
+    }
+
+    private void Rebuild()
+    {
+        if (IsLive) RebuildLive();
+        else RebuildHistory();
+    }
+
+    private void RefreshLive()
+    {
+        if (disposed || !IsLive) return;
+        var version = tracker.LiveMapVersion;
+        if (version != liveVersion)
+        {
+            liveVersion = version;
+            live = tracker.GetLiveMap();
+            if (live.RawMapId != liveZoneRequest)
+            {
+                liveZoneRequest = live.RawMapId;
+                liveZone = null;
+                liveFallbackBounds = null;
+                if (live.RawMapId.Length > 0) _ = LoadLiveZoneAsync(live.RawMapId, live.MapName);
+            }
+
+            RebuildLive();
+        }
+        // Fading moves on even when nothing new happens.
+        else if (FadeSeconds > 0 && DateTime.UtcNow - liveRenderedAt >= FadeRefresh) RebuildLive();
+    }
+
+    private async Task LoadLiveZoneAsync(string rawMapId, string mapName)
+    {
+        var view = await LoadZoneAsync(rawMapId, mapName);
+        if (disposed || rawMapId != liveZoneRequest) return;
+        liveZone = view;
+        RebuildLive();
+    }
+
+    private void RebuildLive()
+    {
+        if (!IsLive) return;
+        liveRenderedAt = DateTime.UtcNow;
+        var zone = liveZone is { } view && view.RawMapId == live.RawMapId ? view : null;
+        Title = zone?.Title ?? (string.IsNullOrWhiteSpace(live.MapName) ? "Map" : live.MapName);
+        Subtitle = zone?.Subtitle ?? "";
+        if (live.RawMapId.Length == 0)
+        {
+            Note = "Waiting for the game. The map follows you once you enter a zone.";
+            Scene = null;
+            return;
+        }
+
+        var geometry = zone?.Geometry ?? LiveFallbackGeometry();
+        Note = live.Position is null ? "Waiting for your position. Take a few steps in game."
+            : zone is { Failed: true } ? "Couldn't load map data. Check your connection; your path still shows."
+            : zone is { Zone: null } ? "No map image for this zone. Showing your path only."
+            : "";
+        if (geometry is null)
+        {
+            Scene = null;
+            return;
+        }
+
+        Scene = new ActivityMapScene($"live:{live.RawMapId}:{zone?.Zone?.Id}", geometry, zone?.Image, live.Trail, live.Markers,
+            zone?.Exits ?? [], zone?.Icons ?? [], live.Position, live.Heading, true, DateTime.UtcNow, FadeSeconds, null, null, Layers);
+    }
+
+    // Grows with the path so the view stays steady while walking a zone without a minimap.
+    private MapImageGeometry? LiveFallbackGeometry()
+    {
+        var points = live.Trail.Select(x => (x.X, x.Y)).Concat(live.Markers.Select(x => (x.X, x.Y))).ToArray();
+        if (points.Length == 0) return null;
+        var bounds = (MinX: points.Min(x => x.X), MinY: points.Min(x => x.Y), MaxX: points.Max(x => x.X), MaxY: points.Max(x => x.Y));
+        if (liveFallbackBounds is { } known)
+            bounds = (Math.Min(known.MinX, bounds.MinX), Math.Min(known.MinY, bounds.MinY), Math.Max(known.MaxX, bounds.MaxX), Math.Max(known.MaxY, bounds.MaxY));
+        liveFallbackBounds = bounds;
+        return FallbackGeometry(bounds);
+    }
+
+    private static MapImageGeometry? FallbackGeometry((double MinX, double MinY, double MaxX, double MaxY) bounds)
+    {
+        var centerX = (bounds.MinX + bounds.MaxX) / 2;
+        var centerY = (bounds.MinY + bounds.MaxY) / 2;
+        var half = Math.Max(MinimumFallbackSize, Math.Max(bounds.MaxX - bounds.MinX, bounds.MaxY - bounds.MinY) + 60) / 2;
+        return MapImageGeometry.From(new(centerX - half, centerY - half), new(centerX + half, centerY + half));
+    }
+
+    private async Task LoadRunsAsync()
+    {
+        var version = ++loadVersion;
+        try
+        {
+            var mapped = await persistence.GetMappedRunsAsync();
+            if (disposed || version != loadVersion) return;
+            runsLoaded = true;
+            var requested = requestedRunId;
+            var options = mapped.Select(x => new ActivityMapRunOption(x.Id, RunLabel(x))).ToList();
+            // A run shown from the Activity tab is listed even if it recorded no positions yet.
+            if (requested is { } id && options.All(x => x.Id != id) && await persistence.GetSessionAsync(id) is { } run)
+                options.Insert(0, new ActivityMapRunOption(run.Id, RunLabel(run)));
+            if (disposed || version != loadVersion) return;
+            Runs = options;
+            requestedRunId = null;
+            SelectedRun = options.FirstOrDefault(x => x.Id == requested) ?? options.FirstOrDefault();
+            if (SelectedRun is null)
+            {
+                Note = "No runs with positions yet. Runs record your path from now on.";
+                Scene = null;
+            }
+        }
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            Log.Warning(error, "Could not load runs for the map.");
+            Note = "Couldn't load your runs. Try again.";
+        }
+    }
+
+    private async Task LoadRunAsync(Guid runId)
+    {
+        var version = ++loadVersion;
+        try
+        {
+            var loaded = await persistence.GetRunMapAsync(runId);
+            if (disposed || version != loadVersion) return;
+            runMap = loaded;
+            historyZone = null;
+            if (loaded is null)
+            {
+                RunMaps = [];
+                SelectedRunMap = null;
+                Note = "This run no longer exists.";
+                Scene = null;
+                return;
+            }
+
+            var names = VisitNames(loaded.Run);
+            var points = loaded.Segments.SelectMany(x => x.ReadPoints().Select(point => (x.RawMapId, Point: point)))
+                .GroupBy(x => x.RawMapId).ToDictionary(x => x.Key, x => (IReadOnlyList<ActivityPathPoint>)x.Select(y => y.Point).OrderBy(y => y.CapturedAtUtc).ToArray());
+            var markers = loaded.Markers.GroupBy(x => x.RawMapId).ToDictionary(x => x.Key, x => (IReadOnlyList<ActivityMapMarker>)x.ToArray());
+            var options = points.Keys.Union(markers.Keys).Select(id =>
+            {
+                var path = points.GetValueOrDefault(id) ?? [];
+                var placed = markers.GetValueOrDefault(id) ?? [];
+                var times = path.Select(x => x.CapturedAtUtc).Concat(placed.Select(x => x.CapturedAtUtc)).ToArray();
+                return new ActivityMapRunMapOption(id, names.GetValueOrDefault(id) ?? loaded.Run.LocationName, times.Min(), times.Max(), path, placed);
+            }).OrderBy(x => x.StartUtc).ToArray();
+            RunMaps = options;
+            RunSummaryText = RunSummary(loaded, options);
+            SelectedRunMap = options.FirstOrDefault();
+            if (SelectedRunMap is null)
+            {
+                Note = "This run recorded no positions. Runs record your path from now on.";
+                Scene = null;
+            }
+        }
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            Log.Warning(error, "Could not load the run map.");
+            Note = "Couldn't load this run. Try again.";
+        }
+    }
+
+    private async Task LoadHistoryZoneAsync(ActivityMapRunMapOption option)
+    {
+        historyZone = null;
+        TimelineStartText = option.StartUtc.ToLocalTime().ToString("t", CultureInfo.CurrentCulture);
+        TimelineEndText = option.EndUtc.ToLocalTime().ToString("t", CultureInfo.CurrentCulture);
+        var span = Math.Max(1, (option.EndUtc - option.StartUtc).TotalSeconds);
+        Ticks = option.Markers.Select(x => new ActivityMapTick(Math.Clamp((x.CapturedAtUtc - option.StartUtc).TotalSeconds / span, 0, 1), x.Kind switch
+        {
+            ActivityMapMarkerKind.Kill => KillBrush,
+            ActivityMapMarkerKind.Loot => LootBrush,
+            ActivityMapMarkerKind.Gathering => GatheringBrush,
+            _ => DeathBrush
+        })).ToArray();
+        TimelineValue = TimelineMax;
+        RebuildHistory();
+        var view = await LoadZoneAsync(option.RawMapId, option.Label);
+        if (disposed || SelectedRunMap != option) return;
+        historyZone = view;
+        RebuildHistory();
+    }
+
+    private void RebuildHistory()
+    {
+        if (!IsHistory) return;
+        if (runMap is null || SelectedRunMap is not { } option)
+        {
+            Title = "History";
+            Subtitle = "";
+            Scene = null;
+            return;
+        }
+
+        var zone = historyZone is { } view && view.RawMapId == option.RawMapId ? view : null;
+        Title = zone?.Title ?? option.Label;
+        Subtitle = zone?.Subtitle ?? "";
+        var until = TimelineValue >= TimelineMax ? (DateTime?)null
+            : option.StartUtc + TimeSpan.FromSeconds((option.EndUtc - option.StartUtc).TotalSeconds * TimelineValue / TimelineMax);
+        TimelineNowText = until is { } moment ? moment.ToLocalTime().ToString("T", CultureInfo.CurrentCulture) : "";
+        var points = option.Points.Select(x => (x.X, x.Y)).Concat(option.Markers.Select(x => (x.X, x.Y))).ToArray();
+        var geometry = zone?.Geometry ?? (points.Length == 0 ? null
+            : FallbackGeometry((points.Min(x => x.X), points.Min(x => x.Y), points.Max(x => x.X), points.Max(x => x.Y))));
+        Note = zone is { Failed: true } ? "Couldn't load map data. Check your connection; your path still shows."
+            : zone is { Zone: null } ? "No map image for this zone. Showing your path only."
+            : "";
+        if (geometry is null)
+        {
+            Scene = null;
+            return;
+        }
+
+        Scene = new ActivityMapScene($"history:{runMap.Run.Id}:{option.RawMapId}:{zone?.Zone?.Id}", geometry, zone?.Image, option.Points,
+            option.Markers, zone?.Exits ?? [], zone?.Icons ?? [], null, null, false, DateTime.UtcNow, 0, option.StartUtc, until, Layers);
+    }
+
+    private async Task<ZoneView> LoadZoneAsync(string rawMapId, string fallbackName)
+    {
+        try
+        {
+            var zone = await maps.FindZoneAsync(rawMapId);
+            if (zone is null) return new ZoneView(rawMapId, null, null, [], [], fallbackName, "", null, false);
+            var imageTask = maps.GetImageAsync(zone);
+            var iconsTask = maps.GetIconsAsync(zone);
+            var exits = new List<ActivityMapExit>();
+            foreach (var exit in zone.Exits)
+            {
+                var target = await maps.ZoneAsync(exit.TargetId);
+                exits.Add(new ActivityMapExit(exit.Position, $"To {target?.DisplayName ?? exit.TargetId}", ZoneBrush(target?.PvpCategory)));
+            }
+
+            var icons = await iconsTask;
+            var iconImages = new Dictionary<string, Bitmap?>();
+            foreach (var type in icons.Select(x => x.MarkerType).Distinct()) iconImages[type] = await maps.GetIconImageAsync(type);
+            var image = await imageTask;
+            return new ZoneView(rawMapId, zone, image, exits, icons.Select(x => new ActivityMapIcon(x.Position, x.Label, iconImages.GetValueOrDefault(x.MarkerType), x.Scale)).ToArray(),
+                zone.DisplayName, ZoneDescription(zone), zone.Geometry, image is null);
+        }
+        catch (Exception error) when (error is HttpRequestException or TaskCanceledException or System.IO.IOException or JsonException)
+        {
+            Log.Warning(error, "Could not load map data for {RawMapId}", rawMapId);
+            return new ZoneView(rawMapId, null, null, [], [], fallbackName, "", null, true);
+        }
+    }
+
+    private static IBrush ZoneBrush(string? pvpCategory) => pvpCategory switch
+    {
+        "blue" => BlueZone,
+        "yellow" => YellowZone,
+        "red" => RedZone,
+        "black" => BlackZone,
+        _ => OtherZone
+    };
+
+    private static string ZoneDescription(MapZone zone)
+    {
+        var kind = zone.MapCategory switch
+        {
+            "openworld" => "Open world",
+            "city" or "startingcity" or "portalcity" => "City",
+            "roads" => "Roads of Avalon",
+            "dungeon" => "Dungeon",
+            "corrupted" => "Corrupted dungeon",
+            "hellden" => "Hellgate",
+            "hideout" => "Hideout area",
+            "expedition" => "Expedition",
+            "arena" => "Arena",
+            "island" => "Island",
+            "passage" => "Passage",
+            _ => ""
+        };
+        var zoneColor = zone.PvpCategory switch
+        {
+            "blue" => "Blue zone",
+            "yellow" => "Yellow zone",
+            "red" => "Red zone",
+            "black" => "Black zone",
+            _ => ""
+        };
+        return string.Join(" · ", new[] { kind, zone.Tier is > 0 ? $"T{zone.Tier}" : "", zoneColor }.Where(x => x.Length > 0));
+    }
+
+    private static Dictionary<string, string> VisitNames(ActivitySession run)
+    {
+        try
+        {
+            return (JsonSerializer.Deserialize<List<ActivityVisit>>(run.VisitsJson) ?? [])
+                .Where(x => !string.IsNullOrWhiteSpace(x.RawMapId) && !string.IsNullOrWhiteSpace(x.LocationName))
+                .GroupBy(x => x.RawMapId).ToDictionary(x => x.Key, x => x.First().LocationName);
+        }
+        catch (JsonException)
+        {
+            return [];
+        }
+    }
+
+    private static string RunLabel(ActivitySession run)
+    {
+        var started = run.StartedAtUtc.ToLocalTime();
+        var ended = (run.ClosedAtUtc ?? run.LastObservedAtUtc).ToLocalTime();
+        var day = started.Date == DateTime.Today ? "Today" : started.Date == DateTime.Today.AddDays(-1) ? "Yesterday"
+            : started.ToString("d", CultureInfo.CurrentCulture);
+        var title = string.IsNullOrWhiteSpace(run.Title) ? run.LocationName : run.Title;
+        return $"{title} · {day} {started.ToString("t", CultureInfo.CurrentCulture)} – {ended.ToString("t", CultureInfo.CurrentCulture)}";
+    }
+
+    private static string RunSummary(ActivityRunMap run, IReadOnlyList<ActivityMapRunMapOption> mapsInRun)
+    {
+        var duration = (run.Run.ClosedAtUtc ?? run.Run.LastObservedAtUtc) - run.Run.StartedAtUtc;
+        var parts = new List<string>
+        {
+            mapsInRun.Count == 1 ? "1 map" : $"{mapsInRun.Count} maps",
+            duration.TotalHours >= 1 ? $"{(int)duration.TotalHours} h {duration.Minutes} min" : $"{Math.Max(1, (int)duration.TotalMinutes)} min"
+        };
+        var kills = run.Markers.Count(x => x.Kind == ActivityMapMarkerKind.Kill);
+        if (kills > 0) parts.Add(kills == 1 ? "1 kill" : $"{kills} kills");
+        var loot = run.Markers.Count(x => x.Kind == ActivityMapMarkerKind.Loot);
+        if (loot > 0) parts.Add(loot == 1 ? "1 pickup" : $"{loot} pickups");
+        return string.Join(" · ", parts);
+    }
+
+    public void Dispose()
+    {
+        disposed = true;
+        liveTimer.Stop();
+        replayTimer.Stop();
+    }
+
+    private sealed record ZoneView(string RawMapId, MapZone? Zone, Bitmap? Image, IReadOnlyList<ActivityMapExit> Exits,
+        IReadOnlyList<ActivityMapIcon> Icons, string Title, string Subtitle, MapImageGeometry? Geometry, bool Failed);
+}

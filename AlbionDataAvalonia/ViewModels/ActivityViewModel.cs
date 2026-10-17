@@ -138,7 +138,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
 
     public ActivityViewModel(ActivityTrackerService tracker, ActivityPersistence persistence, CsvExportService csvExportService,
         ActivityItemValuationService? valuations = null, PartyTrackerService? partyTracker = null,
-        ActivityStreamerWindowService? streamerWindow = null) : this()
+        ActivityStreamerWindowService? streamerWindow = null, ActivityMapWindowService? mapWindow = null) : this()
     {
         this.tracker = tracker;
         this.persistence = persistence;
@@ -149,6 +149,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         persistence.DataChanged += OnCommittedDataChanged;
         AttachPartyTracker(partyTracker);
         AttachStreamerWindow(streamerWindow);
+        AttachMapWindow(mapWindow);
         UpdateStatus();
     }
 
@@ -693,6 +694,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     private void NotifyDetailProperties()
     {
         OnPropertyChanged(nameof(HasSelectedSession));
+        OnPropertyChanged(nameof(CanShowRunOnMap));
         OnPropertyChanged(nameof(HasSelectedPlaySession));
         OnPropertyChanged(nameof(HasMultipleRuns));
         OnPropertyChanged(nameof(DeleteButtonText));
@@ -888,6 +890,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         if (tracker is not null) tracker.Changed -= OnActivityChanged;
         DisposeParty();
         DisposeStreamerWindow();
+        DisposeMapWindow();
         if (persistence is not null)
         {
             persistence.StatusChanged -= OnPersistenceStatusChanged;

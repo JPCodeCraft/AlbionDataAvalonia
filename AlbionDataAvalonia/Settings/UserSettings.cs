@@ -346,6 +346,46 @@ public class UserSettings : INotifyPropertyChanged
         }
     }
 
+    private bool mapWindowOpen;
+    // Remembered so the map window reopens on the next start; quitting the app keeps it set.
+    public bool MapWindowOpen
+    {
+        get => mapWindowOpen;
+        set
+        {
+            if (mapWindowOpen == value) return;
+            mapWindowOpen = value;
+            OnPropertyChanged(nameof(MapWindowOpen));
+        }
+    }
+
+    private WindowPlacement? mapWindowPlacement;
+    public WindowPlacement? MapWindowPlacement
+    {
+        get => mapWindowPlacement;
+        set
+        {
+            if (mapWindowPlacement == value) return;
+            mapWindowPlacement = value;
+            OnPropertyChanged(nameof(MapWindowPlacement));
+        }
+    }
+
+    // How long the live map keeps showing your path and events; 0 keeps them for the whole visit.
+    private int mapFadeMinutes = 5;
+    public int MapFadeMinutes
+    {
+        get => mapFadeMinutes;
+        set
+        {
+            var clamped = Math.Clamp(value, 0, 120);
+            if (mapFadeMinutes == clamped) return;
+            mapFadeMinutes = clamped;
+            OnPropertyChanged(nameof(MapFadeMinutes));
+            Log.Information("Map fade set to {MapFadeMinutes} minutes", mapFadeMinutes);
+        }
+    }
+
     private void SetStreamerOption(ref bool field, bool value, string propertyName)
     {
         if (field == value) return;

@@ -22,6 +22,8 @@ public class AppSettings
     public int NetworkDevicesStartDelaySecs { get; set; }
     public int NetworkDevicesRescanSeconds { get; set; } = 10;
     public int NetworkDevicesTrafficTimeoutSeconds { get; set; } = 30;
+    // Cache identity of the AlbionWorld zone list, minimaps and features on the CDN, shared with the website.
+    public string? MapDataVersion { get; set; }
 
     public string AfmAuthClientId { get; set; } = string.Empty;
     public string AfmAuthApiUrl { get; set; } = string.Empty;
