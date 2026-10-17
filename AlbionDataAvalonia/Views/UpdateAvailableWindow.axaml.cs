@@ -33,7 +33,7 @@ public partial class UpdateAvailableWindow : Window
             return;
         }
 
-        var completion = new TaskCompletionSource<object?>();
+        var completion = new TaskCompletionSource<object?>(TaskCreationOptions.RunContinuationsAsynchronously);
         window.WindowStartupLocation = WindowStartupLocation.CenterScreen;
         window.Closed += (_, _) => completion.TrySetResult(null);
         window.Show();

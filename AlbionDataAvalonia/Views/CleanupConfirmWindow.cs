@@ -1,3 +1,4 @@
+using AlbionDataAvalonia.Ui;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -15,6 +16,7 @@ public sealed class CleanupConfirmWindow : Window
     {
         Classes.Add("AppPage");
         Title = title;
+        Icon = UiAssets.WindowIcon;
         Width = 460;
         SizeToContent = SizeToContent.Height;
         CanResize = false;
@@ -61,11 +63,11 @@ public sealed class CleanupConfirmWindow : Window
         Content = root;
     }
 
-    public static Task<bool> ShowAsync(Window owner, string itemNamePlural, int count) => ShowAsync(
+    public static Task<bool> ShowAsync(Window owner, string singular, string plural, int count) => ShowAsync(
         owner,
-        $"Delete {itemNamePlural}?",
-        $"Delete {count:N0} {itemNamePlural}?",
-        $"This will delete {count:N0} {itemNamePlural} and cannot be recovered from the app.",
+        $"Delete {UiFormat.Noun(count, singular, plural)}?",
+        $"Delete {UiFormat.Count(count, singular, plural)}?",
+        $"This will delete {UiFormat.Count(count, singular, plural)} and cannot be recovered from the app.",
         "Delete");
 
     public static Task<bool> ShowAsync(Window owner, string title, string message, string action) =>

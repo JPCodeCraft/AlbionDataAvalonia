@@ -119,6 +119,7 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PlayButtonText))]
+    [NotifyPropertyChangedFor(nameof(PlayButtonName))]
     private bool isPlaying;
 
     [ObservableProperty] private string timelineStartText = "";
@@ -134,6 +135,7 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
     public bool HasRuns => Runs.Count > 0;
     public bool HasMultipleRunMaps => RunMaps.Count > 1;
     public string PlayButtonText => IsPlaying ? "❚❚" : "▶";
+    public string PlayButtonName => IsPlaying ? "Pause replay" : "Play replay";
     public double TimelineMaximum => TimelineMax;
     public IBrush KillLegendBrush => KillBrush;
     public IBrush LootLegendBrush => LootBrush;

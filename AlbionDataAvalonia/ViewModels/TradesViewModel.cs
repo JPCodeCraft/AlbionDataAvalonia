@@ -239,14 +239,17 @@ public partial class TradesViewModel : ViewModelBase
         Servers = AlbionServers.GetAll().Select(x => x.Name).ToList();
         Servers.Insert(0, "Any");
 
-        _playerState.OnPlayerStateChanged += (sender, args) =>
+        _playerState.OnPlayerStateChanged += (_, _) => Dispatcher.UIThread.Post(FollowPlayerServer);
+    }
+
+    // Player state changes come from packet handling, so this runs posted to the UI thread.
+    private void FollowPlayerServer()
+    {
+        var currentServer = _playerState.AlbionServer?.Name ?? "Any";
+        if (SelectedServer != currentServer)
         {
-            var currentServer = playerState.AlbionServer?.Name ?? "Any";
-            if (SelectedServer != currentServer)
-            {
-                SelectedServer = currentServer;
-            }
-        };
+            SelectedServer = currentServer;
+        }
     }
 
     private bool _hasLoadedInitialTrades;

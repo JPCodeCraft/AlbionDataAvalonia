@@ -2,6 +2,7 @@ using AlbionDataAvalonia.Activity;
 using AlbionDataAvalonia.Activity.Models;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Party;
+using AlbionDataAvalonia.Ui;
 using AlbionDataAvalonia.Views;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -120,8 +121,8 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
             (DetailSummary.RunSeconds is { } runSeconds ? $" · In runs: {ActivityDisplay.Duration(runSeconds)}" : "") +
             $" · Combat time: {ActivityDisplay.Duration(DetailSummary.Rates.CombatDurationSeconds)}";
     public string DetailScopeText => $"{SelectedPlayer?.Name ?? ""}{((SelectedSession?.Source.IsPartial ?? SelectedPlaySession?.IsPartial) == true ? $"{(SelectedPlayer is null ? "" : " · ")}Incomplete recording" : "")}";
-    public string HistoryCountText => $"{PlaySessions.Count:N0} sessions";
-    public string LootCountText => $"{GlobalLoot.Count:N0} pickups";
+    public string HistoryCountText => UiFormat.Count(PlaySessions.Count, "session");
+    public string LootCountText => UiFormat.Count(GlobalLoot.Count, "pickup");
     public string GlobalLootTotalsText => string.Join(" · ", new[]
     {
         ShowGlobalLootPanel ? $"Loot {ActivityDisplay.Number(GlobalLootSummary.Summary.LootItems)} items · EMV {GlobalLootSummary.LootValue}" : null,

@@ -1,4 +1,5 @@
 using AlbionDataAvalonia.Items;
+using AlbionDataAvalonia.Ui;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -17,6 +18,7 @@ public sealed class TradeQualitySelectionWindow : Window
     {
         Classes.Add("AppPage");
         Title = "Set trade quality";
+        Icon = UiAssets.WindowIcon;
         Width = 420;
         SizeToContent = SizeToContent.Height;
         CanResize = false;
@@ -70,7 +72,7 @@ public sealed class TradeQualitySelectionWindow : Window
         cancelButton.Click += CancelButton_Click;
         buttons.Children.Add(cancelButton);
 
-        var saveButton = new Button { Content = "Save", Classes = { "UiAction" } };
+        var saveButton = new Button { Content = "Save", IsDefault = true, Classes = { "UiAction" } };
         saveButton.Click += SaveButton_Click;
         buttons.Children.Add(saveButton);
 

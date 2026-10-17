@@ -7,7 +7,7 @@
         mc:Ignorable="d"
         d:DesignWidth="500"
         d:DesignHeight="760"
-        x:Class="AlbionDataAvalonia.Views.LegendarySaleWindow"
+        x:Class="AlbionDataAvalonia.Views.LegendarySaleWindow" Classes="AppPage"
         x:DataType="vm:LegendaryItemRowViewModel"
         Width="500"
         MaxHeight="820"
@@ -216,8 +216,7 @@
                 </Border>
 
                 <TextBlock x:Name="ValidationTextBlock"
-                           Foreground="IndianRed"
-                           TextWrapping="Wrap" />
+                           Classes="UiError" />
                 <ProgressBar x:Name="PostingProgressBar"
                              IsIndeterminate="True"
                              IsVisible="False" />
@@ -231,10 +230,12 @@
             <Button x:Name="CancelButton"
                     Content="Cancel"
                     MinWidth="90"
+                    IsCancel="True"
                     Click="CancelButton_Click" />
             <Button x:Name="SubmitButton"
                     Content="List for sale"
                     MinWidth="130"
+                    IsDefault="True"
                     Click="SubmitButton_Click" />
         </StackPanel>
     </Grid>

@@ -53,13 +53,12 @@
         </Grid>
 
         <TextBlock x:Name="ValidationTextBlock"
-                   IsVisible="False"
-                   Foreground="{DynamicResource AFMRed}"
-                   TextWrapping="Wrap" />
+                   Classes="UiError"
+                   IsVisible="False" />
 
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
             <Button Classes="UiAction UiSecondary" Content="Cancel" IsCancel="True" Click="CancelButton_Click" />
-            <Button Classes="UiAction" Content="Continue" Click="ContinueButton_Click" />
+            <Button Classes="UiAction" Content="Continue" IsDefault="True" Click="ContinueButton_Click" />
         </StackPanel>
     </StackPanel>
 </Window>

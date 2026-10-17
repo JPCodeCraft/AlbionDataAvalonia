@@ -44,9 +44,9 @@
             <Button Classes="UiAction UiSecondary" Margin="0,0,8,6" Content="Delete selected..." Name="DeleteButton" Click="DeleteButton_Click" IsEnabled="{Binding HasSelectedRows}" />
         </WrapPanel>
         <StackPanel Grid.Row="2" Margin="0,0,0,6" Spacing="4">
-            <TextBlock Text="{Binding LoadError}" IsVisible="{Binding HasLoadError}" TextWrapping="Wrap" Foreground="#FFB4A8" FontSize="12" />
+            <TextBlock Classes="UiError" Text="{Binding LoadError}" IsVisible="{Binding HasLoadError}" />
             <TextBlock Text="{Binding PortfolioImportStatus}" IsVisible="{Binding HasPortfolioImportStatus}" TextWrapping="Wrap" FontSize="12" />
-            <TextBlock Text="{Binding PortfolioPostLimitHelperText}" IsVisible="{Binding IsSelectedPortfolioPostLimitExceeded}" TextWrapping="Wrap" Foreground="#FFB4A8" FontSize="12" />
+            <TextBlock Classes="UiError" Text="{Binding PortfolioPostLimitHelperText}" IsVisible="{Binding IsSelectedPortfolioPostLimitExceeded}" />
         </StackPanel>
         <DataGrid Grid.Row="3" Margin="0" ItemsSource="{Binding Trades}"
                   Name="TradesGrid"

@@ -557,7 +557,7 @@ public sealed class ActivityLiveTimelineView : UserControl
         Content = label,
         Height = 32,
         Margin = new Thickness(0, 0, 6, 0),
-        Classes = { "ActivityAction", "ActivitySecondary" }
+        Classes = { "UiSecondary" }
     };
 
 }

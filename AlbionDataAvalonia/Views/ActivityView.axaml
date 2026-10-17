@@ -140,7 +140,7 @@
                 <WrapPanel VerticalAlignment="Center">
                     <views:ActivitySegmentedSelector ItemsSource="{Binding ScopeOptions}" SelectedItem="{Binding SelectedScope, Mode=TwoWay}" IsVisible="{Binding ShowActivityScope}" AutomationProperties.Name="Activity scope" Margin="0,0,12,0" />
                     <Button Classes="UiAction UiSecondary" Content="{Binding StreamerWindowButtonText}" Command="{Binding ToggleStreamerWindowCommand}" IsVisible="{Binding CanOpenStreamerWindow}"
-                            ToolTip.Tip="Compact window for streaming. Set it up in Settings → Activity." Margin="0,0,10,4" />
+                            ToolTip.Tip="Compact window for streaming. Set it up in Settings › Streamer." Margin="0,0,10,4" />
                     <Button Classes="UiAction UiSecondary" Content="{Binding MapWindowButtonText}" Command="{Binding ToggleMapWindowCommand}" IsVisible="{Binding CanOpenMapWindow}"
                             ToolTip.Tip="Live map of your current zone with your path and events, and a replay of past runs." Margin="0,0,10,4" />
                     <Button Classes="UiAction UiSecondary" Content="{Binding RecordingButtonText}" Command="{Binding ToggleRecordingCommand}" Margin="0,0,10,4" />
@@ -149,7 +149,7 @@
                 </WrapPanel>
             </WrapPanel>
             <TextBlock Text="{Binding LegacyImportWarningText}" IsVisible="{Binding HasLegacyImportWarning}" Foreground="#FFB74D" TextWrapping="Wrap" />
-            <TextBlock Text="{Binding ErrorText}" IsVisible="{Binding HasError}" Foreground="#FFB74D" TextWrapping="Wrap" />
+            <TextBlock Classes="UiError" Text="{Binding ErrorText}" IsVisible="{Binding HasError}" />
         </StackPanel>
         <TabControl Grid.Row="1" SelectedIndex="{Binding SelectedTabIndex, Mode=TwoWay}">
             <TabItem Header="Current">

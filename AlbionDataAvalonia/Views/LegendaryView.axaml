@@ -13,8 +13,7 @@
 
     <Grid RowDefinitions="Auto,Auto,*" ColumnDefinitions="*">
         <WrapPanel Margin="0,8,0,8"
-                   VerticalAlignment="Top"
-                   IsVisible="{Binding !IsAwakeningItemsTrackerDisabled}">
+                   VerticalAlignment="Top">
             <StackPanel Margin="0,0,10,0">
                 <TextBlock Text="Search" Classes="UiLabel" />
                 <TextBox Text="{Binding FilterText}" Width="260" Padding="8" />
@@ -55,16 +54,13 @@
         </WrapPanel>
 
         <TextBlock Grid.Row="1"
+                   Classes="UiError"
                    Margin="2,0,2,8"
                    Text="{Binding LoadError}"
-                   FontSize="11"
-                   IsVisible="{Binding HasLoadError}"
-                   Foreground="#FFB4A8"
-                   TextWrapping="Wrap" />
+                   IsVisible="{Binding HasLoadError}" />
 
         <Grid Grid.Row="2"
-              ColumnSpacing="12"
-              IsVisible="{Binding !IsAwakeningItemsTrackerDisabled}">
+              ColumnSpacing="12">
             <Grid.ColumnDefinitions>
                 <ColumnDefinition Width="2*" />
                 <ColumnDefinition Width="*" MinWidth="280" MaxWidth="380" />
@@ -383,29 +379,5 @@
                        Classes="UiLabel" TextAlignment="Center" />
         </Grid>
 
-        <Grid Grid.RowSpan="3"
-              IsVisible="{Binding IsAwakeningItemsTrackerDisabled}"
-              Background="{DynamicResource ThemeBackgroundBrush}"
-              Panel.ZIndex="10">
-            <Border MaxWidth="520"
-                    HorizontalAlignment="Center"
-                    VerticalAlignment="Center"
-                    Background="{DynamicResource ThemeBackgroundBrush}"
-                    BorderBrush="{DynamicResource ThemeBorderMidBrush}"
-                    BorderThickness="1"
-                    CornerRadius="6"
-                    Padding="24">
-                <StackPanel Spacing="8">
-                    <TextBlock Text="Awakened items tracker is disabled"
-                               FontSize="18"
-                               FontWeight="DemiBold"
-                               TextAlignment="Center" />
-                    <TextBlock Text="Enable it in Settings &gt; Awakened to resume detecting and storing awakened items."
-                               TextWrapping="Wrap"
-                               TextAlignment="Center"
-                               Opacity="0.8" />
-                </StackPanel>
-            </Border>
-        </Grid>
     </Grid>
 </UserControl>

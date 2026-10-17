@@ -3,6 +3,7 @@ using AlbionDataAvalonia.ViewModels;
 using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Platform.Storage;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -21,27 +22,34 @@ namespace AlbionDataAvalonia.Views
 
         private async void ExportCsvButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
         {
-            if (DataContext is not TradesViewModel vm) return;
-
-            if (TopLevel.GetTopLevel(this) is not Window owner) return;
-
-            var exportOptions = await CsvExportOptionsWindow.ShowAsync(owner);
-            if (exportOptions == null) return;
-
-            var file = await owner.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
+            try
             {
-                Title = "Export Trades to CSV",
-                SuggestedFileName = $"trades_{DateTime.Now:yyyyMMdd_HHmmss}.csv",
-                FileTypeChoices = new List<FilePickerFileType>
+                if (DataContext is not TradesViewModel vm) return;
+
+                if (TopLevel.GetTopLevel(this) is not Window owner) return;
+
+                var exportOptions = await CsvExportOptionsWindow.ShowAsync(owner);
+                if (exportOptions == null) return;
+
+                var file = await owner.StorageProvider.SaveFilePickerAsync(new FilePickerSaveOptions
                 {
-                    new FilePickerFileType("CSV Files") { Patterns = new[] { "*.csv" } }
-                }
-            });
+                    Title = "Export Trades to CSV",
+                    SuggestedFileName = $"trades_{DateTime.Now:yyyyMMdd_HHmmss}.csv",
+                    FileTypeChoices = new List<FilePickerFileType>
+                    {
+                        new FilePickerFileType("CSV Files") { Patterns = new[] { "*.csv" } }
+                    }
+                });
 
-            if (file == null) return;
+                if (file == null) return;
 
-            await using var stream = await file.OpenWriteAsync();
-            await vm.ExportToCsvAsync(stream, exportOptions);
+                await using var stream = await file.OpenWriteAsync();
+                await vm.ExportToCsvAsync(stream, exportOptions);
+            }
+            catch (Exception error)
+            {
+                Log.Error(error, "Could not export trades to CSV.");
+            }
         }
 
         private void TradesGrid_SelectionChanged(object? sender, SelectionChangedEventArgs e)
@@ -53,6 +61,18 @@ namespace AlbionDataAvalonia.Views
         }
 
         private async void AddToPortfolioButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
+        {
+            try
+            {
+                await AddSelectedToPortfolioAsync();
+            }
+            catch (Exception error)
+            {
+                Log.Error(error, "Could not add the selected trades to Portfolio.");
+            }
+        }
+
+        private async Task AddSelectedToPortfolioAsync()
         {
             if (DataContext is not TradesViewModel vm) return;
             if (TopLevel.GetTopLevel(this) is not Window owner) return;
@@ -111,37 +131,51 @@ namespace AlbionDataAvalonia.Views
 
         private async void SetQualityButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
         {
-            if (DataContext is not TradesViewModel vm) return;
-            if (TopLevel.GetTopLevel(this) is not Window owner) return;
-
-            var selectedRows = TradesGrid.SelectedItems.OfType<TradeRowViewModel>().ToList();
-            if (selectedRows.Count == 0) return;
-            if (!vm.CanSetSelectedTradeQuality) return;
-
-            var selectedQuality = await TradeQualitySelectionWindow.ShowAsync(owner, selectedRows.Count(row => !row.UploadedToPortfolio));
-            if (selectedQuality == null)
+            try
             {
-                return;
-            }
+                if (DataContext is not TradesViewModel vm) return;
+                if (TopLevel.GetTopLevel(this) is not Window owner) return;
 
-            await vm.SetSelectedTradesQualityAsync(selectedRows, selectedQuality.Value);
+                var selectedRows = TradesGrid.SelectedItems.OfType<TradeRowViewModel>().ToList();
+                if (selectedRows.Count == 0) return;
+                if (!vm.CanSetSelectedTradeQuality) return;
+
+                var selectedQuality = await TradeQualitySelectionWindow.ShowAsync(owner, selectedRows.Count(row => !row.UploadedToPortfolio));
+                if (selectedQuality == null)
+                {
+                    return;
+                }
+
+                await vm.SetSelectedTradesQualityAsync(selectedRows, selectedQuality.Value);
+            }
+            catch (Exception error)
+            {
+                Log.Error(error, "Could not set the quality of the selected trades.");
+            }
         }
 
         private async void DeleteButton_Click(object? sender, Avalonia.Interactivity.RoutedEventArgs e)
         {
-            if (DataContext is not TradesViewModel vm) return;
-            if (TopLevel.GetTopLevel(this) is not Window owner) return;
-
-            var selectedRows = TradesGrid.SelectedItems.OfType<TradeRowViewModel>().ToList();
-            if (selectedRows.Count == 0) return;
-
-            var confirmed = await CleanupConfirmWindow.ShowAsync(owner, "trades", selectedRows.Count);
-            if (!confirmed)
+            try
             {
-                return;
-            }
+                if (DataContext is not TradesViewModel vm) return;
+                if (TopLevel.GetTopLevel(this) is not Window owner) return;
 
-            await vm.DeleteSelectedTradesAsync(selectedRows);
+                var selectedRows = TradesGrid.SelectedItems.OfType<TradeRowViewModel>().ToList();
+                if (selectedRows.Count == 0) return;
+
+                var confirmed = await CleanupConfirmWindow.ShowAsync(owner, "trade", "trades", selectedRows.Count);
+                if (!confirmed)
+                {
+                    return;
+                }
+
+                await vm.DeleteSelectedTradesAsync(selectedRows);
+            }
+            catch (Exception error)
+            {
+                Log.Error(error, "Could not delete the selected trades.");
+            }
         }
 
         private static async Task<IReadOnlyDictionary<PortfolioTradeQualityKey, int>?> GetUnknownQualityOverridesAsync(
@@ -182,7 +216,14 @@ namespace AlbionDataAvalonia.Views
 
             string format = textBlock.Tag is decimal ? "F2" : "F0";
             var text = formattable.ToString(format, CultureInfo.InvariantCulture);
-            await clipboard.SetTextAsync(text);
+            try
+            {
+                await clipboard.SetTextAsync(text);
+            }
+            catch (Exception error)
+            {
+                Log.Warning(error, "Could not copy the value to the clipboard.");
+            }
         }
     }
 }

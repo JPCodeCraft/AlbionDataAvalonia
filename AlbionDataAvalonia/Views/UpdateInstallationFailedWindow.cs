@@ -1,4 +1,5 @@
 using Avalonia;
+using AlbionDataAvalonia.Ui;
 using Avalonia.Controls;
 using Avalonia.Layout;
 using Avalonia.Media;
@@ -10,7 +11,9 @@ public sealed class UpdateInstallationFailedWindow : Window
 {
     private UpdateInstallationFailedWindow(string version)
     {
+        Classes.Add("AppPage");
         Title = "Restart required";
+        Icon = UiAssets.WindowIcon;
         Width = 460;
         SizeToContent = SizeToContent.Height;
         CanResize = false;
@@ -29,7 +32,7 @@ public sealed class UpdateInstallationFailedWindow : Window
             Text = "Recording has stopped while preparing the update. The app will close. Reopen AFM to resume recording and try the update again.",
             TextWrapping = TextWrapping.Wrap
         });
-        var closeButton = new Button { Content = "Close app", HorizontalAlignment = HorizontalAlignment.Right };
+        var closeButton = new Button { Content = "Close app", IsDefault = true, IsCancel = true, HorizontalAlignment = HorizontalAlignment.Right, Classes = { "UiAction" } };
         closeButton.Click += (_, _) => Close();
         panel.Children.Add(closeButton);
         Content = panel;

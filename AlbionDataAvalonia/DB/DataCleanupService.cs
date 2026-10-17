@@ -22,7 +22,8 @@ public enum DataCleanupType
     AwakenedItems
 }
 
-public sealed record DataStorageRow(DataCleanupType Type, long Bytes, long Rows, string CountText);
+// Sessions is set only for activity, whose rows are events.
+public sealed record DataStorageRow(DataCleanupType Type, long Bytes, long Rows, long? Sessions = null);
 
 public sealed record DataStorageSummary(IReadOnlyList<DataStorageRow> Rows, long DatabaseBytes, long OtherBytes, long BackupBytes, bool IsEstimated);
 
@@ -76,11 +77,10 @@ public sealed class DataCleanupService(
 
         var rows = new List<DataStorageRow>
         {
-            new(DataCleanupType.Activity, activityStorage.ActivityBytes, activityStorage.Events,
-                $"{activityStorage.Sessions:N0} sessions · {activityStorage.Events:N0} events"),
-            new(DataCleanupType.Trades, tradeBytes, tradeRows, $"{tradeRows:N0} trades"),
-            new(DataCleanupType.Mails, mailBytes, mailRows, $"{mailRows:N0} mails"),
-            new(DataCleanupType.AwakenedItems, awakenedBytes, awakenedRows, $"{awakenedRows:N0} items")
+            new(DataCleanupType.Activity, activityStorage.ActivityBytes, activityStorage.Events, activityStorage.Sessions),
+            new(DataCleanupType.Trades, tradeBytes, tradeRows),
+            new(DataCleanupType.Mails, mailBytes, mailRows),
+            new(DataCleanupType.AwakenedItems, awakenedBytes, awakenedRows)
         };
 
         var databaseBytes = activityStorage.DatabaseBytes;

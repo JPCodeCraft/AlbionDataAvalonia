@@ -77,7 +77,7 @@
 					<DataGridTemplateColumn.CellTemplate>
 						<DataTemplate>
 							<TextBlock Text="{Binding RenderedMessage}" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center"
-									   MaxLines="3" TextTrimming="CharacterEllipsis"
+									   Margin="0,7" MaxLines="2" TextTrimming="CharacterEllipsis"
 									   Classes="log-message"
 									   DataContextChanged="LogMessage_DataContextChanged"
 									   PointerReleased="LogMessage_PointerReleased">

@@ -1,5 +1,6 @@
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Items;
+using AlbionDataAvalonia.Ui;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -28,6 +29,7 @@ public sealed class PortfolioQualitySelectionWindow : Window
 
         Classes.Add("AppPage");
         Title = "Select portfolio quality";
+        Icon = UiAssets.WindowIcon;
         Width = 620;
         MinHeight = 240;
         MaxHeight = 640;
@@ -85,7 +87,7 @@ public sealed class PortfolioQualitySelectionWindow : Window
         cancelButton.Click += CancelButton_Click;
         buttons.Children.Add(cancelButton);
 
-        var continueButton = new Button { Content = "Continue", Classes = { "UiAction" } };
+        var continueButton = new Button { Content = "Continue", IsDefault = true, Classes = { "UiAction" } };
         continueButton.Click += ContinueButton_Click;
         buttons.Children.Add(continueButton);
 

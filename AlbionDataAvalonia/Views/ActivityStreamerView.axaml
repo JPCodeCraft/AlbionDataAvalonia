@@ -28,7 +28,7 @@
                 <Setter Property="FontWeight" Value="SemiBold" />
             </Style>
         </ControlTheme>
-        <!-- Personal or party totals, switchable from the window itself; shares the setting with Settings > Streamer. -->
+        <!-- Personal or party totals, switchable from the window itself; shares the setting with Settings › Streamer. -->
         <DataTemplate x:Key="StreamerScopeSwitch" x:DataType="vm:ActivityStreamerViewModel">
             <Border Background="#424242" BorderBrush="#555555" BorderThickness="1" CornerRadius="10" Padding="1">
                 <StackPanel Orientation="Horizontal">
@@ -136,7 +136,7 @@
         <views:ActivityLiveTimelineView IsVisible="{Binding ShowChart}" IsCompact="True" ShowWindowSelector="False"
                                         ChartMode="{Binding ChartMode}" Snapshot="{Binding Timeline}" />
 
-        <TextBlock Text="Choose what to show in Settings → Streamer." IsVisible="{Binding ShowNothingSelected}"
+        <TextBlock Text="Choose what to show in Settings › Streamer." IsVisible="{Binding ShowNothingSelected}"
                    Classes="StreamerLabel" TextWrapping="Wrap" Margin="2" />
     </StackPanel>
 </UserControl>

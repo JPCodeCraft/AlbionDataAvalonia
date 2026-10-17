@@ -286,11 +286,7 @@ public partial class MainViewModel : ViewModelBase
         ApplyPublicUploadStats(_playerState.PublicUploadStats);
         ApplyPrivateUploadStats(_playerState.PrivateUploadStats);
 
-        _authService.FirebaseUserChanged += user =>
-        {
-            FirebaseUser = user;
-            UserLoggedIn = FirebaseUser is not null;
-        };
+        _authService.FirebaseUserChanged += OnAuthUserChanged;
 
         FirebaseUser = _authService.CurrentFirebaseUser;
         UserLoggedIn = FirebaseUser is not null;
@@ -379,8 +375,28 @@ public partial class MainViewModel : ViewModelBase
         ShowEncrypted = _playerState.HasEncryptedData;
     }
 
+    // Token refreshes raise this from the thread pool.
+    private void OnAuthUserChanged(FirebaseAuthResponse? user)
+    {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => OnAuthUserChanged(user));
+            return;
+        }
+
+        FirebaseUser = user;
+        UserLoggedIn = user is not null;
+    }
+
+    // Upload results arrive on uploader threads.
     private void ApplyPublicUploadStats(PublicUploadStatsSnapshot stats)
     {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => ApplyPublicUploadStats(stats));
+            return;
+        }
+
         PublicUploadSuccessCount = stats.SuccessCount;
         PublicUploadFailedCount = stats.FailedCount;
         PublicUploadedMarketOffersCount = stats.MarketOffersCount;
@@ -394,6 +410,12 @@ public partial class MainViewModel : ViewModelBase
 
     private void ApplyPrivateUploadStats(PrivateUploadStatsSnapshot stats)
     {
+        if (!Dispatcher.UIThread.CheckAccess())
+        {
+            Dispatcher.UIThread.Post(() => ApplyPrivateUploadStats(stats));
+            return;
+        }
+
         PrivateUploadSuccessCount = stats.SuccessCount;
         PrivateUploadFailedCount = stats.FailedCount;
         PrivateUploadedMarketOffersCount = stats.MarketOffersCount;

@@ -1,3 +1,4 @@
+using AlbionDataAvalonia.Ui;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using System.Threading.Tasks;
@@ -10,11 +11,12 @@ public sealed class ConfirmPortfolioReuploadWindow : Window
 
     private ConfirmPortfolioReuploadWindow(int uploadedCount, int selectedCount, string recordName)
     {
-        var pluralRecordName = $"{recordName}s";
-        var prompt = $"Upload {pluralRecordName} again?";
+        var prompt = $"Upload {UiFormat.Noun(uploadedCount, recordName)} again?";
+        var one = uploadedCount == 1;
 
         Classes.Add("AppPage");
         Title = prompt;
+        Icon = UiAssets.WindowIcon;
         Width = 440;
         SizeToContent = SizeToContent.Height;
         CanResize = false;
@@ -36,7 +38,7 @@ public sealed class ConfirmPortfolioReuploadWindow : Window
 
         panel.Children.Add(new TextBlock
         {
-            Text = $"{uploadedCount:N0} of {selectedCount:N0} selected {pluralRecordName} are already marked as uploaded to Portfolio. If you continue, they will be added again as new portfolio transactions.",
+            Text = $"{uploadedCount:N0} of {UiFormat.Count(selectedCount, $"selected {recordName}")} {(one ? "is" : "are")} already marked as uploaded to Portfolio. If you continue, {(one ? "it" : "they")} will be added again as new portfolio {UiFormat.Noun(uploadedCount, "transaction")}.",
             TextWrapping = Avalonia.Media.TextWrapping.Wrap,
             Opacity = 0.85
         });

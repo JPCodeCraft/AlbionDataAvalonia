@@ -2,6 +2,8 @@ using AlbionDataAvalonia.ViewModels;
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
+using Serilog;
+using System;
 
 namespace AlbionDataAvalonia.Views
 {
@@ -37,17 +39,31 @@ namespace AlbionDataAvalonia.Views
             var clipboard = TopLevel.GetTopLevel(this)?.Clipboard;
             if (clipboard == null) return;
 
-            await clipboard.SetTextAsync(vm.CurrentFirebaseUserId);
+            try
+            {
+                await clipboard.SetTextAsync(vm.CurrentFirebaseUserId);
+            }
+            catch (Exception error)
+            {
+                Log.Warning(error, "Could not copy the user ID to the clipboard.");
+            }
         }
 
         private async void DeleteData_Click(object? sender, RoutedEventArgs e)
         {
-            if (DataContext is not SettingsViewModel vm || !vm.CanDeleteData) return;
-            if (TopLevel.GetTopLevel(this) is not Window owner) return;
-
-            if (await CleanupConfirmWindow.ShowAsync(owner, "Delete stored data?", vm.CleanupConfirmationText(), "Delete"))
+            try
             {
-                await vm.ApplyCleanupAsync();
+                if (DataContext is not SettingsViewModel vm || !vm.CanDeleteData) return;
+                if (TopLevel.GetTopLevel(this) is not Window owner) return;
+
+                if (await CleanupConfirmWindow.ShowAsync(owner, "Delete stored data?", vm.CleanupConfirmationText(), "Delete"))
+                {
+                    await vm.ApplyCleanupAsync();
+                }
+            }
+            catch (Exception error)
+            {
+                Log.Error(error, "Could not delete the selected stored data.");
             }
         }
 

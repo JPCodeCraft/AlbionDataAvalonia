@@ -1,3 +1,4 @@
+using AlbionDataAvalonia.Ui;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using System.Threading.Tasks;
@@ -8,7 +9,9 @@ public sealed class PortfolioSignInRequiredWindow : Window
 {
     private PortfolioSignInRequiredWindow(string targetDescription)
     {
+        Classes.Add("AppPage");
         Title = "Sign in required";
+        Icon = UiAssets.WindowIcon;
         Width = 400;
         SizeToContent = SizeToContent.Height;
         CanResize = false;
@@ -38,7 +41,10 @@ public sealed class PortfolioSignInRequiredWindow : Window
         var okButton = new Button
         {
             Content = "OK",
-            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right
+            IsDefault = true,
+            IsCancel = true,
+            HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
+            Classes = { "UiAction" }
         };
         okButton.Click += OkButton_Click;
 

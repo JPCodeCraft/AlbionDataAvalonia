@@ -67,9 +67,6 @@ public partial class LegendaryViewModel : ViewModelBase
     private bool isPosting;
 
     [ObservableProperty]
-    private bool isAwakeningItemsTrackerDisabled;
-
-    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasLoadError))]
     [NotifyPropertyChangedFor(nameof(EmptyStateText))]
     private string loadError = string.Empty;
@@ -123,11 +120,9 @@ public partial class LegendaryViewModel : ViewModelBase
         this.authService = authService;
         this.playerState = playerState;
         this.settingsManager = settingsManager;
-        isAwakeningItemsTrackerDisabled = settingsManager.UserSettings.DisableAwakeningItemsTracker;
         currentUserId = authService.FirebaseUserId;
         UpdateFilterPlayer();
         tracker.ItemsChanged += HandleItemsChanged;
-        settingsManager.UserSettings.PropertyChanged += OnUserSettingsPropertyChanged;
         authService.FirebaseUserChanged += user => Dispatcher.UIThread.Post(async () => await HandleAuthChangedAsync(user?.LocalId));
         playerState.OnPlayerStateChanged += (_, _) =>
         {
@@ -444,15 +439,6 @@ public partial class LegendaryViewModel : ViewModelBase
             Interlocked.Exchange(ref refreshQueued, 0);
             await LoadItemsAsync();
         });
-    }
-
-    private void OnUserSettingsPropertyChanged(object? sender, PropertyChangedEventArgs e)
-    {
-        if (e.PropertyName == nameof(UserSettings.DisableAwakeningItemsTracker))
-        {
-            Dispatcher.UIThread.Post(() =>
-                IsAwakeningItemsTrackerDisabled = settingsManager.UserSettings.DisableAwakeningItemsTracker);
-        }
     }
 
     private void ApplyFilter()

@@ -22,10 +22,11 @@ public sealed class ActivityMapCanvas : Control
     public static readonly StyledProperty<bool> FollowProperty =
         AvaloniaProperty.Register<ActivityMapCanvas, bool>(nameof(Follow), defaultBindingMode: BindingMode.TwoWay);
 
-    internal static readonly Color KillColor = Color.Parse("#EF5350");
-    internal static readonly Color LootColor = Color.Parse("#FFCA28");
-    internal static readonly Color GatheringColor = Color.Parse("#66BB6A");
-    internal static readonly Color DeathColor = Color.Parse("#E0E0E0");
+    // The same colors the live timeline uses for these events.
+    internal static readonly Color KillColor = Color.Parse("#EB9C64");
+    internal static readonly Color LootColor = Color.Parse("#BF91F0");
+    internal static readonly Color GatheringColor = Color.Parse("#A0D477");
+    internal static readonly Color DeathColor = Color.Parse("#F47D7D");
     internal static readonly Color PathColor = Color.Parse("#FFA726");
     internal static readonly Color PathStartColor = Color.Parse("#4FC3F7");
     private static readonly IBrush Background = new SolidColorBrush(Color.Parse("#1C1E1E"));

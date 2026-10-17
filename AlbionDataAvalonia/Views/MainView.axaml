@@ -282,7 +282,7 @@
 							HorizontalContentAlignment="Center"
 							Command="{Binding LoginCommand}"
 							ToolTip.Tip="Sign in with Google to send market orders privately to AFM, upload specs and track your island.">
-							<TextBlock Text="Sign in for private mode" TextWrapping="Wrap" TextAlignment="Center" />
+							<TextBlock Text="Sign in" TextAlignment="Center" />
 						</Button>
 
 						<StackPanel IsVisible="{Binding IsLoginPending}" Spacing="5">
@@ -321,7 +321,7 @@
 										Margin="0,0,0,5" FontSize="11">Share with Other AFM Users</CheckBox>
 									<CheckBox IsChecked="{Binding ShareWithFriends}"
 										IsEnabled="{Binding UploadToAfmOnly}"
-										ToolTip.Tip="Share market orders with up to five people in Settings &gt; Uploads &amp; sharing, only when you have added each other. They can use them in the flipper and website price tools. Turning sharing off stops new shared uploads. Previously shared price summaries keep their original expiry, up to two days."
+										ToolTip.Tip="Share market orders with up to five people in Settings › Uploads &amp; sharing, only when you have added each other. They can use them in the flipper and website price tools. Turning sharing off stops new shared uploads. Previously shared price summaries keep their original expiry, up to two days."
 										Margin="0,0,0,5" FontSize="11">Share with Friends</CheckBox>
 								</StackPanel>
 							</Border>

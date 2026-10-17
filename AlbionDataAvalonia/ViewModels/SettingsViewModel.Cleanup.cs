@@ -1,4 +1,5 @@
 using AlbionDataAvalonia.DB;
+using AlbionDataAvalonia.Ui;
 using AlbionDataAvalonia.Views;
 using Avalonia.Media;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -107,7 +108,13 @@ public partial class SettingsViewModel
                 row.Bytes = measured.Bytes;
                 row.Rows = measured.Rows;
                 row.SizeText = FormatBytes(measured.Bytes);
-                row.CountText = measured.CountText;
+                row.CountText = measured.Type switch
+                {
+                    DataCleanupType.Activity => $"{UiFormat.Count(measured.Sessions ?? 0, "session")} · {UiFormat.Count(measured.Rows, "event")}",
+                    DataCleanupType.Trades => UiFormat.Count(measured.Rows, "trade"),
+                    DataCleanupType.Mails => UiFormat.Count(measured.Rows, "mail"),
+                    _ => UiFormat.Count(measured.Rows, "item")
+                };
             }
 
             DatabaseSizeText = $"Database {FormatBytes(storage.DatabaseBytes)}";
@@ -199,10 +206,10 @@ public partial class SettingsViewModel
     {
         if (CleanupPreview is not { } preview) return "";
         var parts = new List<string>();
-        if (preview.Activity?.HasData == true) parts.Add($"{preview.Activity.Sessions:N0} activity sessions and {preview.Activity.Events:N0} events");
-        if (preview.Trades > 0) parts.Add($"{preview.Trades:N0} trades");
-        if (preview.Mails > 0) parts.Add($"{preview.Mails:N0} mail records");
-        if (preview.AwakenedItems > 0) parts.Add($"{preview.AwakenedItems:N0} awakened items");
+        if (preview.Activity?.HasData == true) parts.Add($"{UiFormat.Count(preview.Activity.Sessions, "activity session")} and {UiFormat.Count(preview.Activity.Events, "event")}");
+        if (preview.Trades > 0) parts.Add(UiFormat.Count(preview.Trades, "trade"));
+        if (preview.Mails > 0) parts.Add(UiFormat.Count(preview.Mails, "mail record"));
+        if (preview.AwakenedItems > 0) parts.Add(UiFormat.Count(preview.AwakenedItems, "awakened item"));
         var kept = preview.Activity is not null ? " The current activity session is kept." : "";
         var list = parts.Count > 1 ? $"{string.Join(", ", parts[..^1])} and {parts[^1]}" : parts.FirstOrDefault() ?? "";
         return $"Permanently delete {list} across all characters and servers?{kept} This cannot be undone.";

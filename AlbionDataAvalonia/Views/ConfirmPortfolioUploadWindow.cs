@@ -1,3 +1,4 @@
+using AlbionDataAvalonia.Ui;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Avalonia.Layout;
@@ -28,6 +29,7 @@ public sealed class ConfirmPortfolioUploadWindow : Window
 
         Classes.Add("AppPage");
         Title = "Confirm Portfolio upload";
+        Icon = UiAssets.WindowIcon;
         Width = 500;
         SizeToContent = SizeToContent.Height;
         CanResize = false;
@@ -106,7 +108,7 @@ public sealed class ConfirmPortfolioUploadWindow : Window
         cancelButton.Click += CancelButton_Click;
         buttons.Children.Add(cancelButton);
 
-        var uploadButton = new Button { Content = "Upload", Classes = { "UiAction" } };
+        var uploadButton = new Button { Content = "Upload", IsDefault = true, Classes = { "UiAction" } };
         uploadButton.Click += UploadButton_Click;
         buttons.Children.Add(uploadButton);
 

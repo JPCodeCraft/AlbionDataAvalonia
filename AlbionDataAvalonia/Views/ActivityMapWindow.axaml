@@ -152,16 +152,17 @@
             </Border>
 
             <StackPanel HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="12" Spacing="6">
-                <Button Classes="MapTool" Content="+" Click="ZoomIn_Click" ToolTip.Tip="Zoom in" />
-                <Button Classes="MapTool" Content="−" Click="ZoomOut_Click" ToolTip.Tip="Zoom out" />
-                <Button Classes="MapTool" Content="⤢" FontSize="13" Click="Fit_Click" ToolTip.Tip="Fit to view" />
+                <Button Classes="MapTool" Content="+" Click="ZoomIn_Click" ToolTip.Tip="Zoom in" AutomationProperties.Name="Zoom in" />
+                <Button Classes="MapTool" Content="−" Click="ZoomOut_Click" ToolTip.Tip="Zoom out" AutomationProperties.Name="Zoom out" />
+                <Button Classes="MapTool" Content="⤢" FontSize="13" Click="Fit_Click" ToolTip.Tip="Fit to view" AutomationProperties.Name="Fit to view" />
             </StackPanel>
         </Grid>
 
         <Border Grid.Row="2" IsVisible="{Binding IsHistory}" BorderBrush="#14FFFFFF" BorderThickness="0,1,0,0" Padding="12,8">
             <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto" ColumnSpacing="10">
                 <Button Content="{Binding PlayButtonText}" Command="{Binding TogglePlayCommand}" Width="34" Height="34" CornerRadius="17"
-                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="Replay this run" />
+                        HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="Replay this run"
+                        AutomationProperties.Name="{Binding PlayButtonName}" />
                 <TextBlock Grid.Column="1" Text="{Binding TimelineStartText}" Classes="Muted" VerticalAlignment="Center" />
                 <Grid Grid.Column="2" VerticalAlignment="Center">
                     <views:ActivityMapTimelineTicks Ticks="{Binding Ticks}" Height="14" VerticalAlignment="Center" Opacity="0.85" />
