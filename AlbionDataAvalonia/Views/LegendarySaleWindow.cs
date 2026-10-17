@@ -3,7 +3,6 @@ using AlbionDataAvalonia.ViewModels;
 using Avalonia.Controls;
 using Avalonia.Interactivity;
 using System;
-using System.Diagnostics;
 using System.Linq;
 using System.Threading.Tasks;
 
@@ -12,7 +11,7 @@ namespace AlbionDataAvalonia.Views;
 public partial class LegendarySaleWindow : Window
 {
     private const string AccountUrl = "https://albionfreemarket.com/account";
-    private const string DiscordInviteUrl = "https://discord.com/invite/BPmDE3zznH";
+    private const string DiscordInviteUrl = SystemLauncher.AfmDiscordUrl;
 
     private LegendaryItemRowViewModel? item;
     private Func<LegendarySaleInput, Task<LegendarySaleOperationResult>>? submitAsync;
@@ -308,9 +307,9 @@ public partial class LegendarySaleWindow : Window
 
     private static void OpenUrl(string? url)
     {
-        if (Uri.TryCreate(url, UriKind.Absolute, out var uri))
+        if (!string.IsNullOrWhiteSpace(url))
         {
-            Process.Start(new ProcessStartInfo(uri.AbsoluteUri) { UseShellExecute = true });
+            SystemLauncher.TryOpenUrl(url);
         }
     }
 

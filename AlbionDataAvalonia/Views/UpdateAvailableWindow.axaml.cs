@@ -2,8 +2,6 @@ using Avalonia.Controls;
 using Avalonia.Interactivity;
 using Serilog;
 using System;
-using System.Diagnostics;
-using System.Runtime.InteropServices;
 using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.Views;
@@ -58,34 +56,5 @@ public partial class UpdateAvailableWindow : Window
         Close();
     }
 
-    private static void OpenUrl(Uri uri)
-    {
-        try
-        {
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = uri.ToString(),
-                    UseShellExecute = true
-                });
-                return;
-            }
-
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-            {
-                Process.Start("x-www-browser", uri.ToString());
-                return;
-            }
-
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-            {
-                Process.Start("open", uri.ToString());
-            }
-        }
-        catch (Exception ex)
-        {
-            Log.Warning(ex, "Failed to open update URL {Url}", uri);
-        }
-    }
+    private static void OpenUrl(Uri uri) => SystemLauncher.TryOpenUrl(uri);
 }

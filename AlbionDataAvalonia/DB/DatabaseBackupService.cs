@@ -7,7 +7,6 @@ using System.Globalization;
 using System.IO;
 using System.IO.Compression;
 using System.Linq;
-using System.Runtime.InteropServices;
 using System.Text.RegularExpressions;
 using System.Threading;
 using System.Threading.Tasks;
@@ -108,42 +107,7 @@ public sealed class DatabaseBackupService : IDisposable
         }
     }
 
-    public void OpenBackupFolder()
-    {
-        try
-        {
-            Directory.CreateDirectory(BackupDirectoryPath);
-
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            {
-                Process.Start(new ProcessStartInfo
-                {
-                    FileName = BackupDirectoryPath,
-                    UseShellExecute = true
-                });
-                Log.Debug("Opened SQLite backup folder. Path={BackupDirectoryPath}", BackupDirectoryPath);
-                return;
-            }
-
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
-            {
-                StartFolderProcess("xdg-open");
-                return;
-            }
-
-            if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
-            {
-                StartFolderProcess("open");
-                return;
-            }
-
-            Log.Warning("Opening the backup folder is not supported on this operating system. Path={BackupDirectoryPath}", BackupDirectoryPath);
-        }
-        catch (Exception ex)
-        {
-            Log.Error(ex, "Failed to open SQLite backup folder. Path={BackupDirectoryPath}", BackupDirectoryPath);
-        }
-    }
+    public void OpenBackupFolder() => SystemLauncher.OpenFolder(BackupDirectoryPath);
 
     public void Dispose()
     {
@@ -411,18 +375,6 @@ public sealed class DatabaseBackupService : IDisposable
         {
             Log.Warning(ex, "Failed to delete temporary SQLite backup file. Path={BackupTemporaryPath}", path);
         }
-    }
-
-    private void StartFolderProcess(string executable)
-    {
-        var startInfo = new ProcessStartInfo
-        {
-            FileName = executable,
-            UseShellExecute = false
-        };
-        startInfo.ArgumentList.Add(BackupDirectoryPath);
-        Process.Start(startInfo);
-        Log.Debug("Opened SQLite backup folder. Path={BackupDirectoryPath}", BackupDirectoryPath);
     }
 
     private sealed record DatabaseBackupFile(string Path, DateTimeOffset TimestampUtc);
