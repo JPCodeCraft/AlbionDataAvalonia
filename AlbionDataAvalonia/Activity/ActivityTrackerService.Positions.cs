@@ -93,7 +93,7 @@ public sealed partial class ActivityTrackerService
         liveMapVersion++;
     }
 
-    // Called for every saved event; only the character's own placed events on this map are kept.
+    // Called for every saved event; placed events of the character and its party on this map are kept.
     private void TrackLiveMarker(ActivityEvent value)
     {
         if (value.MapEpoch != mapEpoch || ActivityMapMarker.From(value) is not { } marker) return;

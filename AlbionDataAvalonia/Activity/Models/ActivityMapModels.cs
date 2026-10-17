@@ -6,36 +6,44 @@ namespace AlbionDataAvalonia.Activity.Models;
 
 public enum ActivityMapMarkerKind { Kill, Loot, Gathering, Death }
 
-/// <summary>Something the local character did at a spot on a map.</summary>
+/// <summary>Something the local character or a party member did, placed where the local character stood.</summary>
 public sealed record ActivityMapMarker(ActivityMapMarkerKind Kind, string RawMapId, DateTime CapturedAtUtc, double X, double Y,
-    string Title, string Detail)
+    string Title, string Detail, bool IsOwn = true)
 {
-    // Positions are always the local character's, so only its own kills, pickups and deaths go on the map;
-    // a party member's pickup would otherwise appear where this character stood.
+    // Positions are always the local character's, so a party member's event is placed where this
+    // character stood when the client saw it. IsOwn lets the map show only the character's own events.
     public static ActivityMapMarker? From(ActivityEvent value)
     {
         if (value.IsRetracted || value.PositionX is not { } x || value.PositionY is not { } y) return null;
         var self = value.SourceRelationship == ActorRelationship.Self;
+        var party = value.SourceRelationship == ActorRelationship.Party;
+        var targetSelf = value.TargetRelationship == ActorRelationship.Self;
+        var targetParty = value.TargetRelationship == ActorRelationship.Party;
         var confirmed = value.Evidence == ActivityEvidence.Confirmed;
-        (ActivityMapMarkerKind Kind, string Title, string Detail)? marker = value.Kind switch
+        var source = Name(value.SourceName, "A party member");
+        var target = Name(value.TargetName, "A party member");
+        (ActivityMapMarkerKind Kind, string Title, string Detail, bool Own)? marker = value.Kind switch
         {
-            ActivityEventKind.MobKilled when value.ParticipatedSelf =>
-                (ActivityMapMarkerKind.Kill, $"Killed {Name(value.TargetName, "a mob")}", ""),
-            ActivityEventKind.PlayerKilled when self && confirmed =>
-                (ActivityMapMarkerKind.Kill, $"Killed {Name(value.TargetName, "a player")}", Guild(value.TargetGuild, value.TargetAlliance)),
-            ActivityEventKind.Death when value.TargetRelationship == ActorRelationship.Self && confirmed =>
-                (ActivityMapMarkerKind.Death, "You died", By(value.SourceName)),
-            ActivityEventKind.Knockdown when value.TargetRelationship == ActorRelationship.Self && confirmed =>
-                (ActivityMapMarkerKind.Death, "Knocked down", By(value.SourceName)),
-            ActivityEventKind.Loot when self && confirmed =>
-                (ActivityMapMarkerKind.Loot, $"Looted {Items(value)}", Join(From(value.LootSourceName), Value(value))),
-            ActivityEventKind.Gathered when self =>
-                (ActivityMapMarkerKind.Gathering, $"Gathered {Items(value)}", Value(value)),
-            ActivityEventKind.FishingReward when self =>
-                (ActivityMapMarkerKind.Gathering, $"Caught {Items(value)}", Value(value)),
+            ActivityEventKind.MobKilled when value.ParticipatedSelf || value.ParticipatedParty =>
+                (ActivityMapMarkerKind.Kill, value.ParticipatedSelf ? $"Killed {Name(value.TargetName, "a mob")}" : $"Party killed {Name(value.TargetName, "a mob")}",
+                    "", value.ParticipatedSelf),
+            ActivityEventKind.PlayerKilled when (self || party) && confirmed =>
+                (ActivityMapMarkerKind.Kill, self ? $"Killed {Name(value.TargetName, "a player")}" : $"{source} killed {Name(value.TargetName, "a player")}",
+                    Guild(value.TargetGuild, value.TargetAlliance), self),
+            ActivityEventKind.Death when (targetSelf || targetParty) && confirmed =>
+                (ActivityMapMarkerKind.Death, targetSelf ? "You died" : $"{target} died", By(value.SourceName), targetSelf),
+            ActivityEventKind.Knockdown when (targetSelf || targetParty) && confirmed =>
+                (ActivityMapMarkerKind.Death, targetSelf ? "Knocked down" : $"{target} was knocked down", By(value.SourceName), targetSelf),
+            ActivityEventKind.Loot when (self || party) && confirmed =>
+                (ActivityMapMarkerKind.Loot, self ? $"Looted {Items(value)}" : $"{source} looted {Items(value)}",
+                    Join(From(value.LootSourceName), Value(value)), self),
+            ActivityEventKind.Gathered when self || party =>
+                (ActivityMapMarkerKind.Gathering, self ? $"Gathered {Items(value)}" : $"{source} gathered {Items(value)}", Value(value), self),
+            ActivityEventKind.FishingReward when self || party =>
+                (ActivityMapMarkerKind.Gathering, self ? $"Caught {Items(value)}" : $"{source} caught {Items(value)}", Value(value), self),
             _ => null
         };
-        return marker is { } found ? new(found.Kind, value.RawMapId, value.CapturedAtUtc, x, y, found.Title, found.Detail) : null;
+        return marker is { } found ? new(found.Kind, value.RawMapId, value.CapturedAtUtc, x, y, found.Title, found.Detail, found.Own) : null;
     }
 
     private static string Name(string name, string fallback) => string.IsNullOrWhiteSpace(name) ? fallback : name;

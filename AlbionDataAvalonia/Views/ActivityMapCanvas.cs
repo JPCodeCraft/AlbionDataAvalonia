@@ -37,6 +37,7 @@ public sealed class ActivityMapCanvas : Control
     private static readonly Pen TooltipPen = new(new SolidColorBrush(Color.Parse("#555555")), 1);
     private static readonly Pen OutlinePen = new(new SolidColorBrush(Color.Parse("#CC111111")), 1.4);
     private static readonly Pen WhitePen = new(Brushes.White, 1.6, lineJoin: PenLineJoin.Round);
+    private static readonly Pen PartyRingPen = new(new SolidColorBrush(Color.Parse("#D0FFFFFF")), 1.4);
     private const double LiveZoom = 3.5;
     private const double MinZoom = 0.5;
     private const double MaxZoom = 40;
@@ -312,7 +313,11 @@ public sealed class ActivityMapCanvas : Control
             var at = ToScreen(ImagePoint(scene, marker.X, marker.Y), scale);
             if (!Visible(at, 10)) continue;
             using (context.PushOpacity(Math.Max(0.2, opacity)))
+            {
+                // A party member's event gets a light ring so it reads apart from the character's own.
+                if (!marker.IsOwn) context.DrawEllipse(null, PartyRingPen, at, 10.5, 10.5);
                 DrawMarkerShape(context, marker.Kind, at, 6.5);
+            }
             hits.Add(new Hit(at, 9, marker.Title, marker.Detail, marker.CapturedAtUtc));
         }
     }

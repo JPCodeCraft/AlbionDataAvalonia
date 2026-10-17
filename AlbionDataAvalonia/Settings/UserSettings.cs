@@ -371,6 +371,20 @@ public class UserSettings : INotifyPropertyChanged
         }
     }
 
+    // The map shows the party's events too, not only the character's own; the path is always the character's.
+    private bool mapPartyEvents;
+    public bool MapPartyEvents
+    {
+        get => mapPartyEvents;
+        set
+        {
+            if (mapPartyEvents == value) return;
+            mapPartyEvents = value;
+            OnPropertyChanged(nameof(MapPartyEvents));
+            Log.Information("Map party events set to {MapPartyEvents}", mapPartyEvents);
+        }
+    }
+
     // How long the live map keeps showing your path and events; 0 keeps them for the whole visit.
     private int mapFadeMinutes = 5;
     public int MapFadeMinutes
