@@ -3,6 +3,7 @@ using Albion.Network;
 using AlbionDataAvalonia.Activity;
 using AlbionDataAvalonia.Items.Services;
 using AlbionDataAvalonia.Legendary;
+using AlbionDataAvalonia.Logging;
 using AlbionDataAvalonia.Network.Handlers;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Party;
@@ -51,6 +52,7 @@ namespace AlbionDataAvalonia.Network.Services
         private readonly PlayerIdentityService _playerIdentityService;
         private readonly LegendaryItemTrackerService _legendaryTracker;
         private readonly DesktopClientCore _clientCore;
+        private readonly PacketDiagnostics _packetDiagnostics;
 
         private CancellationTokenSource? _lifecycleCancellation;
         private CancellationTokenSource? _supervisorCancellation;
@@ -65,7 +67,7 @@ namespace AlbionDataAvalonia.Network.Services
         public bool IsMacOSCapturePermissionSetupRequired { get; private set; }
         public bool IsMacOSCapturePermissionSetupOutdated { get; private set; }
 
-        public NetworkListenerService(PlayerState playerState, SettingsManager settingsManager, MailService mailService, TradeService tradeService, ItemEstimatedMarketValueService itemEstimatedMarketValues, ActivityTrackerService activityTracker, PartyTrackerService partyTracker, PlayerIdentityService playerIdentityService, LegendaryItemTrackerService legendaryTracker, DesktopClientCore clientCore)
+        public NetworkListenerService(PlayerState playerState, SettingsManager settingsManager, MailService mailService, TradeService tradeService, ItemEstimatedMarketValueService itemEstimatedMarketValues, ActivityTrackerService activityTracker, PartyTrackerService partyTracker, PlayerIdentityService playerIdentityService, LegendaryItemTrackerService legendaryTracker, DesktopClientCore clientCore, PacketDiagnostics packetDiagnostics)
         {
             _playerState = playerState;
             _settingsManager = settingsManager;
@@ -76,6 +78,7 @@ namespace AlbionDataAvalonia.Network.Services
             _playerIdentityService = playerIdentityService;
             _legendaryTracker = legendaryTracker;
             _clientCore = clientCore;
+            _packetDiagnostics = packetDiagnostics;
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
@@ -219,9 +222,6 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddEventHandler(new NewEquipmentItemLegendarySoulEventHandler(_legendaryTracker));
                 builder.AddEventHandler(new BankVaultInfoEventHandler(_legendaryTracker));
                 builder.AddEventHandler(new GuildVaultInfoEventHandler(_legendaryTracker));
-#if DEBUG
-                builder.AddEventHandler(new DebugEventProbeEventHandler(() => _settingsManager.UserSettings.LogLevel <= Serilog.Events.LogEventLevel.Debug));
-#endif
                 // RESPONSE
                 builder.AddResponseHandler(new AuctionGetOffersResponseHandler(_playerState, _tradeService));
                 builder.AddResponseHandler(new AuctionGetRequestsResponseHandler(_playerState, _tradeService));
@@ -230,17 +230,12 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddResponseHandler(new ReadMailResponseHandler(_playerState, _mailService));
                 builder.AddResponseHandler(new AuctionBuyOfferResponseHandler(_playerState, _tradeService));
                 builder.AddResponseHandler(new AuctionSellSpecificItemRequestResponseHandler(_playerState, _tradeService));
-#if DEBUG
-                builder.AddHandler(new DebugResponseProbeResponseHandler(() => _settingsManager.UserSettings.LogLevel <= Serilog.Events.LogEventLevel.Debug));
-#endif
                 // REQUEST
                 builder.AddRequestHandler(new AuctionBuyOfferRequestHandler(_playerState, _tradeService));
                 builder.AddRequestHandler(new AuctionSellSpecificItemRequestRequestHandler(_playerState, _tradeService));
-#if DEBUG
-                builder.AddHandler(new DebugRequestProbeRequestHandler(() => _settingsManager.UserSettings.LogLevel <= Serilog.Events.LogEventLevel.Debug));
-#endif
 
                 ActivityPacketSubscriptions.Register(builder, _activityTracker);
+                builder.ObserveHandledPackets(_packetDiagnostics.Write, () => _packetDiagnostics.IsEnabled);
 
                 var localReceiver = builder.Build();
                 localReceiver.ResetTransportContext();

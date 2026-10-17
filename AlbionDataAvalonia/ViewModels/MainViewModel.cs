@@ -1,6 +1,7 @@
 ﻿using AlbionDataAvalonia.Auth.Models;
 using AlbionDataAvalonia.Auth.Services;
 using AlbionDataAvalonia.Locations;
+using AlbionDataAvalonia.Logging;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Players;
 using AlbionDataAvalonia.Settings;
@@ -49,6 +50,7 @@ public partial class MainViewModel : ViewModelBase
     private readonly LegendaryViewModel _legendaryViewModel;
     private readonly Uploader _uploader;
     private readonly AuthService _authService;
+    private readonly PacketDiagnostics? _packetDiagnostics;
 
     [ObservableProperty]
     private string appVersion;
@@ -260,7 +262,7 @@ public partial class MainViewModel : ViewModelBase
         SidebarStatusItems.Add(SidebarStatusItem.Ok("Ready", "Capture state looks ready."));
     }
 
-    public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, PlayerIdentityService playerIdentityService, SettingsManager settingsManager, SettingsViewModel settingsViewModel, LogsViewModel logsViewModel, TradesViewModel tradesViewModel, ActivityViewModel activityViewModel, LegendaryViewModel legendaryViewModel, Uploader uploader, AuthService authService)
+    public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, PlayerIdentityService playerIdentityService, SettingsManager settingsManager, SettingsViewModel settingsViewModel, LogsViewModel logsViewModel, TradesViewModel tradesViewModel, ActivityViewModel activityViewModel, LegendaryViewModel legendaryViewModel, Uploader uploader, AuthService authService, PacketDiagnostics? packetDiagnostics = null)
     {
         _playerState = playerState;
         _playerIdentityService = playerIdentityService;
@@ -273,6 +275,7 @@ public partial class MainViewModel : ViewModelBase
         _legendaryViewModel = legendaryViewModel;
         _uploader = uploader;
         _authService = authService;
+        _packetDiagnostics = packetDiagnostics;
         UploadToAfmOnly = _settingsManager.UserSettings.UploadToAfmOnly;
         ContributeToPublic = _settingsManager.UserSettings.ContributeToPublic;
         ShareWithFriends = _settingsManager.UserSettings.ShareWithFriends;
@@ -314,6 +317,7 @@ public partial class MainViewModel : ViewModelBase
         RefreshSidebarStatus();
 
         _networkListener.MacOSCapturePermissionSetupRequiredChanged += NetworkListener_MacOSCapturePermissionSetupRequiredChanged;
+        if (_packetDiagnostics is not null) _packetDiagnostics.IsEnabledChanged += (_, _) => RefreshSidebarStatus();
 
         userSettings = _settingsManager.UserSettings;
 
@@ -528,6 +532,13 @@ public partial class MainViewModel : ViewModelBase
         }
 
         SidebarStatusItems.Clear();
+
+        if (_packetDiagnostics?.IsEnabled == true)
+        {
+            AddSidebarStatus(SidebarStatusItem.Warning(
+                "Diagnostics On",
+                "Writing every packet the client uses to a diagnostics file. Turn it off in Settings › About or the Logs tab."));
+        }
 
         if (!UserLoggedIn)
         {

@@ -550,6 +550,7 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<WindowsStartupService>();
         collection.AddSingleton<DatabaseBackupService>();
         collection.AddSingleton<DataCleanupService>();
+        collection.AddSingleton<PacketDiagnostics>();
 
         collection.AddSingleton<MainViewModel>();
         collection.AddSingleton<SettingsViewModel>();

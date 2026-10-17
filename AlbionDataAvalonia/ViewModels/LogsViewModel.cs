@@ -1,4 +1,5 @@
 ﻿using AlbionDataAvalonia.Logging;
+using AlbionDataAvalonia.Logging;
 using AlbionDataAvalonia.Settings;
 using Avalonia.Threading;
 using CommunityToolkit.Mvvm.ComponentModel;
@@ -39,6 +40,7 @@ namespace AlbionDataAvalonia.ViewModels
 
         private readonly ListSink _listSink;
         private readonly SettingsManager _settingsManager;
+        private readonly PacketDiagnostics? _packetDiagnostics;
         private readonly List<LogEventWrapper> _allEventsNewestFirst = new();
         private readonly List<PendingLogEvent> _pendingLogEvents = new();
         private readonly object _sync = new();
@@ -105,10 +107,12 @@ namespace AlbionDataAvalonia.ViewModels
             }
         }
 
-        public LogsViewModel(ListSink listSink, SettingsManager settingsManager)
+        public LogsViewModel(ListSink listSink, SettingsManager settingsManager, PacketDiagnostics? packetDiagnostics = null)
         {
             _listSink = listSink;
             _settingsManager = settingsManager;
+            _packetDiagnostics = packetDiagnostics;
+            if (_packetDiagnostics is not null) _packetDiagnostics.IsEnabledChanged += OnDiagnosticsChanged;
             EnsureVisibleCountMatchesOptions();
 
             var snapshot = _listSink.Events.ToArray();
@@ -391,10 +395,23 @@ namespace AlbionDataAvalonia.ViewModels
             return (value ?? string.Empty).Replace(" ", string.Empty);
         }
 
+        public bool IsDiagnosticsEnabled => _packetDiagnostics?.IsEnabled == true;
+        public string DiagnosticsFileName => System.IO.Path.GetFileName(_packetDiagnostics?.CurrentFilePath ?? string.Empty);
+
+        [CommunityToolkit.Mvvm.Input.RelayCommand]
+        private void TurnOffDiagnostics() => _packetDiagnostics?.SetEnabled(false);
+
+        private void OnDiagnosticsChanged(object? sender, EventArgs e) => Dispatcher.UIThread.Post(() =>
+        {
+            OnPropertyChanged(nameof(IsDiagnosticsEnabled));
+            OnPropertyChanged(nameof(DiagnosticsFileName));
+        });
+
         public void Dispose()
         {
             _listSink.CollectionChanged -= OnLogEventReceived;
             _settingsManager.UserSettings.PropertyChanged -= OnUserSettingsPropertyChanged;
+            if (_packetDiagnostics is not null) _packetDiagnostics.IsEnabledChanged -= OnDiagnosticsChanged;
 
             lock (_sync)
             {

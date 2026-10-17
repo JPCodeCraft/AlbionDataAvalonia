@@ -657,6 +657,25 @@
                         <Border Classes="Group">
                             <StackPanel>
                                 <Border Classes="Row">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel>
+                                            <TextBlock Classes="RowTitle" Text="Diagnostics mode" />
+                                            <TextBlock Classes="RowHint" Text="Writes every packet the client uses to a separate file for bug reports. Files are deleted after 2 days. It turns off when the client restarts." />
+                                        </StackPanel>
+                                        <ToggleSwitch Grid.Column="1" IsChecked="{Binding DiagnosticsEnabled}" AutomationProperties.Name="Diagnostics mode" />
+                                    </Grid>
+                                </Border>
+                                <Border Classes="Row" IsVisible="{Binding DiagnosticsEnabled}">
+                                    <Grid ColumnDefinitions="*,Auto">
+                                        <StackPanel>
+                                            <TextBlock Classes="RowTitle" Text="Recording packets" Foreground="{StaticResource AFMOrange}" />
+                                            <TextBlock Classes="Path" Text="{Binding DiagnosticsFilePath}" />
+                                        </StackPanel>
+                                        <Button Grid.Column="1" Classes="UiAction UiSecondary" Content="Open folder"
+                                                Command="{Binding OpenLogsFolderCommand}" VerticalAlignment="Center" Margin="12,0,0,0" />
+                                    </Grid>
+                                </Border>
+                                <Border Classes="Row">
                                     <Expander Classes="Plain" Header="Proof-of-work performance" IsExpanded="False"
                                               HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                                         <StackPanel Spacing="8" Margin="4,8">

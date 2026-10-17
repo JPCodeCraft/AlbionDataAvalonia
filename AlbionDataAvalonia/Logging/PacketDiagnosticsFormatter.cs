@@ -2,9 +2,9 @@ using System.Collections;
 using System.Collections.Generic;
 using System.Linq;
 
-namespace AlbionDataAvalonia.Network.Handlers;
+namespace AlbionDataAvalonia.Logging;
 
-internal static class DebugProbeFormatter
+internal static class PacketDiagnosticsFormatter
 {
     public static string FormatParameters(Dictionary<byte, object> parameters)
     {

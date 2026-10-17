@@ -9,6 +9,7 @@ using AlbionDataAvalonia.Auth.Models;
 using AlbionDataAvalonia.Auth.Services;
 using AlbionDataAvalonia.Activity;
 using AlbionDataAvalonia.DB;
+using AlbionDataAvalonia.Logging;
 using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Services;
 using AlbionDataAvalonia.Settings;
@@ -33,6 +34,7 @@ public partial class SettingsViewModel : ViewModelBase
     private readonly AFMUploader? afmUploader;
     private readonly DatabaseBackupService? databaseBackupService;
     private readonly ActivityStreamerWindowService? streamerWindow;
+    private readonly PacketDiagnostics? packetDiagnostics;
 
     [ObservableProperty]
     private UserSettings userSettings;
@@ -139,7 +141,8 @@ public partial class SettingsViewModel : ViewModelBase
         AFMUploader afmUploader,
         DatabaseBackupService databaseBackupService,
         ActivityStreamerWindowService? streamerWindow = null,
-        DataCleanupService? dataCleanup = null)
+        DataCleanupService? dataCleanup = null,
+        PacketDiagnostics? packetDiagnostics = null)
     {
         _settingsManager = settingsManager;
         _playerState = playerState;
@@ -149,6 +152,13 @@ public partial class SettingsViewModel : ViewModelBase
         this.databaseBackupService = databaseBackupService;
         this.streamerWindow = streamerWindow;
         this.dataCleanup = dataCleanup;
+        this.packetDiagnostics = packetDiagnostics;
+        if (packetDiagnostics is not null)
+            packetDiagnostics.IsEnabledChanged += (_, _) => Dispatcher.UIThread.Post(() =>
+            {
+                OnPropertyChanged(nameof(DiagnosticsEnabled));
+                OnPropertyChanged(nameof(DiagnosticsFilePath));
+            });
         InitializeCleanup();
         if (streamerWindow is not null)
             streamerWindow.IsOpenChanged += (_, _) => OnPropertyChanged(nameof(StreamerWindowButtonText));
@@ -260,6 +270,17 @@ public partial class SettingsViewModel : ViewModelBase
 
     [RelayCommand]
     private void OpenDataFolder() => SystemLauncher.OpenFolder(DataFolderPath);
+
+    public bool DiagnosticsEnabled
+    {
+        get => packetDiagnostics?.IsEnabled == true;
+        set => packetDiagnostics?.SetEnabled(value);
+    }
+
+    public string DiagnosticsFilePath => packetDiagnostics?.CurrentFilePath ?? string.Empty;
+
+    [RelayCommand]
+    private void OpenLogsFolder() => SystemLauncher.OpenFolder(PacketDiagnostics.LogsDirectoryPath);
 
     [RelayCommand]
     private void OpenAfmWebsite() => SystemLauncher.TryOpenUrl(SystemLauncher.AfmWebsiteUrl);

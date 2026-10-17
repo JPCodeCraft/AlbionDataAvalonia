@@ -18,8 +18,20 @@
 		</Style>
 	</UserControl.Styles>
 
-	<Grid RowDefinitions="Auto,*">
-		<WrapPanel Grid.Row="0" VerticalAlignment="Top" Margin="0,8,0,8">
+	<Grid RowDefinitions="Auto,Auto,*">
+		<Border Grid.Row="0" Margin="0,8,0,0" Padding="12,8" CornerRadius="6" IsVisible="{Binding IsDiagnosticsEnabled}"
+				Background="#1FFFA726" BorderBrush="#73FFA726" BorderThickness="1">
+			<Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+				<TextBlock VerticalAlignment="Center" TextWrapping="Wrap" FontSize="12">
+					<Run Text="Diagnostics mode is on." FontWeight="SemiBold" />
+					<Run Text="Packets go to" />
+					<Run Text="{Binding DiagnosticsFileName, Mode=OneWay}" />
+					<Run Text="and are deleted after 2 days." />
+				</TextBlock>
+				<Button Grid.Column="1" Classes="UiAction UiSecondary" Content="Turn off" Command="{Binding TurnOffDiagnosticsCommand}" />
+			</Grid>
+		</Border>
+		<WrapPanel Grid.Row="1" VerticalAlignment="Top" Margin="0,8,0,8">
 			<StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
 				<TextBlock Classes="UiLabel" Text="Search logs" />
 				<TextBox Classes="Filter"
@@ -37,15 +49,22 @@
 			</StackPanel>
 
 			<StackPanel Orientation="Vertical" Margin="0,0,10,0" HorizontalAlignment="Left" VerticalAlignment="Top">
-				<TextBlock Classes="UiLabel" Text="Log verbosity" />
+				<TextBlock Classes="UiLabel" Text="Show" />
 				<ComboBox Classes="Filter"
 						  ItemsSource="{Binding LogVerbosityOptions}"
 						  SelectedItem="{Binding SelectedLogVerbosity}"
-						  Width="150" />
+						  ToolTip.Tip="Filters this list only. The log file always keeps Debug and up."
+						  Width="170">
+					<ComboBox.ItemTemplate>
+						<DataTemplate>
+							<TextBlock Text="{Binding StringFormat='{}{0} and up'}" />
+						</DataTemplate>
+					</ComboBox.ItemTemplate>
+				</ComboBox>
 			</StackPanel>
 		</WrapPanel>
 
-		<DataGrid Grid.Row="1" Margin="0" ItemsSource="{Binding Events}"
+		<DataGrid Grid.Row="2" Margin="0" ItemsSource="{Binding Events}"
 				  AutoGenerateColumns="False" IsReadOnly="True"
 				  RowHeight="NaN"
 				  GridLinesVisibility="None"
