@@ -22,6 +22,9 @@ jobs:
       - uses: actions/setup-dotnet@v4
         with:
           dotnet-version: "10.0.x"
+      - name: Check UI tokens
+        if: runner.os == 'Linux'
+        run: bash scripts/check-ui-tokens.sh
       - run: dotnet restore AlbionDataAvalonia.sln
       - run: dotnet build -c Debug AlbionDataAvalonia.sln --no-restore
       - name: Build macOS application

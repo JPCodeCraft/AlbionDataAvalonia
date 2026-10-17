@@ -5,6 +5,8 @@
              mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
 			 xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
              xmlns:views="clr-namespace:AlbionDataAvalonia.Views"
+             xmlns:logging="clr-namespace:AlbionDataAvalonia.Logging"
+             xmlns:events="clr-namespace:Serilog.Events;assembly=Serilog"
              x:Class="AlbionDataAvalonia.Views.LogsView"
 			 Classes="AppPage"
 			 x:DataType="vm:LogsViewModel">
@@ -19,16 +21,15 @@
 	</UserControl.Styles>
 
 	<Grid RowDefinitions="Auto,Auto,*">
-		<Border Grid.Row="0" Margin="0,8,0,0" Padding="12,8" CornerRadius="6" IsVisible="{Binding IsDiagnosticsEnabled}"
-				Background="#1FFFA726" BorderBrush="#73FFA726" BorderThickness="1">
+		<Border Grid.Row="0" Classes="UiBanner" Margin="0,8,0,0" IsVisible="{Binding IsDiagnosticsEnabled}">
 			<Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-				<TextBlock VerticalAlignment="Center" TextWrapping="Wrap" FontSize="12">
+				<TextBlock VerticalAlignment="Center" TextWrapping="Wrap" FontSize="{DynamicResource UiFontSizeSmall}">
 					<Run Text="Diagnostics mode is on." FontWeight="SemiBold" />
 					<Run Text="Packets go to" />
 					<Run Text="{Binding DiagnosticsFileName, Mode=OneWay}" />
 					<Run Text="and are deleted after 2 days." />
 				</TextBlock>
-				<Button Grid.Column="1" Classes="UiAction UiSecondary" Content="Turn off" Command="{Binding TurnOffDiagnosticsCommand}" />
+				<Button Grid.Column="1" Classes="UiAction" Content="Turn off" Command="{Binding TurnOffDiagnosticsCommand}" />
 			</Grid>
 		</Border>
 		<WrapPanel Grid.Row="1" VerticalAlignment="Top" Margin="0,8,0,8">
@@ -56,7 +57,7 @@
 						  ToolTip.Tip="Filters this list only. The log file always keeps Debug and up."
 						  Width="170">
 					<ComboBox.ItemTemplate>
-						<DataTemplate>
+						<DataTemplate x:DataType="events:LogEventLevel">
 							<TextBlock Text="{Binding StringFormat='{}{0} and up'}" />
 						</DataTemplate>
 					</ComboBox.ItemTemplate>
@@ -65,18 +66,15 @@
 		</WrapPanel>
 
 		<DataGrid Grid.Row="2" Margin="0" ItemsSource="{Binding Events}"
-				  AutoGenerateColumns="False" IsReadOnly="True"
 				  RowHeight="NaN"
-				  GridLinesVisibility="None"
-				  BorderThickness="0" BorderBrush="Gray"
 				  CopyingRowClipboardContent="LogsGrid_CopyingRowClipboardContent">
 			<DataGrid.Columns>
-				<DataGridTextColumn Header="Time" Binding="{Binding LogEvent.Timestamp.UtcDateTime, Mode=OneWay, Converter={x:Static views:UiValueConverters.LocalTimestamp}}" SortMemberPath="LogEvent.Timestamp" FontSize="12" />
-				<DataGridTextColumn Header="Level" Binding="{Binding LogEvent.Level}" FontSize="12" />
+				<DataGridTextColumn Header="Time" Binding="{Binding LogEvent.Timestamp.UtcDateTime, Mode=OneWay, Converter={x:Static views:UiValueConverters.LocalTimestamp}}" SortMemberPath="LogEvent.Timestamp" FontSize="{DynamicResource UiFontSizeSmall}" />
+				<DataGridTextColumn Header="Level" Binding="{Binding LogEvent.Level}" FontSize="{DynamicResource UiFontSizeSmall}" />
 				<DataGridTemplateColumn Header="Message" Width="*">
 					<DataGridTemplateColumn.CellTemplate>
-						<DataTemplate>
-							<TextBlock Text="{Binding RenderedMessage}" FontSize="12" TextWrapping="Wrap" VerticalAlignment="Center"
+						<DataTemplate x:DataType="logging:LogEventWrapper">
+							<TextBlock Text="{Binding RenderedMessage}" FontSize="{DynamicResource UiFontSizeSmall}" TextWrapping="Wrap" VerticalAlignment="Center"
 									   Margin="0,7" MaxLines="2" TextTrimming="CharacterEllipsis"
 									   Classes="log-message"
 									   DataContextChanged="LogMessage_DataContextChanged"
@@ -87,7 +85,7 @@
 								<TextBlock.Styles>
 									<Style Selector="TextBlock.log-message.link">
 										<Setter Property="Cursor" Value="Hand" />
-										<Setter Property="Foreground" Value="#FF1E88E5" />
+										<Setter Property="Foreground" Value="{DynamicResource UiAccentTextBrush}" />
 										<Setter Property="TextDecorations" Value="Underline" />
 									</Style>
 								</TextBlock.Styles>

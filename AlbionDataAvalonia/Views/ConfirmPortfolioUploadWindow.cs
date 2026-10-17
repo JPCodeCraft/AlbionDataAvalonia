@@ -46,7 +46,7 @@ public sealed class ConfirmPortfolioUploadWindow : Window
         {
             Text = "Confirm Portfolio upload",
             FontSize = 18,
-            FontWeight = FontWeight.DemiBold
+            FontWeight = FontWeight.SemiBold
         });
 
         root.Children.Add(new TextBlock
@@ -104,11 +104,11 @@ public sealed class ConfirmPortfolioUploadWindow : Window
             Spacing = 8
         };
 
-        var cancelButton = new Button { Content = "Cancel", IsCancel = true, Classes = { "UiAction", "UiSecondary" } };
+        var cancelButton = new Button { Content = "Cancel", IsCancel = true, Classes = { "UiAction" } };
         cancelButton.Click += CancelButton_Click;
         buttons.Children.Add(cancelButton);
 
-        var uploadButton = new Button { Content = "Upload", IsDefault = true, Classes = { "UiAction" } };
+        var uploadButton = new Button { Content = "Upload", IsDefault = true, Classes = { "UiAction", "UiPrimary" } };
         uploadButton.Click += UploadButton_Click;
         buttons.Children.Add(uploadButton);
 

@@ -76,7 +76,7 @@ public sealed class ActivityLiveTimelineView : UserControl
         HorizontalAlignment = HorizontalAlignment.Right,
         VerticalAlignment = VerticalAlignment.Top
     };
-    private readonly TextBlock titleText = new() { FontSize = 18, FontWeight = FontWeight.DemiBold };
+    private readonly TextBlock titleText = new() { FontSize = 18, FontWeight = FontWeight.SemiBold };
     private readonly TextBlock stateText = new()
     {
         FontSize = 12,
@@ -468,7 +468,7 @@ public sealed class ActivityLiveTimelineView : UserControl
         {
             Text = tooltip.Title,
             FontSize = 13,
-            FontWeight = FontWeight.DemiBold,
+            FontWeight = FontWeight.SemiBold,
             Margin = new Thickness(0, 0, 12, 0),
             TextWrapping = TextWrapping.Wrap
         });
@@ -556,8 +556,7 @@ public sealed class ActivityLiveTimelineView : UserControl
         Name = name,
         Content = label,
         Height = 32,
-        Margin = new Thickness(0, 0, 6, 0),
-        Classes = { "UiSecondary" }
+        Margin = new Thickness(0, 0, 6, 0)
     };
 
 }

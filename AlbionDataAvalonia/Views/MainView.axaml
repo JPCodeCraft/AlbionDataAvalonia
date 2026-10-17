@@ -4,92 +4,12 @@
 	xmlns:d="http://schemas.microsoft.com/expression/blend/2008"
 	xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
 	xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
-	xmlns:ani="clr-namespace:Avalonia.Animation;assembly=Avalonia.Animation"
 	mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
 	x:Class="AlbionDataAvalonia.Views.MainView"
 	x:DataType="vm:MainViewModel">
 	<Design.DataContext>
 		<vm:MainViewModel />
 	</Design.DataContext>
-
-	<UserControl.Styles>
-		<Style Selector="Button.menu">
-			<Setter Property="Background" Value="Transparent" />
-			<Setter Property="Padding" Value="10" />
-			<Setter Property="Margin" Value="10" />
-			<Setter Property="HorizontalAlignment" Value="Stretch" />
-			<Setter Property="BorderThickness" Value="1" />
-			<Setter Property="BorderBrush" Value="Transparent" />
-		</Style>
-
-		<Style Selector="Button.menu:pointerover">
-			<Setter Property="Background" Value="rgba(255,255,255,0.08)" />
-		</Style>
-
-		<Style Selector="Button.menu.active">
-			<Setter Property="Background" Value="rgba(255,255,255,0.16)" />
-			<Setter Property="BorderBrush" Value="rgba(255,255,255,0.32)" />
-		</Style>
-
-		<Style Selector="Label.title">
-			<Setter Property="FontWeight" Value="DemiBold" />
-			<Setter Property="FontSize" Value="14" />
-			<Setter Property="Margin" Value="0, 3, 0, 3" />
-		</Style>
-
-		<Style Selector="Border.card">
-			<Setter Property="Background" Value="rgba(255, 255, 255, 0.05)" />
-			<Setter Property="CornerRadius" Value="10" />
-			<Setter Property="Padding" Value="20" />
-			<Setter Property="Margin" Value="0 0 20 20" />
-			<Setter Property="HorizontalAlignment" Value="Stretch" />
-		</Style>
-
-		<Style Selector="Button.sidebarStatus">
-			<Setter Property="Margin" Value="10,0,10,10" />
-			<Setter Property="Padding" Value="10" />
-			<Setter Property="CornerRadius" Value="4" />
-			<Setter Property="Background" Value="rgba(255,255,255,0.05)" />
-			<Setter Property="HorizontalAlignment" Value="Stretch" />
-			<Setter Property="HorizontalContentAlignment" Value="Stretch" />
-		</Style>
-
-		<Style Selector="Button.sidebarStatus:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-			<Setter Property="Background" Value="rgba(255,255,255,0.08)" />
-		</Style>
-
-		<Style Selector="Ellipse.statusDot">
-			<Setter Property="Width" Value="8" />
-			<Setter Property="Height" Value="8" />
-			<Setter Property="VerticalAlignment" Value="Center" />
-		</Style>
-
-		<Style Selector="Ellipse.statusDot">
-			<Setter Property="Fill" Value="rgba(255,255,255,0.45)" />
-		</Style>
-
-		<Style Selector="Ellipse.statusDot.Ok">
-			<Setter Property="Fill" Value="#4CAF50" />
-		</Style>
-
-		<Style Selector="Ellipse.statusDot.Waiting, Ellipse.statusDot.Warning">
-			<Setter Property="Fill" Value="{StaticResource AFMOrange}" />
-		</Style>
-
-		<Style Selector="Ellipse.statusDot.Blocked">
-			<Setter Property="Fill" Value="{StaticResource AFMRed}" />
-		</Style>
-
-		<Style Selector="TextBlock.statusText">
-			<Setter Property="FontSize" Value="12" />
-			<Setter Property="TextWrapping" Value="Wrap" />
-		</Style>
-
-		<Style Selector="TextBlock.statusText.Warning">
-			<Setter Property="Foreground" Value="{StaticResource AFMOrange}" />
-			<Setter Property="FontWeight" Value="DemiBold" />
-		</Style>
-	</UserControl.Styles>
 
 	<Grid>
 		<Grid.ColumnDefinitions>
@@ -113,14 +33,11 @@
 						  VerticalScrollBarVisibility="Auto"
 						  HorizontalScrollBarVisibility="Disabled">
 				<StackPanel>
-					<Label HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="Bold"
-						Content="Albion Free Market" Padding="0 15 0 0" />
-					<Label HorizontalAlignment="Center" VerticalAlignment="Center" FontWeight="DemiBold"
-						Content="Data Client" Padding="0 5 0 15" />
+					<TextBlock HorizontalAlignment="Center" FontWeight="Bold" Text="Albion Free Market" Margin="0,15,0,0" />
+					<TextBlock HorizontalAlignment="Center" FontWeight="SemiBold" Text="Data Client" Margin="0,5,0,15" />
 
-					<!-- Main Button with Icon -->
-					<Button Classes="menu" Margin="10" HorizontalAlignment="Stretch"
-						Classes.active="{Binding IsDashboardSelected}"
+					<Button Classes="UiNav"
+						Classes.Active="{Binding IsDashboardSelected}"
 						Command="{Binding ShowDashboardCommand}">
 						<StackPanel Orientation="Horizontal">
 							<PathIcon
@@ -130,8 +47,8 @@
 						</StackPanel>
 					</Button>
 
-					<Button Classes="menu" Margin="10" HorizontalAlignment="Stretch"
-						Classes.active="{Binding IsActivitySelected}"
+					<Button Classes="UiNav"
+						Classes.Active="{Binding IsActivitySelected}"
 						Command="{Binding ShowActivityCommand}">
 						<StackPanel Orientation="Horizontal">
 							<PathIcon
@@ -141,9 +58,9 @@
 						</StackPanel>
 					</Button>
 
-					<Button Classes="menu" Margin="10" HorizontalAlignment="Stretch"
+					<Button Classes="UiNav"
 						IsVisible="{Binding !UserSettings.DisableAwakeningItemsTracker}"
-						Classes.active="{Binding IsLegendarySelected}"
+						Classes.Active="{Binding IsLegendarySelected}"
 						Command="{Binding ShowLegendaryCommand}">
 						<StackPanel Orientation="Horizontal">
 							<PathIcon
@@ -153,9 +70,8 @@
 						</StackPanel>
 					</Button>
 
-					<!-- Trades Button with Icon -->
-					<Button Classes="menu" Margin="10" HorizontalAlignment="Stretch"
-						Classes.active="{Binding IsTradesSelected}"
+					<Button Classes="UiNav"
+						Classes.Active="{Binding IsTradesSelected}"
 						Command="{Binding ShowTradesCommand}">
 						<StackPanel Orientation="Horizontal">
 							<PathIcon
@@ -165,9 +81,8 @@
 						</StackPanel>
 					</Button>
 
-					<!-- Settings Button with Icon -->
-					<Button Classes="menu" Margin="10" HorizontalAlignment="Stretch"
-						Classes.active="{Binding IsSettingsSelected}"
+					<Button Classes="UiNav"
+						Classes.Active="{Binding IsSettingsSelected}"
 						Command="{Binding ShowSettingsCommand}">
 						<StackPanel Orientation="Horizontal">
 							<PathIcon
@@ -177,9 +92,8 @@
 						</StackPanel>
 					</Button>
 
-					<!-- Logs Button with Icon -->
-					<Button Classes="menu" Margin="10" HorizontalAlignment="Stretch"
-						Classes.active="{Binding IsLogsSelected}"
+					<Button Classes="UiNav"
+						Classes.Active="{Binding IsLogsSelected}"
 						Command="{Binding ShowLogsCommand}">
 						<StackPanel Orientation="Horizontal">
 							<PathIcon
@@ -192,25 +106,25 @@
 			</ScrollViewer>
 
 			<Rectangle Grid.Row="0" Grid.RowSpan="3" Grid.Column="1" Width="1"
-				Fill="rgba(255,255,255,.1)" VerticalAlignment="Stretch" />
+				Fill="{DynamicResource UiDividerBrush}" VerticalAlignment="Stretch" />
 
 			<!-- Capture State Section: summarizes the Main tab checklist -->
 			<StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2">
-				<Button Classes="sidebarStatus"
+				<Button Classes="UiCardButton" Margin="10,0,10,10"
 					Command="{Binding ShowDashboardCommand}"
 					ToolTip.Tip="{Binding StatusTooltip}">
 					<StackPanel Spacing="3">
 						<Grid ColumnDefinitions="Auto,*">
-							<Ellipse Classes="statusDot"
+							<Ellipse Classes="UiStatusDot"
 								Classes.Ok="{Binding StatusIsOk}"
-								Classes.Waiting="{Binding StatusIsWaiting}"
+								Classes.Busy="{Binding StatusIsWaiting}"
 								Classes.Warning="{Binding StatusIsWarning}"
 								Classes.Blocked="{Binding StatusIsBlocked}"
 								Margin="0,0,7,0" />
-							<TextBlock Grid.Column="1" Text="{Binding StatusTitle}"
-								FontSize="12.5" FontWeight="SemiBold" TextWrapping="Wrap" />
+							<TextBlock Grid.Column="1" Classes="UiRowTitle" Text="{Binding StatusTitle}"
+								FontSize="{DynamicResource UiFontSizeCompact}" />
 						</Grid>
-						<TextBlock Text="{Binding StatusSubtitle}" FontSize="11" Opacity="0.7" Margin="15,0,0,4" />
+						<TextBlock Classes="UiFine" Text="{Binding StatusSubtitle}" Margin="15,0,0,4" />
 						<ItemsControl ItemsSource="{Binding SetupSteps}">
 							<ItemsControl.ItemsPanel>
 								<ItemsPanelTemplate>
@@ -226,8 +140,9 @@
 						<Grid ColumnDefinitions="Auto,*" Margin="0,8,0,0"
 							IsVisible="{Binding IsDiagnosticsEnabled}"
 							ToolTip.Tip="Writing every packet the client uses to a diagnostics file. Turn it off in Settings › About or the Logs tab.">
-							<Ellipse Classes="statusDot Warning" Margin="0,0,7,0" />
-							<TextBlock Grid.Column="1" Classes="statusText Warning" Text="Diagnostics On" />
+							<Ellipse Classes="UiStatusDot Warning" Margin="0,0,7,0" />
+							<TextBlock Grid.Column="1" Classes="UiWarning" FontSize="{DynamicResource UiFontSizeSmall}" FontWeight="SemiBold"
+								TextWrapping="Wrap" Text="Diagnostics on" />
 						</Grid>
 					</StackPanel>
 				</Button>
@@ -242,7 +157,7 @@
 							Data="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M11,7H13V13H11V7M11,15H13V17H11V15Z"
 							Width="14" Height="14" Margin="0,0,6,0" />
 						<TextBlock Text="{Binding MacOSCapturePermissionButtonText}"
-							FontSize="11"
+							FontSize="{DynamicResource UiFontSizeCaption}"
 							VerticalAlignment="Center" />
 					</StackPanel>
 				</Button>
@@ -250,34 +165,31 @@
 
 			<!-- Authentication Section -->
 			<Border Grid.Row="2" Grid.Column="0" Grid.ColumnSpan="2"
-				Margin="10" Padding="10"
-				CornerRadius="4"
-				Background="rgba(255,255,255,0.05)">
+				Classes="UiCard Subtle" Margin="10" Padding="10">
 				<!-- Single container for both states -->
 				<Grid>
 					<!-- Login Button (when logged out) -->
 					<StackPanel IsVisible="{Binding !UserLoggedIn}">
 						<Grid ColumnDefinitions="Auto,*" Margin="0,0,0,10">
 							<Border Width="26" Height="26" CornerRadius="13" Margin="0,0,9,0"
-								VerticalAlignment="Top" Background="rgba(255,255,255,0.1)">
+								VerticalAlignment="Top" Background="{DynamicResource UiNeutralFillBrush}">
 								<PathIcon
 									Data="M12,4A4,4 0 0,1 16,8A4,4 0 0,1 12,12A4,4 0 0,1 8,8A4,4 0 0,1 12,4M12,14C16.42,14 20,15.79 20,18V20H4V18C4,15.79 7.58,14 12,14Z"
-									Width="13" Height="13" Opacity="0.8" />
+									Width="13" Height="13" Foreground="{DynamicResource UiTextSecondaryBrush}" />
 							</Border>
 							<StackPanel Grid.Column="1" Spacing="1">
-								<TextBlock Text="Signed out" FontSize="12.5" FontWeight="SemiBold" />
-								<TextBlock Text="Public uploads to AODP still work." FontSize="11" Opacity="0.7" TextWrapping="Wrap" />
+								<TextBlock Classes="UiRowTitle" Text="Signed out" FontSize="{DynamicResource UiFontSizeCompact}" />
+								<TextBlock Classes="UiFine" Text="Public uploads to AODP still work." />
 							</StackPanel>
 						</Grid>
 
-						<TextBlock IsVisible="{Binding ShowLoginStatus}"
+						<TextBlock Classes="UiFine"
+							IsVisible="{Binding ShowLoginStatus}"
 							Text="{Binding LoginStatus}"
-							TextWrapping="Wrap"
-							FontSize="11"
-							Opacity="0.85"
 							Margin="0,0,0,8" />
 
-						<Button IsVisible="{Binding !IsLoginPending}"
+						<Button Classes="UiPrimary"
+							IsVisible="{Binding !IsLoginPending}"
 							HorizontalAlignment="Stretch"
 							HorizontalContentAlignment="Center"
 							Command="{Binding LoginCommand}"
@@ -289,11 +201,11 @@
 							<Button HorizontalAlignment="Stretch"
 								IsEnabled="{Binding HasLoginAuthorizationUrl}"
 								Command="{Binding OpenLoginBrowserCommand}"
-								Content="Open Browser Again" />
+								Content="Open browser again" />
 							<Button HorizontalAlignment="Stretch"
 								IsEnabled="{Binding HasLoginAuthorizationUrl}"
 								Click="CopyLoginLink_Click"
-								Content="Copy Sign-in Link" />
+								Content="Copy sign-in link" />
 							<Button HorizontalAlignment="Stretch"
 								Command="{Binding CancelLoginCommand}"
 								Content="Cancel" />
@@ -305,12 +217,11 @@
 
 						<!-- Options group -->
 						<StackPanel Margin="0,0,0,10">
-							<TextBlock Text="MARKET ORDERS" FontSize="11" Opacity="0.7"
-								Margin="0,0,0,5" />
+							<TextBlock Classes="UiCaption" Text="MARKET ORDERS" Margin="0,0,0,5" />
 							<CheckBox IsChecked="{Binding UploadToAfmOnly}"
 								ToolTip.Tip="Send buy and sell orders to AFM for your flipper and website price tools instead of AODP. Sharing follows the options below. Market history, gold prices and bandit events remain public. Requires sign-in."
-								Margin="0,0,0,8" FontSize="11">Private Mode</CheckBox>
-							<Border BorderBrush="rgba(255,255,255,0.16)"
+								Margin="0,0,0,8" FontSize="{DynamicResource UiFontSizeCaption}">Private mode</CheckBox>
+							<Border BorderBrush="{DynamicResource UiBorderSubtleBrush}"
 								BorderThickness="2,0,0,0"
 								Padding="10,0,0,0"
 								Margin="0,0,0,6">
@@ -318,14 +229,14 @@
 									<CheckBox IsChecked="{Binding ContributeToPublic}"
 										IsEnabled="{Binding UploadToAfmOnly}"
 										ToolTip.Tip="Let other AFM users use your market orders in the flipper and website price tools. These orders are not sent to AODP. Turning sharing off stops new shared uploads. Previously shared price summaries keep their original expiry, up to two days."
-										Margin="0,0,0,5" FontSize="11">Share with Other AFM Users</CheckBox>
+										Margin="0,0,0,5" FontSize="{DynamicResource UiFontSizeCaption}">Share with other AFM users</CheckBox>
 									<CheckBox IsChecked="{Binding ShareWithFriends}"
 										IsEnabled="{Binding UploadToAfmOnly}"
 										ToolTip.Tip="Share market orders with up to five people in Settings › Uploads &amp; sharing, only when you have added each other. They can use them in the flipper and website price tools. Turning sharing off stops new shared uploads. Previously shared price summaries keep their original expiry, up to two days."
-										Margin="0,0,0,5" FontSize="11">Share with Friends</CheckBox>
+										Margin="0,0,0,5" FontSize="{DynamicResource UiFontSizeCaption}">Share with friends</CheckBox>
 								</StackPanel>
 							</Border>
-							<Button Classes="link" FontSize="11" Margin="0,2,0,0"
+							<Button Classes="UiLink" FontSize="{DynamicResource UiFontSizeCaption}" Margin="0,2,0,0"
 								Content="More upload settings ›"
 								Command="{Binding ShowUploadSettingsCommand}" />
 						</StackPanel>
@@ -337,12 +248,10 @@
 									Data="M16,17V14H9V10H16V7L21,12L16,17M14,2A2,2 0 0,1 16,4V6H14V4H5V20H14V18H16V20A2,2 0 0,1 14,22H5A2,2 0 0,1 3,20V4A2,2 0 0,1 5,2H14Z"
 									Width="16" Height="16" Margin="0,0,6,0" />
 								<StackPanel Orientation="Horizontal">
-									<TextBlock Text="Sign Out" VerticalAlignment="Center" />
-									<TextBlock
+									<TextBlock Text="Sign out" VerticalAlignment="Center" />
+									<TextBlock Classes="UiFine"
 										Text="{Binding FirebaseUser.Initials, StringFormat=' [{0}]'}"
 										VerticalAlignment="Center"
-										FontSize="11"
-										Opacity="0.8"
 										Margin="4,0,0,0" />
 								</StackPanel>
 							</StackPanel>

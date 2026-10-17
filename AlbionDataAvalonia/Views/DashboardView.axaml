@@ -21,13 +21,13 @@
 							  StrokeThickness="2" StrokeLineCap="Round" StrokeJoin="Round" />
 						<Ellipse IsVisible="{Binding NeedsAttention}" Fill="{Binding StateBrush}" />
 						<Canvas IsVisible="{Binding NeedsAttention}" Width="18" Height="18">
-							<Path Data="M9,4.4 L9,10" Stroke="#1E1E1E" StrokeThickness="2.2" StrokeLineCap="Round" />
-							<Ellipse Canvas.Left="7.7" Canvas.Top="11.8" Width="2.6" Height="2.6" Fill="#1E1E1E" />
+							<Path Data="M9,4.4 L9,10" Stroke="{DynamicResource UiOnAccentBrush}" StrokeThickness="2.2" StrokeLineCap="Round" />
+							<Ellipse Canvas.Left="7.7" Canvas.Top="11.8" Width="2.6" Height="2.6" Fill="{DynamicResource UiOnAccentBrush}" />
 						</Canvas>
-						<Ellipse IsVisible="{Binding IsActive}" Margin="1" Stroke="#40FFA726" StrokeThickness="2" />
-						<Path IsVisible="{Binding IsActive}" Data="M9,2 A7,7 0 1 1 2,9" Stroke="{StaticResource AFMOrange}"
+						<Ellipse IsVisible="{Binding IsActive}" Margin="1" Stroke="{DynamicResource UiAccentTintBrush}" StrokeThickness="2" />
+						<Path IsVisible="{Binding IsActive}" Data="M9,2 A7,7 0 1 1 2,9" Stroke="{DynamicResource UiAccentTextBrush}"
 							  StrokeThickness="2" StrokeLineCap="Round" />
-						<Ellipse IsVisible="{Binding IsPending}" Margin="1" Stroke="#59FFFFFF" StrokeThickness="1.2"
+						<Ellipse IsVisible="{Binding IsPending}" Margin="1" Stroke="{DynamicResource UiTextDisabledBrush}" StrokeThickness="1.2"
 								 StrokeDashArray="2,2" />
 					</Grid>
 					<StackPanel Grid.Column="1" Spacing="4">
@@ -37,9 +37,9 @@
 									   Classes.Warning="{Binding IsWarning}" Classes.Blocked="{Binding IsBlocked}"
 									   Classes.Stale="{Binding IsStale}" Text="{Binding Value}" />
 						</Grid>
-						<TextBlock Classes="StepHint" IsVisible="{Binding HasHint}" Text="{Binding Hint}" />
-						<Border Classes="Code" IsVisible="{Binding HasCode}">
-							<SelectableTextBlock Text="{Binding Code}" TextWrapping="Wrap" />
+						<TextBlock Classes="UiLabel" MaxWidth="620" HorizontalAlignment="Left" IsVisible="{Binding HasHint}" Text="{Binding Hint}" />
+						<Border Classes="UiCode" IsVisible="{Binding HasCode}">
+							<SelectableTextBlock Text="{Binding Code}" />
 						</Border>
 						<ItemsControl IsVisible="{Binding HasActions}" ItemsSource="{Binding Actions}" Margin="0,4,0,2">
 							<ItemsControl.ItemsPanel>
@@ -49,8 +49,8 @@
 							</ItemsControl.ItemsPanel>
 							<ItemsControl.ItemTemplate>
 								<DataTemplate x:DataType="vm:SetupStepAction">
-									<Button Classes="StepAction" Classes.Primary="{Binding IsPrimary}" Content="{Binding Label}"
-											Command="{Binding Command}" />
+									<Button Classes="UiAction" Classes.UiPrimary="{Binding IsPrimary}" Margin="0,0,8,0"
+											Content="{Binding Label}" Command="{Binding Command}" />
 								</DataTemplate>
 							</ItemsControl.ItemTemplate>
 						</ItemsControl>
@@ -60,164 +60,47 @@
 		</DataTemplate>
 	</UserControl.Resources>
 
+	<!-- The setup checklist is the only list of its kind, so its row styles stay here. -->
 	<UserControl.Styles>
-		<Style Selector="TextBlock.HeroTitle">
-			<Setter Property="FontSize" Value="20" />
-			<Setter Property="FontWeight" Value="SemiBold" />
-			<Setter Property="TextWrapping" Value="Wrap" />
-		</Style>
-		<Style Selector="TextBlock.HeroText">
-			<Setter Property="FontSize" Value="13" />
-			<Setter Property="Opacity" Value="0.8" />
-			<Setter Property="TextWrapping" Value="Wrap" />
-		</Style>
-		<Style Selector="TextBlock.HeroMeta">
-			<Setter Property="FontSize" Value="12" />
-			<Setter Property="Opacity" Value="0.5" />
-		</Style>
 		<Style Selector="Border.Step">
 			<Setter Property="Padding" Value="10,8" />
-			<Setter Property="CornerRadius" Value="6" />
+			<Setter Property="CornerRadius" Value="{DynamicResource UiRadiusOverlay}" />
 		</Style>
 		<Style Selector="Border.Step.Current">
-			<Setter Property="Background" Value="#12FFFFFF" />
+			<Setter Property="Background" Value="{DynamicResource UiHoverBrush}" />
 		</Style>
 		<Style Selector="TextBlock.StepLabel">
-			<Setter Property="FontSize" Value="13" />
+			<Setter Property="FontSize" Value="{DynamicResource UiFontSizeCompact}" />
 			<Setter Property="FontWeight" Value="SemiBold" />
 			<Setter Property="Margin" Value="0,0,16,0" />
 		</Style>
 		<Style Selector="TextBlock.StepLabel.Pending">
-			<Setter Property="Opacity" Value="0.45" />
+			<Setter Property="Foreground" Value="{DynamicResource UiTextDisabledBrush}" />
 		</Style>
 		<Style Selector="TextBlock.StepValue">
-			<Setter Property="FontSize" Value="12.5" />
-			<Setter Property="Opacity" Value="0.8" />
+			<Setter Property="FontSize" Value="{DynamicResource UiFontSizeSmall}" />
+			<Setter Property="Foreground" Value="{DynamicResource UiTextSecondaryBrush}" />
 			<Setter Property="HorizontalAlignment" Value="Right" />
 			<Setter Property="TextAlignment" Value="Right" />
 			<Setter Property="TextTrimming" Value="CharacterEllipsis" />
 		</Style>
-		<Style Selector="TextBlock.StepValue.Pending">
-			<Setter Property="Opacity" Value="0.4" />
-		</Style>
-		<Style Selector="TextBlock.StepValue.Stale">
-			<Setter Property="Opacity" Value="0.55" />
+		<Style Selector="TextBlock.StepValue.Pending, TextBlock.StepValue.Stale">
+			<Setter Property="Foreground" Value="{DynamicResource UiTextTertiaryBrush}" />
 		</Style>
 		<Style Selector="TextBlock.StepValue.Warning">
-			<Setter Property="Opacity" Value="1" />
-			<Setter Property="Foreground" Value="{StaticResource AFMOrange}" />
+			<Setter Property="Foreground" Value="{DynamicResource UiWarningBrush}" />
 		</Style>
 		<Style Selector="TextBlock.StepValue.Blocked">
-			<Setter Property="Opacity" Value="1" />
-			<Setter Property="Foreground" Value="{StaticResource AFMRed}" />
-		</Style>
-		<Style Selector="TextBlock.StepHint">
-			<Setter Property="FontSize" Value="12.5" />
-			<Setter Property="Opacity" Value="0.75" />
-			<Setter Property="TextWrapping" Value="Wrap" />
-			<Setter Property="MaxWidth" Value="620" />
-			<Setter Property="HorizontalAlignment" Value="Left" />
-		</Style>
-		<Style Selector="Border.Code">
-			<Setter Property="Background" Value="#33000000" />
-			<Setter Property="CornerRadius" Value="4" />
-			<Setter Property="Padding" Value="8,5" />
-			<Setter Property="HorizontalAlignment" Value="Left" />
-		</Style>
-		<Style Selector="Border.Code SelectableTextBlock">
-			<Setter Property="FontFamily" Value="Cascadia Mono, Consolas, Menlo, DejaVu Sans Mono, monospace" />
-			<Setter Property="FontSize" Value="12" />
-		</Style>
-		<Style Selector="Button.StepAction">
-			<Setter Property="Margin" Value="0,0,8,0" />
-			<Setter Property="Padding" Value="14,6" />
-			<Setter Property="MinHeight" Value="32" />
-		</Style>
-		<Style Selector="Button.StepAction.Primary /template/ ContentPresenter#PART_ContentPresenter">
-			<Setter Property="Background" Value="#F57C00" />
-			<Setter Property="Foreground" Value="White" />
-		</Style>
-		<Style Selector="Button.StepAction.Primary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-			<Setter Property="Background" Value="#FB8C00" />
-			<Setter Property="Foreground" Value="White" />
-		</Style>
-
-		<Style Selector="Expander.Bare">
-			<Setter Property="Background" Value="Transparent" />
-			<Setter Property="BorderThickness" Value="0" />
-			<Setter Property="Padding" Value="6,2,6,8" />
-		</Style>
-		<Style Selector="Expander.Bare /template/ ToggleButton">
-			<Setter Property="Background" Value="Transparent" />
-			<Setter Property="MinHeight" Value="30" />
-			<Setter Property="Padding" Value="16,0,16,0" />
-		</Style>
-		<Style Selector="Expander.Trouble /template/ ToggleButton">
-			<Setter Property="MinHeight" Value="40" />
-		</Style>
-
-		<Style Selector="Border.Card">
-			<Setter Property="Background" Value="#0DFFFFFF" />
-			<Setter Property="CornerRadius" Value="8" />
-			<Setter Property="Padding" Value="14,12" />
-		</Style>
-		<Style Selector="Border.UploadCard">
-			<Setter Property="CornerRadius" Value="8" />
-			<Setter Property="Padding" Value="14,12" />
-			<Setter Property="BorderThickness" Value="1" />
-			<Setter Property="BorderBrush" Value="#26FFFFFF" />
-		</Style>
-		<Style Selector="TextBlock.Caption">
-			<Setter Property="FontSize" Value="11" />
-			<Setter Property="Opacity" Value="0.55" />
-		</Style>
-		<Style Selector="TextBlock.IdentityValue">
-			<Setter Property="FontSize" Value="15" />
-			<Setter Property="FontWeight" Value="SemiBold" />
-			<Setter Property="TextTrimming" Value="CharacterEllipsis" />
-		</Style>
-		<Style Selector="TextBlock.BigNumber">
-			<Setter Property="FontSize" Value="26" />
-			<Setter Property="FontWeight" Value="Bold" />
-		</Style>
-		<Style Selector="TextBlock.Sub">
-			<Setter Property="FontSize" Value="12.5" />
-			<Setter Property="Opacity" Value="0.75" />
-			<Setter Property="TextWrapping" Value="Wrap" />
+			<Setter Property="Foreground" Value="{DynamicResource UiDangerBrush}" />
 		</Style>
 		<Style Selector="Grid.DetailRow">
 			<Setter Property="Margin" Value="0,3" />
 		</Style>
 		<Style Selector="Grid.DetailRow TextBlock">
-			<Setter Property="FontSize" Value="12.5" />
+			<Setter Property="FontSize" Value="{DynamicResource UiFontSizeSmall}" />
 		</Style>
 		<Style Selector="Grid.DetailRow.Dimmed">
-			<Setter Property="Opacity" Value="0.45" />
-		</Style>
-		<Style Selector="Border.Banner">
-			<Setter Property="Background" Value="#1AFFA726" />
-			<Setter Property="BorderBrush" Value="#59FFA726" />
-			<Setter Property="BorderThickness" Value="1" />
-			<Setter Property="CornerRadius" Value="8" />
-			<Setter Property="Padding" Value="12,10" />
-		</Style>
-
-		<Style Selector="Button.FooterLink">
-			<Setter Property="Background" Value="Transparent" />
-			<Setter Property="BorderThickness" Value="0" />
-			<Setter Property="Padding" Value="8,4" />
-			<Setter Property="FontSize" Value="12.5" />
-		</Style>
-		<Style Selector="Button.FooterLink:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-			<Setter Property="Background" Value="#17FFFFFF" />
-		</Style>
-		<Style Selector="Ellipse.QueueDot">
-			<Setter Property="Width" Value="7" />
-			<Setter Property="Height" Value="7" />
-			<Setter Property="Fill" Value="#73FFFFFF" />
-		</Style>
-		<Style Selector="Ellipse.QueueDot.Busy">
-			<Setter Property="Fill" Value="{StaticResource AFMOrange}" />
+			<Setter Property="Opacity" Value="{DynamicResource UiDisabledOpacity}" />
 		</Style>
 	</UserControl.Styles>
 
@@ -229,59 +112,59 @@
 				<Grid ColumnDefinitions="Auto,*" Margin="0,4,0,2">
 					<Grid Width="56" Height="56" Margin="0,0,16,0" VerticalAlignment="Top">
 						<Grid IsVisible="{Binding HeroIsRadar}">
-							<Ellipse Fill="#1FFFA726" Stroke="#59FFA726" StrokeThickness="1.5" />
-							<Ellipse Width="18" Height="18" Fill="{StaticResource AFMOrange}" />
+							<Ellipse Fill="{DynamicResource UiAccentTintSubtleBrush}" Stroke="{DynamicResource UiAccentEdgeBrush}" StrokeThickness="1.5" />
+							<Ellipse Width="18" Height="18" Fill="{DynamicResource UiAccentTextBrush}" />
 						</Grid>
 						<Grid IsVisible="{Binding HeroIsIdle}">
-							<Ellipse Fill="#14FFFFFF" Stroke="#33FFFFFF" StrokeThickness="1.5" />
-							<Ellipse Width="18" Height="18" Fill="#73FFFFFF" />
+							<Ellipse Fill="{DynamicResource UiHoverBrush}" Stroke="{DynamicResource UiBorderSubtleBrush}" StrokeThickness="1.5" />
+							<Ellipse Width="18" Height="18" Fill="{DynamicResource UiTextTertiaryBrush}" />
 						</Grid>
 						<Grid IsVisible="{Binding HeroIsWarning}">
-							<Ellipse Fill="#33FFA726" />
-							<PathIcon Width="28" Height="28" Foreground="{StaticResource AFMOrange}"
+							<Ellipse Fill="{DynamicResource UiAccentTintBrush}" />
+							<PathIcon Width="28" Height="28" Foreground="{DynamicResource UiWarningBrush}"
 									  Data="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M11,7H13V13H11V7M11,15H13V17H11V15Z" />
 						</Grid>
 						<Grid IsVisible="{Binding HeroIsBlocked}">
-							<Ellipse Fill="#33FF7043" />
-							<PathIcon Width="28" Height="28" Foreground="{StaticResource AFMRed}"
+							<Ellipse Fill="{DynamicResource UiDangerTintBrush}" />
+							<PathIcon Width="28" Height="28" Foreground="{DynamicResource UiDangerBrush}"
 									  Data="M12,1L3,5V11C3,16.55 6.84,21.74 12,23C17.16,21.74 21,16.55 21,11V5L12,1M11,7H13V13H11V7M11,15H13V17H11V15Z" />
 						</Grid>
 						<Grid IsVisible="{Binding HeroIsZone}">
-							<Ellipse Fill="#33FFA726" />
+							<Ellipse Fill="{DynamicResource UiAccentTintBrush}" />
 							<Canvas Width="32" Height="32">
-								<Ellipse Canvas.Left="7" Canvas.Top="5" Width="12" Height="22" Stroke="{StaticResource AFMOrange}" StrokeThickness="2.4" />
-								<Path Data="M15,16 L28,16 M23,11 L28,16 L23,21" Stroke="{StaticResource AFMOrange}" StrokeThickness="2.4"
+								<Ellipse Canvas.Left="7" Canvas.Top="5" Width="12" Height="22" Stroke="{DynamicResource UiAccentTextBrush}" StrokeThickness="2.4" />
+								<Path Data="M15,16 L28,16 M23,11 L28,16 L23,21" Stroke="{DynamicResource UiAccentTextBrush}" StrokeThickness="2.4"
 									  StrokeLineCap="Round" StrokeJoin="Round" />
 							</Canvas>
 						</Grid>
 					</Grid>
 					<StackPanel Grid.Column="1" Spacing="4" VerticalAlignment="Center">
-						<TextBlock Classes="HeroTitle" Text="{Binding HeroTitle}" />
-						<TextBlock Classes="HeroText" Text="{Binding HeroText}" />
-						<TextBlock Classes="HeroMeta" Text="{Binding HeroMeta}" Margin="0,4,0,0"
+						<TextBlock Classes="UiHeading" Text="{Binding HeroTitle}" />
+						<TextBlock Classes="UiMuted" TextWrapping="Wrap" FontSize="{DynamicResource UiFontSizeCompact}" Text="{Binding HeroText}" />
+						<TextBlock Classes="UiLabel" Foreground="{DynamicResource UiTextTertiaryBrush}" Text="{Binding HeroMeta}" Margin="0,4,0,0"
 								   IsVisible="{Binding HeroMeta, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
 					</StackPanel>
 				</Grid>
 
 				<ItemsControl ItemsSource="{Binding SetupSteps}" ItemTemplate="{StaticResource SetupStepTemplate}" />
 
-				<Expander Classes="Trouble" IsVisible="{Binding ShowTroubleshooting}"
+				<Expander IsVisible="{Binding ShowTroubleshooting}"
 						  IsExpanded="{Binding IsTroubleshootingOpen, Mode=TwoWay}">
 					<Expander.Header>
-						<TextBlock Text="{Binding TroubleshootingTitle}" Foreground="{StaticResource AFMOrange}" FontWeight="SemiBold" />
+						<TextBlock Classes="UiAccent" Text="{Binding TroubleshootingTitle}" FontWeight="SemiBold" />
 					</Expander.Header>
 					<ItemsControl ItemsSource="{Binding TroubleshootingSteps}">
 						<ItemsControl.ItemTemplate>
 							<DataTemplate x:DataType="vm:TroubleshootingStep">
 								<Grid ColumnDefinitions="22,*" Margin="0,3">
-									<TextBlock Text="{Binding Number}" FontSize="13" Opacity="0.7" />
+									<TextBlock Classes="UiMuted" Text="{Binding Number}" FontSize="{DynamicResource UiFontSizeCompact}" />
 									<StackPanel Grid.Column="1" Spacing="5">
-										<TextBlock FontSize="13" TextWrapping="Wrap">
+										<TextBlock FontSize="{DynamicResource UiFontSizeCompact}" TextWrapping="Wrap">
 											<Run Text="{Binding Title}" FontWeight="SemiBold" />
 											<Run Text="{Binding Text}" />
 										</TextBlock>
-										<Border Classes="Code" IsVisible="{Binding HasCode}">
-											<SelectableTextBlock Text="{Binding Code}" TextWrapping="Wrap" />
+										<Border Classes="UiCode" IsVisible="{Binding HasCode}">
+											<SelectableTextBlock Text="{Binding Code}" />
 										</Border>
 									</StackPanel>
 								</Grid>
@@ -293,52 +176,51 @@
 
 			<!--  READY: everything detected  -->
 			<StackPanel IsVisible="{Binding ShowReadyView}" Spacing="12">
-				<Border Classes="Banner" IsVisible="{Binding ShowEncrypted}">
+				<Border Classes="UiBanner" IsVisible="{Binding ShowEncrypted}">
 					<StackPanel Spacing="3">
-						<TextBlock Text="Market orders are encrypted right now" FontWeight="SemiBold" Foreground="{StaticResource AFMOrange}" />
-						<TextBlock Classes="Sub" Text="The client can’t read buy and sell orders, so it can’t upload them. Other tracking continues." />
-						<Button Classes="link" FontSize="12.5" Margin="0,2,0,0" Content="Updates on the AFM Discord" Command="{Binding OpenDiscordCommand}" />
+						<TextBlock Classes="UiWarning" Text="Market orders are encrypted right now" FontWeight="SemiBold" />
+						<TextBlock Classes="UiLabel" Text="The client can’t read buy and sell orders, so it can’t upload them. Other tracking continues." />
+						<Button Classes="UiLink" FontSize="{DynamicResource UiFontSizeSmall}" Margin="0,2,0,0" Content="Updates on the AFM Discord" Command="{Binding OpenDiscordCommand}" />
 					</StackPanel>
 				</Border>
-				<Border Classes="Banner" IsVisible="{Binding IsLocationUnrecognized}">
+				<Border Classes="UiBanner" IsVisible="{Binding IsLocationUnrecognized}">
 					<StackPanel Spacing="3">
-						<TextBlock Text="Unrecognized zone" FontWeight="SemiBold" Foreground="{StaticResource AFMOrange}" />
-						<TextBlock Classes="Sub" Text="Market uploads pause until you reach a city or another known zone." />
+						<TextBlock Classes="UiWarning" Text="Unrecognized zone" FontWeight="SemiBold" />
+						<TextBlock Classes="UiLabel" Text="Market uploads pause until you reach a city or another known zone." />
 					</StackPanel>
 				</Border>
 
-				<Border Classes="Card">
+				<Border Classes="UiCard Subtle">
 					<StackPanel Spacing="10">
 						<Grid ColumnDefinitions="*,*,*">
 							<StackPanel Spacing="2" Margin="0,0,12,0">
-								<TextBlock Classes="Caption" Text="SERVER" />
-								<TextBlock Classes="IdentityValue" Text="{Binding AlbionServerName}" />
+								<TextBlock Classes="UiCaption" Text="SERVER" />
+								<TextBlock Classes="UiSectionTitle" TextTrimming="CharacterEllipsis" Text="{Binding AlbionServerName}" />
 							</StackPanel>
 							<StackPanel Grid.Column="1" Spacing="2" Margin="0,0,12,0">
-								<TextBlock Classes="Caption" Text="CHARACTER" />
+								<TextBlock Classes="UiCaption" Text="CHARACTER" />
 								<StackPanel Orientation="Horizontal" Spacing="8">
-									<TextBlock Classes="IdentityValue" Text="{Binding PlayerName}" VerticalAlignment="Center" />
-									<Border Padding="7,2" VerticalAlignment="Center" Background="{Binding PremiumStatusBackground}" CornerRadius="8">
+									<TextBlock Classes="UiSectionTitle" TextTrimming="CharacterEllipsis" Text="{Binding PlayerName}" VerticalAlignment="Center" />
+									<Border Classes="UiBadge" Background="{Binding PremiumStatusBackground}">
 										<StackPanel Orientation="Horizontal" Spacing="4" VerticalAlignment="Center">
 											<Image Width="16" Height="16" VerticalAlignment="Center" Source="/Assets/Icons/icon_shop_premium.png" Stretch="Uniform" />
-											<TextBlock VerticalAlignment="Center" FontSize="11" FontWeight="SemiBold"
-													   Foreground="{Binding PremiumStatusForeground}" Text="{Binding PremiumStatusText}" />
+											<TextBlock Foreground="{Binding PremiumStatusForeground}" Text="{Binding PremiumStatusText}" />
 										</StackPanel>
 									</Border>
 								</StackPanel>
-								<TextBlock FontSize="12" Opacity="0.7" IsVisible="{Binding HasPlayerAffiliation}" Text="{Binding PlayerAffiliationText}" />
+								<TextBlock Classes="UiLabel" IsVisible="{Binding HasPlayerAffiliation}" Text="{Binding PlayerAffiliationText}" />
 							</StackPanel>
 							<StackPanel Grid.Column="2" Spacing="2">
-								<TextBlock Classes="Caption" Text="LOCATION" />
-								<TextBlock Classes="IdentityValue" Text="{Binding LocationName}"
-										   Foreground="{StaticResource AFMOrange}" IsVisible="{Binding IsLocationUnrecognized}" />
-								<TextBlock Classes="IdentityValue" Text="{Binding LocationName}" IsVisible="{Binding !IsLocationUnrecognized}" />
+								<TextBlock Classes="UiCaption" Text="LOCATION" />
+								<TextBlock Classes="UiSectionTitle UiWarning" TextTrimming="CharacterEllipsis" Text="{Binding LocationName}"
+										   IsVisible="{Binding IsLocationUnrecognized}" />
+								<TextBlock Classes="UiSectionTitle" TextTrimming="CharacterEllipsis" Text="{Binding LocationName}" IsVisible="{Binding !IsLocationUnrecognized}" />
 							</StackPanel>
 						</Grid>
-						<Rectangle Height="1" Fill="#1AFFFFFF" />
+						<Rectangle Classes="UiDivider" />
 						<StackPanel Orientation="Horizontal" Spacing="7">
-							<Ellipse Width="7" Height="7" Fill="#4CAF50" VerticalAlignment="Center" />
-							<TextBlock Text="Live" FontSize="12.5" Opacity="0.8" VerticalAlignment="Center" />
+							<Ellipse Classes="UiStatusDot Ok" Width="7" Height="7" />
+							<TextBlock Classes="UiLabel" Text="Live" VerticalAlignment="Center" />
 						</StackPanel>
 					</StackPanel>
 				</Border>
@@ -347,46 +229,46 @@
 					<Expander.Header>
 						<StackPanel Orientation="Horizontal" Spacing="8">
 							<Grid Width="16" Height="16" VerticalAlignment="Center">
-								<Ellipse Fill="#4CAF50" IsVisible="{Binding AllChecksPassed}" />
+								<Ellipse Fill="{DynamicResource UiSuccessBrush}" IsVisible="{Binding AllChecksPassed}" />
 								<Path IsVisible="{Binding AllChecksPassed}" Data="M4.4,8.3 L7,10.8 L11.6,5.9" Stroke="White"
 									  StrokeThickness="1.8" StrokeLineCap="Round" StrokeJoin="Round" />
-								<Ellipse Fill="{StaticResource AFMOrange}" IsVisible="{Binding !AllChecksPassed}" />
-								<TextBlock IsVisible="{Binding !AllChecksPassed}" Text="!" FontWeight="Bold" FontSize="11" Foreground="#1E1E1E"
-										   HorizontalAlignment="Center" VerticalAlignment="Center" />
+								<Ellipse Fill="{DynamicResource UiWarningBrush}" IsVisible="{Binding !AllChecksPassed}" />
+								<TextBlock IsVisible="{Binding !AllChecksPassed}" Text="!" FontWeight="Bold" FontSize="{DynamicResource UiFontSizeCaption}"
+										   Foreground="{DynamicResource UiOnAccentBrush}" HorizontalAlignment="Center" VerticalAlignment="Center" />
 							</Grid>
-							<TextBlock Text="{Binding ChecksPassedText}" FontSize="13" Opacity="0.85" VerticalAlignment="Center" />
+							<TextBlock Classes="UiMuted" Text="{Binding ChecksPassedText}" FontSize="{DynamicResource UiFontSizeCompact}" VerticalAlignment="Center" />
 						</StackPanel>
 					</Expander.Header>
 					<ItemsControl ItemsSource="{Binding SetupSteps}" ItemTemplate="{StaticResource SetupStepTemplate}" />
 				</Expander>
 
 				<Grid ColumnDefinitions="*,12,*">
-					<Border Classes="UploadCard">
+					<Border Classes="UiCard Bordered">
 						<StackPanel Spacing="2">
-							<TextBlock Classes="Caption" Text="PUBLIC · AODP" />
-							<TextBlock Classes="BigNumber" Text="{Binding PublicUploadSuccessCount, StringFormat=N0}" />
+							<TextBlock Classes="UiCaption" Text="PUBLIC · AODP" />
+							<TextBlock Classes="UiValueLarge" Text="{Binding PublicUploadSuccessCount, StringFormat=N0}" />
 							<WrapPanel>
-								<TextBlock Classes="Sub" Text="uploads since start" />
-								<TextBlock Classes="Sub" Opacity="1" Foreground="{StaticResource AFMOrange}" IsVisible="{Binding HasPublicUploadFailures}"
+								<TextBlock Classes="UiLabel" Text="uploads since start" />
+								<TextBlock Classes="UiLabel UiWarning" IsVisible="{Binding HasPublicUploadFailures}"
 										   Text="{Binding PublicUploadFailedCount, StringFormat=' · {0:N0} failed'}" />
 							</WrapPanel>
 						</StackPanel>
 					</Border>
-					<Border Grid.Column="2" Classes="UploadCard">
+					<Border Grid.Column="2" Classes="UiCard Bordered">
 						<StackPanel Spacing="2">
-							<TextBlock Classes="Caption" Text="PRIVATE · AFM" />
+							<TextBlock Classes="UiCaption" Text="PRIVATE · AFM" />
 							<StackPanel IsVisible="{Binding UserLoggedIn}" Spacing="2">
-								<TextBlock Classes="BigNumber" Text="{Binding PrivateUploadSuccessCount, StringFormat=N0}" />
+								<TextBlock Classes="UiValueLarge" Text="{Binding PrivateUploadSuccessCount, StringFormat=N0}" />
 								<WrapPanel>
-									<TextBlock Classes="Sub" Text="uploads since start" />
-									<TextBlock Classes="Sub" Opacity="1" Foreground="{StaticResource AFMOrange}" IsVisible="{Binding HasPrivateUploadFailures}"
+									<TextBlock Classes="UiLabel" Text="uploads since start" />
+									<TextBlock Classes="UiLabel UiWarning" IsVisible="{Binding HasPrivateUploadFailures}"
 											   Text="{Binding PrivateUploadFailedCount, StringFormat=' · {0:N0} failed'}" />
-									<TextBlock Classes="Sub" IsVisible="{Binding UploadToAfmOnly}" Text=" · private mode on" />
+									<TextBlock Classes="UiLabel" IsVisible="{Binding UploadToAfmOnly}" Text=" · private mode on" />
 								</WrapPanel>
 							</StackPanel>
 							<StackPanel IsVisible="{Binding !UserLoggedIn}" Spacing="2">
-								<TextBlock Classes="BigNumber" Text="—" Opacity="0.4" />
-								<TextBlock Classes="Sub" Text="Sign in to upload specs, island data and private orders." />
+								<TextBlock Classes="UiValueLarge" Text="—" Foreground="{DynamicResource UiTextDisabledBrush}" />
+								<TextBlock Classes="UiLabel" Text="Sign in to upload specs, island data and private orders." />
 							</StackPanel>
 						</StackPanel>
 					</Border>
@@ -394,11 +276,11 @@
 
 				<Expander Classes="Bare">
 					<Expander.Header>
-						<TextBlock Text="Upload details" FontSize="13" Opacity="0.85" />
+						<TextBlock Classes="UiMuted" Text="Upload details" FontSize="{DynamicResource UiFontSizeCompact}" />
 					</Expander.Header>
 					<Grid ColumnDefinitions="*,32,*" Margin="10,4,10,0">
 						<StackPanel>
-							<TextBlock Classes="Caption" Text="PUBLIC · AODP" Margin="0,0,0,4" />
+							<TextBlock Classes="UiCaption" Text="PUBLIC · AODP" Margin="0,0,0,4" />
 							<Grid Classes="DetailRow" Classes.Dimmed="{Binding UploadToAfmOnly}" ColumnDefinitions="*,Auto">
 								<TextBlock Text="Market offers" />
 								<TextBlock Grid.Column="1" Text="{Binding PublicUploadedMarketOffersCount, StringFormat=N0}" />
@@ -429,7 +311,7 @@
 							</Grid>
 						</StackPanel>
 						<StackPanel Grid.Column="2">
-							<TextBlock Classes="Caption" Text="PRIVATE · AFM" Margin="0,0,0,4" />
+							<TextBlock Classes="UiCaption" Text="PRIVATE · AFM" Margin="0,0,0,4" />
 							<Grid Classes="DetailRow" Classes.Dimmed="{Binding !UploadToAfmOnly}" ColumnDefinitions="*,Auto">
 								<TextBlock Text="Market offers" />
 								<TextBlock Grid.Column="1" Text="{Binding PrivateUploadedMarketOffersCount, StringFormat=N0}" />
@@ -465,16 +347,16 @@
 			</StackPanel>
 
 			<!--  FOOTER  -->
-			<Border BorderBrush="#1AFFFFFF" BorderThickness="0,1,0,0" Padding="0,10,0,0">
+			<Border BorderBrush="{DynamicResource UiDividerBrush}" BorderThickness="0,1,0,0" Padding="0,10,0,0">
 				<Grid ColumnDefinitions="*,Auto,Auto,Auto">
 					<StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
-						<Ellipse Classes="QueueDot" Classes.Busy="{Binding IsUploading}" VerticalAlignment="Center" />
-						<TextBlock Text="{Binding UploadStatusText}" FontSize="12.5" Opacity="0.75" VerticalAlignment="Center" />
+						<Ellipse Classes="UiStatusDot" Classes.Busy="{Binding IsUploading}" Width="7" Height="7" />
+						<TextBlock Classes="UiLabel" Text="{Binding UploadStatusText}" VerticalAlignment="Center" />
 					</StackPanel>
-					<Button Grid.Column="1" Classes="FooterLink" Content="Logs" Command="{Binding ShowLogsCommand}" />
-					<Button Grid.Column="2" Classes="FooterLink" Content="{Binding CopyDiagnosticsLabel}" Click="CopyDiagnostics_Click"
+					<Button Grid.Column="1" Classes="UiGhost" FontSize="{DynamicResource UiFontSizeSmall}" Content="Logs" Command="{Binding ShowLogsCommand}" />
+					<Button Grid.Column="2" Classes="UiGhost" FontSize="{DynamicResource UiFontSizeSmall}" Content="{Binding CopyDiagnosticsLabel}" Click="CopyDiagnostics_Click"
 							ToolTip.Tip="Copies a short summary of the checks above to paste in the AFM Discord." />
-					<Button Grid.Column="3" Classes="FooterLink" Content="Discord" Command="{Binding OpenDiscordCommand}" />
+					<Button Grid.Column="3" Classes="UiGhost" FontSize="{DynamicResource UiFontSizeSmall}" Content="Discord" Command="{Binding OpenDiscordCommand}" />
 				</Grid>
 			</Border>
 		</StackPanel>

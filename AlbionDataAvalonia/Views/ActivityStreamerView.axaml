@@ -7,30 +7,30 @@
     <UserControl.Resources>
         <ControlTheme x:Key="StreamerScopeButton" TargetType="RadioButton">
             <Setter Property="Padding" Value="9,1" />
-            <Setter Property="FontSize" Value="11" />
-            <Setter Property="Foreground" Value="#C8FFFFFF" />
+            <Setter Property="FontSize" Value="{DynamicResource UiFontSizeCaption}" />
+            <Setter Property="Foreground" Value="{DynamicResource UiTextSecondaryBrush}" />
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="Cursor" Value="Hand" />
             <Setter Property="Template">
                 <ControlTemplate>
-                    <Border Background="{TemplateBinding Background}" CornerRadius="9" Padding="{TemplateBinding Padding}">
+                    <Border Background="{TemplateBinding Background}" CornerRadius="{DynamicResource UiRadiusPill}" Padding="{TemplateBinding Padding}">
                         <ContentPresenter Content="{TemplateBinding Content}" Foreground="{TemplateBinding Foreground}"
                                           HorizontalAlignment="Center" VerticalAlignment="Center" />
                     </Border>
                 </ControlTemplate>
             </Setter>
             <Style Selector="^:pointerover">
-                <Setter Property="Foreground" Value="White" />
+                <Setter Property="Foreground" Value="{DynamicResource UiTextBrush}" />
             </Style>
             <Style Selector="^:checked">
-                <Setter Property="Background" Value="{DynamicResource AFMOrange}" />
-                <Setter Property="Foreground" Value="#1D1208" />
+                <Setter Property="Background" Value="{DynamicResource UiAccentTextBrush}" />
+                <Setter Property="Foreground" Value="{DynamicResource UiOnAccentBrush}" />
                 <Setter Property="FontWeight" Value="SemiBold" />
             </Style>
         </ControlTheme>
         <!-- Personal or party totals, switchable from the window itself; shares the setting with Settings › Streamer. -->
         <DataTemplate x:Key="StreamerScopeSwitch" x:DataType="vm:ActivityStreamerViewModel">
-            <Border Background="#424242" BorderBrush="#555555" BorderThickness="1" CornerRadius="10" Padding="1">
+            <Border Background="{DynamicResource UiInputBrush}" BorderBrush="{DynamicResource UiBorderBrush}" BorderThickness="1" CornerRadius="{DynamicResource UiRadiusPill}" Padding="1">
                 <StackPanel Orientation="Horizontal">
                     <RadioButton Theme="{StaticResource StreamerScopeButton}" Content="Personal" IsChecked="{Binding IsPersonalScope}" />
                     <RadioButton Theme="{StaticResource StreamerScopeButton}" Content="Party" IsChecked="{Binding IsPartyScope}" />
@@ -38,20 +38,21 @@
             </Border>
         </DataTemplate>
     </UserControl.Resources>
+    <!-- The streamer window is captured by streaming apps, so its cards and sizes are its own. -->
     <UserControl.Styles>
         <Style Selector="Border.StreamerCard">
-            <Setter Property="Background" Value="#E6303030" />
-            <Setter Property="CornerRadius" Value="6" />
+            <Setter Property="Background" Value="{DynamicResource UiWindowTranslucentBrush}" />
+            <Setter Property="CornerRadius" Value="{DynamicResource UiRadiusOverlay}" />
             <Setter Property="Padding" Value="10,8" />
         </Style>
-        <Style Selector="TextBlock.StreamerLabel"><Setter Property="FontSize" Value="12" /><Setter Property="Opacity" Value="0.8" /></Style>
-        <Style Selector="TextBlock.StreamerValue"><Setter Property="FontSize" Value="16" /><Setter Property="FontWeight" Value="DemiBold" /></Style>
-        <Style Selector="TextBlock.StreamerSilver"><Setter Property="FontSize" Value="20" /><Setter Property="FontWeight" Value="DemiBold" /><Setter Property="Foreground" Value="{DynamicResource AFMOrange}" /></Style>
-        <Style Selector="StackPanel.Large TextBlock.StreamerValue"><Setter Property="FontSize" Value="18" /></Style>
-        <Style Selector="StackPanel.Large TextBlock.StreamerSilver"><Setter Property="FontSize" Value="24" /></Style>
+        <Style Selector="TextBlock.StreamerLabel"><Setter Property="FontSize" Value="{DynamicResource UiFontSizeSmall}" /><Setter Property="Foreground" Value="{DynamicResource UiTextSecondaryBrush}" /></Style>
+        <Style Selector="TextBlock.StreamerValue"><Setter Property="FontSize" Value="{DynamicResource UiFontSizeSection}" /><Setter Property="FontWeight" Value="SemiBold" /></Style>
+        <Style Selector="TextBlock.StreamerSilver"><Setter Property="FontSize" Value="{DynamicResource UiFontSizeHeading}" /><Setter Property="FontWeight" Value="SemiBold" /><Setter Property="Foreground" Value="{DynamicResource UiAccentTextBrush}" /></Style>
+        <Style Selector="StackPanel.Large TextBlock.StreamerValue"><Setter Property="FontSize" Value="{DynamicResource UiFontSizeTitle}" /></Style>
+        <Style Selector="StackPanel.Large TextBlock.StreamerSilver"><Setter Property="FontSize" Value="{DynamicResource UiFontSizeValueLarge}" /></Style>
         <Style Selector="Grid.StreamerRow TextBlock.StreamerLabel"><Setter Property="VerticalAlignment" Value="Center" /></Style>
         <Style Selector="Grid.StreamerRow TextBlock.StreamerValue"><Setter Property="Margin" Value="10,0" /></Style>
-        <Style Selector="Grid.StreamerRow TextBlock.StreamerSilver"><Setter Property="FontSize" Value="18" /><Setter Property="Margin" Value="10,0" /></Style>
+        <Style Selector="Grid.StreamerRow TextBlock.StreamerSilver"><Setter Property="FontSize" Value="{DynamicResource UiFontSizeTitle}" /><Setter Property="Margin" Value="10,0" /></Style>
         <Style Selector="TextBlock"><Setter Property="TextTrimming" Value="CharacterEllipsis" /></Style>
     </UserControl.Styles>
     <StackPanel Margin="8" Spacing="6" Classes.Large="{Binding IsLarge}">
@@ -93,7 +94,7 @@
         <Border Classes="StreamerCard" IsVisible="{Binding ShowCards}">
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                 <StackPanel Spacing="2">
-                    <TextBlock Text="{Binding TitleText}" FontSize="15" FontWeight="DemiBold" IsVisible="{Binding IsLarge}" />
+                    <TextBlock Classes="UiSectionTitle" Text="{Binding TitleText}" IsVisible="{Binding IsLarge}" />
                     <TextBlock Text="{Binding DurationText}" Classes="StreamerLabel" IsVisible="{Binding HasSession}" />
                     <TextBlock Text="{Binding TitleText}" Classes="StreamerLabel" IsVisible="{Binding !HasSession}" />
                 </StackPanel>

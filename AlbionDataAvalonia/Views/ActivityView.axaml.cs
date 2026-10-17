@@ -153,7 +153,7 @@ public partial class ActivityView : UserControl
     {
         if (DataContext is not ActivityViewModel viewModel || !viewModel.HasCurrentPlaySession || TopLevel.GetTopLevel(this) is not Window owner) return;
         var id = viewModel.CurrentPlaySessionId;
-        if (await ConfirmAsync(owner, "Start a new session?", "This session ends at your last activity and stays in History. Your next activity starts the new session.", "New session")
+        if (await ConfirmAsync(owner, "Start a new session?", "This session ends at your last activity and stays in History. Your next activity starts the new session.", "New session", destructive: false)
             && viewModel.CurrentPlaySessionId == id)
             viewModel.StartNewSession(id);
     }
@@ -173,6 +173,6 @@ public partial class ActivityView : UserControl
             await viewModel.DeleteSelectedSessionAsync();
     }
 
-    private static Task<bool> ConfirmAsync(Window owner, string title, string message, string action) =>
-        CleanupConfirmWindow.ShowAsync(owner, title, message, action);
+    private static Task<bool> ConfirmAsync(Window owner, string title, string message, string action, bool destructive = true) =>
+        CleanupConfirmWindow.ShowAsync(owner, title, message, action, destructive);
 }

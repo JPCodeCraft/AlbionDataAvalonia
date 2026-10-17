@@ -1,0 +1,143 @@
+<!--
+    Surfaces: cards, banners, chips, badges and small marks. Give a block a card only when it needs to stand
+    apart from its neighbours; one card style per role.
+-->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Cards. Variants change the fill; size and shape come from the tokens. -->
+    <Style Selector="Border.UiCard">
+        <Setter Property="Background" Value="{DynamicResource UiSurfaceBrush}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource UiRadiusCard}" />
+        <Setter Property="Padding" Value="{DynamicResource UiCardPadding}" />
+    </Style>
+    <!-- A lighter card that sits on the window, such as the sidebar boxes and the Main tab identity card. -->
+    <Style Selector="Border.UiCard.Subtle">
+        <Setter Property="Background" Value="{DynamicResource UiSurfaceSubtleBrush}" />
+    </Style>
+    <!-- An outline only, for cards next to filled ones. -->
+    <Style Selector="Border.UiCard.Bordered">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="{DynamicResource UiBorderSubtleBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <!-- A filled card with an edge, for cards that need extra weight. -->
+    <Style Selector="Border.UiCard.Outlined">
+        <Setter Property="BorderBrush" Value="{DynamicResource UiBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+    </Style>
+    <!-- A darker well, such as a preview frame. -->
+    <Style Selector="Border.UiCard.Sunken">
+        <Setter Property="Background" Value="{DynamicResource UiSurfaceSunkenBrush}" />
+    </Style>
+
+    <!-- Labels and controls drawn over a map or chart. -->
+    <Style Selector="Border.UiOverlay">
+        <Setter Property="Background" Value="{DynamicResource UiOverlayBrush}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource UiRadiusOverlay}" />
+        <Setter Property="Padding" Value="10,6" />
+    </Style>
+
+    <!-- Banners: a notice above the content. The default is a warning. -->
+    <Style Selector="Border.UiBanner">
+        <Setter Property="Background" Value="{DynamicResource UiAccentTintSubtleBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource UiAccentEdgeBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{DynamicResource UiRadiusCard}" />
+        <Setter Property="Padding" Value="{DynamicResource UiBannerPadding}" />
+    </Style>
+    <Style Selector="Border.UiBanner.Error">
+        <Setter Property="Background" Value="{DynamicResource UiDangerTintBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource UiDangerEdgeBrush}" />
+    </Style>
+    <Style Selector="Border.UiBanner.Info">
+        <Setter Property="Background" Value="{DynamicResource UiSurfaceSubtleBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource UiBorderSubtleBrush}" />
+    </Style>
+
+    <!-- Chips: a name or value in a rounded pill. -->
+    <Style Selector="Border.UiChip">
+        <Setter Property="Background" Value="{DynamicResource UiHoverBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource UiBorderSubtleBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{DynamicResource UiRadiusPill}" />
+        <Setter Property="Padding" Value="8,3" />
+    </Style>
+    <Style Selector="Border.UiChip.Selected">
+        <Setter Property="Background" Value="{DynamicResource UiSelectedBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource UiAccentTextBrush}" />
+    </Style>
+    <Style Selector="Border.UiChip TextBlock">
+        <Setter Property="FontSize" Value="{DynamicResource UiFontSizeSmall}" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+    </Style>
+
+    <!-- Badges: a short status word. -->
+    <Style Selector="Border.UiBadge">
+        <Setter Property="Background" Value="{DynamicResource UiBadgeNeutralBrush}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource UiRadiusPill}" />
+        <Setter Property="Padding" Value="8,2" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Border.UiBadge.Success">
+        <Setter Property="Background" Value="{DynamicResource UiBadgeSuccessBrush}" />
+    </Style>
+    <Style Selector="Border.UiBadge.Warning">
+        <Setter Property="Background" Value="{DynamicResource UiBadgeWarningBrush}" />
+    </Style>
+    <Style Selector="Border.UiBadge.Danger">
+        <Setter Property="Background" Value="{DynamicResource UiBadgeDangerBrush}" />
+    </Style>
+    <Style Selector="Border.UiBadge.Accent">
+        <Setter Property="Background" Value="{DynamicResource UiAccentTintBrush}" />
+    </Style>
+    <Style Selector="Border.UiBadge.Dark">
+        <Setter Property="Background" Value="{DynamicResource UiWindowBrush}" />
+    </Style>
+    <Style Selector="Border.UiBadge TextBlock">
+        <Setter Property="FontSize" Value="{DynamicResource UiFontSizeCaption}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+
+    <!-- A command or path to copy. -->
+    <Style Selector="Border.UiCode">
+        <Setter Property="Background" Value="{DynamicResource UiCodeBrush}" />
+        <Setter Property="CornerRadius" Value="{DynamicResource UiRadiusControl}" />
+        <Setter Property="Padding" Value="8,5" />
+        <Setter Property="HorizontalAlignment" Value="Left" />
+    </Style>
+    <Style Selector="Border.UiCode :is(TextBlock)">
+        <Setter Property="FontFamily" Value="{DynamicResource UiMonoFontFamily}" />
+        <Setter Property="FontSize" Value="{DynamicResource UiFontSizeSmall}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+
+    <!-- Small marks. -->
+    <Style Selector="Rectangle.UiDivider">
+        <Setter Property="Height" Value="1" />
+        <Setter Property="Fill" Value="{DynamicResource UiDividerBrush}" />
+    </Style>
+    <Style Selector="Border.UiSwatch">
+        <Setter Property="Width" Value="9" />
+        <Setter Property="Height" Value="9" />
+        <Setter Property="CornerRadius" Value="2" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Ellipse.UiStatusDot">
+        <Setter Property="Width" Value="8" />
+        <Setter Property="Height" Value="8" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Fill" Value="{DynamicResource UiTextTertiaryBrush}" />
+    </Style>
+    <Style Selector="Ellipse.UiStatusDot.Ok">
+        <Setter Property="Fill" Value="{DynamicResource UiSuccessBrush}" />
+    </Style>
+    <Style Selector="Ellipse.UiStatusDot.Warning, Ellipse.UiStatusDot.Busy">
+        <Setter Property="Fill" Value="{DynamicResource UiWarningBrush}" />
+    </Style>
+    <Style Selector="Ellipse.UiStatusDot.Blocked">
+        <Setter Property="Fill" Value="{DynamicResource UiDangerBrush}" />
+    </Style>
+</Styles>

@@ -12,7 +12,7 @@ public sealed class CleanupConfirmWindow : Window
 {
     private bool _confirmed;
 
-    private CleanupConfirmWindow(string title, string heading, string message, string action)
+    private CleanupConfirmWindow(string title, string heading, string message, string action, bool destructive)
     {
         Classes.Add("AppPage");
         Title = title;
@@ -33,7 +33,7 @@ public sealed class CleanupConfirmWindow : Window
         {
             Text = heading,
             FontSize = 18,
-            FontWeight = FontWeight.DemiBold,
+            FontWeight = FontWeight.SemiBold,
             TextWrapping = TextWrapping.Wrap
         });
 
@@ -51,11 +51,11 @@ public sealed class CleanupConfirmWindow : Window
             Spacing = 8
         };
 
-        var cancelButton = new Button { Content = "Cancel", IsCancel = true, Classes = { "UiAction", "UiSecondary" } };
+        var cancelButton = new Button { Content = "Cancel", IsCancel = true, Classes = { "UiAction" } };
         cancelButton.Click += CancelButton_Click;
         buttons.Children.Add(cancelButton);
 
-        var deleteButton = new Button { Content = action, Classes = { "UiAction" } };
+        var deleteButton = new Button { Content = action, Classes = { "UiAction", destructive ? "UiDanger" : "UiPrimary" } };
         deleteButton.Click += DeleteButton_Click;
         buttons.Children.Add(deleteButton);
 
@@ -68,14 +68,15 @@ public sealed class CleanupConfirmWindow : Window
         $"Delete {UiFormat.Noun(count, singular, plural)}?",
         $"Delete {UiFormat.Count(count, singular, plural)}?",
         $"This will delete {UiFormat.Count(count, singular, plural)} and cannot be recovered from the app.",
-        "Delete");
+        "Delete",
+        destructive: true);
 
-    public static Task<bool> ShowAsync(Window owner, string title, string message, string action) =>
-        ShowAsync(owner, title, title, message, action);
+    public static Task<bool> ShowAsync(Window owner, string title, string message, string action, bool destructive = true) =>
+        ShowAsync(owner, title, title, message, action, destructive);
 
-    private static async Task<bool> ShowAsync(Window owner, string title, string heading, string message, string action)
+    private static async Task<bool> ShowAsync(Window owner, string title, string heading, string message, string action, bool destructive)
     {
-        var window = new CleanupConfirmWindow(title, heading, message, action);
+        var window = new CleanupConfirmWindow(title, heading, message, action, destructive);
         await window.ShowDialog(owner);
         return window._confirmed;
     }

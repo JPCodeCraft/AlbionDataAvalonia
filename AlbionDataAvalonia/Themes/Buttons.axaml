@@ -1,0 +1,150 @@
+<!--
+    Button roles. A plain Button is the secondary button (see the Fluent overrides in Tokens.axaml).
+    Add one role class at most: UiPrimary (one per view), UiDanger (deletes), UiGhost, UiLink.
+    UiAction gives the standard action size; UiIcon a square icon button. A disabled button keeps its role.
+-->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Style Selector="Button.UiAction">
+        <Setter Property="MinHeight" Value="36" />
+        <Setter Property="Padding" Value="12,6" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+    <Style Selector="Button.UiIcon">
+        <Setter Property="Width" Value="32" />
+        <Setter Property="Height" Value="32" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="MinHeight" Value="0" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="HorizontalContentAlignment" Value="Center" />
+        <Setter Property="VerticalContentAlignment" Value="Center" />
+    </Style>
+
+    <!-- Primary: the one main action of a view or dialog. -->
+    <Style Selector="Button.UiPrimary">
+        <Setter Property="Background" Value="{DynamicResource UiAccentBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource UiAccentBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource UiOnAccentBrush}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="Button.UiPrimary:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource UiAccentHoverBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource UiAccentHoverBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource UiOnAccentBrush}" />
+    </Style>
+    <Style Selector="Button.UiPrimary:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource UiAccentPressedBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource UiAccentPressedBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource UiOnAccentBrush}" />
+    </Style>
+    <Style Selector="Button.UiPrimary:disabled /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource UiAccentTintBrush}" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="Foreground" Value="{DynamicResource UiTextDisabledBrush}" />
+    </Style>
+
+    <!-- Danger: actions that delete or cannot be undone. -->
+    <Style Selector="Button.UiDanger">
+        <Setter Property="Background" Value="{DynamicResource UiDangerTintBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource UiDangerEdgeBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource UiDangerTextBrush}" />
+    </Style>
+    <Style Selector="Button.UiDanger:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource UiDangerTintHoverBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource UiDangerBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource UiDangerTextBrush}" />
+    </Style>
+    <Style Selector="Button.UiDanger:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource UiDangerTintBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource UiDangerBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource UiDangerTextBrush}" />
+    </Style>
+    <Style Selector="Button.UiDanger:disabled /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource UiSurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource UiBorderDisabledBrush}" />
+        <Setter Property="Foreground" Value="{DynamicResource UiTextDisabledBrush}" />
+    </Style>
+
+    <!-- Ghost: quiet actions in footers and toolbars. -->
+    <Style Selector="Button.UiGhost">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="Padding" Value="8,4" />
+    </Style>
+    <Style Selector="Button.UiGhost:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource UiHoverBrush}" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.UiGhost:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource UiActiveBrush}" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.UiGhost:disabled /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+
+    <!-- Link: inline text that opens a page or a tab. -->
+    <Style Selector="Button.UiLink">
+        <Setter Property="Foreground" Value="{DynamicResource UiAccentTextBrush}" />
+        <Setter Property="Padding" Value="0" />
+        <Setter Property="Cursor" Value="Hand" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <ContentPresenter Content="{TemplateBinding Content}"
+                                  Padding="{TemplateBinding Padding}"
+                                  TextElement.Foreground="{TemplateBinding Foreground}"
+                                  TextElement.FontSize="{TemplateBinding FontSize}">
+                    <ContentPresenter.Styles>
+                        <Style Selector="TextBlock">
+                            <Setter Property="TextDecorations" Value="Underline" />
+                        </Style>
+                    </ContentPresenter.Styles>
+                </ContentPresenter>
+            </ControlTemplate>
+        </Setter>
+    </Style>
+    <Style Selector="Button.UiLink:disabled">
+        <Setter Property="Opacity" Value="{DynamicResource UiDisabledOpacity}" />
+    </Style>
+
+    <!-- Sidebar navigation. -->
+    <Style Selector="Button.UiNav">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+        <Setter Property="Padding" Value="10" />
+        <Setter Property="Margin" Value="10" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="Button.UiNav:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource UiHoverBrush}" />
+        <Setter Property="BorderBrush" Value="Transparent" />
+    </Style>
+    <Style Selector="Button.UiNav:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource UiActiveBrush}" />
+    </Style>
+    <Style Selector="Button.UiNav.Active /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource UiActiveBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource UiBorderSubtleBrush}" />
+    </Style>
+
+    <!-- A card that opens something when clicked. -->
+    <Style Selector="Button.UiCardButton">
+        <Setter Property="Background" Value="{DynamicResource UiSurfaceSubtleBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="CornerRadius" Value="{DynamicResource UiRadiusCard}" />
+        <Setter Property="Padding" Value="10" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="HorizontalContentAlignment" Value="Stretch" />
+    </Style>
+    <Style Selector="Button.UiCardButton:pointerover /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource UiHoverBrush}" />
+    </Style>
+    <Style Selector="Button.UiCardButton:pressed /template/ ContentPresenter#PART_ContentPresenter">
+        <Setter Property="Background" Value="{DynamicResource UiActiveBrush}" />
+    </Style>
+</Styles>

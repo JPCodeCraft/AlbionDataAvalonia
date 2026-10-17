@@ -49,7 +49,7 @@ public sealed class PortfolioQualitySelectionWindow : Window
         {
             Text = "Select portfolio quality",
             FontSize = 18,
-            FontWeight = FontWeight.DemiBold
+            FontWeight = FontWeight.SemiBold
         });
 
         var description = new TextBlock
@@ -83,11 +83,11 @@ public sealed class PortfolioQualitySelectionWindow : Window
             Spacing = 8
         };
 
-        var cancelButton = new Button { Content = "Cancel", IsCancel = true, Classes = { "UiAction", "UiSecondary" } };
+        var cancelButton = new Button { Content = "Cancel", IsCancel = true, Classes = { "UiAction" } };
         cancelButton.Click += CancelButton_Click;
         buttons.Children.Add(cancelButton);
 
-        var continueButton = new Button { Content = "Continue", IsDefault = true, Classes = { "UiAction" } };
+        var continueButton = new Button { Content = "Continue", IsDefault = true, Classes = { "UiAction", "UiPrimary" } };
         continueButton.Click += ContinueButton_Click;
         buttons.Children.Add(continueButton);
 
@@ -117,7 +117,7 @@ public sealed class PortfolioQualitySelectionWindow : Window
         text.Children.Add(new TextBlock
         {
             Text = row.Label,
-            FontWeight = FontWeight.DemiBold,
+            FontWeight = FontWeight.SemiBold,
             TextWrapping = TextWrapping.Wrap
         });
         text.Children.Add(new TextBlock

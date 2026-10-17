@@ -10,67 +10,36 @@
              Classes="AppPage"
              x:DataType="vm:SettingsViewModel">
 
-    <UserControl.Resources>
-        <SolidColorBrush x:Key="ToggleSwitchFillOnDisabled" Color="#59F57C00" />
-        <SolidColorBrush x:Key="ToggleSwitchKnobFillOnDisabled" Color="#99FFFFFF" />
-    </UserControl.Resources>
-
+    <!-- Settings rows and groups; SettingsView is their only user. -->
     <UserControl.Styles>
         <Style Selector="Border.Group:disabled, Border.Row:disabled">
-            <Setter Property="Opacity" Value="0.55" />
+            <Setter Property="Opacity" Value="{DynamicResource UiDisabledOpacity}" />
         </Style>
         <Style Selector="StackPanel.Page">
             <Setter Property="Spacing" Value="18" />
             <Setter Property="Margin" Value="0,12,16,16" />
         </Style>
         <Style Selector="TextBlock.GroupTitle">
-            <Setter Property="FontSize" Value="11" />
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="Opacity" Value="0.55" />
             <Setter Property="Margin" Value="2,0,0,6" />
         </Style>
         <Style Selector="Border.Group">
             <Setter Property="Background" Value="{DynamicResource UiSurfaceBrush}" />
-            <Setter Property="CornerRadius" Value="8" />
+            <Setter Property="CornerRadius" Value="{DynamicResource UiRadiusCard}" />
         </Style>
         <Style Selector="Border.Row">
-            <Setter Property="Padding" Value="14,11" />
-            <Setter Property="BorderBrush" Value="#14FFFFFF" />
+            <Setter Property="Padding" Value="{DynamicResource UiRowPadding}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource UiDividerBrush}" />
             <Setter Property="BorderThickness" Value="0,1,0,0" />
         </Style>
         <Style Selector="Border.Row:nth-child(1)">
             <Setter Property="BorderThickness" Value="0" />
         </Style>
-        <Style Selector="TextBlock.RowTitle">
-            <Setter Property="FontWeight" Value="SemiBold" />
-            <Setter Property="TextWrapping" Value="Wrap" />
-        </Style>
         <Style Selector="TextBlock.RowHint">
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Opacity" Value="0.7" />
-            <Setter Property="TextWrapping" Value="Wrap" />
             <Setter Property="Margin" Value="0,2,0,0" />
-        </Style>
-        <Style Selector="TextBlock.Path">
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Opacity" Value="0.7" />
-            <Setter Property="TextWrapping" Value="Wrap" />
-            <Setter Property="FontFamily" Value="Consolas, Menlo, monospace" />
-            <Setter Property="Margin" Value="0,4,0,0" />
-        </Style>
-        <Style Selector="ToggleSwitch">
-            <Setter Property="OnContent" Value="" />
-            <Setter Property="OffContent" Value="" />
-            <Setter Property="MinWidth" Value="0" />
-            <Setter Property="VerticalAlignment" Value="Center" />
-            <Setter Property="Margin" Value="12,0,0,0" />
         </Style>
         <Style Selector="RadioButton.Choice">
             <Setter Property="HorizontalAlignment" Value="Stretch" />
             <Setter Property="Padding" Value="8,0,0,0" />
-        </Style>
-        <Style Selector="Expander.Plain">
-            <Setter Property="Background" Value="Transparent" />
         </Style>
     </UserControl.Styles>
 
@@ -79,14 +48,14 @@
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Classes="Page">
                     <StackPanel>
-                        <TextBlock Classes="GroupTitle" Text="STARTUP" />
+                        <TextBlock Classes="UiCaption GroupTitle" Text="STARTUP" />
                         <Border Classes="Group">
                             <StackPanel>
                                 <Border Classes="Row">
                                     <StackPanel Spacing="8">
                                         <StackPanel>
-                                            <TextBlock Classes="RowTitle" Text="When the client starts" />
-                                            <TextBlock Classes="RowHint" Text="The client keeps capturing in every mode." />
+                                            <TextBlock Classes="UiRowTitle" Text="When the client starts" />
+                                            <TextBlock Classes="UiLabel RowHint" Text="The client keeps capturing in every mode." />
                                         </StackPanel>
                                         <views:ActivitySegmentedSelector ItemsSource="{Binding StartupWindowModeOptions}"
                                                                          SelectedIndex="{Binding StartupWindowModeIndex}"
@@ -96,8 +65,8 @@
                                 <Border Classes="Row" IsVisible="{Binding IsWindows}">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <StackPanel>
-                                            <TextBlock Classes="RowTitle" Text="Start with Windows" />
-                                            <TextBlock Classes="RowHint" Text="Open AFM Data Client when you sign in to Windows." />
+                                            <TextBlock Classes="UiRowTitle" Text="Start with Windows" />
+                                            <TextBlock Classes="UiLabel RowHint" Text="Open AFM Data Client when you sign in to Windows." />
                                         </StackPanel>
                                         <ToggleSwitch Grid.Column="1" IsChecked="{Binding UserSettings.StartWithWindows}" AutomationProperties.Name="Start with Windows" />
                                     </Grid>
@@ -107,14 +76,14 @@
                     </StackPanel>
 
                     <StackPanel>
-                        <TextBlock Classes="GroupTitle" Text="WINDOW BUTTONS" />
+                        <TextBlock Classes="UiCaption GroupTitle" Text="WINDOW BUTTONS" />
                         <Border Classes="Group">
                             <StackPanel>
                                 <Border Classes="Row">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <StackPanel>
-                                            <TextBlock Classes="RowTitle" Text="Minimize hides to tray" />
-                                            <TextBlock Classes="RowHint" Text="The window leaves the taskbar. Open it again from the tray icon." />
+                                            <TextBlock Classes="UiRowTitle" Text="Minimize hides to tray" />
+                                            <TextBlock Classes="UiLabel RowHint" Text="The window leaves the taskbar. Open it again from the tray icon." />
                                         </StackPanel>
                                         <ToggleSwitch Grid.Column="1" IsChecked="{Binding UserSettings.MinimizeButtonMinimizesToTray}" AutomationProperties.Name="Minimize hides to tray" />
                                     </Grid>
@@ -122,8 +91,8 @@
                                 <Border Classes="Row">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <StackPanel>
-                                            <TextBlock Classes="RowTitle" Text="Close hides to tray" />
-                                            <TextBlock Classes="RowHint" Text="The client keeps running. Quit from the tray icon menu." />
+                                            <TextBlock Classes="UiRowTitle" Text="Close hides to tray" />
+                                            <TextBlock Classes="UiLabel RowHint" Text="The client keeps running. Quit from the tray icon menu." />
                                         </StackPanel>
                                         <ToggleSwitch Grid.Column="1" IsChecked="{Binding CloseButtonHidesToTray}" AutomationProperties.Name="Close hides to tray" />
                                     </Grid>
@@ -138,29 +107,28 @@
         <TabItem Header="Uploads &amp; sharing">
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Classes="Page">
-                    <Border Classes="UiCard" Padding="12,10" IsVisible="{Binding !IsUserLoggedIn}"
-                            BorderBrush="#73FFA726" BorderThickness="1" Background="#14FFA726">
-                        <TextBlock TextWrapping="Wrap" FontSize="12"
+                    <Border Classes="UiBanner" IsVisible="{Binding !IsUserLoggedIn}">
+                        <TextBlock TextWrapping="Wrap" FontSize="{DynamicResource UiFontSizeSmall}"
                                    Text="Signed out. Market data uploads to the Albion Online Data Project. Sign in to use private mode, sharing and AFM account features." />
                     </Border>
 
                     <StackPanel>
-                        <TextBlock Classes="GroupTitle" Text="MARKET ORDERS" />
+                        <TextBlock Classes="UiCaption GroupTitle" Text="MARKET ORDERS" />
                         <Border Classes="Group">
                             <StackPanel>
                                 <Border Classes="Row">
                                     <RadioButton Classes="Choice" GroupName="MarketOrders" IsChecked="{Binding IsPublicMode}">
                                         <StackPanel>
-                                            <TextBlock Classes="RowTitle" Text="Public" />
-                                            <TextBlock Classes="RowHint" Text="Buy and sell orders go to the Albion Online Data Project, where any site or sheet can use them." />
+                                            <TextBlock Classes="UiRowTitle" Text="Public" />
+                                            <TextBlock Classes="UiLabel RowHint" Text="Buy and sell orders go to the Albion Online Data Project, where any site or sheet can use them." />
                                         </StackPanel>
                                     </RadioButton>
                                 </Border>
                                 <Border Classes="Row">
                                     <RadioButton Classes="Choice" GroupName="MarketOrders" IsChecked="{Binding IsPrivateMode}" IsEnabled="{Binding IsUserLoggedIn}">
                                         <StackPanel>
-                                            <TextBlock Classes="RowTitle" Text="Private mode" />
-                                            <TextBlock Classes="RowHint" Text="Orders go to AFM only, for your flipper and website price tools. Market history, gold prices and bandit events stay public." />
+                                            <TextBlock Classes="UiRowTitle" Text="Private mode" />
+                                            <TextBlock Classes="UiLabel RowHint" Text="Orders go to AFM only, for your flipper and website price tools. Market history, gold prices and bandit events stay public." />
                                         </StackPanel>
                                     </RadioButton>
                                 </Border>
@@ -169,14 +137,14 @@
                     </StackPanel>
 
                     <StackPanel>
-                        <TextBlock Classes="GroupTitle" Text="SHARING IN PRIVATE MODE" />
+                        <TextBlock Classes="UiCaption GroupTitle" Text="SHARING IN PRIVATE MODE" />
                         <Border Classes="Group">
                             <StackPanel>
                                 <Border Classes="Row" IsEnabled="{Binding CanUsePrivateSharing}">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <StackPanel>
-                                            <TextBlock Classes="RowTitle" Text="Share with other AFM users" />
-                                            <TextBlock Classes="RowHint" Text="Other AFM users can use your orders in the flipper and price tools. They are not sent to AODP." />
+                                            <TextBlock Classes="UiRowTitle" Text="Share with other AFM users" />
+                                            <TextBlock Classes="UiLabel RowHint" Text="Other AFM users can use your orders in the flipper and price tools. They are not sent to AODP." />
                                         </StackPanel>
                                         <ToggleSwitch Grid.Column="1" IsChecked="{Binding UserSettings.ContributeToPublic}" AutomationProperties.Name="Share with other AFM users" />
                                     </Grid>
@@ -184,8 +152,8 @@
                                 <Border Classes="Row" IsEnabled="{Binding CanUsePrivateSharing}">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <StackPanel>
-                                            <TextBlock Classes="RowTitle" Text="Share with friends" />
-                                            <TextBlock Classes="RowHint">
+                                            <TextBlock Classes="UiRowTitle" Text="Share with friends" />
+                                            <TextBlock Classes="UiLabel RowHint">
                                                 <Run Text="Up to five people, once you've added each other." />
                                                 <Run Text="{Binding SharedFriendsLimitText, Mode=OneWay}" />
                                             </TextBlock>
@@ -193,11 +161,11 @@
                                         <ToggleSwitch Grid.Column="1" IsChecked="{Binding UserSettings.ShareWithFriends}" AutomationProperties.Name="Share with friends" />
                                     </Grid>
                                 </Border>
-                                <Border Classes="Row" Padding="30,10,14,12" Background="#14000000" IsEnabled="{Binding CanUseSharingSettings}">
+                                <Border Classes="Row" Padding="30,10,14,12" Background="{DynamicResource UiInsetBrush}" IsEnabled="{Binding CanUseSharingSettings}">
                                     <StackPanel Spacing="8">
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                             <TextBox Text="{Binding FriendInput}" Watermark="User ID, email or AFM username" />
-                                            <Button Grid.Column="1" Classes="UiAction UiSecondary" Content="Add"
+                                            <Button Grid.Column="1" Classes="UiAction" Content="Add"
                                                     Command="{Binding AddSharedUserCommand}" IsEnabled="{Binding CanAddSharedUser}" />
                                         </Grid>
                                         <ItemsControl ItemsSource="{Binding SharedUsers}">
@@ -208,19 +176,9 @@
                                             </ItemsControl.ItemsPanel>
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate x:DataType="vm:PrivateOrderShareEntryViewModel">
-                                                    <Border Background="rgba(255,255,255,0.08)"
-                                                            CornerRadius="12"
-                                                            Padding="8,4"
-                                                            Margin="0,0,8,8"
-                                                            BorderBrush="rgba(255,255,255,0.16)"
-                                                            BorderThickness="1"
-                                                            HorizontalAlignment="Left">
+                                                    <Border Classes="UiChip" Margin="0,0,8,8" HorizontalAlignment="Left">
                                                         <StackPanel Orientation="Horizontal" Spacing="6">
-                                                            <TextBlock Text="{Binding Value}"
-                                                                       TextTrimming="CharacterEllipsis"
-                                                                       MaxWidth="280"
-                                                                       FontSize="12"
-                                                                       VerticalAlignment="Center" />
+                                                            <TextBlock Text="{Binding Value}" MaxWidth="280" />
                                                             <Button Width="24" Height="24"
                                                                     Padding="0"
                                                                     MinWidth="24"
@@ -241,22 +199,20 @@
                                             </ItemsControl.ItemTemplate>
                                         </ItemsControl>
                                         <WrapPanel>
-                                            <TextBlock Classes="RowHint" Text="Friends add you with your ID" VerticalAlignment="Center" Margin="0,0,8,0" />
-                                            <TextBlock Text="{Binding RedactedCurrentFirebaseUserId}" FontSize="12" VerticalAlignment="Center" Margin="0,0,8,0" />
-                                            <Button Classes="UiAction UiSecondary" Content="Copy" Click="CopyUserIdButton_Click" />
+                                            <TextBlock Classes="UiLabel RowHint" Text="Friends add you with your ID" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                            <TextBlock Text="{Binding RedactedCurrentFirebaseUserId}" FontSize="{DynamicResource UiFontSizeSmall}" VerticalAlignment="Center" Margin="0,0,8,0" />
+                                            <Button Classes="UiAction" Content="Copy" Click="CopyUserIdButton_Click" />
                                         </WrapPanel>
-                                        <TextBlock IsVisible="{Binding HasUnresolvedEntries}"
-                                                   Text="{Binding SharingStatus}"
-                                                   TextWrapping="Wrap"
-                                                   FontSize="12"
-                                                   Foreground="{StaticResource AFMOrange}" />
+                                        <TextBlock Classes="UiLabel UiWarning"
+                                                   IsVisible="{Binding HasUnresolvedEntries}"
+                                                   Text="{Binding SharingStatus}" />
                                         <TextBlock IsVisible="{Binding HasNormalSharingStatus}"
                                                    Text="{Binding SharingStatus}"
-                                                   Classes="RowHint" />
+                                                   Classes="UiLabel RowHint" />
                                     </StackPanel>
                                 </Border>
                                 <Border Classes="Row">
-                                    <TextBlock Classes="RowHint" Margin="0"
+                                    <TextBlock Classes="UiLabel RowHint" Margin="0"
                                                Text="Turning sharing off stops new shared uploads. Summaries you already shared expire within two days." />
                                 </Border>
                             </StackPanel>
@@ -264,14 +220,14 @@
                     </StackPanel>
 
                     <StackPanel>
-                        <TextBlock Classes="GroupTitle" Text="AFM ACCOUNT" />
+                        <TextBlock Classes="UiCaption GroupTitle" Text="AFM ACCOUNT" />
                         <Border Classes="Group" IsEnabled="{Binding IsUserLoggedIn}">
                             <StackPanel>
                                 <Border Classes="Row">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <StackPanel>
-                                            <TextBlock Classes="RowTitle" Text="Upload character specs" />
-                                            <TextBlock Classes="RowHint" Text="Your specs appear on the AFM website." />
+                                            <TextBlock Classes="UiRowTitle" Text="Upload character specs" />
+                                            <TextBlock Classes="UiLabel RowHint" Text="Your specs appear on the AFM website." />
                                         </StackPanel>
                                         <ToggleSwitch Grid.Column="1" IsChecked="{Binding UserSettings.UploadSpecsToAfm}" AutomationProperties.Name="Upload character specs" />
                                     </Grid>
@@ -279,8 +235,8 @@
                                 <Border Classes="Row">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <StackPanel>
-                                            <TextBlock Classes="RowTitle" Text="Island tracker" />
-                                            <TextBlock Classes="RowHint" Text="Tracks island plots and farming collections for your AFM account. After turning it back on, leave and re-enter your island." />
+                                            <TextBlock Classes="UiRowTitle" Text="Island tracker" />
+                                            <TextBlock Classes="UiLabel RowHint" Text="Tracks island plots and farming collections for your AFM account. After turning it back on, leave and re-enter your island." />
                                         </StackPanel>
                                         <ToggleSwitch Grid.Column="1" IsChecked="{Binding UserSettings.AfmIslandTrackerEnabled}" AutomationProperties.Name="Island tracker" />
                                     </Grid>
@@ -290,13 +246,13 @@
                     </StackPanel>
 
                     <StackPanel>
-                        <TextBlock Classes="GroupTitle" Text="UPLOAD SPEED" />
+                        <TextBlock Classes="UiCaption GroupTitle" Text="UPLOAD SPEED" />
                         <Border Classes="Group">
                             <StackPanel>
                                 <Border Classes="Row">
                                     <StackPanel Spacing="4">
                                         <Grid ColumnDefinitions="*,Auto">
-                                            <TextBlock Classes="RowTitle" Text="Parallel uploads" />
+                                            <TextBlock Classes="UiRowTitle" Text="Parallel uploads" />
                                             <TextBlock Grid.Column="1" FontWeight="SemiBold" Text="{Binding UserSettings.DesiredThreadCount, Mode=OneWay, StringFormat={}{0:N0}}" />
                                         </Grid>
                                         <Slider Minimum="1"
@@ -305,7 +261,7 @@
                                                 TickFrequency="1"
                                                 IsSnapToTickEnabled="True"
                                                 AutomationProperties.Name="Parallel uploads" />
-                                        <TextBlock Classes="RowHint" Text="More parallel uploads clear the queue faster and use more CPU for the proof-of-work each upload needs." />
+                                        <TextBlock Classes="UiLabel RowHint" Text="More parallel uploads clear the queue faster and use more CPU for the proof-of-work each upload needs." />
                                     </StackPanel>
                                 </Border>
                             </StackPanel>
@@ -319,15 +275,15 @@
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Classes="Page">
                     <StackPanel>
-                        <TextBlock Classes="GroupTitle" Text="ACTIVITY" />
+                        <TextBlock Classes="UiCaption GroupTitle" Text="ACTIVITY" />
                         <Border Classes="Group">
                             <StackPanel>
                                 <Border Classes="Row">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <StackPanel>
-                                            <TextBlock Classes="RowTitle" Text="Record activity" />
-                                            <TextBlock Classes="RowHint" Text="Saves combat, gathering, fishing and loot into local sessions." />
-                                            <TextBlock Classes="RowHint" Text="{Binding ActivityRecordingStatus}" />
+                                            <TextBlock Classes="UiRowTitle" Text="Record activity" />
+                                            <TextBlock Classes="UiLabel RowHint" Text="Saves combat, gathering, fishing and loot into local sessions." />
+                                            <TextBlock Classes="UiLabel RowHint" Text="{Binding ActivityRecordingStatus}" />
                                         </StackPanel>
                                         <ToggleSwitch Grid.Column="1" IsChecked="{Binding UserSettings.ActivityRecordingEnabled}" AutomationProperties.Name="Record activity" />
                                     </Grid>
@@ -336,8 +292,8 @@
                                     <Expander Classes="Plain" Header="How sessions work" IsExpanded="False"
                                               HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                                         <StackPanel Spacing="8" Margin="4,8">
-                                            <TextBlock Classes="RowHint" Text="Combat, gathering, fishing, and loot are saved together in local sessions. A session opens when you log in and counts from your first activity. It ends at your last activity after 30 minutes without activity, when you press New session, switch character, turn recording off, or close the app for more than 30 minutes. Each dungeon, Mists visit or stretch of open world is a run inside it. Records remain until you delete them in Settings › Data &amp; backups." />
-                                            <TextBlock Classes="RowHint" Text="Party filters change what is shown. All observed loot pickups are recorded while recording is on." />
+                                            <TextBlock Classes="UiLabel RowHint" Text="Combat, gathering, fishing, and loot are saved together in local sessions. A session opens when you log in and counts from your first activity. It ends at your last activity after 30 minutes without activity, when you press New session, switch character, turn recording off, or close the app for more than 30 minutes. Each dungeon, Mists visit or stretch of open world is a run inside it. Records remain until you delete them in Settings › Data &amp; backups." />
+                                            <TextBlock Classes="UiLabel RowHint" Text="Party filters change what is shown. All observed loot pickups are recorded while recording is on." />
                                         </StackPanel>
                                     </Expander>
                                 </Border>
@@ -346,14 +302,14 @@
                     </StackPanel>
 
                     <StackPanel>
-                        <TextBlock Classes="GroupTitle" Text="AWAKENED ITEMS" />
+                        <TextBlock Classes="UiCaption GroupTitle" Text="AWAKENED ITEMS" />
                         <Border Classes="Group">
                             <StackPanel>
                                 <Border Classes="Row">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <StackPanel>
-                                            <TextBlock Classes="RowTitle" Text="Track awakened items" />
-                                            <TextBlock Classes="RowHint" Text="Detects and stores awakened items. Turning it off keeps existing records." />
+                                            <TextBlock Classes="UiRowTitle" Text="Track awakened items" />
+                                            <TextBlock Classes="UiLabel RowHint" Text="Detects and stores awakened items. Turning it off keeps existing records." />
                                         </StackPanel>
                                         <ToggleSwitch Grid.Column="1" IsChecked="{Binding TrackAwakenedItems}" AutomationProperties.Name="Track awakened items" />
                                     </Grid>
@@ -368,10 +324,10 @@
         <TabItem Header="Streamer">
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Classes="Page">
-                    <TextBlock Classes="RowHint" Margin="2,0,0,0"
+                    <TextBlock Classes="UiLabel RowHint" Margin="2,0,0,0"
                                Text="A compact window with the current session. Capture it as a window source in your streaming app." />
 
-                    <Border CornerRadius="8" Padding="16" Background="#262626" IsVisible="{Binding StreamerPreview, Converter={x:Static ObjectConverters.IsNotNull}}">
+                    <Border Classes="UiCard Sunken" Padding="16" IsVisible="{Binding StreamerPreview, Converter={x:Static ObjectConverters.IsNotNull}}">
                         <Border HorizontalAlignment="Center" CornerRadius="6"
                                 Background="{Binding StreamerPreview.WindowBackground, FallbackValue=Transparent}"
                                 Width="{Binding StreamerPreview.WindowWidth, FallbackValue=330}">
@@ -380,14 +336,14 @@
                     </Border>
 
                     <StackPanel>
-                        <TextBlock Classes="GroupTitle" Text="LAYOUT" />
+                        <TextBlock Classes="UiCaption GroupTitle" Text="LAYOUT" />
                         <Border Classes="Group">
                             <StackPanel>
                                 <Border Classes="Row">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <StackPanel VerticalAlignment="Center">
-                                            <TextBlock Classes="RowTitle" Text="Size" />
-                                            <TextBlock Classes="RowHint" Text="{Binding StreamerSizeText}" />
+                                            <TextBlock Classes="UiRowTitle" Text="Size" />
+                                            <TextBlock Classes="UiLabel RowHint" Text="{Binding StreamerSizeText}" />
                                         </StackPanel>
                                         <views:ActivitySegmentedSelector Grid.Column="1" ItemsSource="{Binding StreamerSizeOptions}"
                                                                          SelectedIndex="{Binding UserSettings.StreamerSizeIndex}"
@@ -396,27 +352,27 @@
                                 </Border>
                                 <Border Classes="Row">
                                     <Grid ColumnDefinitions="*,Auto">
-                                        <TextBlock Classes="RowTitle" Text="Silver totals" VerticalAlignment="Center" />
+                                        <TextBlock Classes="UiRowTitle" Text="Silver totals" VerticalAlignment="Center" />
                                         <ToggleSwitch Grid.Column="1" IsChecked="{Binding UserSettings.StreamerShowSilver}" AutomationProperties.Name="Silver totals" />
                                     </Grid>
                                 </Border>
                                 <Border Classes="Row">
                                     <Grid ColumnDefinitions="*,Auto">
-                                        <TextBlock Classes="RowTitle" Text="Combat" VerticalAlignment="Center" />
+                                        <TextBlock Classes="UiRowTitle" Text="Combat" VerticalAlignment="Center" />
                                         <ToggleSwitch Grid.Column="1" IsChecked="{Binding UserSettings.StreamerShowCombat}" AutomationProperties.Name="Combat" />
                                     </Grid>
                                 </Border>
                                 <Border Classes="Row">
                                     <Grid ColumnDefinitions="*,Auto">
-                                        <TextBlock Classes="RowTitle" Text="Gathering" VerticalAlignment="Center" />
+                                        <TextBlock Classes="UiRowTitle" Text="Gathering" VerticalAlignment="Center" />
                                         <ToggleSwitch Grid.Column="1" IsChecked="{Binding UserSettings.StreamerShowGathering}" AutomationProperties.Name="Gathering" />
                                     </Grid>
                                 </Border>
                                 <Border Classes="Row">
                                     <Grid ColumnDefinitions="*,Auto,Auto">
                                         <StackPanel VerticalAlignment="Center">
-                                            <TextBlock Classes="RowTitle" Text="Chart" />
-                                            <TextBlock Classes="RowHint" Text="{Binding StreamerChartText}"
+                                            <TextBlock Classes="UiRowTitle" Text="Chart" />
+                                            <TextBlock Classes="UiLabel RowHint" Text="{Binding StreamerChartText}"
                                                        IsVisible="{Binding StreamerChartText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                                         </StackPanel>
                                         <views:ActivitySegmentedSelector Grid.Column="1" ItemsSource="{Binding StreamerChartModeOptions}"
@@ -431,14 +387,14 @@
                     </StackPanel>
 
                     <StackPanel>
-                        <TextBlock Classes="GroupTitle" Text="OPTIONS" />
+                        <TextBlock Classes="UiCaption GroupTitle" Text="OPTIONS" />
                         <Border Classes="Group">
                             <StackPanel>
                                 <Border Classes="Row">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <StackPanel>
-                                            <TextBlock Classes="RowTitle" Text="Party totals" />
-                                            <TextBlock Classes="RowHint" Text="Show the party's numbers instead of yours. You can also switch it in the window itself." />
+                                            <TextBlock Classes="UiRowTitle" Text="Party totals" />
+                                            <TextBlock Classes="UiLabel RowHint" Text="Show the party's numbers instead of yours. You can also switch it in the window itself." />
                                         </StackPanel>
                                         <ToggleSwitch Grid.Column="1" IsChecked="{Binding UserSettings.StreamerPartyTotals}" AutomationProperties.Name="Party totals" />
                                     </Grid>
@@ -446,8 +402,8 @@
                                 <Border Classes="Row">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <StackPanel>
-                                            <TextBlock Classes="RowTitle" Text="Green background" />
-                                            <TextBlock Classes="RowHint" Text="For chroma key in your streaming app." />
+                                            <TextBlock Classes="UiRowTitle" Text="Green background" />
+                                            <TextBlock Classes="UiLabel RowHint" Text="For chroma key in your streaming app." />
                                         </StackPanel>
                                         <ToggleSwitch Grid.Column="1" IsChecked="{Binding UserSettings.StreamerChromaKey}" AutomationProperties.Name="Green background" />
                                     </Grid>
@@ -457,8 +413,8 @@
                     </StackPanel>
 
                     <WrapPanel IsVisible="{Binding CanOpenStreamerWindow}">
-                        <Button Classes="UiAction" Content="{Binding StreamerWindowButtonText}" Command="{Binding ToggleStreamerWindowCommand}" Margin="0,0,12,4" />
-                        <TextBlock Classes="RowHint" VerticalAlignment="Center" Text="Left open, it reopens when the client starts." />
+                        <Button Classes="UiAction UiPrimary" Content="{Binding StreamerWindowButtonText}" Command="{Binding ToggleStreamerWindowCommand}" Margin="0,0,12,4" />
+                        <TextBlock Classes="UiLabel RowHint" VerticalAlignment="Center" Text="Left open, it reopens when the client starts." />
                     </WrapPanel>
                 </StackPanel>
             </ScrollViewer>
@@ -468,15 +424,15 @@
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Classes="Page">
                     <StackPanel>
-                        <TextBlock Classes="GroupTitle" Text="STORAGE" />
+                        <TextBlock Classes="UiCaption GroupTitle" Text="STORAGE" />
                         <Border Classes="Group">
                             <StackPanel>
                                 <Border Classes="Row">
                                     <StackPanel Spacing="8">
                                         <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
-                                            <TextBlock Classes="RowTitle" Text="{Binding DatabaseSizeText}" VerticalAlignment="Center" />
-                                            <TextBlock Grid.Column="1" Classes="RowHint" Margin="0" Text="{Binding StorageNoteText}" VerticalAlignment="Center" />
-                                            <Button Grid.Column="2" Classes="UiSecondary" Content="Refresh" Padding="10,3" FontSize="12"
+                                            <TextBlock Classes="UiRowTitle" Text="{Binding DatabaseSizeText}" VerticalAlignment="Center" />
+                                            <TextBlock Grid.Column="1" Classes="UiLabel RowHint" Margin="0" Text="{Binding StorageNoteText}" VerticalAlignment="Center" />
+                                            <Button Grid.Column="2" Content="Refresh" Padding="10,3" FontSize="{DynamicResource UiFontSizeSmall}"
                                                     Command="{Binding RefreshStorageCommand}" IsEnabled="{Binding !IsMeasuringStorage}" />
                                         </Grid>
                                         <views:StorageBar Height="12" Segments="{Binding StorageSegments}" />
@@ -489,8 +445,8 @@
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate x:DataType="vm:StorageLegendItem">
                                                     <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,16,2">
-                                                        <Border Width="9" Height="9" CornerRadius="2" Background="{Binding Brush}" VerticalAlignment="Center" />
-                                                        <TextBlock FontSize="12" Opacity="0.75" VerticalAlignment="Center">
+                                                        <Border Classes="UiSwatch" Background="{Binding Brush}" />
+                                                        <TextBlock Classes="UiLabel" VerticalAlignment="Center">
                                                             <Run Text="{Binding Label}" />
                                                             <Run Text="{Binding SizeText}" />
                                                         </TextBlock>
@@ -505,20 +461,20 @@
                     </StackPanel>
 
                     <StackPanel>
-                        <TextBlock Classes="GroupTitle" Text="CLEAN UP" />
+                        <TextBlock Classes="UiCaption GroupTitle" Text="CLEAN UP" />
                         <Border Classes="Group" IsEnabled="{Binding !IsCleanupBusy}">
                             <StackPanel>
                                 <ItemsControl ItemsSource="{Binding CleanupRows}">
                                     <ItemsControl.ItemTemplate>
                                         <DataTemplate x:DataType="vm:DataCleanupRowViewModel">
-                                            <Border Padding="14,9" BorderBrush="#14FFFFFF" BorderThickness="0,0,0,1">
+                                            <Border Padding="14,9" BorderBrush="{DynamicResource UiDividerBrush}" BorderThickness="0,0,0,1">
                                                 <Grid ColumnDefinitions="Auto,Auto,*,Auto" ColumnSpacing="10">
                                                     <CheckBox IsChecked="{Binding IsSelected}" VerticalAlignment="Center" MinWidth="0" Padding="0"
                                                               AutomationProperties.Name="{Binding Label}" />
-                                                    <Border Grid.Column="1" Width="9" Height="9" CornerRadius="2" Background="{Binding Brush}" VerticalAlignment="Center" />
+                                                    <Border Grid.Column="1" Classes="UiSwatch" Background="{Binding Brush}" />
                                                     <StackPanel Grid.Column="2" VerticalAlignment="Center">
-                                                        <TextBlock Classes="RowTitle" Text="{Binding Label}" />
-                                                        <TextBlock Classes="RowHint" Margin="0" Text="{Binding CountText}" />
+                                                        <TextBlock Classes="UiRowTitle" Text="{Binding Label}" />
+                                                        <TextBlock Classes="UiLabel RowHint" Margin="0" Text="{Binding CountText}" />
                                                     </StackPanel>
                                                     <TextBlock Grid.Column="3" Text="{Binding SizeText}" VerticalAlignment="Center" />
                                                 </Grid>
@@ -526,29 +482,29 @@
                                         </DataTemplate>
                                     </ItemsControl.ItemTemplate>
                                 </ItemsControl>
-                                <Border Padding="44,8,14,8" BorderBrush="#14FFFFFF" BorderThickness="0,0,0,1" IsVisible="{Binding ShowPartyLootOption}">
-                                    <CheckBox IsChecked="{Binding RemoveOutsidePartyLoot}" FontSize="12"
+                                <Border Padding="44,8,14,8" BorderBrush="{DynamicResource UiDividerBrush}" BorderThickness="0,0,0,1" IsVisible="{Binding ShowPartyLootOption}">
+                                    <CheckBox IsChecked="{Binding RemoveOutsidePartyLoot}" FontSize="{DynamicResource UiFontSizeSmall}"
                                               Content="Also loot picked up by others outside your party, at any age" />
                                 </Border>
-                                <Border Padding="14,10" Background="#14000000" BorderBrush="#14FFFFFF" BorderThickness="0,0,0,1">
+                                <Border Padding="14,10" Background="{DynamicResource UiInsetBrush}" BorderBrush="{DynamicResource UiDividerBrush}" BorderThickness="0,0,0,1">
                                     <WrapPanel>
-                                        <TextBlock Classes="RowHint" Margin="0,0,12,0" VerticalAlignment="Center" Text="Older than" />
+                                        <TextBlock Classes="UiLabel RowHint" Margin="0,0,12,0" VerticalAlignment="Center" Text="Older than" />
                                         <views:ActivitySegmentedSelector ItemsSource="{Binding CleanupAgeOptions}"
                                                                          SelectedIndex="{Binding SelectedCleanupAgeIndex}"
                                                                          AutomationProperties.Name="Remove records older than" />
                                     </WrapPanel>
                                 </Border>
-                                <Border Padding="14,10" Background="#14000000">
+                                <Border Padding="14,10" Background="{DynamicResource UiInsetBrush}">
                                     <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12">
                                         <StackPanel VerticalAlignment="Center" Spacing="2">
-                                            <TextBlock Text="{Binding CleanupPreviewText}" FontSize="12.5" TextWrapping="Wrap" />
-                                            <TextBlock Text="{Binding CleanupStatusText}" Classes="RowHint" Margin="0"
+                                            <TextBlock Text="{Binding CleanupPreviewText}" FontSize="{DynamicResource UiFontSizeSmall}" TextWrapping="Wrap" />
+                                            <TextBlock Text="{Binding CleanupStatusText}" Classes="UiLabel RowHint" Margin="0"
                                                        IsVisible="{Binding CleanupStatusText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                                         </StackPanel>
-                                        <CheckBox Grid.Column="1" IsChecked="{Binding CompactAfterCleanup}" FontSize="12" VerticalAlignment="Center"
+                                        <CheckBox Grid.Column="1" IsChecked="{Binding CompactAfterCleanup}" FontSize="{DynamicResource UiFontSizeSmall}" VerticalAlignment="Center"
                                                   Content="Compact afterwards"
                                                   ToolTip.Tip="Rewrites the database file so it gets smaller. Recording pauses briefly while it runs." />
-                                        <Button Grid.Column="2" Classes="UiAction" Content="Delete…" VerticalAlignment="Center"
+                                        <Button Grid.Column="2" Classes="UiAction UiDanger" Content="Delete…" VerticalAlignment="Center"
                                                 Click="DeleteData_Click" IsEnabled="{Binding CanDeleteData}" />
                                     </Grid>
                                 </Border>
@@ -557,17 +513,17 @@
                     </StackPanel>
 
                     <StackPanel>
-                        <TextBlock Classes="GroupTitle" Text="BACKUPS" />
+                        <TextBlock Classes="UiCaption GroupTitle" Text="BACKUPS" />
                         <Border Classes="Group">
                             <StackPanel>
                                 <Border Classes="Row">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <StackPanel>
-                                            <TextBlock Classes="RowTitle" Text="Automatic, every 24 hours" />
-                                            <TextBlock Classes="RowHint" Text="Keeps the three newest plus points about 5, 10 and 15 days old. Backups include your history, not your sign-in, so sign in again after restoring." />
-                                            <TextBlock Classes="Path" Text="{Binding BackupFolderPath}" />
+                                            <TextBlock Classes="UiRowTitle" Text="Automatic, every 24 hours" />
+                                            <TextBlock Classes="UiLabel RowHint" Text="Keeps the three newest plus points about 5, 10 and 15 days old. Backups include your history, not your sign-in, so sign in again after restoring." />
+                                            <TextBlock Classes="UiMono UiMuted" Margin="0,4,0,0" Text="{Binding BackupFolderPath}" />
                                         </StackPanel>
-                                        <Button Grid.Column="1" Classes="UiAction UiSecondary" Content="Open folder"
+                                        <Button Grid.Column="1" Classes="UiAction" Content="Open folder"
                                                 Command="{Binding OpenBackupFolderCommand}" VerticalAlignment="Center" Margin="12,0,0,0" />
                                     </Grid>
                                 </Border>
@@ -575,12 +531,12 @@
                                     <Expander Classes="Plain" Header="How to restore a backup" IsExpanded="False"
                                               HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                                         <StackPanel Spacing="6" Margin="4,8">
-                                            <TextBlock Classes="RowHint" Text="1. Exit AFM from the system tray and confirm that it is no longer running." />
-                                            <TextBlock Classes="RowHint" Text="2. Make a safety copy of the data folder below." />
-                                            <TextBlock Classes="RowHint" Text="3. Extract the selected backup ZIP. It contains afmdataclient.db." />
-                                            <TextBlock Classes="RowHint" Text="4. In the data folder, move aside afmdataclient.db and any afmdataclient.db-wal or afmdataclient.db-shm files." />
-                                            <TextBlock Classes="RowHint" Text="5. Copy the extracted afmdataclient.db into the data folder." />
-                                            <TextBlock Classes="RowHint" Text="6. Start AFM, verify the restored history, and sign in again." />
+                                            <TextBlock Classes="UiLabel RowHint" Text="1. Exit AFM from the system tray and confirm that it is no longer running." />
+                                            <TextBlock Classes="UiLabel RowHint" Text="2. Make a safety copy of the data folder below." />
+                                            <TextBlock Classes="UiLabel RowHint" Text="3. Extract the selected backup ZIP. It contains afmdataclient.db." />
+                                            <TextBlock Classes="UiLabel RowHint" Text="4. In the data folder, move aside afmdataclient.db and any afmdataclient.db-wal or afmdataclient.db-shm files." />
+                                            <TextBlock Classes="UiLabel RowHint" Text="5. Copy the extracted afmdataclient.db into the data folder." />
+                                            <TextBlock Classes="UiLabel RowHint" Text="6. Start AFM, verify the restored history, and sign in again." />
                                         </StackPanel>
                                     </Expander>
                                 </Border>
@@ -589,16 +545,16 @@
                     </StackPanel>
 
                     <StackPanel>
-                        <TextBlock Classes="GroupTitle" Text="DATA FOLDER" />
+                        <TextBlock Classes="UiCaption GroupTitle" Text="DATA FOLDER" />
                         <Border Classes="Group">
                             <StackPanel>
                                 <Border Classes="Row">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <StackPanel>
-                                            <TextBlock Classes="RowTitle" Text="History database" />
-                                            <TextBlock Classes="Path" Text="{Binding DataFolderPath}" />
+                                            <TextBlock Classes="UiRowTitle" Text="History database" />
+                                            <TextBlock Classes="UiMono UiMuted" Margin="0,4,0,0" Text="{Binding DataFolderPath}" />
                                         </StackPanel>
-                                        <Button Grid.Column="1" Classes="UiAction UiSecondary" Content="Open folder"
+                                        <Button Grid.Column="1" Classes="UiAction" Content="Open folder"
                                                 Command="{Binding OpenDataFolderCommand}" VerticalAlignment="Center" Margin="12,0,0,0" />
                                     </Grid>
                                 </Border>
@@ -613,20 +569,20 @@
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Classes="Page">
                     <StackPanel>
-                        <TextBlock Classes="GroupTitle" Text="VERSION" />
+                        <TextBlock Classes="UiCaption GroupTitle" Text="VERSION" />
                         <Border Classes="Group">
                             <StackPanel>
                                 <Border Classes="Row">
                                     <StackPanel>
-                                        <TextBlock Classes="RowTitle" Text="{Binding AppVersionText}" />
-                                        <TextBlock Classes="RowHint" Text="{Binding UpdatesText}" />
+                                        <TextBlock Classes="UiRowTitle" Text="{Binding AppVersionText}" />
+                                        <TextBlock Classes="UiLabel RowHint" Text="{Binding UpdatesText}" />
                                     </StackPanel>
                                 </Border>
                                 <Border Classes="Row">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <StackPanel VerticalAlignment="Center">
-                                            <TextBlock Classes="RowTitle" Text="Update channel" />
-                                            <TextBlock Classes="RowHint" Text="{Binding UpdateChannelText}" />
+                                            <TextBlock Classes="UiRowTitle" Text="Update channel" />
+                                            <TextBlock Classes="UiLabel RowHint" Text="{Binding UpdateChannelText}" />
                                         </StackPanel>
                                         <views:ActivitySegmentedSelector Grid.Column="1" ItemsSource="{Binding UpdateChannelOptions}"
                                                                          SelectedIndex="{Binding UpdateChannelIndex}"
@@ -638,14 +594,14 @@
                     </StackPanel>
 
                     <StackPanel>
-                        <TextBlock Classes="GroupTitle" Text="LINKS" />
+                        <TextBlock Classes="UiCaption GroupTitle" Text="LINKS" />
                         <Border Classes="Group">
                             <StackPanel>
                                 <Border Classes="Row">
                                     <WrapPanel>
-                                        <Button Classes="UiAction UiSecondary" Content="Albion Free Market" Command="{Binding OpenAfmWebsiteCommand}" Margin="0,0,8,0" />
-                                        <Button Classes="UiAction UiSecondary" Content="Albion Online Data Project" Command="{Binding OpenAodpWebsiteCommand}" Margin="0,0,8,0" />
-                                        <Button Classes="UiAction UiSecondary" Content="AFM Discord" Command="{Binding OpenDiscordCommand}" />
+                                        <Button Classes="UiAction" Content="Albion Free Market" Command="{Binding OpenAfmWebsiteCommand}" Margin="0,0,8,0" />
+                                        <Button Classes="UiAction" Content="Albion Online Data Project" Command="{Binding OpenAodpWebsiteCommand}" Margin="0,0,8,0" />
+                                        <Button Classes="UiAction" Content="AFM Discord" Command="{Binding OpenDiscordCommand}" />
                                     </WrapPanel>
                                 </Border>
                             </StackPanel>
@@ -653,14 +609,14 @@
                     </StackPanel>
 
                     <StackPanel>
-                        <TextBlock Classes="GroupTitle" Text="DIAGNOSTICS" />
+                        <TextBlock Classes="UiCaption GroupTitle" Text="DIAGNOSTICS" />
                         <Border Classes="Group">
                             <StackPanel>
                                 <Border Classes="Row">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <StackPanel>
-                                            <TextBlock Classes="RowTitle" Text="Diagnostics mode" />
-                                            <TextBlock Classes="RowHint" Text="Writes every packet the client uses to a separate file for bug reports. Files are deleted after 2 days. It turns off when the client restarts." />
+                                            <TextBlock Classes="UiRowTitle" Text="Diagnostics mode" />
+                                            <TextBlock Classes="UiLabel RowHint" Text="Writes every packet the client uses to a separate file for bug reports. Files are deleted after 2 days. It turns off when the client restarts." />
                                         </StackPanel>
                                         <ToggleSwitch Grid.Column="1" IsChecked="{Binding DiagnosticsEnabled}" AutomationProperties.Name="Diagnostics mode" />
                                     </Grid>
@@ -668,10 +624,10 @@
                                 <Border Classes="Row" IsVisible="{Binding DiagnosticsEnabled}">
                                     <Grid ColumnDefinitions="*,Auto">
                                         <StackPanel>
-                                            <TextBlock Classes="RowTitle" Text="Recording packets" Foreground="{StaticResource AFMOrange}" />
-                                            <TextBlock Classes="Path" Text="{Binding DiagnosticsFilePath}" />
+                                            <TextBlock Classes="UiRowTitle UiAccent" Text="Recording packets" />
+                                            <TextBlock Classes="UiMono UiMuted" Margin="0,4,0,0" Text="{Binding DiagnosticsFilePath}" />
                                         </StackPanel>
-                                        <Button Grid.Column="1" Classes="UiAction UiSecondary" Content="Open folder"
+                                        <Button Grid.Column="1" Classes="UiAction" Content="Open folder"
                                                 Command="{Binding OpenLogsFolderCommand}" VerticalAlignment="Center" Margin="12,0,0,0" />
                                     </Grid>
                                 </Border>
@@ -680,14 +636,14 @@
                                               HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">
                                         <StackPanel Spacing="8" Margin="4,8">
                                             <Grid ColumnDefinitions="*,Auto" VerticalAlignment="Center">
-                                                <TextBlock Classes="RowHint" Margin="0" VerticalAlignment="Center">
+                                                <TextBlock Classes="UiLabel RowHint" Margin="0" VerticalAlignment="Center">
                                                     <Run Text="Last " />
                                                     <Run Text="{Binding PowSolveSampleCount, Mode=OneWay, StringFormat={}{0:N0}}" />
                                                     <Run Text=" of " />
                                                     <Run Text="{Binding PowSolveWindowSize, Mode=OneWay, StringFormat={}{0:N0}}" />
                                                     <Run Text=" solves. Useful when reporting slow uploads." />
                                                 </TextBlock>
-                                                <Button Grid.Column="1" Classes="UiAction UiSecondary" Content="Clear" Command="{Binding ClearPowSolveStatsCommand}" />
+                                                <Button Grid.Column="1" Classes="UiAction" Content="Clear" Command="{Binding ClearPowSolveStatsCommand}" />
                                             </Grid>
                                             <UniformGrid Columns="2" Rows="4">
                                                 <StackPanel Orientation="Horizontal" Spacing="6" Margin="0,0,0,6">

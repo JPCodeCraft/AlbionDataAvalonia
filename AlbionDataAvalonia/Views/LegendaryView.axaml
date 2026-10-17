@@ -16,11 +16,11 @@
                    VerticalAlignment="Top">
             <StackPanel Margin="0,0,10,0">
                 <TextBlock Text="Search" Classes="UiLabel" />
-                <TextBox Text="{Binding FilterText}" Width="260" Padding="8" />
+                <TextBox Text="{Binding FilterText}" Width="260" />
             </StackPanel>
             <StackPanel Margin="0,0,10,0">
                 <TextBlock Text="Server" Classes="UiLabel" />
-                <ComboBox ItemsSource="{Binding Servers}" SelectedItem="{Binding SelectedServer}" Width="140" Padding="8" />
+                <ComboBox ItemsSource="{Binding Servers}" SelectedItem="{Binding SelectedServer}" Width="140" />
             </StackPanel>
             <StackPanel Margin="0,0,10,0">
                 <TextBlock Text="Ownership" Classes="UiLabel" />
@@ -37,20 +37,15 @@
                 <TextBlock Text="Sale status" Classes="UiLabel" />
                 <ComboBox ItemsSource="{Binding SaleStatuses}"
                           SelectedItem="{Binding SelectedSaleStatus}"
-                          Width="140"
-                          Padding="8" />
+                          Width="140" />
             </StackPanel>
-            <StackPanel Margin="0,0,10,0">
-                <TextBlock Height="18" />
-                <Button Content="Reload" Classes="UiAction UiSecondary" Command="{Binding RefreshCommand}" />
-            </StackPanel>
-            <StackPanel Margin="0,0,10,0">
-                <TextBlock Height="18" />
-                <Button Content="Delete selected..."
-                        Classes="UiAction UiSecondary"
-                        IsEnabled="{Binding HasSelectedItem}"
-                        Click="DeleteSelectedButton_Click" />
-            </StackPanel>
+            <Button Content="Refresh" Classes="UiAction" Command="{Binding RefreshCommand}"
+                    VerticalAlignment="Bottom" Margin="0,0,10,0" />
+            <Button Content="Delete selected…"
+                    Classes="UiAction UiDanger"
+                    VerticalAlignment="Bottom"
+                    IsEnabled="{Binding HasSelectedItem}"
+                    Click="DeleteSelectedButton_Click" />
         </WrapPanel>
 
         <TextBlock Grid.Row="1"
@@ -71,12 +66,8 @@
                       RowHeight="52"
                       ItemsSource="{Binding Items}"
                       SelectedItem="{Binding SelectedItem}"
-                      AutoGenerateColumns="False"
-                      IsReadOnly="True"
                       SelectionMode="Extended"
-                      GridLinesVisibility="None"
-                      BorderThickness="0"
-                      FontSize="11">
+                      FontSize="{DynamicResource UiFontSizeSmall}">
 
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Server" Binding="{Binding ServerName}" />
@@ -88,14 +79,11 @@
                                            items:LazyItemImage.ItemUniqueName="{Binding ItemUniqueName}"
                                            items:LazyItemImage.Quality="{Binding ImageQuality}" />
                                     <StackPanel VerticalAlignment="Center">
-                                        <TextBlock Text="{Binding ItemName}" FontSize="11" />
-                                        <TextBlock Text="{Binding Quality}"
-                                                   FontSize="10"
-                                                   Opacity="0.65" />
-                                        <TextBlock Text="{Binding SoulName}"
-                                                   IsVisible="{Binding HasSoulName}"
-                                                   FontSize="10"
-                                                   Opacity="0.65" />
+                                        <TextBlock Text="{Binding ItemName}" />
+                                        <TextBlock Classes="UiFine" Text="{Binding Quality}" />
+                                        <TextBlock Classes="UiFine"
+                                                   Text="{Binding SoulName}"
+                                                   IsVisible="{Binding HasSoulName}" />
                                     </StackPanel>
                                 </StackPanel>
                             </DataTemplate>
@@ -112,31 +100,27 @@
             </DataGrid>
 
             <Border Grid.Column="1"
+                    Classes="UiCard Subtle"
                     IsVisible="{Binding HasItems}"
                     MinWidth="280"
                     MaxWidth="380"
-                    Background="rgba(255,255,255,0.025)"
-                    CornerRadius="8"
                     Padding="10">
                 <Grid>
-                    <TextBlock Text="Select an item to view its details."
+                    <TextBlock Classes="UiMuted"
+                               Text="Select an item to view its details."
                                IsVisible="{Binding !HasSelectedItem}"
                                HorizontalAlignment="Center"
                                VerticalAlignment="Center"
-                               TextAlignment="Center"
-                               Opacity="0.7" />
+                               TextAlignment="Center" />
                     <ScrollViewer IsVisible="{Binding HasSelectedItem}">
                         <StackPanel Spacing="10" Margin="0,0,10,0">
                             <Border Classes="UiCard">
                                 <StackPanel Spacing="10">
-                                    <TextBlock Text="{Binding SelectedItem.ItemName}"
-                                               FontSize="17"
-                                               FontWeight="DemiBold"
-                                               TextWrapping="Wrap" />
-                                    <TextBlock Text="{Binding SelectedItem.SoulName}"
+                                    <TextBlock Classes="UiTitle" Text="{Binding SelectedItem.ItemName}" />
+                                    <TextBlock Classes="UiMuted"
+                                               Text="{Binding SelectedItem.SoulName}"
                                                IsVisible="{Binding SelectedItem.HasSoulName}"
                                                FontStyle="Italic"
-                                               Opacity="0.7"
                                                TextWrapping="Wrap" />
                                     <Grid ColumnDefinitions="48,*" ColumnSpacing="10">
                                         <Image Width="48"
@@ -146,32 +130,29 @@
                                                items:LazyItemImage.Quality="{Binding SelectedItem.ImageQuality}" />
                                         <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4">
                                             <WrapPanel>
-                                                <TextBlock Text="{Binding SelectedItem.ServerName}" FontSize="11" Opacity="0.7" Margin="0,0,8,0" />
-                                                <TextBlock Text="{Binding SelectedItem.Quality}" FontSize="11" Foreground="#F0B94A" />
+                                                <TextBlock Classes="UiFine" Text="{Binding SelectedItem.ServerName}" Margin="0,0,8,0" />
+                                                <TextBlock Classes="UiFine" Text="{Binding SelectedItem.Quality}" Foreground="{DynamicResource UiQualityTextBrush}" />
                                             </WrapPanel>
                                             <StackPanel Orientation="Horizontal" Spacing="6">
                                                 <TextBlock Text="Rating" Classes="UiLabel" VerticalAlignment="Center" />
-                                                <TextBlock Text="{Binding SelectedItem.LegendaryRating}"
-                                                           FontSize="16"
-                                                           FontWeight="DemiBold"
-                                                           Foreground="#F0A21B" />
+                                                <TextBlock Classes="UiSectionTitle"
+                                                           Text="{Binding SelectedItem.LegendaryRating}"
+                                                           Foreground="{DynamicResource UiRatingBrush}" />
                                             </StackPanel>
                                         </StackPanel>
                                     </Grid>
                                     <WrapPanel>
                                         <Button Content="View in calculator"
-                                                Classes="UiAction UiSecondary"
+                                                Classes="UiAction"
                                                 Tag="{Binding SelectedItem.CalculatorUrl}"
                                                 IsEnabled="{Binding SelectedItem.CanViewInCalculator}"
                                                 Click="OpenCalculatorButton_Click"
-                                                Margin="0,0,8,0"
-                                                Padding="10,6" />
+                                                Margin="0,0,8,0" />
                                         <Button Name="ListForSaleButton"
-                                                Classes="UiAction UiSecondary"
+                                                Classes="UiAction"
                                                 Content="{Binding SelectedItem.SaleActionText, TargetNullValue='List for sale'}"
                                                 IsEnabled="{Binding CanListSelectedItem}"
-                                                Click="ListForSaleButton_Click"
-                                                Padding="10,6" />
+                                                Click="ListForSaleButton_Click" />
                                     </WrapPanel>
                                     <TextBlock Text="{Binding SaleStatus}" Classes="UiLabel" TextWrapping="Wrap" />
                                 </StackPanel>
@@ -184,32 +165,30 @@
                                     <StackPanel Spacing="10">
                                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                             <TextBlock Classes="UiSectionTitle" Text="Sale listing" VerticalAlignment="Center" />
-                                            <Border Grid.Column="1" Background="#4B4B4B" CornerRadius="10" Padding="9,3" IsVisible="{Binding !HasListing}">
-                                                <TextBlock Text="Not listed" FontSize="11" FontWeight="DemiBold" />
+                                            <Border Grid.Column="1" Classes="UiBadge" IsVisible="{Binding !HasListing}">
+                                                <TextBlock Text="Not listed" />
                                             </Border>
-                                            <Border Grid.Column="1" Background="#356B3D" CornerRadius="10" Padding="9,3" IsVisible="{Binding IsActiveListing}">
-                                                <TextBlock Text="Active" FontSize="11" FontWeight="DemiBold" />
+                                            <Border Grid.Column="1" Classes="UiBadge Success" IsVisible="{Binding IsActiveListing}">
+                                                <TextBlock Text="Active" />
                                             </Border>
-                                            <Border Grid.Column="1" Background="#7A6230" CornerRadius="10" Padding="9,3" IsVisible="{Binding IsSold}">
-                                                <TextBlock Text="Sold" FontSize="11" FontWeight="DemiBold" />
+                                            <Border Grid.Column="1" Classes="UiBadge Warning" IsVisible="{Binding IsSold}">
+                                                <TextBlock Text="Sold" />
                                             </Border>
-                                            <Border Grid.Column="1" Background="#70413D" CornerRadius="10" Padding="9,3" IsVisible="{Binding IsCanceled}">
-                                                <TextBlock Text="Canceled" FontSize="11" FontWeight="DemiBold" />
+                                            <Border Grid.Column="1" Classes="UiBadge Danger" IsVisible="{Binding IsCanceled}">
+                                                <TextBlock Text="Canceled" />
                                             </Border>
                                         </Grid>
 
-                                        <TextBlock Text="{Binding SaleStatusSummary}"
-                                                   TextWrapping="Wrap"
-                                                   Opacity="0.8" />
+                                        <TextBlock Classes="UiMuted"
+                                                   Text="{Binding SaleStatusSummary}"
+                                                   TextWrapping="Wrap" />
 
                                         <Grid IsVisible="{Binding HasListing}"
                                               ColumnDefinitions="*,*"
                                               ColumnSpacing="16">
                                             <StackPanel>
                                                 <TextBlock Classes="UiLabel" Text="Current price" />
-                                                <TextBlock Text="{Binding LatestPrice}"
-                                                           FontSize="17"
-                                                           FontWeight="DemiBold" />
+                                                <TextBlock Classes="UiValue" Text="{Binding LatestPrice}" />
                                             </StackPanel>
                                             <StackPanel Grid.Column="1">
                                                 <TextBlock Classes="UiLabel" Text="Last listed" />
@@ -227,10 +206,9 @@
                                                       Click="SoldCheckBox_Click"
                                                       Margin="0,0,12,0" />
                                             <Button Content="Cancel listing"
-                                                    Classes="UiAction UiSecondary"
+                                                    Classes="UiAction"
                                                     IsVisible="{Binding IsActiveListing}"
-                                                    Click="CancelListingButton_Click"
-                                                    Padding="8,4" />
+                                                    Click="CancelListingButton_Click" />
                                         </WrapPanel>
 
                                         <Expander Header="{Binding SellOrdersHeading}"
@@ -239,52 +217,37 @@
                                                   HorizontalContentAlignment="Stretch">
 
                                             <StackPanel Margin="0,8,0,0">
-                                                <TextBlock Text="No sale orders have been recorded."
+                                                <TextBlock Classes="UiMuted"
+                                                           Text="No sale orders have been recorded."
                                                            IsVisible="{Binding !HasSellOrders}"
-                                                           Opacity="0.65"
                                                            TextWrapping="Wrap" />
                                                 <ItemsControl ItemsSource="{Binding SellOrders}">
                                                     <ItemsControl.ItemTemplate>
                                                         <DataTemplate x:DataType="vm:LegendarySellOrderRowViewModel">
-                                                            <Border Classes="UiCard" Margin="0,0,0,8" BorderBrush="{DynamicResource UiBorderBrush}" BorderThickness="1">
+                                                            <Border Classes="UiCard Outlined" Margin="0,0,0,8">
                                                                 <StackPanel Spacing="7">
                                                                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
                                                                         <StackPanel>
-                                                                            <TextBlock Text="{Binding Price}"
-                                                                                       FontSize="16"
-                                                                                       FontWeight="DemiBold" />
-                                                                            <TextBlock Text="{Binding Source.CreatedAt, Converter={x:Static views:UiValueConverters.LocalDateTime}}"
-                                                                                       FontSize="11"
-                                                                                       Opacity="0.65" />
+                                                                            <TextBlock Classes="UiSectionTitle" Text="{Binding Price}" />
+                                                                            <TextBlock Classes="UiFine" Text="{Binding Source.CreatedAt, Converter={x:Static views:UiValueConverters.LocalDateTime}}" />
                                                                         </StackPanel>
-                                                                        <Border Grid.Column="1"
-                                                                                Background="#303030"
-                                                                                CornerRadius="8"
-                                                                                Padding="7,2"
-                                                                                VerticalAlignment="Top">
-                                                                            <TextBlock Text="{Binding OrderLabel}"
-                                                                                       FontSize="10"
-                                                                                       Foreground="#FFB74D" />
+                                                                        <Border Grid.Column="1" Classes="UiBadge Dark" VerticalAlignment="Top">
+                                                                            <TextBlock Classes="UiAccent" Text="{Binding OrderLabel}" />
                                                                         </Border>
                                                                     </Grid>
                                                                     <StackPanel>
                                                                         <TextBlock Classes="UiLabel" Text="Contact" />
                                                                         <TextBlock Text="{Binding Contact}" TextWrapping="Wrap" />
                                                                     </StackPanel>
-                                                                    <Border Background="rgba(255,255,255,0.055)"
-                                                                            CornerRadius="5"
-                                                                            Padding="8,5">
-                                                                        <TextBlock Text="{Binding DiscordStatus}"
-                                                                                   FontSize="11"
-                                                                                   TextWrapping="Wrap" />
+                                                                    <Border Classes="UiCard Subtle" Padding="8,5">
+                                                                        <TextBlock Classes="UiFine" Text="{Binding DiscordStatus}" />
                                                                     </Border>
                                                                     <Button Content="Open Discord post"
-                                                                            Classes="UiAction UiSecondary"
+                                                                            Classes="UiAction"
                                                                             Tag="{Binding MessageUrl}"
                                                                             IsVisible="{Binding HasDiscordPost}"
                                                                             Click="OpenDiscordPostButton_Click"
-                                                                            HorizontalAlignment="Left"
-                                                                            Padding="8,4" />
+                                                                            HorizontalAlignment="Left" />
                                                                 </StackPanel>
                                                             </Border>
                                                         </DataTemplate>
@@ -298,22 +261,22 @@
                                 <Border Grid.Row="1" Classes="UiCard">
                                     <StackPanel Spacing="8">
                                         <TextBlock Classes="UiSectionTitle" Text="Traits" />
-                                        <TextBlock Text="No traits" IsVisible="{Binding !HasTraits}" Opacity="0.65" />
+                                        <TextBlock Classes="UiMuted" Text="No traits" IsVisible="{Binding !HasTraits}" />
                                         <ItemsControl ItemsSource="{Binding Traits}">
                                             <ItemsControl.ItemTemplate>
                                                 <DataTemplate x:DataType="vm:LegendaryTraitRowViewModel">
                                                     <StackPanel Spacing="4" Margin="0,0,0,8">
                                                         <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="6">
-                                                            <TextBlock Text="{Binding Value}" FontWeight="DemiBold" />
+                                                            <TextBlock Text="{Binding Value}" FontWeight="SemiBold" />
                                                             <TextBlock Grid.Column="1" Text="{Binding Name}" TextWrapping="Wrap" />
-                                                            <TextBlock Grid.Column="2" Text="{Binding Rarity}" Opacity="0.65" />
+                                                            <TextBlock Grid.Column="2" Classes="UiMuted" Text="{Binding Rarity}" />
                                                         </Grid>
                                                         <ProgressBar Minimum="0"
                                                                      Maximum="100"
                                                                      Value="{Binding RollPercentage}"
                                                                      Height="5"
-                                                                     Foreground="#79B83A"
-                                                                     Background="rgba(255,255,255,0.14)" />
+                                                                     Foreground="{DynamicResource UiTraitRollBrush}"
+                                                                     Background="{DynamicResource UiNeutralFillBrush}" />
                                                     </StackPanel>
                                                 </DataTemplate>
                                             </ItemsControl.ItemTemplate>
@@ -327,23 +290,23 @@
                                         <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="18" RowSpacing="8">
                                             <StackPanel>
                                                 <TextBlock Classes="UiLabel" Text="Attuned to" />
-                                                <TextBlock Text="{Binding AttunedTo}" FontWeight="DemiBold" TextWrapping="Wrap" />
+                                                <TextBlock Text="{Binding AttunedTo}" FontWeight="SemiBold" TextWrapping="Wrap" />
                                             </StackPanel>
                                             <StackPanel Grid.Column="1">
                                                 <TextBlock Classes="UiLabel" Text="Strain" />
-                                                <TextBlock Text="{Binding Strain}" FontWeight="DemiBold" />
+                                                <TextBlock Text="{Binding Strain}" FontWeight="SemiBold" />
                                             </StackPanel>
                                             <StackPanel Grid.Row="1">
                                                 <TextBlock Classes="UiLabel" Text="PvP fame gained" />
-                                                <TextBlock Text="{Binding PvPFameGained}" FontWeight="DemiBold" />
+                                                <TextBlock Text="{Binding PvPFameGained}" FontWeight="SemiBold" />
                                             </StackPanel>
                                             <StackPanel Grid.Row="1" Grid.Column="1">
                                                 <TextBlock Classes="UiLabel" Text="Attunement" />
-                                                <TextBlock Text="{Binding Attunement}" FontWeight="DemiBold" />
+                                                <TextBlock Text="{Binding Attunement}" FontWeight="SemiBold" />
                                             </StackPanel>
                                             <StackPanel Grid.Row="2" Grid.ColumnSpan="2">
                                                 <TextBlock Classes="UiLabel" Text="Attunement spent" />
-                                                <TextBlock Text="{Binding AttunementSpent}" FontWeight="DemiBold" />
+                                                <TextBlock Text="{Binding AttunementSpent}" FontWeight="SemiBold" />
                                             </StackPanel>
                                         </Grid>
                                     </StackPanel>

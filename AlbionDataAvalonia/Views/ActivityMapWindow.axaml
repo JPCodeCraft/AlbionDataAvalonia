@@ -7,19 +7,15 @@
         Title="AFM Map" Icon="/Assets/logo.ico"
         Width="980" Height="700" MinWidth="560" MinHeight="420"
         WindowStartupLocation="CenterScreen"
-        Background="#303030">
+        Background="{DynamicResource UiWindowBrush}">
+    <!-- Legend toggles and zoom buttons are drawn over the map. -->
     <Window.Styles>
-        <Style Selector="Border.Overlay">
-            <Setter Property="Background" Value="#B0000000" />
-            <Setter Property="CornerRadius" Value="6" />
-            <Setter Property="Padding" Value="10,6" />
-        </Style>
         <Style Selector="ToggleButton.Legend">
             <Setter Property="Background" Value="Transparent" />
             <Setter Property="BorderThickness" Value="0" />
             <Setter Property="Padding" Value="4,2" />
             <Setter Property="Margin" Value="0,0,8,0" />
-            <Setter Property="FontSize" Value="12" />
+            <Setter Property="FontSize" Value="{DynamicResource UiFontSizeSmall}" />
             <Setter Property="Opacity" Value="0.45" />
         </Style>
         <Style Selector="ToggleButton.Legend:checked">
@@ -29,25 +25,16 @@
             <Setter Property="Background" Value="Transparent" />
         </Style>
         <Style Selector="ToggleButton.Legend:pointerover /template/ ContentPresenter#PART_ContentPresenter">
-            <Setter Property="Background" Value="#22FFFFFF" />
+            <Setter Property="Background" Value="{DynamicResource UiHoverBrush}" />
         </Style>
         <Style Selector="Button.MapTool">
-            <Setter Property="Width" Value="32" />
-            <Setter Property="Height" Value="32" />
-            <Setter Property="Padding" Value="0" />
-            <Setter Property="Background" Value="#B0000000" />
-            <Setter Property="HorizontalContentAlignment" Value="Center" />
-            <Setter Property="VerticalContentAlignment" Value="Center" />
-            <Setter Property="FontSize" Value="16" />
-        </Style>
-        <Style Selector="TextBlock.Muted">
-            <Setter Property="FontSize" Value="12" />
-            <Setter Property="Opacity" Value="0.7" />
+            <Setter Property="Background" Value="{DynamicResource UiOverlayBrush}" />
+            <Setter Property="FontSize" Value="{DynamicResource UiFontSizeSection}" />
         </Style>
     </Window.Styles>
 
     <Grid RowDefinitions="Auto,*,Auto">
-        <Border BorderBrush="#14FFFFFF" BorderThickness="0,0,0,1" Padding="12,8,12,4">
+        <Border BorderBrush="{DynamicResource UiDividerBrush}" BorderThickness="0,0,0,1" Padding="12,8,12,4">
             <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
                 <views:ActivitySegmentedSelector ItemsSource="{Binding ModeOptions}" SelectedIndex="{Binding SelectedModeIndex}"
                                                  AutomationProperties.Name="Map mode" VerticalAlignment="Center" />
@@ -69,8 +56,8 @@
                         </ComboBox.ItemTemplate>
                     </ComboBox>
                     <StackPanel VerticalAlignment="Center" Spacing="1">
-                        <TextBlock Text="{Binding Title}" FontSize="15" FontWeight="SemiBold" TextTrimming="CharacterEllipsis" />
-                        <TextBlock Text="{Binding Subtitle}" Classes="Muted"
+                        <TextBlock Classes="UiSectionTitle" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding Subtitle}" Classes="UiLabel"
                                    IsVisible="{Binding Subtitle, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
                     </StackPanel>
                 </StackPanel>
@@ -78,7 +65,7 @@
                     <views:ActivitySegmentedSelector ItemsSource="{Binding ScopeOptions}" SelectedIndex="{Binding SelectedScopeIndex}"
                                                      AutomationProperties.Name="Events shown"
                                                      ToolTip.Tip="Personal shows your own events. Party adds your party's, with a light ring, placed where you were when the client saw them. The path is always yours." />
-                    <TextBlock Text="Fade after" Classes="Muted" VerticalAlignment="Center" Margin="8,0,0,4" IsVisible="{Binding IsLive}" />
+                    <TextBlock Text="Fade after" Classes="UiLabel" VerticalAlignment="Center" Margin="8,0,0,4" IsVisible="{Binding IsLive}" />
                     <views:ActivitySegmentedSelector ItemsSource="{Binding FadeOptions}" SelectedIndex="{Binding SelectedFadeIndex}"
                                                      AutomationProperties.Name="Fade path and events after" IsVisible="{Binding IsLive}" />
                 </StackPanel>
@@ -88,30 +75,30 @@
         <Grid Grid.Row="1">
             <views:ActivityMapCanvas x:Name="MapCanvas" Scene="{Binding Scene}" Follow="{Binding Follow, Mode=TwoWay}" />
 
-            <Border Classes="Overlay" IsVisible="{Binding HasNote}" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="12" MaxWidth="460">
-                <TextBlock Text="{Binding Note}" TextWrapping="Wrap" FontSize="12" />
+            <Border Classes="UiOverlay" IsVisible="{Binding HasNote}" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="12" MaxWidth="460">
+                <TextBlock Text="{Binding Note}" TextWrapping="Wrap" FontSize="{DynamicResource UiFontSizeSmall}" />
             </Border>
 
             <StackPanel HorizontalAlignment="Right" VerticalAlignment="Top" Margin="12" IsVisible="{Binding ShowFollow}">
-                <Border Classes="Overlay" IsVisible="{Binding Follow}">
+                <Border Classes="UiOverlay" IsVisible="{Binding Follow}">
                     <StackPanel Orientation="Horizontal" Spacing="6">
-                        <Ellipse Width="8" Height="8" Fill="{DynamicResource AFMOrange}" VerticalAlignment="Center" />
-                        <TextBlock Text="Following you" FontSize="12" />
+                        <Ellipse Classes="UiStatusDot Busy" />
+                        <TextBlock Text="Following you" FontSize="{DynamicResource UiFontSizeSmall}" />
                     </StackPanel>
                 </Border>
-                <Button Content="Follow me" Command="{Binding FollowMeCommand}" IsVisible="{Binding !Follow}" FontSize="12"
-                        Background="#B0000000" ToolTip.Tip="Keep your character in the middle of the map" />
+                <Button Content="Follow me" Command="{Binding FollowMeCommand}" IsVisible="{Binding !Follow}" FontSize="{DynamicResource UiFontSizeSmall}"
+                        Background="{DynamicResource UiOverlayBrush}" ToolTip.Tip="Keep your character in the middle of the map" />
             </StackPanel>
 
-            <Border Classes="Overlay" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="12" Padding="6,4">
+            <Border Classes="UiOverlay" HorizontalAlignment="Left" VerticalAlignment="Bottom" Margin="12" Padding="6,4">
                 <WrapPanel MaxWidth="560">
                     <ToggleButton Classes="Legend" IsChecked="{Binding ShowPath}" ToolTip.Tip="Show or hide your path">
                         <StackPanel Orientation="Horizontal" Spacing="6">
                             <Border Width="16" Height="4" CornerRadius="2" VerticalAlignment="Center">
                                 <Border.Background>
                                     <LinearGradientBrush StartPoint="0%,50%" EndPoint="100%,50%">
-                                        <GradientStop Color="#4FC3F7" Offset="0" />
-                                        <GradientStop Color="#FFA726" Offset="1" />
+                                        <GradientStop Color="{DynamicResource UiMapPathStartColor}" Offset="0" />
+                                        <GradientStop Color="{DynamicResource UiMapPathEndColor}" Offset="1" />
                                     </LinearGradientBrush>
                                 </Border.Background>
                             </Border>
@@ -120,31 +107,31 @@
                     </ToggleButton>
                     <ToggleButton Classes="Legend" IsChecked="{Binding ShowKills}" ToolTip.Tip="Mobs and players killed">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <Path Data="M5,0 L10,5 L5,10 L0,5 Z" Fill="{Binding KillLegendBrush}" Stroke="#111" StrokeThickness="1" VerticalAlignment="Center" />
+                            <Path Data="M5,0 L10,5 L5,10 L0,5 Z" Fill="{DynamicResource UiActivityKillBrush}" Stroke="{DynamicResource UiMarkerOutlineBrush}" StrokeThickness="1" VerticalAlignment="Center" />
                             <TextBlock Text="Kills" />
                         </StackPanel>
                     </ToggleButton>
                     <ToggleButton Classes="Legend" IsChecked="{Binding ShowLoot}" ToolTip.Tip="Items picked up">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <Ellipse Width="9" Height="9" Fill="{Binding LootLegendBrush}" Stroke="#111" StrokeThickness="1" VerticalAlignment="Center" />
+                            <Ellipse Width="9" Height="9" Fill="{DynamicResource UiActivityLootBrush}" Stroke="{DynamicResource UiMarkerOutlineBrush}" StrokeThickness="1" VerticalAlignment="Center" />
                             <TextBlock Text="Loot" />
                         </StackPanel>
                     </ToggleButton>
                     <ToggleButton Classes="Legend" IsChecked="{Binding ShowGathering}" ToolTip.Tip="Resources gathered and fish caught">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <Path Data="M5,0 L10,9 L0,9 Z" Fill="{Binding GatheringLegendBrush}" Stroke="#111" StrokeThickness="1" VerticalAlignment="Center" />
+                            <Path Data="M5,0 L10,9 L0,9 Z" Fill="{DynamicResource UiActivityGatheringBrush}" Stroke="{DynamicResource UiMarkerOutlineBrush}" StrokeThickness="1" VerticalAlignment="Center" />
                             <TextBlock Text="Gathering" />
                         </StackPanel>
                     </ToggleButton>
                     <ToggleButton Classes="Legend" IsChecked="{Binding ShowDeaths}" ToolTip.Tip="Deaths and knockdowns">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <Path Data="M1,1 L9,9 M9,1 L1,9" Stroke="{Binding DeathLegendBrush}" StrokeThickness="2" VerticalAlignment="Center" />
+                            <Path Data="M1,1 L9,9 M9,1 L1,9" Stroke="{DynamicResource UiActivityDeathBrush}" StrokeThickness="2" VerticalAlignment="Center" />
                             <TextBlock Text="Deaths" />
                         </StackPanel>
                     </ToggleButton>
                     <ToggleButton Classes="Legend" IsChecked="{Binding ShowFeatures}" ToolTip.Tip="Zone exits and the game's minimap icons">
                         <StackPanel Orientation="Horizontal" Spacing="6">
-                            <Ellipse Width="9" Height="9" Fill="#4A90E2" Stroke="#111" StrokeThickness="1" VerticalAlignment="Center" />
+                            <Ellipse Width="9" Height="9" Fill="{DynamicResource UiMapExitBrush}" Stroke="{DynamicResource UiMarkerOutlineBrush}" StrokeThickness="1" VerticalAlignment="Center" />
                             <TextBlock Text="Exits &amp; icons" />
                         </StackPanel>
                     </ToggleButton>
@@ -152,25 +139,25 @@
             </Border>
 
             <StackPanel HorizontalAlignment="Right" VerticalAlignment="Bottom" Margin="12" Spacing="6">
-                <Button Classes="MapTool" Content="+" Click="ZoomIn_Click" ToolTip.Tip="Zoom in" AutomationProperties.Name="Zoom in" />
-                <Button Classes="MapTool" Content="−" Click="ZoomOut_Click" ToolTip.Tip="Zoom out" AutomationProperties.Name="Zoom out" />
-                <Button Classes="MapTool" Content="⤢" FontSize="13" Click="Fit_Click" ToolTip.Tip="Fit to view" AutomationProperties.Name="Fit to view" />
+                <Button Classes="UiIcon MapTool" Content="+" Click="ZoomIn_Click" ToolTip.Tip="Zoom in" AutomationProperties.Name="Zoom in" />
+                <Button Classes="UiIcon MapTool" Content="−" Click="ZoomOut_Click" ToolTip.Tip="Zoom out" AutomationProperties.Name="Zoom out" />
+                <Button Classes="UiIcon MapTool" Content="⤢" FontSize="{DynamicResource UiFontSizeCompact}" Click="Fit_Click" ToolTip.Tip="Fit to view" AutomationProperties.Name="Fit to view" />
             </StackPanel>
         </Grid>
 
-        <Border Grid.Row="2" IsVisible="{Binding IsHistory}" BorderBrush="#14FFFFFF" BorderThickness="0,1,0,0" Padding="12,8">
+        <Border Grid.Row="2" IsVisible="{Binding IsHistory}" BorderBrush="{DynamicResource UiDividerBrush}" BorderThickness="0,1,0,0" Padding="12,8">
             <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto" ColumnSpacing="10">
                 <Button Content="{Binding PlayButtonText}" Command="{Binding TogglePlayCommand}" Width="34" Height="34" CornerRadius="17"
                         HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="Replay this run"
                         AutomationProperties.Name="{Binding PlayButtonName}" />
-                <TextBlock Grid.Column="1" Text="{Binding TimelineStartText}" Classes="Muted" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding TimelineStartText}" Classes="UiLabel" VerticalAlignment="Center" />
                 <Grid Grid.Column="2" VerticalAlignment="Center">
                     <views:ActivityMapTimelineTicks Ticks="{Binding Ticks}" Height="14" VerticalAlignment="Center" Opacity="0.85" />
                     <Slider Minimum="0" Maximum="{Binding TimelineMaximum}" Value="{Binding TimelineValue}" VerticalAlignment="Center"
                             ToolTip.Tip="{Binding TimelineNowText}" AutomationProperties.Name="Replay position" />
                 </Grid>
-                <TextBlock Grid.Column="3" Text="{Binding TimelineEndText}" Classes="Muted" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="4" Text="{Binding RunSummaryText}" Classes="Muted" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="3" Text="{Binding TimelineEndText}" Classes="UiLabel" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="4" Text="{Binding RunSummaryText}" Classes="UiLabel" VerticalAlignment="Center" />
             </Grid>
         </Border>
     </Grid>

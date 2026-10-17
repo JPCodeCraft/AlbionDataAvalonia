@@ -28,7 +28,7 @@ public sealed class PortfolioSignInRequiredWindow : Window
         {
             Text = "Sign in required",
             FontSize = 18,
-            FontWeight = Avalonia.Media.FontWeight.DemiBold
+            FontWeight = Avalonia.Media.FontWeight.SemiBold
         });
 
         panel.Children.Add(new TextBlock
@@ -44,7 +44,7 @@ public sealed class PortfolioSignInRequiredWindow : Window
             IsDefault = true,
             IsCancel = true,
             HorizontalAlignment = Avalonia.Layout.HorizontalAlignment.Right,
-            Classes = { "UiAction" }
+            Classes = { "UiAction", "UiPrimary" }
         };
         okButton.Click += OkButton_Click;
 

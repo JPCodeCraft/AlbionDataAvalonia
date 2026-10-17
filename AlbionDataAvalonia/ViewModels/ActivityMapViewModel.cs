@@ -137,10 +137,6 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
     public string PlayButtonText => IsPlaying ? "❚❚" : "▶";
     public string PlayButtonName => IsPlaying ? "Pause replay" : "Play replay";
     public double TimelineMaximum => TimelineMax;
-    public IBrush KillLegendBrush => KillBrush;
-    public IBrush LootLegendBrush => LootBrush;
-    public IBrush GatheringLegendBrush => GatheringBrush;
-    public IBrush DeathLegendBrush => DeathBrush;
 
     private ActivityMapLayers Layers =>
         (ShowPath ? ActivityMapLayers.Path : 0) | (ShowKills ? ActivityMapLayers.Kills : 0) | (ShowLoot ? ActivityMapLayers.Loot : 0)

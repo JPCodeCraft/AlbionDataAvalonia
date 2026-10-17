@@ -1,0 +1,193 @@
+<!--
+    Design tokens: every color, size and radius the views use. Views reference these with
+    {DynamicResource ...}; code reads them through UiPalette. Add a token here instead of typing a literal.
+-->
+<ResourceDictionary xmlns="https://github.com/avaloniaui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Accent: fills and selection use the Fluent accent; orange text and values use the lighter tone. -->
+    <Color x:Key="UiAccentColor">#F57C00</Color>
+    <Color x:Key="UiAccentHoverColor">#FB8C00</Color>
+    <Color x:Key="UiAccentPressedColor">#EF6C00</Color>
+    <Color x:Key="UiAccentTextColor">#FFA726</Color>
+    <Color x:Key="UiOnAccentColor">#1D1208</Color>
+    <SolidColorBrush x:Key="UiAccentBrush" Color="{StaticResource UiAccentColor}" />
+    <SolidColorBrush x:Key="UiAccentHoverBrush" Color="{StaticResource UiAccentHoverColor}" />
+    <SolidColorBrush x:Key="UiAccentPressedBrush" Color="{StaticResource UiAccentPressedColor}" />
+    <SolidColorBrush x:Key="UiAccentTextBrush" Color="{StaticResource UiAccentTextColor}" />
+    <SolidColorBrush x:Key="UiOnAccentBrush" Color="{StaticResource UiOnAccentColor}" />
+    <SolidColorBrush x:Key="UiAccentTintSubtleBrush" Color="#1AFFA726" />
+    <SolidColorBrush x:Key="UiAccentTintBrush" Color="#33FFA726" />
+    <SolidColorBrush x:Key="UiAccentEdgeBrush" Color="#66FFA726" />
+
+    <!-- Selection: a chosen segment, list row or chip. -->
+    <Color x:Key="UiSelectedColor">#553F31</Color>
+    <Color x:Key="UiSelectedHoverColor">#624833</Color>
+    <SolidColorBrush x:Key="UiSelectedBrush" Color="{StaticResource UiSelectedColor}" />
+    <SolidColorBrush x:Key="UiSelectedHoverBrush" Color="{StaticResource UiSelectedHoverColor}" />
+
+    <!-- State. Warning shares the accent hue, so warnings also carry an icon or a label. -->
+    <Color x:Key="UiSuccessColor">#4CAF50</Color>
+    <Color x:Key="UiWarningColor">#FFA726</Color>
+    <Color x:Key="UiDangerColor">#FF7043</Color>
+    <SolidColorBrush x:Key="UiSuccessBrush" Color="{StaticResource UiSuccessColor}" />
+    <SolidColorBrush x:Key="UiWarningBrush" Color="{StaticResource UiWarningColor}" />
+    <SolidColorBrush x:Key="UiDangerBrush" Color="{StaticResource UiDangerColor}" />
+    <SolidColorBrush x:Key="UiDangerTintBrush" Color="#26FF7043" />
+    <SolidColorBrush x:Key="UiDangerTintHoverBrush" Color="#40FF7043" />
+    <SolidColorBrush x:Key="UiDangerEdgeBrush" Color="#8CFF7043" />
+    <SolidColorBrush x:Key="UiDangerTextBrush" Color="#FFAB91" />
+    <SolidColorBrush x:Key="UiErrorTextBrush" Color="#FFB4A8" />
+
+    <!-- Surfaces, from the window down to inputs, plus overlays drawn on top of content. -->
+    <Color x:Key="UiWindowColor">#303030</Color>
+    <Color x:Key="UiSurfaceColor">#383838</Color>
+    <Color x:Key="UiSurfacePressedColor">#343434</Color>
+    <Color x:Key="UiSurfaceSunkenColor">#262626</Color>
+    <Color x:Key="UiInputColor">#424242</Color>
+    <Color x:Key="UiInputHoverColor">#505050</Color>
+    <SolidColorBrush x:Key="UiWindowBrush" Color="{StaticResource UiWindowColor}" />
+    <SolidColorBrush x:Key="UiSurfaceBrush" Color="{StaticResource UiSurfaceColor}" />
+    <SolidColorBrush x:Key="UiSurfacePressedBrush" Color="{StaticResource UiSurfacePressedColor}" />
+    <SolidColorBrush x:Key="UiSurfaceSunkenBrush" Color="{StaticResource UiSurfaceSunkenColor}" />
+    <SolidColorBrush x:Key="UiSurfaceSubtleBrush" Color="#0DFFFFFF" />
+    <SolidColorBrush x:Key="UiInputBrush" Color="{StaticResource UiInputColor}" />
+    <SolidColorBrush x:Key="UiInputHoverBrush" Color="{StaticResource UiInputHoverColor}" />
+    <SolidColorBrush x:Key="UiOverlayBrush" Color="#B0000000" />
+    <SolidColorBrush x:Key="UiWindowTranslucentBrush" Color="#E6303030" />
+    <SolidColorBrush x:Key="UiScrimBrush" Color="#F2303030" />
+    <SolidColorBrush x:Key="UiCodeBrush" Color="#33000000" />
+    <SolidColorBrush x:Key="UiInsetBrush" Color="#14000000" />
+    <SolidColorBrush x:Key="UiHoverBrush" Color="#14FFFFFF" />
+    <SolidColorBrush x:Key="UiActiveBrush" Color="#29FFFFFF" />
+    <SolidColorBrush x:Key="UiNeutralFillBrush" Color="#1AFFFFFF" />
+
+    <!-- Lines. -->
+    <Color x:Key="UiBorderColor">#555555</Color>
+    <Color x:Key="UiBorderStrongColor">#626262</Color>
+    <Color x:Key="UiBorderDisabledColor">#444444</Color>
+    <SolidColorBrush x:Key="UiBorderBrush" Color="{StaticResource UiBorderColor}" />
+    <SolidColorBrush x:Key="UiBorderStrongBrush" Color="{StaticResource UiBorderStrongColor}" />
+    <SolidColorBrush x:Key="UiBorderDisabledBrush" Color="{StaticResource UiBorderDisabledColor}" />
+    <SolidColorBrush x:Key="UiBorderSubtleBrush" Color="#29FFFFFF" />
+    <SolidColorBrush x:Key="UiDividerBrush" Color="#1AFFFFFF" />
+    <SolidColorBrush x:Key="UiFocusBrush" Color="#FFD5A6" />
+    <SolidColorBrush x:Key="UiMarkerOutlineBrush" Color="#111111" />
+
+    <!-- Text. Use these brushes for muted text instead of Opacity, which also dims icons and links. -->
+    <Color x:Key="UiTextColor">#FFFFFF</Color>
+    <Color x:Key="UiTextSecondaryColor">#BFFFFFFF</Color>
+    <Color x:Key="UiTextTertiaryColor">#8CFFFFFF</Color>
+    <Color x:Key="UiTextDisabledColor">#66FFFFFF</Color>
+    <SolidColorBrush x:Key="UiTextBrush" Color="{StaticResource UiTextColor}" />
+    <SolidColorBrush x:Key="UiTextSecondaryBrush" Color="{StaticResource UiTextSecondaryColor}" />
+    <SolidColorBrush x:Key="UiTextTertiaryBrush" Color="{StaticResource UiTextTertiaryColor}" />
+    <SolidColorBrush x:Key="UiTextDisabledBrush" Color="{StaticResource UiTextDisabledColor}" />
+
+    <!-- Gains and losses in lists, such as activity tags and party joins and departures. -->
+    <SolidColorBrush x:Key="UiPositiveTextBrush" Color="#A0D477" />
+    <SolidColorBrush x:Key="UiNegativeTextBrush" Color="#F47D7D" />
+
+    <!-- Activity kinds, shared by the Activity tab, the live timeline and the map (UiPalette reads them in code). -->
+    <Color x:Key="UiActivityDamageColor">#69B2F0</Color>
+    <Color x:Key="UiActivityHealingColor">#69D2A0</Color>
+    <Color x:Key="UiActivityKillColor">#EB9C64</Color>
+    <Color x:Key="UiActivityLootColor">#BF91F0</Color>
+    <Color x:Key="UiActivityGatheringColor">#A0D477</Color>
+    <Color x:Key="UiActivityFishingColor">#64CBDD</Color>
+    <Color x:Key="UiActivityFameColor">#86D1A2</Color>
+    <Color x:Key="UiActivitySilverColor">#E7BD64</Color>
+    <Color x:Key="UiActivityDeathColor">#F47D7D</Color>
+    <Color x:Key="UiActivityPartyColor">#8FA8F5</Color>
+    <Color x:Key="UiActivityMixedColor">#B499CB</Color>
+    <Color x:Key="UiActivityUnknownColor">#C5C5C5</Color>
+    <Color x:Key="UiMapPathStartColor">#4FC3F7</Color>
+    <Color x:Key="UiMapPathEndColor">#FFA726</Color>
+    <Color x:Key="UiMapExitColor">#4A90E2</Color>
+    <SolidColorBrush x:Key="UiActivityKillBrush" Color="{StaticResource UiActivityKillColor}" />
+    <SolidColorBrush x:Key="UiActivityLootBrush" Color="{StaticResource UiActivityLootColor}" />
+    <SolidColorBrush x:Key="UiActivityGatheringBrush" Color="{StaticResource UiActivityGatheringColor}" />
+    <SolidColorBrush x:Key="UiActivityDeathBrush" Color="{StaticResource UiActivityDeathColor}" />
+    <SolidColorBrush x:Key="UiMapExitBrush" Color="{StaticResource UiMapExitColor}" />
+
+    <!-- Awakened items: item quality, rating and trait rolls. -->
+    <SolidColorBrush x:Key="UiQualityTextBrush" Color="#F0B94A" />
+    <SolidColorBrush x:Key="UiRatingBrush" Color="#F0A21B" />
+    <SolidColorBrush x:Key="UiTraitRollBrush" Color="#79B83A" />
+
+    <!-- Badges. -->
+    <SolidColorBrush x:Key="UiBadgeNeutralBrush" Color="#4B4B4B" />
+    <SolidColorBrush x:Key="UiBadgeSuccessBrush" Color="#356B3D" />
+    <SolidColorBrush x:Key="UiBadgeWarningBrush" Color="#7A6230" />
+    <SolidColorBrush x:Key="UiBadgeDangerBrush" Color="#70413D" />
+
+    <!-- Type scale. -->
+    <x:Double x:Key="UiFontSizeCaption">11</x:Double>
+    <x:Double x:Key="UiFontSizeSmall">12</x:Double>
+    <x:Double x:Key="UiFontSizeCompact">13</x:Double>
+    <x:Double x:Key="UiFontSizeBody">14</x:Double>
+    <x:Double x:Key="UiFontSizeSection">16</x:Double>
+    <x:Double x:Key="UiFontSizeTitle">18</x:Double>
+    <x:Double x:Key="UiFontSizeHeading">20</x:Double>
+    <x:Double x:Key="UiFontSizeValueLarge">24</x:Double>
+    <FontFamily x:Key="UiMonoFontFamily">Cascadia Mono, Consolas, Menlo, DejaVu Sans Mono, monospace</FontFamily>
+
+    <!-- Shape and spacing. -->
+    <CornerRadius x:Key="UiRadiusControl">4</CornerRadius>
+    <CornerRadius x:Key="UiRadiusOverlay">6</CornerRadius>
+    <CornerRadius x:Key="UiRadiusCard">8</CornerRadius>
+    <CornerRadius x:Key="UiRadiusPill">999</CornerRadius>
+    <Thickness x:Key="UiCardPadding">12</Thickness>
+    <Thickness x:Key="UiRowPadding">14,11</Thickness>
+    <Thickness x:Key="UiBannerPadding">12,10</Thickness>
+    <x:Double x:Key="UiDisabledOpacity">0.5</x:Double>
+
+    <!-- Fluent overrides: a plain Button is the secondary button. -->
+    <Thickness x:Key="ButtonBorderThemeThickness">1</Thickness>
+    <SolidColorBrush x:Key="ButtonBackground" Color="{StaticResource UiSurfaceColor}" />
+    <SolidColorBrush x:Key="ButtonBackgroundPointerOver" Color="{StaticResource UiInputColor}" />
+    <SolidColorBrush x:Key="ButtonBackgroundPressed" Color="{StaticResource UiSurfacePressedColor}" />
+    <SolidColorBrush x:Key="ButtonBackgroundDisabled" Color="{StaticResource UiSurfaceColor}" />
+    <SolidColorBrush x:Key="ButtonBorderBrush" Color="{StaticResource UiBorderColor}" />
+    <SolidColorBrush x:Key="ButtonBorderBrushPointerOver" Color="{StaticResource UiBorderStrongColor}" />
+    <SolidColorBrush x:Key="ButtonBorderBrushPressed" Color="{StaticResource UiBorderColor}" />
+    <SolidColorBrush x:Key="ButtonBorderBrushDisabled" Color="{StaticResource UiBorderDisabledColor}" />
+    <SolidColorBrush x:Key="ButtonForeground" Color="{StaticResource UiTextColor}" />
+    <SolidColorBrush x:Key="ButtonForegroundPointerOver" Color="{StaticResource UiTextColor}" />
+    <SolidColorBrush x:Key="ButtonForegroundPressed" Color="{StaticResource UiTextColor}" />
+    <SolidColorBrush x:Key="ButtonForegroundDisabled" Color="{StaticResource UiTextDisabledColor}" />
+
+    <!-- Fluent overrides: inputs and expanders. -->
+    <SolidColorBrush x:Key="TextControlBackground" Color="{StaticResource UiInputColor}" />
+    <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="{StaticResource UiInputColor}" />
+    <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="{StaticResource UiInputColor}" />
+    <SolidColorBrush x:Key="TextControlBackgroundDisabled" Color="{StaticResource UiSurfaceColor}" />
+    <SolidColorBrush x:Key="ExpanderHeaderBackground" Color="{StaticResource UiSurfaceColor}" />
+    <SolidColorBrush x:Key="ExpanderHeaderBackgroundPointerOver" Color="{StaticResource UiInputColor}" />
+    <SolidColorBrush x:Key="ExpanderHeaderBackgroundPressed" Color="{StaticResource UiSurfacePressedColor}" />
+    <SolidColorBrush x:Key="ExpanderHeaderBackgroundDisabled" Color="{StaticResource UiSurfaceColor}" />
+    <SolidColorBrush x:Key="ExpanderHeaderBorderBrush" Color="{StaticResource UiBorderColor}" />
+    <SolidColorBrush x:Key="ExpanderHeaderBorderBrushPointerOver" Color="{StaticResource UiBorderColor}" />
+    <SolidColorBrush x:Key="ExpanderHeaderBorderBrushPressed" Color="{StaticResource UiBorderColor}" />
+    <SolidColorBrush x:Key="ExpanderHeaderBorderBrushDisabled" Color="{StaticResource UiBorderColor}" />
+    <SolidColorBrush x:Key="ToggleSwitchFillOnDisabled" Color="#59F57C00" />
+    <SolidColorBrush x:Key="ToggleSwitchKnobFillOnDisabled" Color="#99FFFFFF" />
+
+    <!-- Fluent overrides: grid rows select with the selection color, not a solid accent fill. -->
+    <SolidColorBrush x:Key="DataGridRowSelectedBackgroundBrush" Color="{StaticResource UiSelectedColor}" />
+    <SolidColorBrush x:Key="DataGridRowSelectedHoveredBackgroundBrush" Color="{StaticResource UiSelectedHoverColor}" />
+    <SolidColorBrush x:Key="DataGridRowSelectedUnfocusedBackgroundBrush" Color="{StaticResource UiSelectedColor}" />
+    <SolidColorBrush x:Key="DataGridRowSelectedHoveredUnfocusedBackgroundBrush" Color="{StaticResource UiSelectedHoverColor}" />
+    <x:Double x:Key="DataGridRowSelectedBackgroundOpacity">1</x:Double>
+    <x:Double x:Key="DataGridRowSelectedHoveredBackgroundOpacity">1</x:Double>
+    <x:Double x:Key="DataGridRowSelectedUnfocusedBackgroundOpacity">1</x:Double>
+    <x:Double x:Key="DataGridRowSelectedHoveredUnfocusedBackgroundOpacity">1</x:Double>
+    <SolidColorBrush x:Key="DataGridCellFocusVisualPrimaryBrush" Color="{StaticResource UiAccentTextColor}" />
+    <SolidColorBrush x:Key="DataGridCellFocusVisualSecondaryBrush" Color="Transparent" />
+
+    <!-- Fluent overrides: compact tab headers for every TabControl. -->
+    <x:Double x:Key="TabItemHeaderFontSize">13</x:Double>
+    <x:Double x:Key="TabItemMinHeight">34</x:Double>
+    <Thickness x:Key="TabItemHeaderMargin">2,0,16,0</Thickness>
+    <FontWeight x:Key="TabItemHeaderThemeFontWeight">Normal</FontWeight>
+</ResourceDictionary>

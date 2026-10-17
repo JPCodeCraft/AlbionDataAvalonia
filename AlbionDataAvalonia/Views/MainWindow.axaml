@@ -13,28 +13,6 @@
 		MinWidth="800" MinHeight="600"
 		x:DataType="vm:MainViewModel">
 
-	<Window.Styles>
-		<Style Selector="Button.link">
-			<Setter Property="Foreground" Value="{DynamicResource AFMOrange}" />
-			<Setter Property="Padding" Value="0" />
-			<Setter Property="Cursor" Value="Hand" />
-			<Setter Property="BorderThickness" Value="0" />
-			<Setter Property="Background" Value="Transparent" />
-			<Setter Property="Template">
-				<ControlTemplate>
-					<ContentPresenter Content="{TemplateBinding Content}"
-                                      TextElement.Foreground="{TemplateBinding Foreground}"
-                                      TextElement.FontSize="{TemplateBinding FontSize}">
-						<ContentPresenter.Styles>
-							<Style Selector="TextBlock">
-								<Setter Property="TextDecorations" Value="Underline" />
-							</Style>
-						</ContentPresenter.Styles>
-					</ContentPresenter>
-				</ControlTemplate>
-			</Setter>
-		</Style>
-	</Window.Styles>
 
 	<Grid Margin="0 30 0 0">
 		<Grid.RowDefinitions>
@@ -44,35 +22,33 @@
 			<RowDefinition Height="30" />
 		</Grid.RowDefinitions>
 
-		<Rectangle Grid.Row="0" Height="1" Fill="rgba(255,255,255,.1)" HorizontalAlignment="Stretch" />
+		<Rectangle Grid.Row="0" Classes="UiDivider" />
 
 		<views:MainView Grid.Row="1" />
 
 		<Border Grid.Row="1"
 				ZIndex="1"
-				Background="#F2303030"
+				Background="{DynamicResource UiScrimBrush}"
 				IsVisible="{Binding IsInitializing}">
 			<StackPanel Width="320"
 						HorizontalAlignment="Center"
 						VerticalAlignment="Center"
 						Spacing="14">
 				<TextBlock HorizontalAlignment="Center"
-						   FontSize="18"
-						   FontWeight="DemiBold"
+						   Classes="UiTitle"
 						   Text="Starting Albion Data Client…" />
 				<ProgressBar Height="6" IsIndeterminate="True" />
 			</StackPanel>
 		</Border>
 
-		<Rectangle Grid.Row="2" Height="1" Fill="rgba(255,255,255,.1)" HorizontalAlignment="Stretch" />
+		<Rectangle Grid.Row="2" Classes="UiDivider" />
 
 		<Grid ColumnDefinitions="*, *, *" Grid.Row="3"  Margin="10 0 10 0">
-			<Button Grid.Column="0" Classes="link" Content="Albion Free Market" HorizontalAlignment="Left" VerticalAlignment="Center" Command="{Binding OpenAFMWebsiteCommand}" />
+			<Button Grid.Column="0" Classes="UiLink" Content="Albion Free Market" HorizontalAlignment="Left" VerticalAlignment="Center" Command="{Binding OpenAFMWebsiteCommand}" />
 			<StackPanel Orientation="Horizontal" Grid.Column="1" HorizontalAlignment="Center">
-				<Label Content="App version" VerticalAlignment="Center" FontSize="12"/>
-				<Label Content="{Binding AppVersion}" VerticalAlignment="Center" FontSize="12"/>
+				<TextBlock Text="{Binding AppVersion, StringFormat='App version {0}'}" VerticalAlignment="Center" FontSize="{DynamicResource UiFontSizeSmall}" />
 			</StackPanel>
-			<Button Grid.Column="2" Classes="link" Content="Albion Data Project" HorizontalAlignment="Right" VerticalAlignment="Center" Command="{Binding OpenAODPWebsiteCommand}"/>
+			<Button Grid.Column="2" Classes="UiLink" Content="Albion Data Project" HorizontalAlignment="Right" VerticalAlignment="Center" Command="{Binding OpenAODPWebsiteCommand}"/>
 		</Grid>
 	</Grid>
 

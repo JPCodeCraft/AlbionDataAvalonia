@@ -33,7 +33,7 @@ public sealed class ConfirmPortfolioReuploadWindow : Window
         {
             Text = prompt,
             FontSize = 18,
-            FontWeight = Avalonia.Media.FontWeight.DemiBold
+            FontWeight = Avalonia.Media.FontWeight.SemiBold
         });
 
         panel.Children.Add(new TextBlock
@@ -50,11 +50,11 @@ public sealed class ConfirmPortfolioReuploadWindow : Window
             Spacing = 8
         };
 
-        var cancelButton = new Button { Content = "Cancel", IsCancel = true, Classes = { "UiAction", "UiSecondary" } };
+        var cancelButton = new Button { Content = "Cancel", IsCancel = true, Classes = { "UiAction" } };
         cancelButton.Click += CancelButton_Click;
         buttons.Children.Add(cancelButton);
 
-        var uploadButton = new Button { Content = "Upload again", Classes = { "UiAction" } };
+        var uploadButton = new Button { Content = "Upload again", Classes = { "UiAction", "UiPrimary" } };
         uploadButton.Click += UploadButton_Click;
         buttons.Children.Add(uploadButton);
 

@@ -1,0 +1,78 @@
+<!-- Shared skins for Fluent controls. Pages and windows opt in with Classes="AppPage". -->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <Style Selector=".AppPage ComboBox, .AppPage TextBox, .AppPage DatePicker">
+        <Setter Property="Background" Value="{DynamicResource UiInputBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource UiBorderBrush}" />
+        <Setter Property="MinHeight" Value="36" />
+    </Style>
+    <Style Selector=".AppPage ComboBox:pointerover, .AppPage TextBox:pointerover, .AppPage DatePicker:pointerover">
+        <Setter Property="Background" Value="{DynamicResource UiInputBrush}" />
+    </Style>
+    <Style Selector=".AppPage NumericUpDown /template/ TextBox">
+        <Setter Property="Background" Value="{DynamicResource UiInputBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="MinHeight" Value="32" />
+    </Style>
+    <Style Selector=".AppPage NumericUpDown /template/ TextBox /template/ Border#PART_BorderElement">
+        <Setter Property="Background" Value="{DynamicResource UiInputBrush}" />
+    </Style>
+    <Style Selector=".AppPage NumericUpDown /template/ RepeatButton">
+        <Setter Property="Background" Value="{DynamicResource UiInputBrush}" />
+    </Style>
+    <Style Selector=".AppPage Expander">
+        <Setter Property="Background" Value="{DynamicResource UiSurfaceBrush}" />
+        <Setter Property="BorderBrush" Value="{DynamicResource UiBorderBrush}" />
+        <Setter Property="BorderThickness" Value="1" />
+        <Setter Property="CornerRadius" Value="{DynamicResource UiRadiusOverlay}" />
+        <Setter Property="HorizontalAlignment" Value="Stretch" />
+        <Setter Property="MinHeight" Value="40" />
+    </Style>
+    <Style Selector=".AppPage Expander /template/ ToggleButton">
+        <Setter Property="Background" Value="{DynamicResource UiSurfaceBrush}" />
+        <Setter Property="MinHeight" Value="40" />
+    </Style>
+    <!-- An expander inside a card row, without its own fill. -->
+    <Style Selector=".AppPage Expander.Plain">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <!-- An expander on the window with no border; its header reads as a line of text. -->
+    <Style Selector=".AppPage Expander.Bare">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="Padding" Value="6,2,6,8" />
+        <Setter Property="MinHeight" Value="0" />
+    </Style>
+    <Style Selector=".AppPage Expander.Bare /template/ ToggleButton">
+        <Setter Property="Background" Value="Transparent" />
+        <Setter Property="MinHeight" Value="30" />
+        <Setter Property="Padding" Value="16,0,16,0" />
+    </Style>
+    <Style Selector=".AppPage DataGrid">
+        <Setter Property="Background" Value="{DynamicResource UiSurfaceBrush}" />
+        <Setter Property="BorderThickness" Value="0" />
+        <Setter Property="GridLinesVisibility" Value="None" />
+        <Setter Property="RowHeight" Value="32" />
+        <Setter Property="ColumnHeaderHeight" Value="32" />
+        <Setter Property="AutoGenerateColumns" Value="False" />
+        <Setter Property="IsReadOnly" Value="True" />
+    </Style>
+    <Style Selector=".AppPage DataGridColumnHeader /template/ Grid#PART_ColumnHeaderRoot">
+        <Setter Property="Background" Value="{DynamicResource UiInputBrush}" />
+    </Style>
+    <Style Selector=".AppPage ScrollBar">
+        <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <Style Selector=".AppPage GridSplitter">
+        <Setter Property="Background" Value="{DynamicResource UiBorderBrush}" />
+    </Style>
+    <!-- Switches sit at the end of a row with no On/Off text. -->
+    <Style Selector=".AppPage ToggleSwitch">
+        <Setter Property="OnContent" Value="" />
+        <Setter Property="OffContent" Value="" />
+        <Setter Property="MinWidth" Value="0" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Margin" Value="12,0,0,0" />
+    </Style>
+</Styles>

@@ -35,7 +35,7 @@ public sealed class TradeQualitySelectionWindow : Window
         {
             Text = "Set trade quality",
             FontSize = 18,
-            FontWeight = FontWeight.DemiBold
+            FontWeight = FontWeight.SemiBold
         });
 
         root.Children.Add(new TextBlock
@@ -68,11 +68,11 @@ public sealed class TradeQualitySelectionWindow : Window
             Spacing = 8
         };
 
-        var cancelButton = new Button { Content = "Cancel", IsCancel = true, Classes = { "UiAction", "UiSecondary" } };
+        var cancelButton = new Button { Content = "Cancel", IsCancel = true, Classes = { "UiAction" } };
         cancelButton.Click += CancelButton_Click;
         buttons.Children.Add(cancelButton);
 
-        var saveButton = new Button { Content = "Save", IsDefault = true, Classes = { "UiAction" } };
+        var saveButton = new Button { Content = "Save", IsDefault = true, Classes = { "UiAction", "UiPrimary" } };
         saveButton.Click += SaveButton_Click;
         buttons.Children.Add(saveButton);
 

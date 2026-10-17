@@ -37,24 +37,21 @@
             </StackPanel>
         </WrapPanel>
         <WrapPanel Grid.Row="1" Margin="0,0,0,2">
-            <Button Classes="UiAction UiSecondary" Margin="0,0,8,6" Content="Reload" Command="{Binding LoadTradesCommand}" />
-            <Button Classes="UiAction UiSecondary" Margin="0,0,8,6" Content="Export CSV" Name="ExportCsvButton" Click="ExportCsvButton_Click" IsEnabled="{Binding !IsExporting}" />
-            <Button Classes="UiAction UiSecondary" Margin="0,0,8,6" Content="Set quality" Name="SetQualityButton" Click="SetQualityButton_Click" IsEnabled="{Binding CanSetSelectedTradeQuality}" />
-            <Button Classes="UiAction UiSecondary" Margin="0,0,8,6" Content="Add to portfolio" Name="AddToPortfolioButton" Click="AddToPortfolioButton_Click" IsEnabled="{Binding CanAddSelectedTradesToPortfolio}" />
-            <Button Classes="UiAction UiSecondary" Margin="0,0,8,6" Content="Delete selected..." Name="DeleteButton" Click="DeleteButton_Click" IsEnabled="{Binding HasSelectedRows}" />
+            <Button Classes="UiAction" Margin="0,0,8,6" Content="Refresh" Command="{Binding LoadTradesCommand}" />
+            <Button Classes="UiAction" Margin="0,0,8,6" Content="Export CSV" Name="ExportCsvButton" Click="ExportCsvButton_Click" IsEnabled="{Binding !IsExporting}" />
+            <Button Classes="UiAction" Margin="0,0,8,6" Content="Set quality" Name="SetQualityButton" Click="SetQualityButton_Click" IsEnabled="{Binding CanSetSelectedTradeQuality}" />
+            <Button Classes="UiAction" Margin="0,0,8,6" Content="Add to portfolio" Name="AddToPortfolioButton" Click="AddToPortfolioButton_Click" IsEnabled="{Binding CanAddSelectedTradesToPortfolio}" />
+            <Button Classes="UiAction UiDanger" Margin="0,0,8,6" Content="Delete selected…" Name="DeleteButton" Click="DeleteButton_Click" IsEnabled="{Binding HasSelectedRows}" />
         </WrapPanel>
         <StackPanel Grid.Row="2" Margin="0,0,0,6" Spacing="4">
             <TextBlock Classes="UiError" Text="{Binding LoadError}" IsVisible="{Binding HasLoadError}" />
-            <TextBlock Text="{Binding PortfolioImportStatus}" IsVisible="{Binding HasPortfolioImportStatus}" TextWrapping="Wrap" FontSize="12" />
+            <TextBlock Classes="UiLabel" Text="{Binding PortfolioImportStatus}" IsVisible="{Binding HasPortfolioImportStatus}" />
             <TextBlock Classes="UiError" Text="{Binding PortfolioPostLimitHelperText}" IsVisible="{Binding IsSelectedPortfolioPostLimitExceeded}" />
         </StackPanel>
         <DataGrid Grid.Row="3" Margin="0" ItemsSource="{Binding Trades}"
                   Name="TradesGrid"
-                  AutoGenerateColumns="False" IsReadOnly="True"
                   SelectionMode="Extended"
-                  SelectionChanged="TradesGrid_SelectionChanged"
-                  GridLinesVisibility="None"
-                  BorderThickness="0" BorderBrush="Gray">
+                  SelectionChanged="TradesGrid_SelectionChanged">
 
             <DataGrid.Columns>
                 <DataGridTextColumn Header="Server" Binding="{Binding Server.Name}" />
@@ -67,7 +64,7 @@
                 <DataGridTextColumn Header="Portfolio" Binding="{Binding UploadedToPortfolioFormatted}" />
                 <DataGridTemplateColumn Header="Item" SortMemberPath="ItemName" CanUserSort="True">
                     <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
+                        <DataTemplate x:DataType="vm:TradeRowViewModel">
                             <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                 <Image Width="30" Height="30" Stretch="Uniform"
                                        items:LazyItemImage.ItemUniqueName="{Binding ItemId}"
@@ -81,7 +78,7 @@
 
                 <DataGridTemplateColumn Header="Amount" CanUserSort="True" SortMemberPath="Amount">
                     <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
+                        <DataTemplate x:DataType="vm:TradeRowViewModel">
                             <StackPanel Orientation="Horizontal" Spacing="6" HorizontalAlignment="Right" VerticalAlignment="Center">
                                 <TextBlock Text="{Binding Amount, Converter={x:Static views:UiValueConverters.WholeNumber}}" Classes="TableNumber" />
                                 <TextBlock Text="{Binding OrderAmountFormatted}" Classes="UiLabel" VerticalAlignment="Center"
@@ -91,17 +88,17 @@
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
-                <DataGridTemplateColumn Header="Unit Silver" CanUserSort="True"  SortMemberPath="UnitSilver">
+                <DataGridTemplateColumn Header="Unit silver" CanUserSort="True" SortMemberPath="UnitSilver">
                     <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
+                        <DataTemplate x:DataType="vm:TradeRowViewModel">
                             <TextBlock Text="{Binding UnitSilver, Converter={x:Static views:UiValueConverters.WholeNumber}}" Classes="TableNumber" />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
                 </DataGridTemplateColumn>
 
-                <DataGridTemplateColumn Header="Total Silver" CanUserSort="True"  SortMemberPath="TotalSilver">
+                <DataGridTemplateColumn Header="Total silver" CanUserSort="True" SortMemberPath="TotalSilver">
                     <DataGridTemplateColumn.CellTemplate>
-                        <DataTemplate>
+                        <DataTemplate x:DataType="vm:TradeRowViewModel">
                             <TextBlock Text="{Binding TotalSilver, Converter={x:Static views:UiValueConverters.WholeNumber}}" Classes="TableNumber" />
                         </DataTemplate>
                     </DataGridTemplateColumn.CellTemplate>
@@ -126,7 +123,7 @@
                 </StackPanel>
             </WrapPanel>
             <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="4" IsVisible="{Binding IsExporting}">
-                <TextBlock Classes="UiLabel" Text="Exporting CSV..." />
+                <TextBlock Classes="UiLabel" Text="Exporting CSV…" />
                 <ProgressBar Minimum="0" Maximum="100" Value="{Binding ExportProgress}" Height="4" />
             </StackPanel>
         </Grid>

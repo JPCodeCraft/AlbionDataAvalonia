@@ -13,10 +13,10 @@
             <Setter Property="Height" Value="32" />
             <Setter Property="Margin" Value="0,0,4,4" />
             <Setter Property="Padding" Value="12,4" />
-            <Setter Property="Background" Value="#424242" />
-            <Setter Property="BorderBrush" Value="#626262" />
+            <Setter Property="Background" Value="{DynamicResource UiInputBrush}" />
+            <Setter Property="BorderBrush" Value="{DynamicResource UiBorderStrongBrush}" />
             <Setter Property="BorderThickness" Value="1" />
-            <Setter Property="CornerRadius" Value="4" />
+            <Setter Property="CornerRadius" Value="{DynamicResource UiRadiusControl}" />
             <Setter Property="HorizontalContentAlignment" Value="Center" />
             <Setter Property="VerticalContentAlignment" Value="Center" />
             <Setter Property="Template">
@@ -36,22 +36,22 @@
                 </ControlTemplate>
             </Setter>
             <Style Selector="^:pointerover">
-                <Setter Property="Background" Value="#505050" />
+                <Setter Property="Background" Value="{DynamicResource UiInputHoverBrush}" />
             </Style>
             <Style Selector="^:selected">
-                <Setter Property="Background" Value="#553F31" />
-                <Setter Property="BorderBrush" Value="#FF9D46" />
-                <Setter Property="FontWeight" Value="DemiBold" />
+                <Setter Property="Background" Value="{DynamicResource UiSelectedBrush}" />
+                <Setter Property="BorderBrush" Value="{DynamicResource UiAccentTextBrush}" />
+                <Setter Property="FontWeight" Value="SemiBold" />
             </Style>
             <Style Selector="^:selected:pointerover">
-                <Setter Property="Background" Value="#624833" />
+                <Setter Property="Background" Value="{DynamicResource UiSelectedHoverBrush}" />
             </Style>
             <Style Selector="^:focus-visible /template/ Border#SelectionBorder">
-                <Setter Property="BorderBrush" Value="#FFD5A6" />
+                <Setter Property="BorderBrush" Value="{DynamicResource UiFocusBrush}" />
                 <Setter Property="BorderThickness" Value="2" />
             </Style>
             <Style Selector="^:disabled">
-                <Setter Property="Opacity" Value="0.5" />
+                <Setter Property="Opacity" Value="{DynamicResource UiDisabledOpacity}" />
             </Style>
         </ControlTheme>
     </ListBox.Resources>
@@ -71,7 +71,7 @@
     </ListBox.ItemsPanel>
     <ListBox.ItemTemplate>
         <DataTemplate>
-            <TextBlock Text="{ReflectionBinding Label}" FontSize="13" VerticalAlignment="Center" />
+            <TextBlock Text="{ReflectionBinding Label}" FontSize="{DynamicResource UiFontSizeCompact}" VerticalAlignment="Center" />
         </DataTemplate>
     </ListBox.ItemTemplate>
 </ListBox>

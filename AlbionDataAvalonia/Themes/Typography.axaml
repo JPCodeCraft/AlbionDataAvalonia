@@ -1,0 +1,77 @@
+<!-- The text scale. Use these classes instead of setting FontSize, FontWeight or Opacity on text. -->
+<Styles xmlns="https://github.com/avaloniaui"
+        xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml">
+
+    <!-- Upper-case group labels above a section. -->
+    <Style Selector="TextBlock.UiCaption">
+        <Setter Property="FontSize" Value="{DynamicResource UiFontSizeCaption}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="Foreground" Value="{DynamicResource UiTextTertiaryBrush}" />
+    </Style>
+    <!-- Field labels, hints and secondary lines under a value or title. -->
+    <Style Selector="TextBlock.UiLabel">
+        <Setter Property="FontSize" Value="{DynamicResource UiFontSizeSmall}" />
+        <Setter Property="Foreground" Value="{DynamicResource UiTextSecondaryBrush}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <!-- Fine print in tight spaces such as the sidebar. -->
+    <Style Selector="TextBlock.UiFine">
+        <Setter Property="FontSize" Value="{DynamicResource UiFontSizeCaption}" />
+        <Setter Property="Foreground" Value="{DynamicResource UiTextSecondaryBrush}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <!-- Body-size text that is secondary to what is around it. -->
+    <Style Selector="TextBlock.UiMuted">
+        <Setter Property="Foreground" Value="{DynamicResource UiTextSecondaryBrush}" />
+    </Style>
+    <Style Selector="TextBlock.UiRowTitle">
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="TextBlock.UiSectionTitle">
+        <Setter Property="FontSize" Value="{DynamicResource UiFontSizeSection}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <!-- Dialog titles and the title of a card that stands alone. -->
+    <Style Selector="TextBlock.UiTitle">
+        <Setter Property="FontSize" Value="{DynamicResource UiFontSizeTitle}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <!-- The title at the top of a tab, such as the current session or the setup status. -->
+    <Style Selector="TextBlock.UiHeading">
+        <Setter Property="FontSize" Value="{DynamicResource UiFontSizeHeading}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <!-- Numbers in tiles. -->
+    <Style Selector="TextBlock.UiValue">
+        <Setter Property="FontSize" Value="{DynamicResource UiFontSizeTitle}" />
+        <Setter Property="FontWeight" Value="SemiBold" />
+    </Style>
+    <Style Selector="TextBlock.UiValueLarge">
+        <Setter Property="FontSize" Value="{DynamicResource UiFontSizeValueLarge}" />
+        <Setter Property="FontWeight" Value="Bold" />
+    </Style>
+    <Style Selector="TextBlock.UiAccent">
+        <Setter Property="Foreground" Value="{DynamicResource UiAccentTextBrush}" />
+    </Style>
+    <Style Selector="TextBlock.UiWarning">
+        <Setter Property="Foreground" Value="{DynamicResource UiWarningBrush}" />
+    </Style>
+    <Style Selector="TextBlock.UiError">
+        <Setter Property="FontSize" Value="{DynamicResource UiFontSizeSmall}" />
+        <Setter Property="Foreground" Value="{DynamicResource UiErrorTextBrush}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <!-- Paths, commands and other text people copy exactly. -->
+    <Style Selector=":is(TextBlock).UiMono">
+        <Setter Property="FontFamily" Value="{DynamicResource UiMonoFontFamily}" />
+        <Setter Property="FontSize" Value="{DynamicResource UiFontSizeSmall}" />
+        <Setter Property="TextWrapping" Value="Wrap" />
+    </Style>
+    <Style Selector="TextBlock.TableNumber">
+        <Setter Property="HorizontalAlignment" Value="Right" />
+        <Setter Property="VerticalAlignment" Value="Center" />
+    </Style>
+</Styles>

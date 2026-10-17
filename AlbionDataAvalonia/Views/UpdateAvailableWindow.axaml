@@ -13,16 +13,12 @@
         Icon="/Assets/logo.ico">
 
     <StackPanel Margin="20" Spacing="14">
-        <TextBlock x:Name="TitleText"
-                   FontSize="18"
-                   FontWeight="DemiBold" />
-        <TextBlock x:Name="MessageText"
-                   TextWrapping="Wrap"
-                   Opacity="0.85" />
+        <TextBlock x:Name="TitleText" Classes="UiTitle" />
+        <TextBlock x:Name="MessageText" Classes="UiMuted" TextWrapping="Wrap" />
         <StackPanel Orientation="Horizontal" HorizontalAlignment="Right" Spacing="8">
-            <Button Classes="UiAction UiSecondary" Content="OK" IsCancel="True" Click="OkButton_Click" />
+            <Button Classes="UiAction" Content="OK" IsCancel="True" Click="OkButton_Click" />
             <Button x:Name="OpenReleaseButton"
-                    Classes="UiAction"
+                    Classes="UiAction UiPrimary"
                     Content="Open releases"
                     IsDefault="True"
                     Click="OpenReleaseButton_Click" />

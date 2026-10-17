@@ -24,7 +24,7 @@ public sealed class UpdateInstallationFailedWindow : Window
         {
             Text = $"Update to version {version} failed",
             FontSize = 18,
-            FontWeight = FontWeight.DemiBold,
+            FontWeight = FontWeight.SemiBold,
             TextWrapping = TextWrapping.Wrap
         });
         panel.Children.Add(new TextBlock
@@ -32,7 +32,7 @@ public sealed class UpdateInstallationFailedWindow : Window
             Text = "Recording has stopped while preparing the update. The app will close. Reopen AFM to resume recording and try the update again.",
             TextWrapping = TextWrapping.Wrap
         });
-        var closeButton = new Button { Content = "Close app", IsDefault = true, IsCancel = true, HorizontalAlignment = HorizontalAlignment.Right, Classes = { "UiAction" } };
+        var closeButton = new Button { Content = "Close app", IsDefault = true, IsCancel = true, HorizontalAlignment = HorizontalAlignment.Right, Classes = { "UiAction", "UiPrimary" } };
         closeButton.Click += (_, _) => Close();
         panel.Children.Add(closeButton);
         Content = panel;
