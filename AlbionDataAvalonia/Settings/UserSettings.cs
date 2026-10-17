@@ -321,6 +321,19 @@ public class UserSettings : INotifyPropertyChanged
         }
     }
 
+    private bool streamerWindowOpen;
+    // Remembered so the streamer window reopens on the next start; quitting the app keeps it set.
+    public bool StreamerWindowOpen
+    {
+        get => streamerWindowOpen;
+        set
+        {
+            if (streamerWindowOpen == value) return;
+            streamerWindowOpen = value;
+            OnPropertyChanged(nameof(StreamerWindowOpen));
+        }
+    }
+
     private WindowPlacement? streamerWindowPlacement;
     public WindowPlacement? StreamerWindowPlacement
     {

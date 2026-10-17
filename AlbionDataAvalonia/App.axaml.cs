@@ -299,6 +299,7 @@ public partial class App : Application
         finally
         {
             vm.CompleteInitialization();
+            services.GetRequiredService<ActivityStreamerWindowService>().RestoreIfOpen();
             Log.Information("Startup initialization completed in {ElapsedMilliseconds} ms", startupStopwatch.ElapsedMilliseconds);
         }
     }

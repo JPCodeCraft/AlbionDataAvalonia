@@ -40,7 +40,16 @@ public sealed partial class ActivityStreamerViewModel : ViewModelBase, IDisposab
     public UserSettings Settings { get; }
     public ActivityTimelineChartMode ChartMode => (ActivityTimelineChartMode)Math.Clamp(Settings.StreamerChartModeIndex, 0, 2);
     public IBrush WindowBackground => Settings.StreamerChromaKey ? ChromaKeyBackground : DarkBackground;
-    public string ScopeText => Settings.StreamerPartyTotals ? "Party" : "Personal";
+    public bool IsPersonalScope
+    {
+        get => !Settings.StreamerPartyTotals;
+        set { if (value) Settings.StreamerPartyTotals = false; }
+    }
+    public bool IsPartyScope
+    {
+        get => Settings.StreamerPartyTotals;
+        set { if (value) Settings.StreamerPartyTotals = true; }
+    }
     public string SilverBreakdownText => $"Silver {Summary.Silver} · Loot EMV {Summary.LootValue} · Gathering EMV {Summary.ResourceValueText}";
     public string KillsText => $"Mobs {Summary.MobKills} · PvP {Summary.PlayerKills}" +
         (string.IsNullOrEmpty(Summary.DeathsAndKnockdowns) ? "" : $" · {Summary.DeathsAndKnockdowns}");
@@ -97,7 +106,8 @@ public sealed partial class ActivityStreamerViewModel : ViewModelBase, IDisposab
             if (isDisposed) return;
             OnPropertyChanged(nameof(ChartMode));
             OnPropertyChanged(nameof(WindowBackground));
-            OnPropertyChanged(nameof(ScopeText));
+            OnPropertyChanged(nameof(IsPersonalScope));
+            OnPropertyChanged(nameof(IsPartyScope));
             OnPropertyChanged(nameof(ShowChart));
             OnPropertyChanged(nameof(ShowNothingSelected));
             OnPropertyChanged(nameof(IsSmall));

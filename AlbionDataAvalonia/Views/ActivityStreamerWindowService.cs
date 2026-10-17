@@ -14,6 +14,13 @@ public sealed class ActivityStreamerWindowService(ActivityTrackerService tracker
     public bool IsOpen => window is not null;
     public event EventHandler? IsOpenChanged;
 
+    public ActivityStreamerViewModel CreateViewModel() => new(tracker, persistence, settings.UserSettings);
+
+    public void RestoreIfOpen()
+    {
+        if (settings.UserSettings.StreamerWindowOpen) Show();
+    }
+
     public void Toggle()
     {
         if (window is null) Show();
@@ -29,7 +36,7 @@ public sealed class ActivityStreamerWindowService(ActivityTrackerService tracker
             return;
         }
         if (App.IsShuttingDown) return;
-        var viewModel = new ActivityStreamerViewModel(tracker, persistence, settings.UserSettings);
+        var viewModel = CreateViewModel();
         var opened = new ActivityStreamerWindow { DataContext = viewModel };
         // Its width follows the size setting and its height the sections shown, so only the spot is restored.
         var placement = new WindowPlacementTracker(opened, settings.UserSettings.StreamerWindowPlacement, restoreSize: false);
@@ -40,10 +47,12 @@ public sealed class ActivityStreamerWindowService(ActivityTrackerService tracker
         opened.Closed += (_, _) =>
         {
             viewModel.Dispose();
+            if (!App.IsShuttingDown) settings.UserSettings.StreamerWindowOpen = false;
             if (window == opened) window = null;
             IsOpenChanged?.Invoke(this, EventArgs.Empty);
         };
         window = opened;
+        settings.UserSettings.StreamerWindowOpen = true;
         opened.Show();
         viewModel.Start();
         IsOpenChanged?.Invoke(this, EventArgs.Empty);
