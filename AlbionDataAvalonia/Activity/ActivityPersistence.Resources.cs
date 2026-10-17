@@ -1,6 +1,7 @@
 using AlbionDataAvalonia.Activity.Models;
 using AlbionDataAvalonia.Gathering.Models;
 using Microsoft.EntityFrameworkCore;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -167,12 +168,40 @@ public sealed partial class ActivityPersistence
                 catch (Exception error) { AddError(row.SessionId, error); }
             }
         }
+        await DeleteImportedLegacyRowsAsync(cancellationToken);
         if (errors.Count > 0) PublishStatus(false, errors[0]);
         return new(imported, skipped, errors);
         void AddError(Guid sourceId, Exception error)
         {
             if (errors.Count < 20) errors.Add($"Legacy gathering session {sourceId}: {error.Message} Originals were preserved; retry on next startup.");
         }
+    }
+
+    // Originals already copied into Activity are redundant; rows that failed to import stay for the next retry.
+    private async Task DeleteImportedLegacyRowsAsync(CancellationToken cancellationToken)
+    {
+        try
+        {
+            await using var context = contextFactory();
+            var completed = await context.GatheringCompletedSessions.AsNoTracking().Select(x => x.Id).ToArrayAsync(cancellationToken);
+            var checkpoints = await context.GatheringUnfinishedSessionCheckpoints.AsNoTracking().Select(x => x.SessionId).ToArrayAsync(cancellationToken);
+            if (completed.Length == 0 && checkpoints.Length == 0) return;
+            var markers = await GetImportMarkersAsync(completed.Concat(checkpoints), cancellationToken);
+            var importedCompleted = completed.Where(id => markers.Contains(ImportOrigin(id))).ToArray();
+            var importedCheckpoints = checkpoints.Where(id => markers.Contains(ImportOrigin(id))).ToArray();
+            foreach (var batch in importedCompleted.Chunk(200))
+            {
+                await context.GatheringCompletedSessionItems.Where(x => batch.Contains(x.SessionId)).ExecuteDeleteAsync(cancellationToken);
+                await context.GatheringCompletedSessions.Where(x => batch.Contains(x.Id)).ExecuteDeleteAsync(cancellationToken);
+            }
+            foreach (var batch in importedCheckpoints.Chunk(200))
+                await context.GatheringUnfinishedSessionCheckpoints.Where(x => batch.Contains(x.SessionId)).ExecuteDeleteAsync(cancellationToken);
+            if (importedCompleted.Length + importedCheckpoints.Length > 0)
+                Log.Information("Removed {Completed} imported legacy gathering sessions and {Checkpoints} checkpoints",
+                    importedCompleted.Length, importedCheckpoints.Length);
+        }
+        catch (OperationCanceledException) { throw; }
+        catch (Exception error) { Log.Warning(error, "Imported legacy gathering rows could not be removed; they stay until the next start."); }
     }
 
     private async Task<HashSet<string>> GetImportMarkersAsync(IEnumerable<Guid> sourceIds, CancellationToken cancellationToken)
