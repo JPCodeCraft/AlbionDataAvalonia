@@ -323,6 +323,12 @@ public sealed class ActivityEventRow(ActivityEvent source)
         : source.TargetKind == ActivityActorKind.Mob ? source.TargetName : "";
     public bool HasTargetMob => TargetMob.Length > 0;
     public ActivityTip? TargetTip => HasTargetMob ? new(Target, Mob: TargetMob) : null;
+    // Loot, gathering and fishing rows show the item's icon beside their details.
+    public string ItemUniqueName => source.Kind is ActivityEventKind.Loot or ActivityEventKind.Gathered or ActivityEventKind.FishingReward
+        or ActivityEventKind.LegacyGatheringAggregate ? source.ItemUniqueName ?? "" : "";
+    public bool HasItem => ItemUniqueName.Length > 0;
+    public int ImageQuality => source.Quality is >= 1 and <= 5 ? source.Quality.Value : 1;
+    public ActivityTip? ItemTip => HasItem ? new(ActivityDisplay.ItemName(source.ItemName), ItemQuality.Format(source.Quality), ItemUniqueName, ImageQuality) : null;
     public string Location => source.LocationName;
     public string Evidence => source.Evidence == ActivityEvidence.Supplemental ? source.Kind == ActivityEventKind.Loot ? "Pending" : "Unverified" : source.Evidence.ToString();
     public string Description => source.Kind switch
