@@ -905,6 +905,7 @@ public sealed partial class ActivityTrackerService : IDisposable
     {
         value = valuations.Observe(FillAffiliations(value));
         persistence.Amend(value);
+        TrackLiveMarker(value);
         return value;
     }
 
@@ -967,7 +968,11 @@ public sealed partial class ActivityTrackerService : IDisposable
         // gathering award neither opens combat nor refreshes its inactivity.
         Persist(value with { SessionId = value.SessionId ?? session?.Id });
     }
-    internal void RetractLoot(Guid id, int revision) => persistence.Retract(id, revision);
+    internal void RetractLoot(Guid id, int revision)
+    {
+        persistence.Retract(id, revision);
+        RemoveLiveMarker(id);
+    }
     internal void RequestEstimate(int itemId, string uniqueName, int quality)
     {
         if (ServerId is { } server) valuations.Request(server, itemId, uniqueName, quality);

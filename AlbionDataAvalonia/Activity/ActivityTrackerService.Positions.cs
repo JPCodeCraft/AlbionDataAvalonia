@@ -93,13 +93,29 @@ public sealed partial class ActivityTrackerService
         liveMapVersion++;
     }
 
-    // Called for every saved event; placed events of the character and its party on this map are kept.
+    // Called for every saved or amended event; placed events of the character and its party on this map are
+    // kept. An amended pickup (now confirmed, priced or named) replaces its marker, or drops it when it no longer counts.
     private void TrackLiveMarker(ActivityEvent value)
     {
-        if (value.MapEpoch != mapEpoch || ActivityMapMarker.From(value) is not { } marker) return;
+        if (value.MapEpoch != mapEpoch) return;
+        var marker = ActivityMapMarker.From(value);
+        var index = liveMarkers.FindIndex(x => x.EventId == value.Id);
+        if (index >= 0)
+        {
+            if (marker is null) liveMarkers.RemoveAt(index);
+            else liveMarkers[index] = marker;
+            liveMapVersion++;
+            return;
+        }
+        if (marker is null) return;
         liveMarkers.Add(marker);
         if (liveMarkers.Count > MaxLiveMarkers) liveMarkers.RemoveRange(0, liveMarkers.Count - MaxLiveMarkers);
         liveMapVersion++;
+    }
+
+    private void RemoveLiveMarker(Guid eventId)
+    {
+        if (liveMarkers.RemoveAll(x => x.EventId == eventId) > 0) liveMapVersion++;
     }
 
     private double? PositionXForStamp => positionEpoch == mapEpoch ? position?.X : null;

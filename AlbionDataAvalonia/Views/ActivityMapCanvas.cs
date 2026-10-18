@@ -36,7 +36,7 @@ public sealed class ActivityMapCanvas : Control
     private const int GradientBuckets = 12;
     // Markers of one kind closer than this on screen are drawn as one group.
     private const double ClusterRadius = 16;
-    private const int GroupLinesShown = 4;
+    private const int GroupLinesShown = 6;
     private const double SpotSpacing = 22;
 
     private readonly List<Hit> hits = new();
@@ -283,7 +283,7 @@ public sealed class ActivityMapCanvas : Control
             {
                 var start = ToScreen(ImagePoint(scene, visible[0].X, visible[0].Y), scale);
                 context.DrawEllipse(UiPalette.Brush(ActivityPalette.PathStart), WhitePen, start, 5, 5);
-                hits.Add(new Hit(start, 7, "Run started here", Lines(When(visible[0].CapturedAtUtc, scene))));
+                hits.Add(new Hit(start, 7, "Run started here", [When(visible[0].CapturedAtUtc, scene)]));
             }
         }
     }
@@ -357,42 +357,58 @@ public sealed class ActivityMapCanvas : Control
                     if (count > 1) ChartDrawing.DrawCountBadge(context, at, count);
                 }
 
-                hits.Add(count == 1 ? new Hit(at, 9, cluster.Members[0].Title,
-                        Lines(cluster.Members[0].Detail, When(cluster.Members[0].CapturedAtUtc, scene)))
-                    : new Hit(at, 11, GroupTitle(cluster.Kind, count), GroupLines(cluster.Members, scene)));
+                hits.Add(count == 1 ? new Hit(at, 9, cluster.Members[0].Title, MarkerLines(cluster.Members[0], scene))
+                    : new Hit(at, 11, GroupTitle(cluster.Kind, cluster.Members), GroupLines(cluster.Kind, cluster.Members, scene)));
             }
         }
     }
 
-    private static string GroupTitle(ActivityMapMarkerKind kind, int count) => kind switch
+    private static IReadOnlyList<string> MarkerLines(ActivityMapMarker marker, ActivityMapScene scene) =>
+        new[] { marker.Kind is ActivityMapMarkerKind.Loot or ActivityMapMarkerKind.Gathering ? Emv(marker.Value) : "", marker.Detail,
+            When(marker.CapturedAtUtc, scene) }.Where(x => x.Length > 0).ToArray();
+
+    private static string GroupTitle(ActivityMapMarkerKind kind, IReadOnlyList<ActivityMapMarker> members) => kind switch
     {
-        ActivityMapMarkerKind.Kill => $"{count} kills",
-        ActivityMapMarkerKind.Loot => $"{count} pickups",
-        ActivityMapMarkerKind.Gathering => $"{count} gathered",
-        _ => $"{count} deaths"
+        ActivityMapMarkerKind.Kill => UiFormat.Count(members.Count, "kill"),
+        ActivityMapMarkerKind.Loot => UiFormat.Count(members.Count, "pickup"),
+        ActivityMapMarkerKind.Gathering => $"{UiFormat.Whole(members.Sum(x => x.Quantity))} items gathered",
+        _ => UiFormat.Count(members.Count, "death")
     };
 
-    // The most common entries first, then the time the group covers.
-    private static IReadOnlyList<string> GroupLines(IReadOnlyList<ActivityMapMarker> members, ActivityMapScene scene)
+    // Kills list their mobs and players; pickups and gathering list their items with EMV and a total; the time the
+    // group covers comes last. The most common entries come first.
+    private static IReadOnlyList<string> GroupLines(ActivityMapMarkerKind kind, IReadOnlyList<ActivityMapMarker> members, ActivityMapScene scene)
     {
-        var groups = members.GroupBy(x => x.Title).OrderByDescending(x => x.Count()).ThenBy(x => x.Key).ToArray();
-        var lines = groups.Take(GroupLinesShown).Select(x => x.Count() > 1 ? $"{x.Key} ×{x.Count()}" : x.Key).ToList();
-        if (groups.Length > GroupLinesShown)
+        List<string> lines;
+        if (kind is ActivityMapMarkerKind.Loot or ActivityMapMarkerKind.Gathering)
         {
-            var rest = groups.Skip(GroupLinesShown).Sum(x => x.Count());
-            lines.Add($"and {UiFormat.Whole(rest)} more");
+            var items = members.GroupBy(x => x.Subject).Select(x => (Name: x.Key, Quantity: x.Sum(m => m.Quantity),
+                    Value: x.Sum(m => m.Value ?? 0), Missing: x.Any(m => m.Value is null)))
+                .OrderByDescending(x => x.Value).ThenByDescending(x => x.Quantity).ThenBy(x => x.Name).ToArray();
+            lines = items.Take(GroupLinesShown).Select(x => $"{x.Name} ×{UiFormat.Whole(x.Quantity)} · {(x.Missing && x.Value == 0 ? "no price" : UiFormat.Compact(x.Value))}").ToList();
+            if (items.Length > GroupLinesShown)
+                lines.Add($"and {UiFormat.Count(items.Length - GroupLinesShown, "more item")}");
+            var missing = members.Where(x => x.Value is null).Sum(x => x.Quantity);
+            lines.Add($"Total {Emv(members.Sum(x => x.Value ?? 0))}{(missing > 0 ? $" · {UiFormat.Whole(missing)} without a price" : "")}");
+        }
+        else
+        {
+            var groups = members.GroupBy(x => kind == ActivityMapMarkerKind.Kill ? x.Subject : x.Title)
+                .OrderByDescending(x => x.Count()).ThenBy(x => x.Key).ToArray();
+            lines = groups.Take(GroupLinesShown).Select(x => x.Count() > 1 ? $"{x.Key} ×{x.Count()}" : x.Key).ToList();
+            if (groups.Length > GroupLinesShown)
+                lines.Add($"and {UiFormat.Whole(groups.Skip(GroupLinesShown).Sum(x => x.Count()))} more");
         }
 
-        var oldest = members.Min(x => x.CapturedAtUtc);
-        var newest = members.Max(x => x.CapturedAtUtc);
-        var first = When(oldest, scene);
-        var last = When(newest, scene);
+        var party = members.Count(x => !x.IsOwn);
+        if (party > 0 && party < members.Count) lines.Add($"{UiFormat.Whole(party)} by your party");
+        var first = When(members.Min(x => x.CapturedAtUtc), scene);
+        var last = When(members.Max(x => x.CapturedAtUtc), scene);
         lines.Add(first == last ? first : scene.IsLive ? $"{last} to {first}" : $"{first} – {last}");
         return lines;
     }
 
-    private static IReadOnlyList<string> Lines(params string[] parts) =>
-        [string.Join(" · ", parts.Where(x => !string.IsNullOrWhiteSpace(x)))];
+    private static string Emv(long? value) => value is { } silver ? $"EMV {UiFormat.Compact(silver)}" : "EMV unavailable";
 
     private static void DrawMarkerShape(DrawingContext context, ActivityMapMarkerKind kind, Point at, double radius)
     {

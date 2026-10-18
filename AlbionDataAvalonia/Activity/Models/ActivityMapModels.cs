@@ -6,9 +6,12 @@ namespace AlbionDataAvalonia.Activity.Models;
 
 public enum ActivityMapMarkerKind { Kill, Loot, Gathering, Death }
 
-/// <summary>Something the local character or a party member did, placed where the local character stood.</summary>
+/// <summary>
+/// Something the local character or a party member did, placed where the local character stood. Subject is the
+/// mob, player or item; Quantity and Value (total EMV, null without a price) describe items, so the map can total them.
+/// </summary>
 public sealed record ActivityMapMarker(ActivityMapMarkerKind Kind, string RawMapId, DateTime CapturedAtUtc, double X, double Y,
-    string Title, string Detail, bool IsOwn = true)
+    string Title, string Detail, bool IsOwn = true, Guid EventId = default, string Subject = "", long Quantity = 0, long? Value = null)
 {
     // Positions are always the local character's, so a party member's event is placed where this
     // character stood when the client saw it. IsOwn lets the map show only the character's own events.
@@ -22,28 +25,31 @@ public sealed record ActivityMapMarker(ActivityMapMarkerKind Kind, string RawMap
         var confirmed = value.Evidence == ActivityEvidence.Confirmed;
         var source = Name(value.SourceName, "A party member");
         var target = Name(value.TargetName, "A party member");
-        (ActivityMapMarkerKind Kind, string Title, string Detail, bool Own)? marker = value.Kind switch
+        var item = Name(value.ItemName, "an item");
+        (ActivityMapMarkerKind Kind, string Title, string Detail, bool Own, string Subject)? marker = value.Kind switch
         {
             ActivityEventKind.MobKilled when value.ParticipatedSelf || value.ParticipatedParty =>
                 (ActivityMapMarkerKind.Kill, value.ParticipatedSelf ? $"Killed {Name(value.TargetName, "a mob")}" : $"Party killed {Name(value.TargetName, "a mob")}",
-                    "", value.ParticipatedSelf),
+                    "", value.ParticipatedSelf, Name(value.TargetName, "Unknown mob")),
             ActivityEventKind.PlayerKilled when (self || party) && confirmed =>
                 (ActivityMapMarkerKind.Kill, self ? $"Killed {Name(value.TargetName, "a player")}" : $"{source} killed {Name(value.TargetName, "a player")}",
-                    Guild(value.TargetGuild, value.TargetAlliance), self),
+                    Guild(value.TargetGuild, value.TargetAlliance), self, Name(value.TargetName, "Unknown player")),
             ActivityEventKind.Death when (targetSelf || targetParty) && confirmed =>
-                (ActivityMapMarkerKind.Death, targetSelf ? "You died" : $"{target} died", By(value.SourceName), targetSelf),
+                (ActivityMapMarkerKind.Death, targetSelf ? "You died" : $"{target} died", By(value.SourceName), targetSelf, target),
             ActivityEventKind.Knockdown when (targetSelf || targetParty) && confirmed =>
-                (ActivityMapMarkerKind.Death, targetSelf ? "Knocked down" : $"{target} was knocked down", By(value.SourceName), targetSelf),
+                (ActivityMapMarkerKind.Death, targetSelf ? "Knocked down" : $"{target} was knocked down", By(value.SourceName), targetSelf, target),
             ActivityEventKind.Loot when (self || party) && confirmed =>
-                (ActivityMapMarkerKind.Loot, self ? $"Looted {Items(value)}" : $"{source} looted {Items(value)}",
-                    Join(From(value.LootSourceName), Value(value)), self),
+                (ActivityMapMarkerKind.Loot, self ? $"Looted {Items(value)}" : $"{source} looted {Items(value)}", From(value.LootSourceName), self, item),
             ActivityEventKind.Gathered when self || party =>
-                (ActivityMapMarkerKind.Gathering, self ? $"Gathered {Items(value)}" : $"{source} gathered {Items(value)}", Value(value), self),
+                (ActivityMapMarkerKind.Gathering, self ? $"Gathered {Items(value)}" : $"{source} gathered {Items(value)}", "", self, item),
             ActivityEventKind.FishingReward when self || party =>
-                (ActivityMapMarkerKind.Gathering, self ? $"Caught {Items(value)}" : $"{source} caught {Items(value)}", Value(value), self),
+                (ActivityMapMarkerKind.Gathering, self ? $"Caught {Items(value)}" : $"{source} caught {Items(value)}", "", self, item),
             _ => null
         };
-        return marker is { } found ? new(found.Kind, value.RawMapId, value.CapturedAtUtc, x, y, found.Title, found.Detail, found.Own) : null;
+        if (marker is not { } found) return null;
+        var hasItems = found.Kind is ActivityMapMarkerKind.Loot or ActivityMapMarkerKind.Gathering;
+        return new(found.Kind, value.RawMapId, value.CapturedAtUtc, x, y, found.Title, found.Detail, found.Own, value.Id, found.Subject,
+            hasItems ? Math.Max(0, value.Quantity) : 0, hasItems ? TotalValue(value) : null);
     }
 
     private static string Name(string name, string fallback) => string.IsNullOrWhiteSpace(name) ? fallback : name;
@@ -51,12 +57,11 @@ public sealed record ActivityMapMarker(ActivityMapMarkerKind Kind, string RawMap
     private static string From(string name) => string.IsNullOrWhiteSpace(name) ? "" : $"from {name}";
     private static string Items(ActivityEvent value) =>
         $"{(value.Quantity > 1 ? $"{value.Quantity.ToString("N0", CultureInfo.CurrentCulture)}× " : "")}{Name(value.ItemName, "an item")}";
-    private static string Value(ActivityEvent value) => value.EstimatedUnitValue is { } price && price > 0 && value.Quantity > 0
-        ? $"about {(price * value.Quantity).ToString("N0", CultureInfo.CurrentCulture)} silver" : "";
+    // A filled journal's price is already the full journal minus the empty one.
+    private static long? TotalValue(ActivityEvent value) => value.EstimatedUnitValue is { } price && value.Quantity >= 0 &&
+        (value.Quantity == 0 || price <= long.MaxValue / value.Quantity) ? price * value.Quantity : null;
     private static string Guild(string guild, string alliance) =>
         string.IsNullOrWhiteSpace(alliance) ? guild : string.IsNullOrWhiteSpace(guild) ? $"[{alliance}]" : $"[{alliance}] {guild}";
-    private static string Join(string first, string second) =>
-        string.IsNullOrEmpty(first) ? second : string.IsNullOrEmpty(second) ? first : $"{first} · {second}";
 }
 
 /// <summary>The current map as the live map window shows it: where the character is, where it walked, and what it did.</summary>
