@@ -44,7 +44,7 @@ public sealed partial class ActivityTrackerService
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
-    /// <summary>Ends the play session at its last activity; the next activity starts a new one.</summary>
+    /// <summary>Ends the play session now, at the press; the next activity starts a new one.</summary>
     public void EndSession(Guid? expectedPlaySessionId = null)
     {
         lock (sync)
@@ -52,7 +52,7 @@ public sealed partial class ActivityTrackerService
             if (expectedPlaySessionId is { } expected && playSession?.Id != expected) return;
             var now = DateTime.UtcNow;
             ResolvePending(now);
-            ClosePlaySession(now, ActivityEndReason.Finished);
+            ClosePlaySession(now, ActivityEndReason.Finished, exact: true);
             resumable = null;
             loot.ResetCandidates();
             locations.ClearPending();
@@ -121,10 +121,11 @@ public sealed partial class ActivityTrackerService
         headersDirty = true;
     }
 
-    // Closes the open run and the play session at the last activity plus a short grace.
-    private void ClosePlaySession(DateTime at, ActivityEndReason reason)
+    // Closes the open run and the play session at the last activity plus a short grace, or exactly
+    // at the given time when End session was pressed.
+    private void ClosePlaySession(DateTime at, ActivityEndReason reason, bool exact = false)
     {
-        var end = playSession is { } active && active.LastActivityAtUtc + ActivityPlaySessionProjection.ActivityGrace < at
+        var end = !exact && playSession is { } active && active.LastActivityAtUtc + ActivityPlaySessionProjection.ActivityGrace < at
             ? active.LastActivityAtUtc + ActivityPlaySessionProjection.ActivityGrace : at;
         if (session is not null) CloseSession(end > session.StartedAtUtc ? end : session.StartedAtUtc, reason);
         if (playSession is { } closing)

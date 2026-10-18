@@ -141,7 +141,7 @@
                             IsVisible="{Binding !Current.HasCurrentPlaySession}" Margin="10,0,0,4"
                             ToolTip.Tip="Starts a session now, before your first activity. It ends after 30 minutes without activity or when you press End session." />
                     <Button Classes="UiAction" Content="End session…" Command="{Binding EndSessionCommand}" IsVisible="{Binding Current.HasCurrentPlaySession}" Margin="10,0,0,4"
-                            ToolTip.Tip="Ends at your last activity. Your next activity starts a new session." />
+                            ToolTip.Tip="Ends the session now. Your next activity starts a new session." />
                 </WrapPanel>
             </Grid>
             <TextBlock Classes="UiWarning" Text="{Binding LegacyImportWarningText}" IsVisible="{Binding HasLegacyImportWarning}" TextWrapping="Wrap" />

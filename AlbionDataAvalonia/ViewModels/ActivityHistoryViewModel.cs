@@ -404,8 +404,12 @@ public partial class ActivityHistoryViewModel : ObservableObject, IDisposable
     {
         var nowUtc = DateTime.UtcNow;
         if (encounter is not null) return new(summary, ActivityProjection.GetRates(summary, encounter));
-        // A session started with Start session also counts the wait before its only run.
-        run ??= headers is [var header] && header.Runs.Count == 1 && header.Runs[0].StartedAtUtc <= header.PlaySession.StartedAtUtc ? header.Runs[0] : null;
+        // A session started with Start session also counts the wait before its only run, and one ended
+        // with End session the time after it.
+        run ??= headers is [var header] && header.Runs.Count == 1 && header.Runs[0] is var only
+            && only.StartedAtUtc <= header.PlaySession.StartedAtUtc
+            && !(ActivityPlaySessionProjection.EndedByPress(header.PlaySession)
+                && header.PlaySession.EndedAtUtc > (only.ClosedAtUtc ?? only.LastObservedAtUtc)) ? only : null;
         var live = page.Tracker?.GetCurrentContext().Session;
         if (run is not null)
             return new(summary, ActivityProjection.GetRates(summary, live?.Id == run.Id ? live : run, combatSeconds, nowUtc), true);
