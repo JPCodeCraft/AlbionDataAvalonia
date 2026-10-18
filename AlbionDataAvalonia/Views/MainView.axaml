@@ -269,16 +269,17 @@
 		</Grid>
 
 		<!-- Main Content -->
-		<!-- Each page's view model picks its view; the Main tab's page is this view model. -->
-		<ContentControl Grid.Column="1" Margin="10" Content="{Binding CurrentPage}">
-			<ContentControl.DataTemplates>
+		<!-- Each page's view model picks its view; the Main tab's page is this view model. Views are built on the
+		     first visit and then hidden, not detached, while another page shows. -->
+		<views:PageHost Grid.Column="1" Margin="10" Page="{Binding CurrentPage}">
+			<views:PageHost.DataTemplates>
 				<DataTemplate DataType="vm:MainViewModel"><views:DashboardView /></DataTemplate>
 				<DataTemplate DataType="vm:ActivityViewModel"><views:ActivityView /></DataTemplate>
 				<DataTemplate DataType="vm:LegendaryViewModel"><views:LegendaryView /></DataTemplate>
 				<DataTemplate DataType="vm:TradesViewModel"><views:TradesView /></DataTemplate>
 				<DataTemplate DataType="vm:SettingsViewModel"><views:SettingsView /></DataTemplate>
 				<DataTemplate DataType="vm:LogsViewModel"><views:LogsView /></DataTemplate>
-			</ContentControl.DataTemplates>
-		</ContentControl>
+			</views:PageHost.DataTemplates>
+		</views:PageHost>
 	</Grid>
 </UserControl>
