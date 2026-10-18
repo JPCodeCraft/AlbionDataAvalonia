@@ -208,7 +208,9 @@ public sealed class MapDataService : IDisposable
         try
         {
             using var timeout = new CancellationTokenSource(VersionCheckTimeout);
-            var file = await http.GetFromJsonAsync<VersionFile>(VersionUrl, JsonOptions, timeout.Token).ConfigureAwait(false);
+            // Cloudflare keeps CDN files for two hours whatever the server says, so each minute asks for a new copy.
+            var url = $"{VersionUrl}?t={DateTimeOffset.UtcNow.ToUnixTimeSeconds() / 60}";
+            var file = await http.GetFromJsonAsync<VersionFile>(url, JsonOptions, timeout.Token).ConfigureAwait(false);
             if (IsValidVersion(file?.Version)) return file!.Version;
             Log.Warning("The map data version file has no usable version");
         }
