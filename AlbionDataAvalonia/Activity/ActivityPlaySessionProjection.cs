@@ -19,7 +19,8 @@ public static class ActivityPlaySessionProjection
 
     /// <summary>
     /// Run time counts recorded time in runs. Play time adds the gaps between runs up to the idle limit,
-    /// such as a town visit; a capture gap inside a run counts in neither.
+    /// such as a town visit; a capture gap inside a run counts in neither. A play session started with
+    /// Start session counts from that press, so the wait before its first run is play time too.
     /// </summary>
     public static ActivityPlayDurations Durations(IEnumerable<ActivityObservationInterval> intervals, DateTime fromUtc, DateTime toUtc)
     {
@@ -30,12 +31,13 @@ public static class ActivityPlaySessionProjection
             .Where(merged => merged.Count > 0)
             .Select(merged => (Start: merged[0].StartedAtUtc, End: merged[^1].EndedAtUtc!.Value))
             .OrderBy(x => x.Start).ToArray();
+        if (spans.Length == 0) return new(toUtc > fromUtc && toUtc - fromUtc <= IdleLimit ? (toUtc - fromUtc).TotalSeconds : 0, 0);
         var play = run;
-        DateTime? reached = null;
+        DateTime reached = fromUtc;
         foreach (var span in spans)
         {
-            if (reached is { } end && span.Start > end && span.Start - end <= IdleLimit) play += (span.Start - end).TotalSeconds;
-            if (reached is null || span.End > reached) reached = span.End;
+            if (span.Start > reached && span.Start - reached <= IdleLimit) play += (span.Start - reached).TotalSeconds;
+            if (span.End > reached) reached = span.End;
         }
         return new(play, run);
     }
@@ -47,14 +49,18 @@ public static class ActivityPlaySessionProjection
         if (runs.Count == 0 && liveRun is null) return new(0, 0);
         var end = LiveEnd(playSession, nowUtc ?? DateTime.UtcNow);
         var intervals = ActivityPeriodProjection.ObservationIntervals(liveRun is null ? runs : runs.Where(x => x.Id != liveRun.Id).Append(liveRun), liveRun);
-        var start = intervals.Count == 0 ? playSession.StartedAtUtc : intervals.Min(x => x.StartedAtUtc);
-        return Durations(intervals, start, end);
+        var first = intervals.Count == 0 ? playSession.StartedAtUtc : intervals.Min(x => x.StartedAtUtc);
+        return Durations(intervals, first < playSession.StartedAtUtc ? first : playSession.StartedAtUtc, end);
     }
 
-    /// <summary>A closed play session ends at its saved end; an open one pauses one grace period after its last activity.</summary>
-    public static DateTime LiveEnd(ActivityPlaySession playSession, DateTime nowUtc)
+    /// <summary>
+    /// A closed play session ends at its saved end; an open one pauses one grace period after its last activity.
+    /// One started with Start session keeps its clock running until its first run.
+    /// </summary>
+    public static DateTime LiveEnd(ActivityPlaySession playSession, DateTime nowUtc, bool hasRun = true)
     {
         if (playSession.State != ActivityState.Open) return playSession.EndedAtUtc ?? playSession.LastActivityAtUtc;
+        if (!hasRun) return nowUtc;
         var paused = playSession.LastActivityAtUtc + ActivityGrace;
         return paused < nowUtc ? paused : nowUtc;
     }

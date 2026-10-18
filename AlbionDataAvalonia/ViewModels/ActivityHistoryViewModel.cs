@@ -353,7 +353,8 @@ public partial class ActivityHistoryViewModel : ObservableObject, IDisposable
     {
         var nowUtc = DateTime.UtcNow;
         if (encounter is not null) return new(summary, ActivityProjection.GetRates(summary, encounter));
-        run ??= header.Runs.Count == 1 ? header.Runs[0] : null;
+        // A session started with Start session also counts the wait before its only run.
+        run ??= header.Runs.Count == 1 && header.Runs[0].StartedAtUtc <= header.PlaySession.StartedAtUtc ? header.Runs[0] : null;
         var live = page.Tracker?.GetCurrentContext().Session;
         if (run is not null)
             return new(summary, ActivityProjection.GetRates(summary, live?.Id == run.Id ? live : run, combatSeconds, nowUtc), true);
@@ -362,8 +363,10 @@ public partial class ActivityHistoryViewModel : ObservableObject, IDisposable
         return new(summary, ActivityProjection.GetRates(summary, durations.PlaySeconds, combatSeconds), true, true, durations.RunSeconds);
     }
 
+    // A session started with Start session begins at the press, before its first run.
     private static DateTime PlaySessionStart(ActivityPlaySessionHeader header) =>
-        header.Runs.Count == 0 ? header.PlaySession.StartedAtUtc : header.Runs.Min(x => x.StartedAtUtc);
+        header.Runs.Count == 0 || header.PlaySession.StartedAtUtc < header.Runs.Min(x => x.StartedAtUtc)
+            ? header.PlaySession.StartedAtUtc : header.Runs.Min(x => x.StartedAtUtc);
 
     private static DateTime PlaySessionEnd(ActivityPlaySessionHeader header) => header.PlaySession.EndedAtUtc ??
         (header.Runs.Count == 0 ? header.PlaySession.LastActivityAtUtc : header.Runs.Max(x => x.ClosedAtUtc ?? x.LastObservedAtUtc));

@@ -183,12 +183,15 @@ public sealed partial class ActivityStreamerViewModel : ViewModelBase, IDisposab
             snapshotQuery = query;
             snapshotReadAtUtc = nowUtc;
         }
-        var end = ActivityPlaySessionProjection.LiveEnd(playSession, nowUtc);
+        // A session started with Start session has no run until its first activity.
+        var hasRun = snapshot.ObservationIntervals.Count > 0 || context.Session is not null;
+        var end = ActivityPlaySessionProjection.LiveEnd(playSession, nowUtc, hasRun);
         var durations = ActivityPlaySessionProjection.Durations(snapshot.ObservationIntervals, playSession.StartedAtUtc, end);
         var combatSeconds = ActivityPeriodProjection.GetRates(snapshot, playSession.StartedAtUtc, end).CombatDurationSeconds;
         Summary = new(snapshot.Summary, ActivityProjection.GetRates(snapshot.Summary, durations.PlaySeconds, combatSeconds), true, true, durations.RunSeconds);
         HasSession = true;
-        TitleText = ActivityPlaySessionProjection.IsIdle(playSession, nowUtc)
+        TitleText = !hasRun ? "Session started"
+            : ActivityPlaySessionProjection.IsIdle(playSession, nowUtc)
             ? $"Idle {UiFormat.Duration((nowUtc - playSession.LastActivityAtUtc).TotalSeconds)}"
             : context.Session is { } run ? ActivityDisplay.SessionTitle(run) : "Between runs";
         SessionTimeText = $"Session {UiFormat.Duration(durations.PlaySeconds)}";

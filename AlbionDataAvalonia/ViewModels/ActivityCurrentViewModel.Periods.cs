@@ -134,10 +134,12 @@ public partial class ActivityCurrentViewModel
     {
         if (currentPeriodSnapshot is not { } snapshot || currentPeriodKey is not { } key || key != GetCurrentPeriodKey() ||
             currentObservationKey?.SessionId != GetCurrentObservationKey().SessionId) return;
-        if (key.Mode == ActivityPeriodMode.PlaySession && Tracker?.GetCurrentContext().PlaySession is { } playSession)
+        if (key.Mode == ActivityPeriodMode.PlaySession && Tracker?.GetCurrentContext() is { PlaySession: { } playSession } context)
         {
             // Time pauses one grace period after the last activity; a run within the idle limit adds the gap back.
-            var end = ActivityPlaySessionProjection.LiveEnd(playSession, nowUtc);
+            // A session started with Start session keeps its clock running until its first run.
+            var hasRun = snapshot.ObservationIntervals.Count > 0 || context.Session is not null;
+            var end = ActivityPlaySessionProjection.LiveEnd(playSession, nowUtc, hasRun);
             var durations = ActivityPlaySessionProjection.Durations(snapshot.ObservationIntervals, currentPeriodFromUtc, end);
             var combat = ActivityPeriodProjection.GetRates(snapshot, currentPeriodFromUtc, end).CombatDurationSeconds;
             CurrentSummary = new(snapshot.Summary, ActivityProjection.GetRates(snapshot.Summary, durations.PlaySeconds, combat), true, true, durations.RunSeconds);
