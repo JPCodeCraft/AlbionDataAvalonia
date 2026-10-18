@@ -13,7 +13,7 @@ namespace AlbionDataAvalonia.Activity;
 
 /// <summary>Requests missing estimates through the existing batched, cached backend loader.</summary>
 public sealed class ActivityItemValuationService(ItemEstimatedMarketValueService values,
-    ItemEstimatedMarketValueBackendLoader loader, ActivityPersistence persistence)
+    ItemEstimatedMarketValueBackendLoader loader, ActivityPersistence persistence, ItemsIdsService items)
 {
     public ActivityEvent Observe(ActivityEvent value)
     {
@@ -21,8 +21,9 @@ public sealed class ActivityItemValuationService(ItemEstimatedMarketValueService
             value.EstimatedUnitValue is not null || value.ItemId is not > 0 ||
             value.Quality is not null and not (>= 1 and <= 5) ||
             string.IsNullOrWhiteSpace(value.ItemUniqueName) || !int.TryParse(value.Server, out var server)) return value;
-        // A filled journal is worth the full journal minus the empty one; its own price would overstate it.
-        if (ActivityJournals.IsFull(value.ItemUniqueName)) return value;
+        // A journal filled while gathering is worth the full journal minus the empty one; its own price would overstate it.
+        if (value.Kind == ActivityEventKind.Gathered && ActivityJournals.IsFull(value.ItemUniqueName))
+            return ObserveJournal(value, server);
         // Pickups without quality use an explicitly labelled estimate without inventing
         // the quality of the actual item: loot averages qualities 1-4, resources use normal quality.
         var quality = BasisQuality(value);
@@ -37,6 +38,16 @@ public sealed class ActivityItemValuationService(ItemEstimatedMarketValueService
         return value;
     }
 
+    private ActivityEvent ObserveJournal(ActivityEvent value, int server)
+    {
+        if (ActivityJournals.MarketPrice(values, items, server, value.ItemId!.Value, DateTime.UtcNow) is { FullJournalValue: { } full, EmptyJournalValue: { } empty } price)
+            return ActivityJournals.WithPrice(value, full, empty, price.ObservedAtUtc);
+        Request(server, value.ItemId.Value, value.ItemUniqueName!, 1);
+        if (ActivityJournals.EmptyUniqueName(value.ItemUniqueName) is { } emptyName && items.GetItemIdByUniqueName(emptyName) is { } emptyId)
+            Request(server, emptyId, emptyName, 1);
+        return value;
+    }
+
     public void Request(int server, int itemId, string uniqueName, int quality)
     {
         if (values.Get(server, itemId, quality)?.NormalEmv is not > 0)
@@ -46,10 +57,14 @@ public sealed class ActivityItemValuationService(ItemEstimatedMarketValueService
     public void RequestMissing(IEnumerable<ActivityEvent> events)
     {
         var prices = events.Where(x => !x.IsRetracted && x.EstimatedUnitValue is null)
-            .Select(Observe).Where(x => x.EstimatedUnitValue is > 0)
-            .Select(x => new ActivityLootPrice(x.Server, x.ItemId!.Value, BasisQuality(x),
-                x.EstimatedUnitValue!.Value, x.PriceObservedAtUtc ?? DateTime.UtcNow, x.Kind == ActivityEventKind.Loot, IsBlackMarketEmv(x) == true))
-            .DistinctBy(x => (x.Server, x.ItemId, x.Quality, x.LootBasis)).ToArray();
+            .Select(Observe).Where(x => x.EstimatedUnitValue is not null)
+            .Select(x => x.Kind == ActivityEventKind.Gathered && ActivityJournals.Values(x) is { } journal
+                ? new ActivityLootPrice(x.Server, x.ItemId!.Value, 1, x.EstimatedUnitValue!.Value, x.PriceObservedAtUtc ?? DateTime.UtcNow,
+                    FullJournalValue: journal.Full, EmptyJournalValue: journal.Empty)
+                : new ActivityLootPrice(x.Server, x.ItemId!.Value, BasisQuality(x),
+                    x.EstimatedUnitValue!.Value, x.PriceObservedAtUtc ?? DateTime.UtcNow, x.Kind == ActivityEventKind.Loot, IsBlackMarketEmv(x) == true))
+            .Where(x => x.UnitValue > 0 || x.FullJournalValue is not null)
+            .DistinctBy(x => (x.Server, x.ItemId, x.Quality, x.LootBasis, x.FullJournalValue is not null)).ToArray();
         if (prices.Length > 0) _ = FillAsync(prices);
     }
 

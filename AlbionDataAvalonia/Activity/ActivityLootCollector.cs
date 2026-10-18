@@ -901,8 +901,12 @@ internal sealed partial class ActivityLootCollector : IDisposable
                 updates.Add(new ActivityLootPrice(server, key.ItemId, key.Quality, loot.Price, now, LootBasis: true, loot.BlackMarket));
         }
         foreach (var (serverId, itemId) in keys.Select(key => (key.ServerId, key.ItemId)).Distinct())
+        {
             if (ActivityItemValuationService.LootEstimate(values, serverId, itemId, null) is { } average)
                 updates.Add(new ActivityLootPrice(serverId.ToString(CultureInfo.InvariantCulture), itemId, 0, average.Price, now, LootBasis: true, average.BlackMarket));
+            // Either journal's price can complete the pair a filled journal needs.
+            if (ActivityJournals.MarketPrice(values, itemNames, serverId, itemId, now) is { } journal) updates.Add(journal);
+        }
         if (updates.Count > 0) _ = FillPricesAsync(updates.ToArray());
     }
 

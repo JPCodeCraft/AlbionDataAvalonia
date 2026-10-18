@@ -277,8 +277,9 @@ public sealed record ActivityActorTotal(string ActorId, string Name, ActorRelati
 public sealed record ActivityMobTotal(string MobId, string Name, long Kills, long InferredKills = 0);
 public sealed record ActivityRecordingStatus(bool IsSuspended, int PendingChanges, string? Error);
 // LootBasis prices value loot only; quality 0 then fills loot whose quality is unknown.
+// A journal price fills journals filled while gathering, and carries the full and empty EMVs behind it.
 public sealed record ActivityLootPrice(string Server, int ItemId, int Quality, long UnitValue, DateTime ObservedAtUtc,
-    bool LootBasis = false, bool BlackMarket = false);
+    bool LootBasis = false, bool BlackMarket = false, long? FullJournalValue = null, long? EmptyJournalValue = null);
 public sealed record ActivityRates(double DurationSeconds, double DamagePerSecond,
     double HealingPerSecond, double FamePerHour, double SilverPerHour, double LootValuePerHour,
     double DamageReceivedPerSecond, double HealingReceivedPerSecond, double CombatDurationSeconds = 0,

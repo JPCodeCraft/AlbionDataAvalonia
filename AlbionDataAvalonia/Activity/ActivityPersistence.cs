@@ -50,8 +50,10 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
     public async Task FillMissingLootPricesAsync(IReadOnlyCollection<ActivityLootPrice> prices, CancellationToken cancellationToken = default)
     {
         // Database-only price patches commute with collector revisions; a stale snapshot cannot overwrite a filled price.
-        var snapshots = prices.Where(x => x.ItemId > 0 && (x.Quality > 0 || x.LootBasis && x.Quality == 0) && x.UnitValue > 0)
-            .DistinctBy(x => (x.Server, x.ItemId, x.Quality, x.LootBasis)).ToArray();
+        // A filled journal can be worth nothing when its empty journal costs as much.
+        var snapshots = prices.Where(x => x.ItemId > 0 && (x.Quality > 0 || x.LootBasis && x.Quality == 0) &&
+                (x.UnitValue > 0 || x.FullJournalValue is not null && x.UnitValue == 0))
+            .DistinctBy(x => (x.Server, x.ItemId, x.Quality, x.LootBasis, x.FullJournalValue is not null)).ToArray();
         if (snapshots.Length == 0) return;
         await priceFillGate.WaitAsync(cancellationToken).ConfigureAwait(false);
         try
@@ -59,6 +61,7 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
             foreach (var price in snapshots)
             {
                 var quality = price.Quality;
+                var maximumQuantity = price.UnitValue > 0 ? long.MaxValue / price.UnitValue : long.MaxValue;
                 while (!disposed)
                 {
                     await FlushAsync(cancellationToken).ConfigureAwait(false);
@@ -67,11 +70,16 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                         await using var context = contextFactory();
                         var unpriced = context.ActivityEvents.AsNoTracking().Where(x => !x.IsRetracted &&
                             x.Server == price.Server && x.ItemId == price.ItemId && x.EstimatedUnitValue == null &&
-                            (x.Quantity == 0 || x.Quantity <= long.MaxValue / price.UnitValue));
+                            (x.Quantity == 0 || x.Quantity <= maximumQuantity));
                         // Loot uses its own valuation basis; quality 0 is the average for loot without quality.
-                        if (!price.LootBasis)
+                        // A journal filled while gathering takes only a journal price: the full journal minus the empty one.
+                        if (price.FullJournalValue is not null)
+                            unpriced = unpriced.Where(x => x.Kind == ActivityEventKind.Gathered && x.ItemUniqueName != null &&
+                                x.ItemUniqueName.EndsWith("_FULL") && (x.Quality == 1 || x.Quality == null));
+                        else if (!price.LootBasis)
                             unpriced = unpriced.Where(x => (x.Kind == ActivityEventKind.Gathered || x.Kind == ActivityEventKind.FishingReward) &&
-                                (x.Quality == quality || x.Quality == null && quality == 1));
+                                (x.Quality == quality || x.Quality == null && quality == 1) &&
+                                !(x.Kind == ActivityEventKind.Gathered && x.ItemUniqueName != null && x.ItemUniqueName.Contains("_JOURNAL_") && x.ItemUniqueName.EndsWith("_FULL")));
                         else if (quality == 0) unpriced = unpriced.Where(x => x.Kind == ActivityEventKind.Loot && x.Quality == null);
                         else unpriced = unpriced.Where(x => x.Kind == ActivityEventKind.Loot && x.Quality == quality);
                         return await unpriced.OrderBy(x => x.CapturedAtUtc).ThenBy(x => x.Id).Take(250).ToArrayAsync(readCancellation);
@@ -79,8 +87,11 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                     if (missing.Length == 0) break;
                     foreach (var observation in missing)
                     {
-                        var patch = new EventCommand(ActivityItemValuationService.WithPrice(observation, price.UnitValue,
-                            price.ObservedAtUtc, price.Quality, price.LootBasis ? price.BlackMarket : null), true, true);
+                        var priced = price is { FullJournalValue: { } full, EmptyJournalValue: { } empty }
+                            ? ActivityJournals.WithPrice(observation, full, empty, price.ObservedAtUtc)
+                            : ActivityItemValuationService.WithPrice(observation, price.UnitValue,
+                                price.ObservedAtUtc, price.Quality, price.LootBasis ? price.BlackMarket : null);
+                        var patch = new EventCommand(priced, true, true);
                         while (!Enqueue(patch)) await FlushAsync(cancellationToken).ConfigureAwait(false);
                     }
                     // Let normal ingress interleave between bounded historical chunks.
