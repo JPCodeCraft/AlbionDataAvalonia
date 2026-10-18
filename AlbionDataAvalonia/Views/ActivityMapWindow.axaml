@@ -82,6 +82,7 @@
                                 <Border.Background>
                                     <LinearGradientBrush StartPoint="0%,50%" EndPoint="100%,50%">
                                         <GradientStop Color="{DynamicResource UiMapPathStartColor}" Offset="0" />
+                                        <GradientStop Color="{DynamicResource UiMapPathMiddleColor}" Offset="0.5" />
                                         <GradientStop Color="{DynamicResource UiMapPathEndColor}" Offset="1" />
                                     </LinearGradientBrush>
                                 </Border.Background>

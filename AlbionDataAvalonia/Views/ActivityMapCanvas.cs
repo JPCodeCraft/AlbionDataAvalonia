@@ -35,7 +35,8 @@ public sealed class ActivityMapCanvas : Control
     // Consecutive points farther apart than this are a portal, respawn or teleport, not a walk.
     private const double PathBreakDistance = 50;
     private const int FadeBuckets = 8;
-    private const int GradientBuckets = 12;
+    // Enough steps that a run's color change reads as smooth rather than banded.
+    private const int GradientBuckets = 48;
     // Markers of one kind closer than this on screen are drawn as one group.
     private const double ClusterRadius = 16;
     private const int GroupLinesShown = 6;
@@ -343,7 +344,8 @@ public sealed class ActivityMapCanvas : Control
         {
             if (figures[bucket] is not { } figure) continue;
             var fraction = (bucket + 1d) / buckets;
-            var color = live ? UiPalette.WithAlpha(ActivityPalette.PathEnd, 40 + 215 * fraction) : UiPalette.Blend(ActivityPalette.PathStart, ActivityPalette.PathEnd, fraction);
+            // History runs the first step at the start color and the last at the end color, as the legend does.
+            var color = live ? UiPalette.WithAlpha(ActivityPalette.PathEnd, 40 + 215 * fraction) : ActivityPalette.Path(bucket / (buckets - 1d));
             var width = live ? 2 + 1.6 * fraction : 3;
             context.DrawGeometry(null, UiPalette.Pen(color, width, PenLineCap.Round, PenLineJoin.Round), figure);
         }

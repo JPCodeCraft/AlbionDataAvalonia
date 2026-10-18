@@ -108,7 +108,9 @@
     <Color x:Key="UiActivityMixedColor">#B499CB</Color>
     <Color x:Key="UiActivityUnknownColor">#C5C5C5</Color>
     <Color x:Key="UiActivityPvpColor">#CE8585</Color>
+    <!-- A run's path shades from start to end through the middle color; a straight blue-to-orange blend goes gray halfway. -->
     <Color x:Key="UiMapPathStartColor">#4FC3F7</Color>
+    <Color x:Key="UiMapPathMiddleColor">#DA70D6</Color>
     <Color x:Key="UiMapPathEndColor">#FFA726</Color>
     <Color x:Key="UiMapExitColor">#4A90E2</Color>
     <SolidColorBrush x:Key="UiActivityKillBrush" Color="{StaticResource UiActivityKillColor}" />

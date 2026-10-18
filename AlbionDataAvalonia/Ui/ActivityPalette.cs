@@ -26,7 +26,13 @@ public static class ActivityPalette
     public static Color Mixed => UiPalette.Color("UiActivityMixedColor");
     public static Color Unknown => UiPalette.Color("UiActivityUnknownColor");
     public static Color PathStart => UiPalette.Color("UiMapPathStartColor");
+    public static Color PathMiddle => UiPalette.Color("UiMapPathMiddleColor");
     public static Color PathEnd => UiPalette.Color("UiMapPathEndColor");
+
+    /// <summary>A run's path color at a fraction of its time, 0 at the start and 1 at the end, matching the legend's gradient.</summary>
+    public static Color Path(double fraction) => fraction < 0.5
+        ? UiPalette.Blend(PathStart, PathMiddle, fraction * 2)
+        : UiPalette.Blend(PathMiddle, PathEnd, (fraction - 0.5) * 2);
 
     public static Color Marker(ActivityLiveTimelineMarkerKind kind) => kind switch
     {
