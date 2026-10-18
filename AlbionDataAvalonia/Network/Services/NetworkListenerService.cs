@@ -414,11 +414,17 @@ namespace AlbionDataAvalonia.Network.Services
 
                 device.OnPacketArrival += registration.PacketHandler;
                 device.OnCaptureStopped += registration.CaptureStoppedHandler;
-                device.Open(new DeviceConfiguration
+                // Without immediate mode the driver holds packets until its buffer fills or the read
+                // timeout passes, so quiet traffic such as movement arrives in bursts seconds late.
+                var configuration = new DeviceConfiguration
                 {
-                    Mode = DeviceModes.None,
+                    Mode = DeviceModes.MaxResponsiveness,
                     ReadTimeout = 5000
-                });
+                };
+                configuration.ConfigurationFailed += (_, failure) => Log.Warning(
+                    "Network device {Device} couldn't apply {Property}: {Message}",
+                    registration.DisplayName, failure.Property, failure.Message);
+                device.Open(configuration);
                 device.Filter = filter;
                 device.StartCapture();
 
