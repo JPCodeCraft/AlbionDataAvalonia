@@ -305,6 +305,9 @@ public partial class MainViewModel : ViewModelBase
     public void CompleteInitialization()
     {
         IsInitializing = false;
+        // Trades come from the local database, so read them now: the first visit then draws its rows at once
+        // instead of an empty list that fills a second later.
+        _tradesViewModel.EnsureLoaded();
     }
 
     public bool IsDashboardSelected => _selectedPage == MainPage.Dashboard;

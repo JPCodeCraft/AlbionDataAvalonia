@@ -13,7 +13,6 @@ using CommunityToolkit.Mvvm.Input;
 using Serilog;
 using System;
 using System.Collections.Generic;
-using System.Collections.ObjectModel;
 using System.ComponentModel;
 using System.Globalization;
 using System.IO;
@@ -84,12 +83,8 @@ public partial class TradesViewModel : ViewModelBase
     [ObservableProperty]
     private int selectedPortfolioPostCount;
 
-    private ObservableCollection<TradeRowViewModel> trades = new();
-    public ObservableCollection<TradeRowViewModel> Trades
-    {
-        get { return trades; }
-        set { SetProperty(ref trades, value); }
-    }
+    // The grid keeps this one list and refills its rows on each load; a new list would rebuild every row.
+    public ReplaceableCollection<TradeRowViewModel> Trades { get; } = new();
 
     private List<Trade> UnfilteredTrades { get; set; } = new();
     private List<TradeRowViewModel> SelectedTrades { get; set; } = new();
@@ -421,7 +416,7 @@ public partial class TradesViewModel : ViewModelBase
             .Select(trade => new TradeRowViewModel(trade, _portfolio.IsUploaded(trade.Id)))
             .ToList();
 
-        Trades = new ObservableCollection<TradeRowViewModel>(rows);
+        Trades.ReplaceAll(rows);
     }
 
     public async Task<bool> RefreshPortfolioUploadedTradeIdsAsync(
