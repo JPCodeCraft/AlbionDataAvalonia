@@ -152,9 +152,9 @@ The **Activity** page records what you do in the game: damage and healing, fame,
 
 ### How sessions work
 
-Your activity is saved in sessions. A session opens when you log in and counts from your first activity. It ends after 30 minutes without activity, when you switch character, turn recording off, or close the client for more than 30 minutes, and right away when you press **End session**. Press **Start session** to start one before your first activity.
+Your activity is saved in sessions. A session starts with your first activity, or when you press **Start session** on the Activity page. Its time runs until you press **End session**, switch character, turn recording off, or stop moving for 30 minutes. Leaving the game or closing the client pauses it, and it continues if you're back within 30 minutes.
 
-Each dungeon, Mists visit or stretch of open world is a **run** inside the session, and each fight is an **encounter**. Crafting and farming fame don't count.
+Each dungeon, Mists visit or stretch of open world is a **run** inside the session, from when you enter it, and each fight is an **encounter**. Crafting and farming fame don't count.
 
 **Personal** shows only you. **Party** adds the people in your party.
 
