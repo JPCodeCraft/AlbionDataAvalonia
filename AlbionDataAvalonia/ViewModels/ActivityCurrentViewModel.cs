@@ -262,6 +262,8 @@ public partial class ActivityCurrentViewModel : ObservableObject, IDisposable
         HasCurrentPlaySession = context.PlaySession is not null;
         if (!IsPlaySessionPeriod || context.Owner is null) { CurrentStateText = ""; return; }
         if (context.PlaySession is not { } playSession) { CurrentStateText = "Waiting for your first activity"; return; }
+        // A session started with Start session has no run until the first activity.
+        if (context.Session is null && CurrentRuns.Count == 0) { CurrentStateText = "Started · waiting for your first activity"; return; }
         if (ActivityPlaySessionProjection.IsIdle(playSession, nowUtc))
             CurrentStateText = $"Idle {UiFormat.Duration((nowUtc - playSession.LastActivityAtUtc).TotalSeconds)} · time is paused";
         else CurrentStateText = context.Session is null ? "Between runs" : "";

@@ -143,7 +143,8 @@ public partial class ActivityCurrentViewModel
             CurrentSummary = new(snapshot.Summary, ActivityProjection.GetRates(snapshot.Summary, durations.PlaySeconds, combat), true, true, durations.RunSeconds);
             CurrentDurationText = $"Session time: {UiFormat.Duration(durations.PlaySeconds)}";
             CurrentRunTimeText = $"In runs: {UiFormat.Duration(durations.RunSeconds)}";
-            CurrentPeriodDescription = $"Started {UiFormat.LocalDateTime(playSession.StartedAtUtc)} · ends after 30 minutes without activity";
+            CurrentPeriodDescription = $"Started {UiFormat.LocalDateTime(playSession.StartedAtUtc)} · " +
+                (Tracker.IsCurrentPlaySessionManual ? "ends when you press End session" : "ends after 30 minutes without activity");
             CurrentPeriodWarning = "";
             if (snapshot.IsPartial) CurrentPeriodDescription += " · incomplete recording";
             return;

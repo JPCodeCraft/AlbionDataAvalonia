@@ -54,6 +54,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(RecordingButtonText))]
     private bool isRecordingEnabled = true;
+    [ObservableProperty] private bool canStartSession;
 
     public ActivityViewModel() : this(null, null, null, null, null, export: null) { }
 
@@ -197,6 +198,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
         if (Tracker is null || Persistence is null) return;
         IsRecordingEnabled = Tracker.IsRecordingEnabled;
         Current.HasCurrentPlaySession = Tracker.CurrentPlaySessionId is not null;
+        CanStartSession = Tracker.CanStartSession;
         var status = Persistence.Status;
         StatusText = status.IsSuspended ? PausedStatus
             : !IsRecordingEnabled ? "Recording off" : Tracker.IsAwaitingContext ? WaitingStatus
@@ -282,18 +284,28 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     [RelayCommand] private void ToggleRecording() { Tracker?.SetRecordingEnabled(!IsRecordingEnabled); UpdateStatus(); }
 
     [RelayCommand]
-    private async Task NewSession()
+    private void StartSession()
+    {
+        if (Tracker is null || !Tracker.CanStartSession) return;
+        Tracker.StartSession();
+        UpdateStatus();
+        Current.ResetPlaySession();
+        RefreshIfShowing(ActivityTab.Current);
+    }
+
+    [RelayCommand]
+    private async Task EndSession()
     {
         if (Dialogs is null || !Current.HasCurrentPlaySession) return;
         var id = Tracker?.CurrentPlaySessionId;
-        if (await Dialogs.ConfirmAsync("Start a new session?", "This session ends at your last activity and stays in History. Your next activity starts the new session.", "New session", destructive: false)
+        if (await Dialogs.ConfirmAsync("End this session?", "It ends at your last activity and stays in History. Your next activity starts a new session, or you can press Start session.", "End session", destructive: false)
             && Tracker?.CurrentPlaySessionId == id)
-            StartNewSession(id);
+            EndCurrentSession(id);
     }
 
-    public void StartNewSession(Guid? expectedPlaySessionId = null)
+    public void EndCurrentSession(Guid? expectedPlaySessionId)
     {
-        Tracker?.StartNewSession(expectedPlaySessionId);
+        Tracker?.EndSession(expectedPlaySessionId);
         UpdateStatus();
         Current.ResetPlaySession();
         RefreshIfShowing(ActivityTab.Current);

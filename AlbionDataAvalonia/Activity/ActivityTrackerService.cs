@@ -812,8 +812,13 @@ public sealed partial class ActivityTrackerService : IDisposable
         var match = fameCollector.Match(packet, packet.ActorObjectId, at);
         var award = ActivityFameCollector.Award(packet);
         if (!Tracked(actor) || !(award is > 0 || packet.RawFixedPointComponents.GetValueOrDefault((byte)2) is > 0)) return;
-        EnsureSession(at);
-        TouchRelevant(at);
+        // Only fame matched to combat, gathering or fishing opens a run. Crafting or farming fame
+        // outside a run is saved without one, so a city or island visit never starts a session.
+        if (session is not null || match.Category != ActivityFameCategory.Unknown)
+        {
+            EnsureSession(at);
+            TouchRelevant(at);
+        }
         var observation = WithSource(Stamp(ActivityEventKind.Fame, at, Origin(packet, "Fame")), actor) with
         {
             Amount = award ?? 0,

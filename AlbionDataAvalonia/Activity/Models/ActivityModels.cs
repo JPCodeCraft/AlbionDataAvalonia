@@ -39,9 +39,10 @@ public enum ActivityEndReason
     CharacterChanged, Death, Interrupted
 }
 
-// One sitting of play. It opens at login, counts from its first run, and ends at its last
-// activity after 30 minutes without activity, New session, a character switch, recording
-// turning off, or the app closing without reopening within 30 minutes. Runs belong to one.
+// One sitting of play. It opens at login, counts from its first run or from Start session, and ends
+// at its last activity after 30 minutes without activity (unless started with Start session), End
+// session, a character switch, recording turning off, or the app closing without reopening within
+// 30 minutes. Runs belong to one.
 public sealed record ActivityPlaySession
 {
     public Guid Id { get; init; }

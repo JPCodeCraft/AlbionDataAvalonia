@@ -137,7 +137,10 @@
                     <Button Classes="UiAction" Content="{Binding MapWindowButtonText}" Command="{Binding ToggleMapWindowCommand}" IsVisible="{Binding CanOpenMapWindow}"
                             ToolTip.Tip="Live map of your current zone with your path and events, and a replay of past runs." Margin="10,0,0,4" />
                     <Button Classes="UiAction" Content="{Binding RecordingButtonText}" Command="{Binding ToggleRecordingCommand}" Margin="10,0,0,4" />
-                    <Button Classes="UiAction" Content="New session…" Command="{Binding NewSessionCommand}" IsEnabled="{Binding Current.HasCurrentPlaySession}" Margin="10,0,0,4"
+                    <Button Classes="UiAction" Content="Start session" Command="{Binding StartSessionCommand}" IsEnabled="{Binding CanStartSession}"
+                            IsVisible="{Binding !Current.HasCurrentPlaySession}" Margin="10,0,0,4"
+                            ToolTip.Tip="Starts a session now. It lasts until you press End session." />
+                    <Button Classes="UiAction" Content="End session…" Command="{Binding EndSessionCommand}" IsVisible="{Binding Current.HasCurrentPlaySession}" Margin="10,0,0,4"
                             ToolTip.Tip="Ends at your last activity. Your next activity starts a new session." />
                 </WrapPanel>
             </Grid>
