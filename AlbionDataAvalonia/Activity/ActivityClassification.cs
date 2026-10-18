@@ -139,9 +139,11 @@ public static class ActivityClassification
         var outcomes = (show & ActivityCategories.Outcomes) != 0;
         var combat = (show & ActivityCategories.Combat) != 0;
         Expression<Func<ActivityEvent, bool, bool, bool>> predicate = (e, isPve, isPvp) =>
-            gathering && (e.Kind == ActivityEventKind.Gathered || e.Kind == ActivityEventKind.FishingReward || e.Kind == ActivityEventKind.LegacyGatheringAggregate ||
-                e.Kind == ActivityEventKind.Fame && (ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.FameCategory") == (long)ActivityFameCategory.Gathering ||
-                    ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.FameCategory") == (long)ActivityFameCategory.Fishing)) ||
+            // Gathering leaves fishing to its own filter; an imported total counts unless it was only fishing.
+            gathering && (e.Kind == ActivityEventKind.Gathered || e.Kind == ActivityEventKind.LegacyGatheringAggregate &&
+                (ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.Method") == null ||
+                    ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.Method") != (long)ActivityResourceMethod.Fishing) ||
+                e.Kind == ActivityEventKind.Fame && ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.FameCategory") == (long)ActivityFameCategory.Gathering) ||
             fishing && (e.Kind == ActivityEventKind.FishingReward || e.Kind == ActivityEventKind.LegacyGatheringAggregate &&
                 ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.Method") == (long)ActivityResourceMethod.Fishing ||
                 e.Kind == ActivityEventKind.Fame && ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.FameCategory") == (long)ActivityFameCategory.Fishing) ||
