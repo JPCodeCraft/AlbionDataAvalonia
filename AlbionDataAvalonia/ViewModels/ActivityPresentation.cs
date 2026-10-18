@@ -371,14 +371,26 @@ internal static class ActivityDisplay
         };
     }
 
-    // "Wyre Forest · Mists ×2 · Dungeon", in the order first visited.
+    // "Wyre Forest · Mists ×2 · Dungeon", in the order first visited. Open-world stretches you only walked
+    // through are left out while another run has something in it.
     public static string PlaySessionTitle(IReadOnlyList<ActivitySession> runs)
     {
         if (runs.Count == 0) return "Session";
-        if (runs.Count == 1) return SessionTitle(runs[0]);
-        var labels = runs.OrderBy(x => x.StartedAtUtc).GroupBy(RunLabel, StringComparer.OrdinalIgnoreCase)
+        var named = runs.Where(x => x.Kind != ActivitySessionKind.Roaming || HasActivity(x)).ToArray();
+        if (named.Length == 0) named = runs.ToArray();
+        if (named.Length == 1) return SessionTitle(named[0]);
+        var labels = named.OrderBy(x => x.StartedAtUtc).GroupBy(RunLabel, StringComparer.OrdinalIgnoreCase)
             .Select(g => g.Count() > 1 ? $"{g.Key} ×{g.Count()}" : g.Key).ToArray();
         return labels.Length <= 3 ? string.Join(" · ", labels) : $"{string.Join(" · ", labels.Take(3))} · +{labels.Length - 3} more";
+    }
+
+    // Whether you or your party did anything in a run; a run you only walked through has its path and nothing else.
+    public static bool HasActivity(ActivitySession run)
+    {
+        var s = ActivityProjection.GetSummary(run, ActivityScope.Party);
+        return s.Tags != ActivityTags.None || s.IsLegacyAggregate || s.DamageDealt + s.DamageReceived + s.HealingDone + s.HealingReceived > 0
+            || s.Fame != 0 || s.SilverRaw != 0 || s.UnknownSilverEvents > 0 || s.LootItems > 0 || s.ResourceItems > 0
+            || s.MobKills + s.PlayerKills + s.Deaths + s.Knockdowns > 0;
     }
 
     public static string SessionKind(ActivitySessionKind value) => value switch
