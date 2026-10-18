@@ -205,6 +205,16 @@
     <SolidColorBrush x:Key="TextControlBackgroundPointerOver" Color="{StaticResource UiInputColor}" />
     <SolidColorBrush x:Key="TextControlBackgroundFocused" Color="{StaticResource UiInputColor}" />
     <SolidColorBrush x:Key="TextControlBackgroundDisabled" Color="{StaticResource UiSurfaceColor}" />
+    <!-- Selects and date pickers paint their own box on hover and press; without these it turns near-black. -->
+    <SolidColorBrush x:Key="ComboBoxBackground" Color="{StaticResource UiInputColor}" />
+    <SolidColorBrush x:Key="ComboBoxBackgroundPointerOver" Color="{StaticResource UiInputHoverColor}" />
+    <SolidColorBrush x:Key="ComboBoxBackgroundPressed" Color="{StaticResource UiInputHoverColor}" />
+    <SolidColorBrush x:Key="ComboBoxBorderBrushPointerOver" Color="{StaticResource UiBorderStrongColor}" />
+    <SolidColorBrush x:Key="ComboBoxBorderBrushPressed" Color="{StaticResource UiBorderStrongColor}" />
+    <SolidColorBrush x:Key="DatePickerButtonBackgroundPointerOver" Color="{StaticResource UiInputHoverColor}" />
+    <SolidColorBrush x:Key="DatePickerButtonBackgroundPressed" Color="{StaticResource UiInputHoverColor}" />
+    <SolidColorBrush x:Key="DatePickerButtonBorderBrushPointerOver" Color="{StaticResource UiBorderStrongColor}" />
+    <SolidColorBrush x:Key="DatePickerButtonBorderBrushPressed" Color="{StaticResource UiBorderStrongColor}" />
     <SolidColorBrush x:Key="ExpanderHeaderBackground" Color="{StaticResource UiSurfaceColor}" />
     <SolidColorBrush x:Key="ExpanderHeaderBackgroundPointerOver" Color="{StaticResource UiInputColor}" />
     <SolidColorBrush x:Key="ExpanderHeaderBackgroundPressed" Color="{StaticResource UiSurfacePressedColor}" />

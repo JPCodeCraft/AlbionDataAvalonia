@@ -7,7 +7,7 @@
         <Setter Property="BorderBrush" Value="{DynamicResource UiBorderBrush}" />
         <Setter Property="MinHeight" Value="36" />
     </Style>
-    <Style Selector=".AppPage ComboBox:pointerover, .AppPage TextBox:pointerover, .AppPage DatePicker:pointerover">
+    <Style Selector=".AppPage TextBox:pointerover">
         <Setter Property="Background" Value="{DynamicResource UiInputBrush}" />
     </Style>
     <Style Selector=".AppPage NumericUpDown /template/ TextBox">
