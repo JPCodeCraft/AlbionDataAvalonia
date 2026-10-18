@@ -28,6 +28,8 @@ public sealed partial class ActivityTrackerService
     private string pathMapId = "";
     private ActivityPathPoint? lastPathPoint;
     private readonly List<ActivityPathPoint> liveTrail = new();
+    // The latest position. The trail ends here, but keeps it as a point only once it is far enough along.
+    private ActivityPathPoint? liveHead;
     private readonly List<ActivityMapMarker> liveMarkers = new();
     private double? heading;
     private long liveMapVersion;
@@ -41,9 +43,11 @@ public sealed partial class ActivityTrackerService
     {
         lock (sync)
         {
-            var current = positionEpoch == mapEpoch && liveTrail.Count > 0 ? liveTrail[^1] : (ActivityPathPoint?)null;
+            var current = positionEpoch == mapEpoch ? liveHead : null;
+            ActivityPathPoint[] trail = liveHead is { } head && (liveTrail.Count == 0 || liveTrail[^1] != head)
+                ? [.. liveTrail, head] : liveTrail.ToArray();
             return new(liveMapVersion, map?.RawLocationId ?? "", map?.DisplayName ?? "", current, heading,
-                liveTrail.ToArray(), liveMarkers.ToArray());
+                trail, liveMarkers.ToArray());
         }
     }
 
@@ -112,24 +116,21 @@ public sealed partial class ActivityTrackerService
 
     private void TrackLive(DateTime at, ActivityWorldPosition point)
     {
+        liveHead = new ActivityPathPoint(at, point.X, point.Y);
+        liveMapVersion++;
+        // The arrow follows every step; the trail keeps one when it is far enough from the last one kept.
+        // Comparing with the previous step instead never keeps any while walking, as each is under the distance.
         if (liveTrail.Count > 0)
         {
             var last = liveTrail[^1];
             if (at - last.CapturedAtUtc < LiveTrailInterval
-                || Math.Sqrt(Math.Pow(point.X - last.X, 2) + Math.Pow(point.Y - last.Y, 2)) < LiveTrailDistance)
-            {
-                // The arrow still follows small steps; only the trail skips them.
-                liveTrail[^1] = last with { X = point.X, Y = point.Y };
-                liveMapVersion++;
-                return;
-            }
+                || Math.Sqrt(Math.Pow(point.X - last.X, 2) + Math.Pow(point.Y - last.Y, 2)) < LiveTrailDistance) return;
         }
 
-        liveTrail.Add(new ActivityPathPoint(at, point.X, point.Y));
+        liveTrail.Add(liveHead.Value);
         var expired = 0;
         while (expired < liveTrail.Count && (liveTrail.Count - expired > MaxLiveTrailPoints || at - liveTrail[expired].CapturedAtUtc > LiveTrailAge)) expired++;
         if (expired > 0) liveTrail.RemoveRange(0, expired);
-        liveMapVersion++;
     }
 
     // Called for every saved or amended event; placed events of the character and its party on this map are
@@ -207,6 +208,7 @@ public sealed partial class ActivityTrackerService
         lastPathPoint = null;
         heading = null;
         liveTrail.Clear();
+        liveHead = null;
         liveMarkers.Clear();
         liveMapVersion++;
     }
