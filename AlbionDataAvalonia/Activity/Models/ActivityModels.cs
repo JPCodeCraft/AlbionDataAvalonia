@@ -107,14 +107,15 @@ public sealed record ActivityVisit(string RawMapId, string LocationName, DateTim
     DateTime? EndedAtUtc, string? InstanceId = null, ActivityMapMetadata? Metadata = null);
 
 // Layout is a Mists instance's fixed master layout, which names its minimap.
+// LayoutTurns is how many quarter turns a Mists instance turns its layout, clockwise on a north-up map.
 public sealed record ActivityMapMetadata(int? Tier = null, string? ZoneType = null,
     string? Mode = null, string? Faction = null, int? Enchantment = null,
-    string? Rarity = null, string? OriginMapId = null, string? Layout = null)
+    string? Rarity = null, string? OriginMapId = null, string? Layout = null, int? LayoutTurns = null)
 {
     public ActivityMapMetadata Merge(ActivityMapMetadata? newer) => newer is null ? this : new(
         newer.Tier ?? Tier, newer.ZoneType ?? ZoneType, newer.Mode ?? Mode,
         newer.Faction ?? Faction, newer.Enchantment ?? Enchantment,
-        newer.Rarity ?? Rarity, newer.OriginMapId ?? OriginMapId, newer.Layout ?? Layout);
+        newer.Rarity ?? Rarity, newer.OriginMapId ?? OriginMapId, newer.Layout ?? Layout, newer.LayoutTurns ?? LayoutTurns);
 }
 
 public sealed record ActivityEncounter

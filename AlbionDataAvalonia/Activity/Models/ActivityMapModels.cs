@@ -68,7 +68,7 @@ public sealed record ActivityMapMarker(ActivityMapMarkerKind Kind, string RawMap
 
 /// <summary>The current map as the live map window shows it: where the character is, where it walked, and what it did.</summary>
 public sealed record ActivityLiveMap(long Version, string RawMapId, string MapName, ActivityPathPoint? Position, double? Heading,
-    IReadOnlyList<ActivityPathPoint> Trail, IReadOnlyList<ActivityMapMarker> Markers, string? Layout = null)
+    IReadOnlyList<ActivityPathPoint> Trail, IReadOnlyList<ActivityMapMarker> Markers, string? Layout = null, int? LayoutTurns = null)
 {
     public static ActivityLiveMap Empty { get; } = new(0, "", "", null, null, [], []);
 }

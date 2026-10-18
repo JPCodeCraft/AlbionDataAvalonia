@@ -215,7 +215,16 @@ public sealed class ActivityMapCanvas : Control
         if (scene.Image is { } image)
         {
             var origin = ToScreen(new Point(0, 0), scale);
-            context.DrawImage(image, new Rect(image.Size), new Rect(origin, new Size(size.Width * scale, size.Height * scale)));
+            var rect = new Rect(origin, new Size(size.Width * scale, size.Height * scale));
+            if (scene.ImageQuarterTurns % 4 == 0) context.DrawImage(image, new Rect(image.Size), rect);
+            else
+            {
+                // A turned Mists layout turns about the centre of its square minimap.
+                var centre = rect.Center;
+                using (context.PushTransform(Matrix.CreateTranslation(-centre.X, -centre.Y)
+                    * Matrix.CreateRotation(scene.ImageQuarterTurns * Math.PI / 2) * Matrix.CreateTranslation(centre.X, centre.Y)))
+                    context.DrawImage(image, new Rect(image.Size), rect);
+            }
         }
         else DrawZoneOutline(context, scene, scale);
         DrawFrame(context, scene, size, scale);

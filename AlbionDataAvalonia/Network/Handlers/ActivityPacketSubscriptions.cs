@@ -75,6 +75,9 @@ internal static class ActivityPacketSubscriptions
         builder.SubscribeRequest<FishingCancelRequest>((int)OperationCodes.FishingCancel, packet => Observe(activity, packet));
         builder.SubscribeResponse<FishingFinishResponse>((int)OperationCodes.FishingFinish, packet => Observe(activity, packet));
         builder.SubscribeRequest<MoveRequest>((int)OperationCodes.Move, packet => { activity.ObserveMove(packet); return Task.CompletedTask; });
+        // Wisp spawns and border exits stand at fixed points of a Mists layout and place it.
+        builder.SubscribeEvent<MistsLandmarkEvent>((int)EventCodes.NewMistsWispSpawn, packet => { activity.ObserveMistsLandmark(packet); return Task.CompletedTask; });
+        builder.SubscribeEvent<MistsLandmarkEvent>((int)EventCodes.NewMistsBorderExit, packet => { activity.ObserveMistsLandmark(packet); return Task.CompletedTask; });
         builder.AddHandler(new AcquisitionIntentHandler(activity));
     }
 

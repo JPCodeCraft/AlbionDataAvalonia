@@ -24,7 +24,7 @@ namespace AlbionDataAvalonia.ViewModels;
 public sealed record ActivityMapRunOption(Guid Id, string Label);
 
 public sealed record ActivityMapRunMapOption(string RawMapId, string Label, DateTime StartUtc, DateTime EndUtc,
-    IReadOnlyList<ActivityPathPoint> Points, IReadOnlyList<ActivityMapMarker> Markers, string? Layout = null);
+    IReadOnlyList<ActivityPathPoint> Points, IReadOnlyList<ActivityMapMarker> Markers, string? Layout = null, int? LayoutTurns = null);
 
 /// <summary>Feeds the map window: the live map follows the tracker; history replays one recorded run.</summary>
 public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
@@ -290,7 +290,8 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
         }
 
         Scene = new ActivityMapScene($"live:{live.RawMapId}:{zone?.Zone?.Id}", geometry, zone?.Image, zone?.Frame, live.Trail, Shown(live.Markers),
-            zone?.Exits ?? [], zone?.Icons ?? [], live.Position, live.Heading, true, DateTime.UtcNow, FadeSeconds, null, null, Layers);
+            zone?.Exits ?? [], zone?.Icons ?? [], live.Position, live.Heading, true, DateTime.UtcNow, FadeSeconds, null, null, Layers,
+            LayoutTurns(zone, live.Layout, live.LayoutTurns));
     }
 
     // Grows with the path so the view stays steady while walking a zone without a minimap.
@@ -371,7 +372,7 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
                 var placed = markers.GetValueOrDefault(id) ?? [];
                 var times = path.Select(x => x.CapturedAtUtc).Concat(placed.Select(x => x.CapturedAtUtc)).ToArray();
                 var visit = visits.GetValueOrDefault(id);
-                return new ActivityMapRunMapOption(id, visit.Name ?? loaded.Run.LocationName, times.Min(), times.Max(), path, placed, visit.Layout);
+                return new ActivityMapRunMapOption(id, visit.Name ?? loaded.Run.LocationName, times.Min(), times.Max(), path, placed, visit.Layout, visit.LayoutTurns);
             }).OrderBy(x => x.StartUtc).ToArray();
             RunMaps = options;
             SelectedRunMap = options.FirstOrDefault();
@@ -435,8 +436,13 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
         }
 
         Scene = new ActivityMapScene($"history:{runMap.Run.Id}:{option.RawMapId}:{zone?.Zone?.Id}", geometry, zone?.Image, zone?.Frame, option.Points,
-            markers, zone?.Exits ?? [], zone?.Icons ?? [], null, null, false, DateTime.UtcNow, 0, option.StartUtc, until, Layers);
+            markers, zone?.Exits ?? [], zone?.Icons ?? [], null, null, false, DateTime.UtcNow, 0, option.StartUtc, until, Layers,
+            LayoutTurns(zone, option.Layout, option.LayoutTurns));
     }
+
+    // Only a minimap found by its layout follows the instance's turn.
+    private static int LayoutTurns(ZoneView? zone, string? layout, int? turns) =>
+        zone?.Zone is { } shown && string.Equals(shown.Id, layout, StringComparison.OrdinalIgnoreCase) ? turns ?? 0 : 0;
 
     private async Task<ZoneView> LoadZoneAsync(string rawMapId, string? layout, string fallbackName)
     {
@@ -525,7 +531,7 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
         return string.Join(" · ", new[] { kind, zone.Tier is > 0 ? $"T{zone.Tier}" : "", zoneColor }.Where(x => x.Length > 0));
     }
 
-    private static Dictionary<string, (string? Name, string? Layout)> VisitDetails(ActivitySession run)
+    private static Dictionary<string, (string? Name, string? Layout, int? LayoutTurns)> VisitDetails(ActivitySession run)
     {
         try
         {
@@ -533,7 +539,8 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
                 .Where(x => !string.IsNullOrWhiteSpace(x.RawMapId))
                 .GroupBy(x => x.RawMapId).ToDictionary(x => x.Key, x => (
                     x.Select(y => y.LocationName).FirstOrDefault(y => !string.IsNullOrWhiteSpace(y)),
-                    x.Select(y => y.Metadata?.Layout).FirstOrDefault(y => !string.IsNullOrWhiteSpace(y))));
+                    x.Select(y => y.Metadata?.Layout).FirstOrDefault(y => !string.IsNullOrWhiteSpace(y)),
+                    x.Select(y => y.Metadata?.LayoutTurns).FirstOrDefault(y => y is not null)));
         }
         catch (JsonException)
         {

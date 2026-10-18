@@ -24,6 +24,7 @@ public sealed record ActivityMapIcon(MapPoint Position, string Label, Bitmap? Im
 /// <summary>
 /// Everything the map canvas draws for one frame. ViewKey changes when a different zone, run or mode is shown,
 /// which resets zoom and panning; the rest can change every frame. Frame is the in-game paper frame drawn around the zone.
+/// ImageQuarterTurns turns the minimap clockwise about its centre, as a Mists instance turns its layout.
 /// </summary>
 public sealed record ActivityMapScene(
     string ViewKey,
@@ -41,4 +42,5 @@ public sealed record ActivityMapScene(
     double FadeSeconds,
     DateTime? StartUtc,
     DateTime? UntilUtc,
-    ActivityMapLayers Layers);
+    ActivityMapLayers Layers,
+    int ImageQuarterTurns = 0);

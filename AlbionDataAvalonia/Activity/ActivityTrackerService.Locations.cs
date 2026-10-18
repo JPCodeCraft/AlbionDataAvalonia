@@ -1,8 +1,10 @@
 using Albion.Network;
 using AlbionDataAvalonia.Activity.Models;
 using AlbionDataAvalonia.Locations;
+using AlbionDataAvalonia.Network.Events;
 using AlbionDataAvalonia.Network.Responses;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 
@@ -13,6 +15,10 @@ public sealed partial class ActivityTrackerService
     private readonly ActivityLocationCollector locations = new();
     private ActivityMapMetadata mapMetadata = new();
     private ActivityEvent? locationObservation;
+    // Mists wisp spawns and border exits since the last join request. Those of an instance being entered
+    // arrive just before its join, on the new connection, so they wait until the join places them.
+    private readonly List<ActivityWorldPosition> mistsLandmarks = new();
+    private bool landmarksAwaitJoin;
 
     internal void CancelEntranceSelection(RequestPacket packet)
     {
@@ -28,10 +34,31 @@ public sealed partial class ActivityTrackerService
     {
         locations.Observe(packet, at);
         if (packet.ReturnCode != 0 || map is null || packet.Destination != map.RawLocationId) return;
-        var enriched = mapMetadata.Merge(ActivityLocationCollector.FromCore(
-            ActivityInstanceMetadata.FromTransition(map.Kind, packet.LayoutId, packet.DungeonInformation)));
-        if (enriched == mapMetadata) return;
-        if (enriched.Layout != mapMetadata.Layout) liveMapVersion++;
+        ApplyMapMetadata(mapMetadata.Merge(ActivityLocationCollector.FromCore(
+            ActivityInstanceMetadata.FromTransition(map.Kind, packet.LayoutId, packet.DungeonInformation))));
+    }
+
+    public void ObserveMistsLandmark(MistsLandmarkEvent packet)
+    {
+        if (packet.Position is not { } position) return;
+        lock (sync)
+        {
+            if (disposed || mistsLandmarks.Count >= 256) return;
+            mistsLandmarks.Add(position);
+            ApplyMapMetadata(WithMistsLayout(mapMetadata));
+        }
+    }
+
+    // Entering the Mists through a wisp names no layout, so its landmarks place it.
+    private ActivityMapMetadata WithMistsLayout(ActivityMapMetadata metadata) =>
+        map is { Kind: ActivityMapKind.Mists } && metadata.LayoutTurns is null && !landmarksAwaitJoin
+        && MistsLayoutRecognizer.Recognize(mistsLandmarks) is { } placement
+            ? metadata with { Layout = placement.Layout, LayoutTurns = placement.QuarterTurns } : metadata;
+
+    private void ApplyMapMetadata(ActivityMapMetadata enriched)
+    {
+        if (map is null || enriched == mapMetadata) return;
+        if (enriched.Layout != mapMetadata.Layout || enriched.LayoutTurns != mapMetadata.LayoutTurns) liveMapVersion++;
         mapMetadata = enriched;
         if (!CanRecord || session is null) return;
         for (var i = 0; i < visits.Count; i++)
