@@ -31,6 +31,8 @@ public sealed partial class ActivityTrackerService
     private readonly List<ActivityMapMarker> liveMarkers = new();
     private double? heading;
     private long liveMapVersion;
+    private long ignoredMoveEpoch = -1;
+    private long moveIdentityEpoch = -1;
 
     /// <summary>Changes whenever the live map has something new; cheap to poll.</summary>
     public long LiveMapVersion { get { lock (sync) return liveMapVersion; } }
@@ -51,24 +53,61 @@ public sealed partial class ActivityTrackerService
         if (packet.Position is not { } point) return;
         lock (sync)
         {
-            if (disposed || !HasConfirmedContext) return;
+            if (disposed) return;
             var at = Utc(packet.CapturedAt);
-            if (at < mapEnteredAt || !SameConnection(packet.ConnectionId, packet.MessageIdentity)) return;
-            if (position is { } previous && positionEpoch == mapEpoch
-                && Math.Abs(point.X - previous.X) + Math.Abs(point.Y - previous.Y) > 0.3)
-                heading = Math.Atan2(point.Y - previous.Y, point.X - previous.X);
-            position = point;
-            positionEpoch = mapEpoch;
-            TrackLive(at, point);
-            if (!CanRecord || session is null) return;
-            // The map entry is recorded before the first step on the new map; give it that first position.
-            if (locationObservation is { PositionX: null } entry && entry.SessionId == session.Id && entry.MapEpoch == mapEpoch)
+            if (MoveIgnoredReason(packet, at) is { } reason)
             {
-                var placed = entry with { Revision = entry.Revision + 1, PositionX = point.X, PositionY = point.Y };
-                if (persistence.Amend(placed)) locationObservation = placed;
+                NoteIgnoredMove(reason);
+                return;
             }
-            SamplePath(session.Id, at, point);
+            // Other requests still compare Photon header fields; say when Move would have failed that.
+            if (moveIdentityEpoch != mapEpoch && !SameConnection(packet.ConnectionId, packet.MessageIdentity))
+            {
+                moveIdentityEpoch = mapEpoch;
+                DiagnosticNote?.Invoke("Position accepted on the joined connection, though its Photon header differs from the join's: " +
+                    $"challenge {packet.MessageIdentity?.Challenge} vs {connectionIdentity?.Challenge}, " +
+                    $"stream {packet.MessageIdentity?.DirectionalConnection} vs {connectionIdentity?.DirectionalConnection}, " +
+                    $"same parser {packet.MessageIdentity?.ReceiverGeneration == connectionIdentity?.ReceiverGeneration}");
+            }
+            PlacePosition(at, point);
         }
+    }
+
+    // Only the local client sends Move, so the joined socket is enough to tell this client's
+    // moves apart. Photon header fields differ by direction and are not compared.
+    private string? MoveIgnoredReason(MoveRequest packet, DateTime at) =>
+        captureSuspended ? "capture is paused"
+        : awaitingContext || !actors.HasIdentity ? "the character hasn't joined a map yet"
+        : map is null ? "no map yet"
+        : at < mapEnteredAt ? $"captured at {at:HH:mm:ss.fff} UTC, before the map was entered at {mapEnteredAt:HH:mm:ss.fff} UTC"
+        : !string.IsNullOrEmpty(connectionId) && !string.IsNullOrEmpty(packet.ConnectionId) && connectionId != packet.ConnectionId
+            ? $"it came over {packet.ConnectionId}, not the joined connection {connectionId}"
+        : null;
+
+    // One note per map is enough to explain a missing position.
+    private void NoteIgnoredMove(string reason)
+    {
+        if (ignoredMoveEpoch == mapEpoch) return;
+        ignoredMoveEpoch = mapEpoch;
+        DiagnosticNote?.Invoke($"Position ignored: {reason}");
+    }
+
+    private void PlacePosition(DateTime at, ActivityWorldPosition point)
+    {
+        if (position is { } previous && positionEpoch == mapEpoch
+            && Math.Abs(point.X - previous.X) + Math.Abs(point.Y - previous.Y) > 0.3)
+            heading = Math.Atan2(point.Y - previous.Y, point.X - previous.X);
+        position = point;
+        positionEpoch = mapEpoch;
+        TrackLive(at, point);
+        if (!CanRecord || session is null) return;
+        // The map entry is recorded before the first step on the new map; give it that first position.
+        if (locationObservation is { PositionX: null } entry && entry.SessionId == session.Id && entry.MapEpoch == mapEpoch)
+        {
+            var placed = entry with { Revision = entry.Revision + 1, PositionX = point.X, PositionY = point.Y };
+            if (persistence.Amend(placed)) locationObservation = placed;
+        }
+        SamplePath(session.Id, at, point);
     }
 
     private void TrackLive(DateTime at, ActivityWorldPosition point)

@@ -91,6 +91,14 @@ public sealed class PacketDiagnostics : IDisposable
         }
     }
 
+    /// <summary>Adds a line explaining a decision, such as why a packet was ignored, between the packets it concerns.</summary>
+    public void Note(string message)
+    {
+        var current = logger;
+        if (!isEnabled || current is null) return;
+        current.Information("Note {Message}", message);
+    }
+
     public void Dispose()
     {
         lock (sync)

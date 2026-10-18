@@ -103,6 +103,8 @@ public sealed partial class ActivityTrackerService : IDisposable
     }
 
     public event EventHandler? Changed;
+    /// <summary>Explains a decision for diagnostics mode, such as why the character's position was ignored.</summary>
+    public event Action<string>? DiagnosticNote;
     public Guid? CurrentSessionId { get { lock (sync) return session?.Id; } }
     public Guid? CurrentEncounterId { get { lock (sync) return encounter?.Id; } }
     public bool IsRecordingEnabled { get { lock (sync) return enabled; } }
@@ -421,6 +423,8 @@ public sealed partial class ActivityTrackerService : IDisposable
         partialEntry = !enabled;
         awaitingContext = !actors.HasIdentity;
         captureSuspended = false;
+        // The character stands at the arrival position until its first step.
+        if (packet.Position is { } arrival) PlacePosition(at, arrival);
         reentryConfirmed = resumable is { ClosedAtUtc: { } exited } old && at - exited <= ReentryGrace
             && old.Server == nextServer.ToString(CultureInfo.InvariantCulture)
             && old.CharacterId == (packet.userGuid?.ToString() ?? "") && !old.HasLocalDeath

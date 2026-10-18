@@ -79,6 +79,7 @@ namespace AlbionDataAvalonia.Network.Services
             _legendaryTracker = legendaryTracker;
             _clientCore = clientCore;
             _packetDiagnostics = packetDiagnostics;
+            _activityTracker.DiagnosticNote += _packetDiagnostics.Note;
 
             if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
             {
