@@ -517,6 +517,7 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
             "blue" => "Blue zone",
             "yellow" => "Yellow zone",
             "red" => "Red zone",
+            "orange" => "Orange zone",
             "black" => "Black zone",
             _ => ""
         };
