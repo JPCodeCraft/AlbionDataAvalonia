@@ -18,6 +18,14 @@ public sealed record MapZone(string Id, string DisplayName, string ImageFile, st
     public MapImageGeometry? Geometry { get; } = MapImageGeometry.From(BoundsMin, BoundsMax);
 }
 
+/// <summary>The in-game zone map frame AlbionWorld publishes, drawn around a minimap.</summary>
+public static class MapFrame
+{
+    /// <summary>The frame is a square image centred on the minimap, which fills this share of its side
+    /// (<c>mapScale</c> in AlbionWorld's map-features manifest; the website uses the same number).</summary>
+    public const double MapScale = 0.84;
+}
+
 /// <summary>
 /// The generated minimaps are the zone's local rectangle rotated by -45 degrees on an expanded canvas
 /// (Pillow's centred rotate with expand). This mirrors the website's map-image functions.

@@ -1,5 +1,6 @@
 using AlbionDataAvalonia.Activity.Models;
 using AlbionDataAvalonia.Items;
+using AlbionDataAvalonia.Maps;
 using AlbionDataAvalonia.Ui;
 using AlbionDataAvalonia.ViewModels;
 using Avalonia;
@@ -107,7 +108,7 @@ public sealed class ActivityMapCanvas : Control
             var right = points.Max(x => x.X);
             var top = points.Min(x => x.Y);
             var bottom = points.Max(x => x.Y);
-            var fit = FitScale(size);
+            var fit = FitScale(scene);
             var width = Math.Max(right - left, size.Width * 0.08) * 1.3;
             var height = Math.Max(bottom - top, size.Height * 0.08) * 1.3;
             zoom = Math.Clamp(Math.Min(Bounds.Width / (width * fit), Bounds.Height / (height * fit)), MinZoom, MaxZoom);
@@ -209,7 +210,7 @@ public sealed class ActivityMapCanvas : Control
         var size = ImageSize(scene);
         var shown = scene.IsLive ? Shown(Stopwatch.GetTimestamp()) : null;
         if (Follow && shown is { } position) center = ImagePoint(scene, position.Point.X, position.Point.Y);
-        var scale = FitScale(size) * zoom;
+        var scale = FitScale(scene) * zoom;
 
         if (scene.Image is { } image)
         {
@@ -217,6 +218,7 @@ public sealed class ActivityMapCanvas : Control
             context.DrawImage(image, new Rect(image.Size), new Rect(origin, new Size(size.Width * scale, size.Height * scale)));
         }
         else DrawZoneOutline(context, scene, scale);
+        DrawFrame(context, scene, size, scale);
 
         if (scene.Layers.HasFlag(ActivityMapLayers.Features))
         {
@@ -233,6 +235,17 @@ public sealed class ActivityMapCanvas : Control
                 hover.Items.Select(row => new ChartDrawing.TooltipRow(row.Mob ? LazyMobImage.ForDrawing(row.UniqueName, InvalidateVisual)
                     : LazyItemImage.ForDrawing(row.UniqueName, row.Quality, InvalidateVisual), row.Text, row.Value, row.Mob)).ToArray(),
                 hover.Lines);
+    }
+
+    // The frame is centred on the minimap, which fills MapFrame.MapScale of it. Only the minimap's empty corners lie
+    // under it, and everything else is drawn after it, so nothing on the map moves or hides.
+    private void DrawFrame(DrawingContext context, ActivityMapScene scene, Size size, double scale)
+    {
+        if (scene.Frame is not { } frame) return;
+        var width = size.Width / MapFrame.MapScale;
+        var height = size.Height / MapFrame.MapScale;
+        var origin = ToScreen(new Point((size.Width - width) / 2, (size.Height - height) / 2), scale);
+        context.DrawImage(frame, new Rect(frame.Size), new Rect(origin, new Size(width * scale, height * scale)));
     }
 
     private void DrawZoneOutline(DrawingContext context, ActivityMapScene scene, double scale)
@@ -638,7 +651,7 @@ public sealed class ActivityMapCanvas : Control
             dragged = true;
             // Panning by hand stops following; the follow button or Fit brings it back.
             if (Follow) { Follow = false; dragCenter = center; start = at; dragStart = at; delta = default; }
-            var scale = FitScale(ImageSize(scene)) * zoom;
+            var scale = FitScale(scene) * zoom;
             center = new Point(dragCenter.X - delta.X / scale, dragCenter.Y - delta.Y / scale);
             InvalidateVisual();
             return;
@@ -672,10 +685,10 @@ public sealed class ActivityMapCanvas : Control
     private void ZoomAround(Point at, double factor)
     {
         if (Scene is not { } scene) return;
-        var scale = FitScale(ImageSize(scene)) * zoom;
+        var scale = FitScale(scene) * zoom;
         var anchor = new Point(center.X + (at.X - Bounds.Width / 2) / scale, center.Y + (at.Y - Bounds.Height / 2) / scale);
         zoom = Math.Clamp(zoom * factor, MinZoom, MaxZoom);
-        var next = FitScale(ImageSize(scene)) * zoom;
+        var next = FitScale(scene) * zoom;
         // Keep the spot under the pointer in place; while following, the character stays centred instead.
         if (!Follow || !scene.IsLive) center = new Point(anchor.X - (at.X - Bounds.Width / 2) / next, anchor.Y - (at.Y - Bounds.Height / 2) / next);
         InvalidateVisual();
@@ -691,7 +704,13 @@ public sealed class ActivityMapCanvas : Control
         return new Point(fraction.X * size.Width, fraction.Y * size.Height);
     }
 
-    private double FitScale(Size size) => size.Width <= 0 || size.Height <= 0 ? 1 : Math.Min(Bounds.Width / size.Width, Bounds.Height / size.Height);
+    // Zoom 1 shows the whole frame when there is one, and the whole minimap otherwise.
+    private double FitScale(ActivityMapScene scene)
+    {
+        var size = ImageSize(scene);
+        if (scene.Frame is not null) size = new Size(size.Width / MapFrame.MapScale, size.Height / MapFrame.MapScale);
+        return size.Width <= 0 || size.Height <= 0 ? 1 : Math.Min(Bounds.Width / size.Width, Bounds.Height / size.Height);
+    }
 
     private Point ToScreen(Point image, double scale) =>
         new((image.X - center.X) * scale + Bounds.Width / 2, (image.Y - center.Y) * scale + Bounds.Height / 2);

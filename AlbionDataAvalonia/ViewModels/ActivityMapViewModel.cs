@@ -289,7 +289,7 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
             return;
         }
 
-        Scene = new ActivityMapScene($"live:{live.RawMapId}:{zone?.Zone?.Id}", geometry, zone?.Image, live.Trail, Shown(live.Markers),
+        Scene = new ActivityMapScene($"live:{live.RawMapId}:{zone?.Zone?.Id}", geometry, zone?.Image, zone?.Frame, live.Trail, Shown(live.Markers),
             zone?.Exits ?? [], zone?.Icons ?? [], live.Position, live.Heading, true, DateTime.UtcNow, FadeSeconds, null, null, Layers);
     }
 
@@ -434,7 +434,7 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
             return;
         }
 
-        Scene = new ActivityMapScene($"history:{runMap.Run.Id}:{option.RawMapId}:{zone?.Zone?.Id}", geometry, zone?.Image, option.Points,
+        Scene = new ActivityMapScene($"history:{runMap.Run.Id}:{option.RawMapId}:{zone?.Zone?.Id}", geometry, zone?.Image, zone?.Frame, option.Points,
             markers, zone?.Exits ?? [], zone?.Icons ?? [], null, null, false, DateTime.UtcNow, 0, option.StartUtc, until, Layers);
     }
 
@@ -443,9 +443,10 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
         try
         {
             var zone = await maps.FindZoneAsync(rawMapId, layout);
-            if (zone is null) return new ZoneView(rawMapId, null, null, [], [], fallbackName, "", null, false);
+            if (zone is null) return new ZoneView(rawMapId, null, null, null, [], [], fallbackName, "", null, false);
             var imageTask = maps.GetImageAsync(zone);
             var iconsTask = maps.GetIconsAsync(zone);
+            var frameTask = maps.GetFrameImageAsync();
             var exits = new List<ActivityMapExit>();
             foreach (var exit in zone.Exits)
             {
@@ -465,13 +466,13 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
                 Log.Warning(error, "Could not load the minimap for {RawMapId}", rawMapId);
                 failed = true;
             }
-            return new ZoneView(rawMapId, zone, image, exits, icons.Select(x => new ActivityMapIcon(x.Position, x.Label, iconImages.GetValueOrDefault(x.MarkerType), x.Scale)).ToArray(),
+            return new ZoneView(rawMapId, zone, image, await frameTask, exits, icons.Select(x => new ActivityMapIcon(x.Position, x.Label, iconImages.GetValueOrDefault(x.MarkerType), x.Scale)).ToArray(),
                 zone.DisplayName, ZoneDescription(zone), zone.Geometry, failed);
         }
         catch (Exception error) when (error is HttpRequestException or TaskCanceledException or System.IO.IOException or JsonException)
         {
             Log.Warning(error, "Could not load map data for {RawMapId}", rawMapId);
-            return new ZoneView(rawMapId, null, null, [], [], fallbackName, "", null, true);
+            return new ZoneView(rawMapId, null, null, null, [], [], fallbackName, "", null, true);
         }
     }
 
@@ -572,6 +573,6 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
         replayTimer.Stop();
     }
 
-    private sealed record ZoneView(string RawMapId, MapZone? Zone, Bitmap? Image, IReadOnlyList<ActivityMapExit> Exits,
+    private sealed record ZoneView(string RawMapId, MapZone? Zone, Bitmap? Image, Bitmap? Frame, IReadOnlyList<ActivityMapExit> Exits,
         IReadOnlyList<ActivityMapIcon> Icons, string Title, string Subtitle, MapImageGeometry? Geometry, bool Failed);
 }

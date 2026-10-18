@@ -23,12 +23,13 @@ public sealed record ActivityMapIcon(MapPoint Position, string Label, Bitmap? Im
 
 /// <summary>
 /// Everything the map canvas draws for one frame. ViewKey changes when a different zone, run or mode is shown,
-/// which resets zoom and panning; the rest can change every frame.
+/// which resets zoom and panning; the rest can change every frame. Frame is the in-game paper frame drawn around the zone.
 /// </summary>
 public sealed record ActivityMapScene(
     string ViewKey,
     MapImageGeometry Geometry,
     Bitmap? Image,
+    Bitmap? Frame,
     IReadOnlyList<ActivityPathPoint> Path,
     IReadOnlyList<ActivityMapMarker> Markers,
     IReadOnlyList<ActivityMapExit> Exits,

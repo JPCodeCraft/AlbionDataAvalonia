@@ -47,6 +47,7 @@ public sealed class MapDataService : IDisposable
     private readonly ConcurrentDictionary<string, Task<IReadOnlyList<MapZoneIcon>>> icons = new();
     private readonly ConcurrentDictionary<string, Task<Bitmap?>> iconImages = new();
     private readonly LinkedList<(string File, Task<Bitmap?> Image)> images = new();
+    private Task<Bitmap?>? frameImage;
     private Task<IReadOnlyDictionary<string, MapZone>>? catalog;
     private string? version;
     private Task? versionCheck;
@@ -95,6 +96,27 @@ public sealed class MapDataService : IDisposable
             // Decoded open-world minimaps are large, so only the last few stay in memory.
             while (images.Count > CachedImages) images.RemoveLast();
             return image;
+        }
+    }
+
+    /// <summary>The in-game zone map frame, or null when it can't be had.</summary>
+    public Task<Bitmap?> GetFrameImageAsync()
+    {
+        lock (sync) return frameImage ??= LoadFrameImageAsync();
+    }
+
+    // A map still shows without its frame, so a failed download only leaves it out until it is asked for again.
+    private async Task<Bitmap?> LoadFrameImageAsync()
+    {
+        try
+        {
+            return await LoadBitmapAsync($"{FeaturesBase}/frame/map-frame.webp", Path.Combine("frame", "map-frame.webp")).ConfigureAwait(false);
+        }
+        catch (Exception error) when (error is HttpRequestException or IOException or TaskCanceledException)
+        {
+            Log.Warning(error, "Could not load the map frame");
+            lock (sync) frameImage = null;
+            return null;
         }
     }
 
@@ -195,6 +217,7 @@ public sealed class MapDataService : IDisposable
                 icons.Clear();
                 iconImages.Clear();
                 images.Clear();
+                frameImage = null;
             }
 
             version = next;
