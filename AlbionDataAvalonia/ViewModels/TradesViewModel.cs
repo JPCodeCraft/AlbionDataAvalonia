@@ -1,4 +1,4 @@
-﻿using AlbionDataAvalonia.Locations;
+using AlbionDataAvalonia.Locations;
 using AlbionDataAvalonia.Items;
 using AlbionDataAvalonia.Locations.Models;
 using AlbionDataAvalonia.Network.Models;
@@ -35,6 +35,8 @@ public partial class TradesViewModel : ViewModelBase
     private readonly SemaphoreSlim _loadGate = new(1, 1);
     private readonly LatestLoad _tradeLoads = new();
     private Task? _backgroundPortfolioRefresh;
+    // Set from when a load is scheduled until the newest one applies; new trades wait for it.
+    private bool _isLoadPending;
     private bool _isPortfolioStatusLoading;
 
     [ObservableProperty]
@@ -267,6 +269,7 @@ public partial class TradesViewModel : ViewModelBase
     public async Task LoadTrades()
     {
         var version = _tradeLoads.Begin();
+        _isLoadPending = true;
         await _loadGate.WaitAsync();
         try
         {
@@ -289,6 +292,7 @@ public partial class TradesViewModel : ViewModelBase
                     return;
                 }
                 UnfilteredTrades = loadedTrades;
+                _isLoadPending = false;
                 CancelPendingFilterRefresh();
                 FilterTrades();
                 LoadError = string.Empty;
@@ -306,6 +310,7 @@ public partial class TradesViewModel : ViewModelBase
             {
                 if (_tradeLoads.IsCurrent(version))
                 {
+                    _isLoadPending = false;
                     LoadError = "Could not load trades. Your current list is unchanged. Select Refresh to try again.";
                 }
             });
@@ -316,9 +321,26 @@ public partial class TradesViewModel : ViewModelBase
         }
     }
 
+    // Trades are saved on capture threads, so this runs posted to the UI thread.
     private void HandleTradeAdded(Trade trade)
     {
-        ScheduleLoadTrades();
+        if (UiDispatch.Repost(() => HandleTradeAdded(trade))) return;
+
+        // Before the first visit there is no list to update; EnsureLoaded reads the trade with the rest.
+        if (!_hasLoadedInitialTrades)
+        {
+            return;
+        }
+
+        if (_isLoadPending)
+        {
+            // A load that started before this trade was saved would drop it, so load again instead.
+            ScheduleLoadTrades();
+        }
+        else
+        {
+            InsertTrade(trade);
+        }
 
         // A trade at a location not yet in the dropdown should make it appear there.
         var marketName = trade.Location?.MarketLocation?.FriendlyName ?? trade.Location?.FriendlyName;
@@ -328,21 +350,72 @@ public partial class TradesViewModel : ViewModelBase
         }
     }
 
+    // Adds one trade to the loaded list and the grid instead of reloading every row.
+    private void InsertTrade(Trade trade)
+    {
+        var filter = GetCurrentTradeFilter();
+        if (trade.Deleted
+            || trade.Amount <= 0
+            || (filter.AlbionServerId.HasValue && trade.AlbionServerId != filter.AlbionServerId)
+            || (filter.LocationId.HasValue && trade.LocationId != filter.LocationId)
+            || (filter.TradeType.HasValue && trade.Type != filter.TradeType)
+            || (filter.TradeOperation.HasValue && trade.Operation != filter.TradeOperation)
+            || UnfilteredTrades.Any(x => x.Id == trade.Id))
+        {
+            return;
+        }
+
+        var limit = _settingsManager.UserSettings.TradesToShow;
+        var index = NewestFirstIndex(UnfilteredTrades, x => x.DateTime, trade.DateTime);
+        if (index >= limit)
+        {
+            return;
+        }
+        UnfilteredTrades.Insert(index, trade);
+        if (UnfilteredTrades.Count > limit)
+        {
+            UnfilteredTrades.RemoveAt(UnfilteredTrades.Count - 1);
+        }
+
+        if (!MatchesFilterText(trade))
+        {
+            return;
+        }
+        var rowIndex = NewestFirstIndex(Trades, x => x.Source.DateTime, trade.DateTime);
+        if (rowIndex >= limit)
+        {
+            return;
+        }
+        Trades.Insert(rowIndex, new TradeRowViewModel(trade, _portfolio.IsUploaded(trade.Id)));
+        while (Trades.Count > limit)
+        {
+            Trades.RemoveAt(Trades.Count - 1);
+        }
+    }
+
+    // Lists are sorted newest first; new trades are usually the newest, so this stops at the top.
+    private static int NewestFirstIndex<T>(IList<T> list, Func<T, DateTime> dateTime, DateTime value)
+    {
+        var index = 0;
+        while (index < list.Count && dateTime(list[index]) >= value)
+        {
+            index++;
+        }
+        return index;
+    }
+
+    private bool MatchesFilterText(Trade trade)
+    {
+        var normalizedFilterText = (FilterText ?? string.Empty).Replace(" ", string.Empty);
+        return string.IsNullOrEmpty(normalizedFilterText)
+            || (trade.ItemName ?? string.Empty).Replace(" ", string.Empty)
+                .Contains(normalizedFilterText, StringComparison.OrdinalIgnoreCase);
+    }
+
     private void FilterTrades()
     {
-        List<Trade> filteredList;
-        var normalizedFilterText = (FilterText ?? string.Empty).Replace(" ", string.Empty);
-        if (!string.IsNullOrEmpty(normalizedFilterText))
-        {
-            filteredList = UnfilteredTrades.Where(x => (x.ItemName ?? string.Empty)
-                .Replace(" ", string.Empty)
-                .Contains(normalizedFilterText, StringComparison.OrdinalIgnoreCase)).ToList();
-        }
-        else
-        {
-            filteredList = UnfilteredTrades;
-        }
-        var rows = filteredList
+        var rows = UnfilteredTrades
+            .Where(MatchesFilterText)
             .OrderByDescending(x => x.DateTime)
             .Take(_settingsManager.UserSettings.TradesToShow)
             .Select(trade => new TradeRowViewModel(trade, _portfolio.IsUploaded(trade.Id)))
@@ -392,7 +465,11 @@ public partial class TradesViewModel : ViewModelBase
     }
 
     // Several filters can change at once, such as the server and its locations; load once they settle.
-    private void ScheduleLoadTrades() => (_loadDebounce ??= new(TimeSpan.FromMilliseconds(100), () => _ = LoadTrades())).Trigger();
+    private void ScheduleLoadTrades()
+    {
+        _isLoadPending = true;
+        (_loadDebounce ??= new(TimeSpan.FromMilliseconds(100), () => _ = LoadTrades())).Trigger();
+    }
 
     private CurrentTradeFilter GetCurrentTradeFilter()
     {
