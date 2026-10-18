@@ -24,7 +24,7 @@ namespace AlbionDataAvalonia.ViewModels;
 public sealed record ActivityMapRunOption(Guid Id, string Label);
 
 public sealed record ActivityMapRunMapOption(string RawMapId, string Label, DateTime StartUtc, DateTime EndUtc,
-    IReadOnlyList<ActivityPathPoint> Points, IReadOnlyList<ActivityMapMarker> Markers);
+    IReadOnlyList<ActivityPathPoint> Points, IReadOnlyList<ActivityMapMarker> Markers, string? Layout = null);
 
 /// <summary>Feeds the map window: the live map follows the tracker; history replays one recorded run.</summary>
 public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
@@ -240,12 +240,14 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
         {
             liveVersion = version;
             live = tracker.GetLiveMap();
-            if (live.RawMapId != liveZoneRequest)
+            // A Mists layout can arrive after the map itself; the path so far stays on the same grid.
+            var request = $"{live.RawMapId}|{live.Layout}";
+            if (request != liveZoneRequest)
             {
-                liveZoneRequest = live.RawMapId;
+                if (!liveZoneRequest.StartsWith(live.RawMapId + "|", StringComparison.Ordinal)) liveFallbackBounds = null;
+                liveZoneRequest = request;
                 liveZone = null;
-                liveFallbackBounds = null;
-                if (live.RawMapId.Length > 0) _ = LoadLiveZoneAsync(live.RawMapId, live.MapName);
+                if (live.RawMapId.Length > 0) _ = LoadLiveZoneAsync(request, live.RawMapId, live.Layout, live.MapName);
             }
 
             RebuildLive();
@@ -254,10 +256,10 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
         else if (FadeSeconds > 0 && DateTime.UtcNow - liveRenderedAt >= FadeRefresh) RebuildLive();
     }
 
-    private async Task LoadLiveZoneAsync(string rawMapId, string mapName)
+    private async Task LoadLiveZoneAsync(string request, string rawMapId, string? layout, string mapName)
     {
-        var view = await LoadZoneAsync(rawMapId, mapName);
-        if (disposed || rawMapId != liveZoneRequest) return;
+        var view = await LoadZoneAsync(rawMapId, layout, mapName);
+        if (disposed || request != liveZoneRequest) return;
         liveZone = view;
         RebuildLive();
     }
@@ -359,7 +361,7 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
                 return;
             }
 
-            var names = VisitNames(loaded.Run);
+            var visits = VisitDetails(loaded.Run);
             var points = loaded.Segments.SelectMany(x => x.ReadPoints().Select(point => (x.RawMapId, Point: point)))
                 .GroupBy(x => x.RawMapId).ToDictionary(x => x.Key, x => (IReadOnlyList<ActivityPathPoint>)x.Select(y => y.Point).OrderBy(y => y.CapturedAtUtc).ToArray());
             var markers = loaded.Markers.GroupBy(x => x.RawMapId).ToDictionary(x => x.Key, x => (IReadOnlyList<ActivityMapMarker>)x.ToArray());
@@ -368,7 +370,8 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
                 var path = points.GetValueOrDefault(id) ?? [];
                 var placed = markers.GetValueOrDefault(id) ?? [];
                 var times = path.Select(x => x.CapturedAtUtc).Concat(placed.Select(x => x.CapturedAtUtc)).ToArray();
-                return new ActivityMapRunMapOption(id, names.GetValueOrDefault(id) ?? loaded.Run.LocationName, times.Min(), times.Max(), path, placed);
+                var visit = visits.GetValueOrDefault(id);
+                return new ActivityMapRunMapOption(id, visit.Name ?? loaded.Run.LocationName, times.Min(), times.Max(), path, placed, visit.Layout);
             }).OrderBy(x => x.StartUtc).ToArray();
             RunMaps = options;
             SelectedRunMap = options.FirstOrDefault();
@@ -395,7 +398,7 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
         UpdateHistoryDetails(option);
         TimelineValue = TimelineMax;
         RebuildHistory();
-        var view = await LoadZoneAsync(option.RawMapId, option.Label);
+        var view = await LoadZoneAsync(option.RawMapId, option.Layout, option.Label);
         if (disposed || SelectedRunMap != option) return;
         historyZone = view;
         RebuildHistory();
@@ -435,11 +438,11 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
             markers, zone?.Exits ?? [], zone?.Icons ?? [], null, null, false, DateTime.UtcNow, 0, option.StartUtc, until, Layers);
     }
 
-    private async Task<ZoneView> LoadZoneAsync(string rawMapId, string fallbackName)
+    private async Task<ZoneView> LoadZoneAsync(string rawMapId, string? layout, string fallbackName)
     {
         try
         {
-            var zone = await maps.FindZoneAsync(rawMapId);
+            var zone = await maps.FindZoneAsync(rawMapId, layout);
             if (zone is null) return new ZoneView(rawMapId, null, null, [], [], fallbackName, "", null, false);
             var imageTask = maps.GetImageAsync(zone);
             var iconsTask = maps.GetIconsAsync(zone);
@@ -520,13 +523,15 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
         return string.Join(" · ", new[] { kind, zone.Tier is > 0 ? $"T{zone.Tier}" : "", zoneColor }.Where(x => x.Length > 0));
     }
 
-    private static Dictionary<string, string> VisitNames(ActivitySession run)
+    private static Dictionary<string, (string? Name, string? Layout)> VisitDetails(ActivitySession run)
     {
         try
         {
             return (JsonSerializer.Deserialize<List<ActivityVisit>>(run.VisitsJson) ?? [])
-                .Where(x => !string.IsNullOrWhiteSpace(x.RawMapId) && !string.IsNullOrWhiteSpace(x.LocationName))
-                .GroupBy(x => x.RawMapId).ToDictionary(x => x.Key, x => x.First().LocationName);
+                .Where(x => !string.IsNullOrWhiteSpace(x.RawMapId))
+                .GroupBy(x => x.RawMapId).ToDictionary(x => x.Key, x => (
+                    x.Select(y => y.LocationName).FirstOrDefault(y => !string.IsNullOrWhiteSpace(y)),
+                    x.Select(y => y.Metadata?.Layout).FirstOrDefault(y => !string.IsNullOrWhiteSpace(y))));
         }
         catch (JsonException)
         {

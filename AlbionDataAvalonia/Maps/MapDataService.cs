@@ -53,14 +53,15 @@ public sealed class MapDataService : IDisposable
     private static string CacheRoot => Path.Combine(AppData.LocalPath, "cache", "maps");
     private string VersionDirectory => Path.Combine(CacheRoot, SafeFileName(Version));
 
-    /// <summary>The catalog zone for a captured map id, trying the full id first and then its '@' parts.</summary>
-    public async Task<MapZone?> FindZoneAsync(string rawMapId, CancellationToken cancellationToken = default)
+    /// <summary>The catalog zone for a captured map id, trying the full id first and then its '@' parts.
+    /// A Mists instance has no zone of its own, so its fixed layout is tried last.</summary>
+    public async Task<MapZone?> FindZoneAsync(string rawMapId, string? layout = null, CancellationToken cancellationToken = default)
     {
         if (string.IsNullOrWhiteSpace(rawMapId)) return null;
         var zones = await GetCatalogAsync(cancellationToken).ConfigureAwait(false);
         foreach (var candidate in Candidates(rawMapId))
             if (zones.TryGetValue(candidate, out var zone)) return zone;
-        return null;
+        return !string.IsNullOrWhiteSpace(layout) && zones.TryGetValue(layout, out var layoutZone) ? layoutZone : null;
     }
 
     public async Task<string?> ZoneNameAsync(string id, CancellationToken cancellationToken = default) =>
@@ -242,7 +243,7 @@ public sealed class MapDataService : IDisposable
         }
     }
 
-    // A generated instance (a random dungeon, the Mists, an island, a hideout) has no catalog minimap,
+    // A generated instance (a random dungeon, the Mists, an island, a hideout) has no catalog zone of its own,
     // and its id can name the zone it sits in ("@HIDEOUT@2306@<guid>"), so only its full id may match.
     private static IEnumerable<string> Candidates(string rawMapId)
     {

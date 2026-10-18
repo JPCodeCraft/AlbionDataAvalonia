@@ -99,7 +99,7 @@ internal sealed class ActivityLocationCollector
     public void Reset() { entrances.Clear(); ClearPending(); }
 
     public static ActivityMapMetadata FromCore(ActivityInstanceMetadata value) => new(value.Tier,
-        value.ZoneType, value.Mode, value.Faction, value.Enchantment, value.Rarity);
+        value.ZoneType, value.Mode, value.Faction, value.Enchantment, value.Rarity, Layout: value.Layout);
 
     private static bool Usable(Entrance entry, string sourceMapId, ActivityMapKind kind, DateTime at) =>
         entry.MapId == sourceMapId && Fresh(at, entry.SeenAt, EntranceLifetime)

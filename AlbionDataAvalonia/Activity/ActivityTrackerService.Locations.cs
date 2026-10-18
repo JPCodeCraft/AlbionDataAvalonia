@@ -31,6 +31,7 @@ public sealed partial class ActivityTrackerService
         var enriched = mapMetadata.Merge(ActivityLocationCollector.FromCore(
             ActivityInstanceMetadata.FromTransition(map.Kind, packet.LayoutId, packet.DungeonInformation)));
         if (enriched == mapMetadata) return;
+        if (enriched.Layout != mapMetadata.Layout) liveMapVersion++;
         mapMetadata = enriched;
         if (!CanRecord || session is null) return;
         for (var i = 0; i < visits.Count; i++)

@@ -5,6 +5,7 @@ using AlbionDataAvalonia.Network.Models;
 using AlbionDataAvalonia.Network.Requests;
 using AlbionDataAvalonia.Network.Responses;
 using AlbionDataAvalonia.Shared;
+using Serilog;
 using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.Network.Handlers;
@@ -59,7 +60,13 @@ internal static class ActivityPacketSubscriptions
         Event<NewSiegeBannerItemEvent>(builder, EventCodes.NewSiegeBannerItem, activity);
         builder.SubscribeRequest<JoinRequest>((int)OperationCodes.Join, packet => Observe(activity, packet));
         builder.SubscribeResponse<JoinResponse>((int)OperationCodes.Join, packet => Observe(activity, packet));
-        builder.SubscribeResponse<ChangeClusterResponse>((int)OperationCodes.ChangeCluster, packet => Observe(activity, packet));
+        builder.SubscribeResponse<ChangeClusterResponse>((int)OperationCodes.ChangeCluster, packet =>
+        {
+            // The layout names a Mists instance's minimap; logged until its delivery is confirmed in game.
+            Log.Debug("Cluster change to {Destination} with layout {LayoutId}, return code {ReturnCode}",
+                packet.Destination, packet.LayoutId, packet.ReturnCode);
+            return Observe(activity, packet);
+        });
         builder.SubscribeRequest<ExitEnterStartRequest>((int)OperationCodes.ExitEnterStart, packet => Observe(activity, packet));
         builder.SubscribeRequest<InventoryMoveItemRequest>((int)OperationCodes.InventoryMoveItem, packet => Observe(activity, packet));
         builder.SubscribeRequest<InventoryMoveGivenItemsRequest>((int)OperationCodes.InventoryMoveGivenItems, packet => Observe(activity, packet));
