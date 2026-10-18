@@ -11,6 +11,7 @@ using Avalonia.Media.Imaging;
 using Avalonia.Media.Immutable;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 
@@ -39,8 +40,18 @@ public sealed class ActivityMapCanvas : Control
     private const double ClusterRadius = 16;
     private const int GroupLinesShown = 6;
     private const double SpotSpacing = 22;
+    // The live position updates a few times a second. The marker, and the view while following, glide to
+    // each new one over about as long as the last update took, so walking reads as movement, not hops.
+    private static readonly TimeSpan MaxGlide = TimeSpan.FromMilliseconds(400);
 
     private readonly List<Hit> hits = new();
+    private ActivityPathPoint? glideFrom;
+    private ActivityPathPoint? glideTo;
+    private double? glideHeadingFrom;
+    private double? glideHeadingTo;
+    private long glideStartedAt;
+    private TimeSpan glideLength;
+    private bool glideFrameRequested;
     private string? viewKey;
     private bool livePositioned;
     private double zoom = 1;
@@ -109,7 +120,9 @@ public sealed class ActivityMapCanvas : Control
     {
         base.OnPropertyChanged(change);
         if (change.Property != SceneProperty || Scene is not { } scene) return;
-        if (scene.ViewKey != viewKey)
+        var newView = scene.ViewKey != viewKey;
+        Glide(scene, newView);
+        if (newView)
         {
             viewKey = scene.ViewKey;
             livePositioned = scene.Position is not null;
@@ -122,6 +135,59 @@ public sealed class ActivityMapCanvas : Control
             livePositioned = true;
             Fit();
         }
+    }
+
+    // Starts a glide from wherever the marker is drawn now to the scene's position. A new map, a first
+    // position or a jump too long to be a walk (a portal or respawn) places the marker straight away.
+    private void Glide(ActivityMapScene scene, bool newView)
+    {
+        if (!scene.IsLive || scene.Position is not { } target)
+        {
+            glideFrom = glideTo = null;
+            return;
+        }
+
+        if (!newView && glideTo is { } previous && previous.X == target.X && previous.Y == target.Y) return;
+        var now = Stopwatch.GetTimestamp();
+        var shown = newView ? null : Shown(now);
+        if (shown is { } from && Math.Sqrt(Math.Pow(target.X - from.Point.X, 2) + Math.Pow(target.Y - from.Point.Y, 2)) <= PathBreakDistance)
+        {
+            glideFrom = from.Point;
+            glideHeadingFrom = from.Heading;
+            var sinceLast = Stopwatch.GetElapsedTime(glideStartedAt, now);
+            glideLength = sinceLast < MaxGlide ? sinceLast : MaxGlide;
+        }
+        else glideFrom = null;
+
+        glideTo = target;
+        glideHeadingTo = scene.Heading;
+        glideStartedAt = now;
+        RequestGlideFrame();
+    }
+
+    private (ActivityPathPoint Point, double? Heading)? Shown(long now)
+    {
+        if (glideTo is not { } to) return null;
+        if (glideFrom is not { } from || glideLength <= TimeSpan.Zero) return (to, glideHeadingTo);
+        var t = Math.Clamp(Stopwatch.GetElapsedTime(glideStartedAt, now) / glideLength, 0, 1);
+        var point = to with { X = from.X + (to.X - from.X) * t, Y = from.Y + (to.Y - from.Y) * t };
+        // Turn the short way round.
+        var heading = glideHeadingFrom is { } a && glideHeadingTo is { } b ? a + Math.IEEERemainder(b - a, 2 * Math.PI) * t : glideHeadingTo;
+        return (point, heading);
+    }
+
+    private bool Gliding => glideFrom is not null && Stopwatch.GetElapsedTime(glideStartedAt) < glideLength;
+
+    private void RequestGlideFrame()
+    {
+        if (glideFrameRequested || TopLevel.GetTopLevel(this) is not { } top) return;
+        glideFrameRequested = true;
+        top.RequestAnimationFrame(_ =>
+        {
+            glideFrameRequested = false;
+            InvalidateVisual();
+            if (Gliding) RequestGlideFrame();
+        });
     }
 
     protected override void OnSizeChanged(SizeChangedEventArgs e)
@@ -139,7 +205,8 @@ public sealed class ActivityMapCanvas : Control
         if (Scene is not { } scene || bounds.Width <= 0 || bounds.Height <= 0) return;
 
         var size = ImageSize(scene);
-        if (Follow && scene.IsLive && scene.Position is { } position) center = ImagePoint(scene, position.X, position.Y);
+        var shown = scene.IsLive ? Shown(Stopwatch.GetTimestamp()) : null;
+        if (Follow && shown is { } position) center = ImagePoint(scene, position.Point.X, position.Point.Y);
         var scale = FitScale(size) * zoom;
 
         if (scene.Image is { } image)
@@ -157,7 +224,7 @@ public sealed class ActivityMapCanvas : Control
 
         if (scene.Layers.HasFlag(ActivityMapLayers.Path)) DrawPath(context, scene, scale);
         DrawMarkers(context, scene, scale);
-        DrawPosition(context, scene, scale);
+        DrawPosition(context, scene, scale, shown);
         // Icons are asked for only for the tooltip on view; one that arrives later redraws it.
         if (hovered is { } hover && pointer is { } at)
             ChartDrawing.DrawTooltip(context, bounds, at, hover.Title,
@@ -471,10 +538,10 @@ public sealed class ActivityMapCanvas : Control
         }
     }
 
-    private void DrawPosition(DrawingContext context, ActivityMapScene scene, double scale)
+    private void DrawPosition(DrawingContext context, ActivityMapScene scene, double scale, (ActivityPathPoint Point, double? Heading)? glide)
     {
-        ActivityPathPoint? current = scene.Position;
-        double? heading = scene.Heading;
+        ActivityPathPoint? current = glide?.Point ?? scene.Position;
+        double? heading = glide is { } gliding ? gliding.Heading : scene.Heading;
         if (!scene.IsLive)
         {
             // A history replay shows where the character was at the chosen moment.
