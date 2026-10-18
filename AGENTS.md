@@ -53,4 +53,4 @@ Keep commits focused and write imperative, sentence-case messages, mirroring exi
 - Never publish a numerically lower version within either channel, and do not bypass the updater or installer downgrade protections.
 
 ## Configuration & Security Notes
-Do not commit personal credentials or `AppData/` dumps; sample defaults live in `DefaultAppSettings.json` and `DefaultUserSettings.json`. When adjusting logging or network capture behavior (`Logging/`, `Network/`), double-check that verbose output stays behind user-controlled settings. Document any new environment variables or installer flags in the README and this guide.
+Do not commit personal credentials or `AppData/` dumps; sample defaults live in `DefaultAppSettings.json` and `DefaultUserSettings.json`. When adjusting logging or network capture behavior (`Logging/`, `Network/`), double-check that verbose output stays behind user-controlled settings. Document any new environment variables or installer flags in `docs/DEVELOPMENT.md` and this guide. The README is for players: keep it to installing and using the client, with screenshots in `docs/screenshots`, and put technical detail in `docs/DEVELOPMENT.md`.
