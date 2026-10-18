@@ -462,7 +462,16 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
 
             var icons = await iconsTask;
             var iconImages = new Dictionary<string, Bitmap?>();
-            foreach (var type in icons.Select(x => x.MarkerType).Distinct()) iconImages[type] = await maps.GetIconImageAsync(type);
+            foreach (var type in icons.Select(x => x.MarkerType).OfType<string>().Distinct()) iconImages[type] = await maps.GetIconImageAsync(type);
+            // The game draws a bank, market or city portal on its exit instead of an exit marker; so does the map,
+            // and the icon keeps the exit's "To …" label.
+            var shownIcons = icons.Select(icon =>
+            {
+                var exit = exits.FirstOrDefault(x => OnSpot(x.Position, icon.Position));
+                return new ActivityMapIcon(icon.Position, exit?.Label ?? icon.Label, icon.MarkerType is { } type ? iconImages.GetValueOrDefault(type) : null,
+                    icon.Scale, icon.Mob);
+            }).ToArray();
+            exits.RemoveAll(exit => icons.Any(icon => icon.MarkerType is not null && OnSpot(exit.Position, icon.Position)));
             // Without its minimap a zone still has its name, exits and icons; the path draws on a grid.
             Bitmap? image = null;
             var failed = false;
@@ -472,8 +481,7 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
                 Log.Warning(error, "Could not load the minimap for {RawMapId}", rawMapId);
                 failed = true;
             }
-            return new ZoneView(rawMapId, zone, image, await frameTask, exits, icons.Select(x => new ActivityMapIcon(x.Position, x.Label, iconImages.GetValueOrDefault(x.MarkerType), x.Scale)).ToArray(),
-                zone.DisplayName, ZoneDescription(zone), zone.Geometry, failed);
+            return new ZoneView(rawMapId, zone, image, await frameTask, exits, shownIcons, zone.DisplayName, ZoneDescription(zone), zone.Geometry, failed);
         }
         catch (Exception error) when (error is HttpRequestException or TaskCanceledException or System.IO.IOException or JsonException)
         {
@@ -492,6 +500,9 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
         Ticks = Shown(option.Markers).Select(x => new ActivityMapTick(Math.Clamp((x.CapturedAtUtc - option.StartUtc).TotalSeconds / span, 0, 1), x.Kind)).ToArray();
         if (runMap is not null) RunSummaryText = RunSummary(runMap, RunMaps, Shown(runMap.Markers));
     }
+
+    // AlbionWorld places an exit's icon at the exit's own coordinates.
+    private static bool OnSpot(MapPoint a, MapPoint b) => Math.Abs(a.X - b.X) <= 0.01 && Math.Abs(a.Y - b.Y) <= 0.01;
 
     private static MapZoneKind Zone(string? pvpCategory) => pvpCategory switch
     {

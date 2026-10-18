@@ -286,7 +286,7 @@ public sealed class ActivityMapCanvas : Control
         var baseSize = 30 * Math.Clamp(1 + 0.25 * (zoom - 1) / 3, 1, 1.25);
         foreach (var icon in scene.Icons)
         {
-            if (icon.Image is not { } image) continue;
+            if ((icon.Image ?? LazyMobImage.ForDrawing(icon.Mob, InvalidateVisual)) is not { } image) continue;
             var iconSize = baseSize * icon.Scale;
             var at = ToScreen(ImagePoint(scene, icon.Position.X, icon.Position.Y), scale);
             if (!Visible(at, iconSize)) continue;

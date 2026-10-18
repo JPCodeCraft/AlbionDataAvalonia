@@ -19,7 +19,8 @@ public enum MapZoneKind { Blue, Yellow, Red, Black, Other }
 
 public sealed record ActivityMapExit(MapPoint Position, string Label, MapZoneKind Zone);
 
-public sealed record ActivityMapIcon(MapPoint Position, string Label, Bitmap? Image, double Scale = 1);
+/// <summary>A game icon, or a world boss whose portrait (from its Mob) is loaded when first drawn.</summary>
+public sealed record ActivityMapIcon(MapPoint Position, string Label, Bitmap? Image, double Scale = 1, string? Mob = null);
 
 /// <summary>
 /// Everything the map canvas draws for one frame. ViewKey changes when a different zone, run or mode is shown,

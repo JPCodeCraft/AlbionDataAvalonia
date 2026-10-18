@@ -35,11 +35,18 @@ public sealed class MapDataService : IDisposable
     private static readonly TimeSpan VersionRetryDelay = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan VersionCheckTimeout = TimeSpan.FromSeconds(10);
     private const int CachedImages = 3;
-    // A feature on an exit's spot is the exit itself; the exit marker already shows it.
-    private const double ExitTolerance = 0.01;
     // Royal outpost icons are a small banner in a large image; the website draws them bigger too.
     private const double OutpostIconScale = 1.65;
     private static readonly HashSet<string> OutpostIcons = ["Outpost_Forest", "Outpost_Highland", "Outpost_Mountain", "Outpost_Steppe", "Outpost_Swamp"];
+    // A boss portrait reads at half again an icon's size, like a target frame.
+    private const double WorldBossScale = 1.5;
+    // Roads chests carry their spawn tile's name; these read better.
+    private static readonly Dictionary<string, string> IconNames = new(StringComparer.Ordinal)
+    {
+        ["roads_of_avalon_solo_pve"] = "Avalonian chest (solo)",
+        ["roads_of_avalon_group_pve"] = "Avalonian chest (group)",
+        ["roads_of_avalon_raid_pve"] = "Avalonian chest (elite)",
+    };
 
     private readonly HttpClient http = new() { Timeout = TimeSpan.FromSeconds(60) };
     private readonly SemaphoreSlim downloads = new(3);
@@ -286,11 +293,9 @@ public sealed class MapDataService : IDisposable
             await using var stream = File.OpenRead(path);
             var features = await JsonSerializer.DeserializeAsync<FeatureFile>(stream, JsonOptions).ConfigureAwait(false);
             return (features?.Features ?? [])
-                .Where(x => x.Type is "minimap_marker" or "resource_landmark" && !string.IsNullOrWhiteSpace(x.MarkerType)
-                    && x.MarkerType != "ClusterExit" && x.X is { } featureX && x.Z is { } featureZ && double.IsFinite(featureX) && double.IsFinite(featureZ)
-                    && !zone.Exits.Any(exit => Math.Abs(exit.Position.X - featureX) <= ExitTolerance && Math.Abs(exit.Position.Y - featureZ) <= ExitTolerance))
-                .Select(x => new MapZoneIcon(x.MarkerType!, Humanize(string.IsNullOrWhiteSpace(x.Label) ? x.MarkerType! : x.Label!), new(x.X!.Value, x.Z!.Value),
-                    OutpostIcons.Contains(x.MarkerType!) ? OutpostIconScale : 1))
+                .Where(x => x.X is { } featureX && x.Z is { } featureZ && double.IsFinite(featureX) && double.IsFinite(featureZ))
+                .Select(Icon)
+                .OfType<MapZoneIcon>()
                 .ToArray();
         }
         catch (Exception error) when (error is HttpRequestException or IOException or JsonException or TaskCanceledException)
@@ -299,6 +304,20 @@ public sealed class MapDataService : IDisposable
             icons.TryRemove(zone.Id, out _);
             return [];
         }
+    }
+
+    // Any feature with a minimap icon (markers, resource landmarks, Roads chests) and world bosses, drawn with their
+    // portrait. An icon on an exit's spot is kept; the map shows it in place of that exit's dot.
+    private static MapZoneIcon? Icon(Feature feature)
+    {
+        var position = new MapPoint(feature.X!.Value, feature.Z!.Value);
+        if (feature.Type == "worldboss" && !string.IsNullOrWhiteSpace(feature.Mob))
+            return new(null, feature.Label?.Contains("_DAILY_", StringComparison.Ordinal) == true ? "Daily world boss" : "World boss", position,
+                WorldBossScale, feature.Mob);
+        if (string.IsNullOrWhiteSpace(feature.MarkerType) || feature.MarkerType == "ClusterExit") return null;
+        var label = IconNames.GetValueOrDefault(feature.MarkerType)
+            ?? Humanize(feature.Type is "minimap_marker" or "resource_landmark" && !string.IsNullOrWhiteSpace(feature.Label) ? feature.Label : feature.MarkerType);
+        return new(feature.MarkerType, label, position, OutpostIcons.Contains(feature.MarkerType) ? OutpostIconScale : 1);
     }
 
     // Null when the CDN has no such file or it can't be decoded; a failed download throws.
@@ -457,6 +476,7 @@ public sealed class MapDataService : IDisposable
         public string? Type { get; set; }
         public string? MarkerType { get; set; }
         public string? Label { get; set; }
+        public string? Mob { get; set; }
         public double? X { get; set; }
         public double? Z { get; set; }
     }

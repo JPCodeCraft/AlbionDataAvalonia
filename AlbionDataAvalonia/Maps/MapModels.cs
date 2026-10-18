@@ -8,8 +8,11 @@ public readonly record struct MapPoint(double X, double Y);
 /// <summary>A connection to another zone, at its position in this zone's local coordinates.</summary>
 public sealed record MapZoneExit(string TargetId, MapPoint Position);
 
-/// <summary>One of the game's own minimap icons (banks, markets, outposts) in a zone.</summary>
-public sealed record MapZoneIcon(string MarkerType, string Label, MapPoint Position, double Scale = 1);
+/// <summary>
+/// One of the game's own minimap icons (banks, markets, outposts, Roads chests) in a zone, or a world boss, which
+/// has no icon and is drawn with its mob's portrait instead.
+/// </summary>
+public sealed record MapZoneIcon(string? MarkerType, string Label, MapPoint Position, double Scale = 1, string? Mob = null);
 
 /// <summary>A zone from the AlbionWorld catalog the website also uses.</summary>
 public sealed record MapZone(string Id, string DisplayName, string ImageFile, string MapCategory, string PvpCategory, int? Tier,
