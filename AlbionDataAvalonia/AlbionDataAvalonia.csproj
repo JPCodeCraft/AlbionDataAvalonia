@@ -8,12 +8,12 @@
 	</PropertyGroup>
 	<ItemGroup>
 		<AvaloniaResource Include="Assets\**" />
-		<AvaloniaResource Include="..\shared\AFMDataClientCore\assets\icons\icon_shop_premium.png"
-		                  Link="Assets\Icons\icon_shop_premium.png" />
+		<AvaloniaResource Include="..\shared\AFMDataClientCore\assets\icons\icon_shop_premium.png" Link="Assets\Icons\icon_shop_premium.png" />
 	</ItemGroup>
 	<ItemGroup>
 		<PackageReference Include="Avalonia" Version="11.3.10" />
 		<PackageReference Include="Avalonia.Controls.DataGrid" Version="11.3.10" />
+		<PackageReference Include="Avalonia.Controls.ItemsRepeater" Version="11.1.5" />
 		<PackageReference Include="Avalonia.Themes.Fluent" Version="11.3.10" />
 		<PackageReference Include="Avalonia.Fonts.Inter" Version="11.3.10" />
 		<PackageReference Include="CommunityToolkit.Mvvm" Version="8.4.2" />

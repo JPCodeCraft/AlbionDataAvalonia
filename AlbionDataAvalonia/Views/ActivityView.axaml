@@ -95,10 +95,6 @@
         <Style Selector="ListBox.ActivitySessionList ListBoxItem:selected"><Setter Property="Background" Value="{DynamicResource UiSelectedBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource UiAccentTextBrush}" /><Setter Property="BorderThickness" Value="3,0,0,0" /></Style>
         <Style Selector="TextBlock.PartyChange"><Setter Property="Foreground" Value="{DynamicResource UiNegativeTextBrush}" /></Style>
         <Style Selector="TextBlock.PartyChange.Joined"><Setter Property="Foreground" Value="{DynamicResource UiPositiveTextBrush}" /></Style>
-        <Style Selector="TabControl.ActivityDetails DataGrid">
-            <Setter Property="VerticalScrollBarVisibility" Value="Auto" />
-            <Setter Property="MaxHeight" Value="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" />
-        </Style>
     </UserControl.Styles>
 
     <Grid RowDefinitions="Auto,*" Margin="0,8,0,0" RowSpacing="12">
@@ -225,7 +221,7 @@
                         </StackPanel>
                         <ContentControl Content="{Binding CurrentSummary}" ContentTemplate="{StaticResource SummaryTemplate}" />
                         <Expander Header="Gathered" IsExpanded="False" HorizontalAlignment="Stretch" Padding="0">
-                            <StackPanel Margin="8,8,8,2"><controls:EmptyState Classes="Inline" Message="No items gathered yet." IsVisible="{Binding !HasCurrentResources}" Margin="4,4,4,8" /><ScrollViewer MaxHeight="144" HorizontalScrollBarVisibility="Disabled"><ItemsControl ItemsSource="{Binding CurrentResources}" ItemTemplate="{StaticResource ActivityResourceTileTemplate}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel></ItemsControl></ScrollViewer></StackPanel>
+                            <StackPanel Margin="8,8,8,2"><controls:EmptyState Classes="Inline" Message="No items gathered yet." IsVisible="{Binding !HasCurrentResources}" Margin="4,4,4,8" /><ScrollViewer MaxHeight="144" HorizontalScrollBarVisibility="Disabled"><ItemsRepeater ItemsSource="{Binding CurrentResources}" ItemTemplate="{StaticResource ActivityResourceTileTemplate}"><ItemsRepeater.Layout><UniformGridLayout MinItemWidth="236" MinItemHeight="56" ItemsStretch="None" /></ItemsRepeater.Layout></ItemsRepeater></ScrollViewer></StackPanel>
                         </Expander>
                         <Expander x:Name="CurrentLootPanel" Header="Loot" IsExpanded="{Binding IsCurrentLootExpanded, Mode=TwoWay}" HorizontalAlignment="Stretch" Padding="0">
                             <StackPanel Margin="8,8,8,2" Spacing="8">
@@ -325,10 +321,10 @@
                             </ListBox>
                         </StackPanel>
                         <ContentControl Content="{Binding DetailSummary}" ContentTemplate="{StaticResource SummaryTemplate}" />
-                        <TabControl Classes="ActivityDetails" SelectedIndex="{Binding SelectedDetailTabIndex, Mode=TwoWay}">
+                        <TabControl SelectedIndex="{Binding SelectedDetailTabIndex, Mode=TwoWay}">
                             <TabItem Header="Encounters" IsEnabled="{Binding Detail.HasDetailedHistory}">
                                 <Grid RowDefinitions="Auto,Auto" RowSpacing="6">
-                                    <DataGrid ItemsSource="{Binding Encounters}" Height="{Binding Encounters.Count, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}" SelectedItem="{Binding SelectedEncounter, Mode=TwoWay}" SelectionMode="Single">
+                                    <DataGrid ItemsSource="{Binding Encounters}" Height="{Binding Encounters.Count, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}" MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto" SelectedItem="{Binding SelectedEncounter, Mode=TwoWay}" SelectionMode="Single">
                                         <DataGrid.Columns>
                                             <DataGridTextColumn Header="#" Binding="{Binding Number}" />
                                             <DataGridTextColumn Header="Started" Binding="{Binding StartedText}" />
@@ -351,7 +347,7 @@
                                 </StackPanel>
                             </TabItem>
                             <TabItem Header="Players" IsEnabled="{Binding Detail.HasDetailedHistory}">
-                                <DataGrid x:Name="HistoryPlayersTable" ItemsSource="{Binding Players}" Height="{Binding Players.Count, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}" SelectedItem="{Binding SelectedPlayer, Mode=TwoWay}" SelectionMode="Single">
+                                <DataGrid x:Name="HistoryPlayersTable" ItemsSource="{Binding Players}" Height="{Binding Players.Count, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}" MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto" SelectedItem="{Binding SelectedPlayer, Mode=TwoWay}" SelectionMode="Single">
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="Player" Binding="{Binding Name}" Width="*" MinWidth="160" />
                                         <DataGridTextColumn Header="Group" Binding="{Binding Relationship}" />
@@ -369,7 +365,7 @@
                                 </DataGrid>
                             </TabItem>
                             <TabItem Header="Killed mobs" IsEnabled="{Binding Detail.HasDetailedHistory}">
-                                <DataGrid ItemsSource="{Binding Mobs}" Height="{Binding Mobs.Count, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}">
+                                <DataGrid ItemsSource="{Binding Mobs}" Height="{Binding Mobs.Count, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}" MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto">
                                     <DataGrid.Columns><DataGridTextColumn Header="Mob" Binding="{Binding Name}" Width="*" /><DataGridTextColumn Header="Kills" Binding="{Binding Count}" /></DataGrid.Columns>
                                 </DataGrid>
                             </TabItem>
@@ -380,10 +376,10 @@
                                         <controls:SegmentedSelector ItemsSource="{Binding Filters.ItemSourceOptions}" SelectedItem="{Binding SelectedSessionItemSource, Mode=TwoWay}" AutomationProperties.Name="Session item source" />
                                     </StackPanel>
                                     <Expander Grid.Row="1" Header="Gathered" IsVisible="{Binding HasSessionResources}" IsExpanded="False" Padding="0" HorizontalAlignment="Stretch">
-                                        <ItemsControl ItemsSource="{Binding SessionResources}" ItemTemplate="{StaticResource ActivityResourceTileTemplate}" Margin="8,8,8,2"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel></ItemsControl>
+                                        <ItemsRepeater ItemsSource="{Binding SessionResources}" ItemTemplate="{StaticResource ActivityResourceTileTemplate}" Margin="8,8,8,2"><ItemsRepeater.Layout><UniformGridLayout MinItemWidth="236" MinItemHeight="56" ItemsStretch="None" /></ItemsRepeater.Layout></ItemsRepeater>
                                     </Expander>
                                     <Expander Grid.Row="2" Header="Loot" IsVisible="{Binding Detail.ShowLootPanel}" IsExpanded="False" Padding="0" HorizontalAlignment="Stretch">
-                                    <DataGrid ItemsSource="{Binding SessionLoot}" RowHeight="56" Height="{Binding SessionLoot.Count, Converter={x:Static views:ActivityView.HistoryLootTableHeightConverter}}">
+                                    <DataGrid ItemsSource="{Binding SessionLoot}" RowHeight="56" Height="{Binding SessionLoot.Count, Converter={x:Static views:ActivityView.HistoryLootTableHeightConverter}}" MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto">
                                         <DataGrid.Columns>
                                             <DataGridTextColumn Header="Time" Binding="{Binding TimeText}" />
                                             <DataGridTemplateColumn Header="Item" Width="*" MinWidth="200" CellTemplate="{StaticResource LootItemTemplate}" />
@@ -447,7 +443,7 @@
                                 <StackPanel Spacing="12">
                                     <controls:EmptyState Classes="Inline" Message="No party members were recorded in this session." IsVisible="{Binding !HasPartyHistory}" />
                                     <TextBlock Text="{Binding PartyHistory.SummaryText}" IsVisible="{Binding HasPartyHistory}" Classes="UiLabel" />
-                                    <DataGrid ItemsSource="{Binding PartyHistory.Members}" IsVisible="{Binding HasPartyHistory}" Height="{Binding PartyHistory.MemberCount, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}">
+                                    <DataGrid ItemsSource="{Binding PartyHistory.Members}" IsVisible="{Binding HasPartyHistory}" Height="{Binding PartyHistory.MemberCount, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}" MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto">
                                         <DataGrid.Columns>
                                             <DataGridTextColumn Header="Member" Binding="{Binding Name}" Width="*" MinWidth="160" />
                                             <DataGridTextColumn Header="Joined" Binding="{Binding JoinedText}" />
@@ -457,7 +453,7 @@
                                     </DataGrid>
                                     <StackPanel Spacing="6" IsVisible="{Binding HasPartyChanges}">
                                         <TextBlock Text="Changes" Classes="UiSectionTitle" />
-                                        <DataGrid ItemsSource="{Binding PartyHistory.Changes}" Height="{Binding PartyHistory.ChangeCount, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}">
+                                        <DataGrid ItemsSource="{Binding PartyHistory.Changes}" Height="{Binding PartyHistory.ChangeCount, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}" MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto">
                                             <DataGrid.Columns>
                                                 <DataGridTextColumn Header="Time" Binding="{Binding TimeText}" />
                                                 <DataGridTemplateColumn Header="Change">
@@ -505,7 +501,7 @@
                         </WrapPanel>
                     </StackPanel>
                     <Expander Header="Gathered" IsVisible="{Binding HasGlobalResources}" IsExpanded="False" Padding="0" HorizontalAlignment="Stretch">
-                                        <ScrollViewer MaxHeight="108" HorizontalScrollBarVisibility="Disabled" Margin="8,8,8,2"><ItemsControl ItemsSource="{Binding GlobalResources}" ItemTemplate="{StaticResource ActivityResourceTileTemplate}"><ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel></ItemsControl></ScrollViewer>
+                                        <ScrollViewer MaxHeight="108" HorizontalScrollBarVisibility="Disabled" Margin="8,8,8,2"><ItemsRepeater ItemsSource="{Binding GlobalResources}" ItemTemplate="{StaticResource ActivityResourceTileTemplate}"><ItemsRepeater.Layout><UniformGridLayout MinItemWidth="236" MinItemHeight="56" ItemsStretch="None" /></ItemsRepeater.Layout></ItemsRepeater></ScrollViewer>
                                     </Expander>
                     <Expander Header="Loot" IsVisible="{Binding ShowGlobalLootPanel}" IsExpanded="False" Padding="0" HorizontalAlignment="Stretch">
                     <DataGrid ItemsSource="{Binding GlobalLoot}" RowHeight="56" MaxHeight="420">
