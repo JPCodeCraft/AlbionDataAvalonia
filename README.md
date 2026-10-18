@@ -162,6 +162,8 @@ Each dungeon, Mists visit or stretch of open world is a **run** inside the sessi
 
 **Current** shows the session you're playing right now: total silver and silver per hour, damage and healing with DPS and HPS, combat fame, silver picked up, loot value, kills, and everything you gathered and fished. Switch between the whole **Session**, the **Current run** or the **Last X hours**. A chart at the bottom follows the last 5, 10 or 15 minutes.
 
+![The Current tab during a session](docs/screenshots/activity-current.png)
+
 ### History
 
 **History** lists every saved session with its zones, length and silver. Pick one to see the same totals, then choose a run to see only that part. The tabs below break the session down into encounters, charts, players, killed mobs, items, a timeline, the maps you visited and your party.
