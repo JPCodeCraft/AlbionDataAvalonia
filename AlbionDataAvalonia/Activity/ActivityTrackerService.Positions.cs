@@ -10,13 +10,13 @@ namespace AlbionDataAvalonia.Activity;
 // on events that happen somewhere, and runs keep a sampled path of where the character went.
 public sealed partial class ActivityTrackerService
 {
-    private static readonly TimeSpan PathSampleInterval = TimeSpan.FromSeconds(2);
-    private const double PathSampleDistance = 3;
+    // The stored path and the live trail keep the same detail: a point every half second once the
+    // character has moved a unit. That is about 100 KB for an hour of walking.
+    private static readonly TimeSpan PathSampleInterval = TimeSpan.FromMilliseconds(500);
+    private const double PathSampleDistance = 1;
     private static readonly TimeSpan PathSegmentLength = TimeSpan.FromMinutes(1);
     private const int MaxPathSegmentPoints = 64;
-    // The live map keeps a finer trail in memory than the stored path, for the current map only.
-    private static readonly TimeSpan LiveTrailInterval = TimeSpan.FromMilliseconds(500);
-    private const double LiveTrailDistance = 1;
+    // The live map keeps its trail in memory, for the current map only.
     private static readonly TimeSpan LiveTrailAge = TimeSpan.FromHours(2);
     private const int MaxLiveTrailPoints = 8000;
     private const int MaxLiveMarkers = 600;
@@ -123,8 +123,8 @@ public sealed partial class ActivityTrackerService
         if (liveTrail.Count > 0)
         {
             var last = liveTrail[^1];
-            if (at - last.CapturedAtUtc < LiveTrailInterval
-                || Math.Sqrt(Math.Pow(point.X - last.X, 2) + Math.Pow(point.Y - last.Y, 2)) < LiveTrailDistance) return;
+            if (at - last.CapturedAtUtc < PathSampleInterval
+                || Math.Sqrt(Math.Pow(point.X - last.X, 2) + Math.Pow(point.Y - last.Y, 2)) < PathSampleDistance) return;
         }
 
         liveTrail.Add(liveHead.Value);
