@@ -3,6 +3,7 @@ using Serilog;
 using System;
 using System.Collections.Generic;
 using System.IO;
+using System.Linq;
 using System.Text.Json;
 using System.Text.Json.Serialization;
 using System.Threading.Tasks;
@@ -16,13 +17,21 @@ namespace AlbionDataAvalonia.Items.Services
         private const string JsonUrl = "https://cdn.albionfreemarket.com/AlbionLocalization/processed_mobs.json";
 
         private Dictionary<int, MobEntry> mobsById = new();
+        private Dictionary<string, string> uniqueNamesByName = new(StringComparer.OrdinalIgnoreCase);
+
+        public bool IsLoaded => mobsById.Count > 0;
 
         public async Task InitializeAsync()
         {
             try
             {
                 Log.Information("Initializing mobs service...");
-                mobsById = await ReferenceDataLoader.Shared.LoadAsync(JsonUrl, ParseMobs);
+                var loaded = await ReferenceDataLoader.Shared.LoadAsync(JsonUrl, ParseMobs);
+                var names = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
+                foreach (var mob in loaded.Values.OrderBy(x => x.MobId))
+                    if (!string.IsNullOrWhiteSpace(mob.En) && !string.IsNullOrWhiteSpace(mob.UniqueName)) names.TryAdd(mob.En, mob.UniqueName);
+                uniqueNamesByName = names;
+                mobsById = loaded;
 
                 Log.Information("Mobs service initialized with {MobCount} mob mappings.", mobsById.Count);
             }
@@ -67,6 +76,13 @@ namespace AlbionDataAvalonia.Items.Services
                 ? null
                 : mob.UniqueName;
         }
+
+        /// <summary>
+        /// The unique name of the first mob with this English name. Events that saved only a mob's name (damage, not
+        /// kills) find its portrait this way; the tiers of one mob share a name and a portrait.
+        /// </summary>
+        public string? FindUniqueName(string? name) =>
+            string.IsNullOrWhiteSpace(name) ? null : uniqueNamesByName.GetValueOrDefault(name.Trim());
 
         public MobDescriptor? GetMobDescriptor(int? index)
         {

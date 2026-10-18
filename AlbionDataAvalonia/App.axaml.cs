@@ -107,6 +107,7 @@ public partial class App : Application
         collection.AddCommonServices();
         var services = collection.BuildServiceProvider();
         LazyItemImage.Configure(services.GetRequiredService<ItemImageService>());
+        LazyMobImage.Configure(services.GetRequiredService<MobImageService>());
 
         //LOGGING
         SetupLogging(services.GetRequiredService<ListSink>());
@@ -568,6 +569,7 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton(provider => provider.GetRequiredService<DesktopClientCore>().Core.Items);
         collection.AddSingleton(provider => provider.GetRequiredService<DesktopClientCore>().Core.Achievements);
         collection.AddSingleton<ItemImageService>();
+        collection.AddSingleton<MobImageService>();
         collection.AddSingleton<ItemEstimatedMarketValueService>();
         collection.AddSingleton<ItemEstimatedMarketValueBackendLoader>();
         collection.AddSingleton<AuthService>();

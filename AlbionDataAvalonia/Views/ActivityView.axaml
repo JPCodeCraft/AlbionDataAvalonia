@@ -50,12 +50,18 @@
             </StackPanel>
         </DataTemplate>
         <DataTemplate x:Key="LootTemplate" x:DataType="vm:ActivityLootRow">
-            <controls:ItemCell ItemUniqueName="{Binding ItemUniqueName}" ImageQuality="{Binding ImageQuality}" Title="{Binding ItemName}" Subtitle="{Binding Quality}"
-                               ToolTip.Tip="{Binding ItemDetails}" />
+            <controls:ItemCell Classes="Compact" IconSize="28" ItemUniqueName="{Binding ItemUniqueName}" ImageQuality="{Binding ImageQuality}" Title="{Binding ItemName}" Subtitle="{Binding Quality}"
+                               ToolTip.Tip="{Binding ItemTip}" />
         </DataTemplate>
         <!-- History rows show the same item without hover details. -->
         <DataTemplate x:Key="LootItemTemplate" x:DataType="vm:ActivityLootRow">
-            <controls:ItemCell ItemUniqueName="{Binding ItemUniqueName}" ImageQuality="{Binding ImageQuality}" Title="{Binding ItemName}" Subtitle="{Binding Quality}" />
+            <controls:ItemCell Classes="Compact" IconSize="28" ItemUniqueName="{Binding ItemUniqueName}" ImageQuality="{Binding ImageQuality}" Title="{Binding ItemName}" Subtitle="{Binding Quality}" />
+        </DataTemplate>
+        <!-- A killed mob as a tile beside the gathered ones: its portrait, name and kills. -->
+        <DataTemplate x:Key="ActivityMobTileTemplate" x:DataType="vm:ActivityMobRow">
+            <Border Width="230" Padding="8,6" Margin="0,0,6,6" CornerRadius="{DynamicResource UiRadiusControl}" Background="{DynamicResource UiInputBrush}">
+                <controls:MobCell MobUniqueName="{Binding MobUniqueName}" IconSize="40" Title="{Binding Name}" Subtitle="{Binding KillsText}" ToolTip.Tip="{Binding Tip}" />
+            </Border>
         </DataTemplate>
 
         <DataTemplate x:Key="ActivityVisibilityTemplate" x:DataType="vm:ActivityFilterState">
@@ -71,7 +77,7 @@
             </WrapPanel>
         </DataTemplate>
         <DataTemplate x:Key="ActivityResourceTileTemplate" x:DataType="vm:ActivityResourceRow">
-            <Border Width="230" Padding="8" Margin="0,0,6,6" CornerRadius="{DynamicResource UiRadiusControl}" Background="{DynamicResource UiInputBrush}" ToolTip.Tip="{Binding Details}">
+            <Border Width="230" Padding="8" Margin="0,0,6,6" CornerRadius="{DynamicResource UiRadiusControl}" Background="{DynamicResource UiInputBrush}" ToolTip.Tip="{Binding Tip}">
                 <Grid ColumnDefinitions="32,*" RowDefinitions="Auto,Auto" ColumnSpacing="8" RowSpacing="3">
                     <Image Grid.RowSpan="2" Width="32" Height="32" Stretch="Uniform" items:LazyItemImage.ItemUniqueName="{Binding ItemUniqueName}" items:LazyItemImage.Quality="{Binding ImageQuality}" />
                     <Grid Grid.Column="1" ColumnDefinitions="*,Auto" ColumnSpacing="6">
@@ -87,6 +93,20 @@
             </Border>
         </DataTemplate>
     </UserControl.Resources>
+    <UserControl.DataTemplates>
+        <!-- Hover cards for items and mobs: the image larger than the row shows it, like the chart and map tooltips. -->
+        <DataTemplate DataType="vm:ActivityTip" x:DataType="vm:ActivityTip">
+            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" MaxWidth="360">
+                <Image Width="56" Height="56" Stretch="Uniform" IsVisible="{Binding IsItem}" VerticalAlignment="Top"
+                       items:LazyItemImage.ItemUniqueName="{Binding ItemUniqueName}" items:LazyItemImage.Quality="{Binding Quality}" />
+                <Image Width="64" Height="64" Stretch="Uniform" IsVisible="{Binding IsMob}" VerticalAlignment="Top" items:LazyMobImage.MobUniqueName="{Binding Mob}" />
+                <StackPanel Grid.Column="1" Spacing="2" VerticalAlignment="Center">
+                    <TextBlock Text="{Binding Title}" FontWeight="SemiBold" TextWrapping="Wrap" />
+                    <TextBlock Classes="UiLabel" Text="{Binding Details}" IsVisible="{Binding HasDetails}" TextWrapping="Wrap" />
+                </StackPanel>
+            </Grid>
+        </DataTemplate>
+    </UserControl.DataTemplates>
     <!-- The session list and party changes appear only here. -->
     <UserControl.Styles>
         <Style Selector="ListBox.ActivitySessionList"><Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" /></Style>
@@ -223,10 +243,13 @@
                         <Expander Header="Gathered" IsExpanded="False" HorizontalAlignment="Stretch" Padding="0">
                             <StackPanel Margin="8,8,8,2"><controls:EmptyState Classes="Inline" Message="No items gathered yet." IsVisible="{Binding !HasCurrentResources}" Margin="4,4,4,8" /><ScrollViewer MaxHeight="144" HorizontalScrollBarVisibility="Disabled"><ItemsRepeater ItemsSource="{Binding CurrentResources}" ItemTemplate="{StaticResource ActivityResourceTileTemplate}"><ItemsRepeater.Layout><UniformGridLayout MinItemWidth="236" MinItemHeight="56" ItemsStretch="None" /></ItemsRepeater.Layout></ItemsRepeater></ScrollViewer></StackPanel>
                         </Expander>
+                        <Expander Header="Killed mobs" IsExpanded="{Binding IsCurrentMobsExpanded, Mode=TwoWay}" HorizontalAlignment="Stretch" Padding="0">
+                            <StackPanel Margin="8,8,8,2"><controls:EmptyState Classes="Inline" Message="No mobs killed yet." IsVisible="{Binding !HasCurrentMobs}" Margin="4,4,4,8" /><ScrollViewer MaxHeight="144" HorizontalScrollBarVisibility="Disabled"><ItemsRepeater ItemsSource="{Binding CurrentMobs}" ItemTemplate="{StaticResource ActivityMobTileTemplate}"><ItemsRepeater.Layout><UniformGridLayout MinItemWidth="236" MinItemHeight="58" ItemsStretch="None" /></ItemsRepeater.Layout></ItemsRepeater></ScrollViewer></StackPanel>
+                        </Expander>
                         <Expander x:Name="CurrentLootPanel" Header="Loot" IsExpanded="{Binding IsCurrentLootExpanded, Mode=TwoWay}" HorizontalAlignment="Stretch" Padding="0">
                             <StackPanel Margin="8,8,8,2" Spacing="8">
                                 <controls:EmptyState Classes="Inline" Message="No loot picked up yet." IsVisible="{Binding !HasCurrentLoot}" Margin="4,4,4,8" />
-                                <DataGrid ItemsSource="{Binding CurrentLoot}" RowHeight="56" IsVisible="{Binding HasCurrentLoot}" MaxHeight="220">
+                                <DataGrid ItemsSource="{Binding CurrentLoot}" Classes="Compact" RowHeight="40" IsVisible="{Binding HasCurrentLoot}" MaxHeight="220">
                                     <DataGrid.Columns>
                                         <DataGridTextColumn Header="Time" Binding="{Binding TimeText}" />
                                         <DataGridTemplateColumn Header="Item" Width="*" MinWidth="200" CellTemplate="{StaticResource LootTemplate}" />
@@ -365,8 +388,17 @@
                                 </DataGrid>
                             </TabItem>
                             <TabItem Header="Killed mobs" IsEnabled="{Binding Detail.HasDetailedHistory}">
-                                <DataGrid ItemsSource="{Binding Mobs}" Height="{Binding Mobs.Count, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}" MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto">
-                                    <DataGrid.Columns><DataGridTextColumn Header="Mob" Binding="{Binding Name}" Width="*" /><DataGridTextColumn Header="Kills" Binding="{Binding Count}" /></DataGrid.Columns>
+                                <DataGrid ItemsSource="{Binding Mobs}" RowHeight="36" Height="{Binding Mobs.Count, Converter={x:Static views:ActivityView.HistoryMobTableHeightConverter}}" MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto">
+                                    <DataGrid.Columns>
+                                        <DataGridTemplateColumn Header="Mob" Width="*" SortMemberPath="Name">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate x:DataType="vm:ActivityMobRow">
+                                                    <controls:MobCell MobUniqueName="{Binding MobUniqueName}" IconSize="32" Title="{Binding Name}" Margin="8,0" ToolTip.Tip="{Binding Tip}" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="Kills" Binding="{Binding Count}" />
+                                    </DataGrid.Columns>
                                 </DataGrid>
                             </TabItem>
                             <TabItem Header="Items">
@@ -379,7 +411,7 @@
                                         <ItemsRepeater ItemsSource="{Binding SessionResources}" ItemTemplate="{StaticResource ActivityResourceTileTemplate}" Margin="8,8,8,2"><ItemsRepeater.Layout><UniformGridLayout MinItemWidth="236" MinItemHeight="56" ItemsStretch="None" /></ItemsRepeater.Layout></ItemsRepeater>
                                     </Expander>
                                     <Expander Grid.Row="2" Header="Loot" IsVisible="{Binding Detail.ShowLootPanel}" IsExpanded="False" Padding="0" HorizontalAlignment="Stretch">
-                                    <DataGrid ItemsSource="{Binding SessionLoot}" RowHeight="56" Height="{Binding SessionLoot.Count, Converter={x:Static views:ActivityView.HistoryLootTableHeightConverter}}" MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto">
+                                    <DataGrid ItemsSource="{Binding SessionLoot}" Classes="Compact" RowHeight="40" Height="{Binding SessionLoot.Count, Converter={x:Static views:ActivityView.HistoryLootTableHeightConverter}}" MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto">
                                         <DataGrid.Columns>
                                             <DataGridTextColumn Header="Time" Binding="{Binding TimeText}" />
                                             <DataGridTemplateColumn Header="Item" Width="*" MinWidth="200" CellTemplate="{StaticResource LootItemTemplate}" />
@@ -409,7 +441,7 @@
                                     <ContentControl Content="{Binding Filters}" ContentTemplate="{StaticResource ActivityVisibilityTemplate}" />
                                     <DataGrid x:Name="HistoryTimelineTable" Grid.Row="1" ItemsSource="{Binding Timeline}" Height="{Binding Timeline.Count, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}"
                                               MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto">
-                                        <DataGrid.Columns><DataGridTextColumn Header="Time" Binding="{Binding TimeText}" /><DataGridTextColumn Header="Event" Binding="{Binding Kind}" /><DataGridTextColumn Header="Source" Binding="{Binding Source}" /><DataGridTextColumn Header="Target" Binding="{Binding Target}" /><DataGridTextColumn Header="Details" Binding="{Binding Description}" Width="*" MinWidth="160" /><DataGridTextColumn Header="Location" Binding="{Binding Location}" /></DataGrid.Columns>
+                                        <DataGrid.Columns><DataGridTextColumn Header="Time" Binding="{Binding TimeText}" /><DataGridTextColumn Header="Event" Binding="{Binding Kind}" /><DataGridTemplateColumn Header="Source" SortMemberPath="Source"><DataGridTemplateColumn.CellTemplate><DataTemplate x:DataType="vm:ActivityEventRow"><StackPanel Orientation="Horizontal" Spacing="6" Margin="12,0" VerticalAlignment="Center" ToolTip.Tip="{Binding SourceTip}"><Image Width="24" Height="24" Stretch="Uniform" IsVisible="{Binding HasSourceMob}" items:LazyMobImage.MobUniqueName="{Binding SourceMob}" /><TextBlock Text="{Binding Source}" VerticalAlignment="Center" /></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTemplateColumn Header="Target" SortMemberPath="Target"><DataGridTemplateColumn.CellTemplate><DataTemplate x:DataType="vm:ActivityEventRow"><StackPanel Orientation="Horizontal" Spacing="6" Margin="12,0" VerticalAlignment="Center" ToolTip.Tip="{Binding TargetTip}"><Image Width="24" Height="24" Stretch="Uniform" IsVisible="{Binding HasTargetMob}" items:LazyMobImage.MobUniqueName="{Binding TargetMob}" /><TextBlock Text="{Binding Target}" VerticalAlignment="Center" /></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTextColumn Header="Details" Binding="{Binding Description}" Width="*" MinWidth="160" /><DataGridTextColumn Header="Location" Binding="{Binding Location}" /></DataGrid.Columns>
                                     </DataGrid>
                                     <Button Grid.Row="2" Classes="UiAction" Content="Load more" Command="{Binding LoadMoreTimelineCommand}" IsVisible="{Binding HasMoreTimeline}" HorizontalAlignment="Left" />
                                 </Grid>
@@ -504,7 +536,7 @@
                                         <ScrollViewer MaxHeight="108" HorizontalScrollBarVisibility="Disabled" Margin="8,8,8,2"><ItemsRepeater ItemsSource="{Binding GlobalResources}" ItemTemplate="{StaticResource ActivityResourceTileTemplate}"><ItemsRepeater.Layout><UniformGridLayout MinItemWidth="236" MinItemHeight="56" ItemsStretch="None" /></ItemsRepeater.Layout></ItemsRepeater></ScrollViewer>
                                     </Expander>
                     <Expander Header="Loot" IsVisible="{Binding ShowGlobalLootPanel}" IsExpanded="False" Padding="0" HorizontalAlignment="Stretch">
-                    <DataGrid ItemsSource="{Binding GlobalLoot}" RowHeight="56" MaxHeight="420">
+                    <DataGrid ItemsSource="{Binding GlobalLoot}" Classes="Compact" RowHeight="40" MaxHeight="420">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Time" Binding="{Binding DateTimeText}" />
                             <DataGridTemplateColumn Header="Item" Width="*" MinWidth="220" CellTemplate="{StaticResource LootTemplate}" />

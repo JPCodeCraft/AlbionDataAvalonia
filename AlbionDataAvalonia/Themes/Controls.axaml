@@ -58,6 +58,10 @@
         <Setter Property="AutoGenerateColumns" Value="False" />
         <Setter Property="IsReadOnly" Value="True" />
     </Style>
+    <!-- Tables of items: smaller text, so their rows can be shorter. The grid's own font size doesn't reach its cells. -->
+    <Style Selector=".AppPage DataGrid.Compact DataGridCell">
+        <Setter Property="FontSize" Value="{DynamicResource UiFontSizeSmall}" />
+    </Style>
     <Style Selector=".AppPage DataGridColumnHeader /template/ Grid#PART_ColumnHeaderRoot">
         <Setter Property="Background" Value="{DynamicResource UiInputBrush}" />
     </Style>

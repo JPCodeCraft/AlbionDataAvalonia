@@ -419,11 +419,11 @@
                            items:LazyItemImage.Quality="{TemplateBinding ImageQuality}" />
                     <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="1">
                         <TextBlock x:Name="PART_Title" Text="{TemplateBinding Title}" TextWrapping="Wrap" />
-                        <TextBlock Text="{TemplateBinding Subtitle}"
+                        <TextBlock x:Name="PART_Subtitle" Text="{TemplateBinding Subtitle}"
                                    IsVisible="{TemplateBinding Subtitle, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                    FontSize="{DynamicResource UiFontSizeSmall}"
                                    Foreground="{DynamicResource UiTextSecondaryBrush}" />
-                        <TextBlock Text="{TemplateBinding Detail}"
+                        <TextBlock x:Name="PART_Detail" Text="{TemplateBinding Detail}"
                                    IsVisible="{TemplateBinding Detail, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
                                    FontSize="{DynamicResource UiFontSizeSmall}"
                                    Foreground="{DynamicResource UiTextSecondaryBrush}" />
@@ -436,5 +436,42 @@
             <Setter Property="TextWrapping" Value="NoWrap" />
             <Setter Property="TextTrimming" Value="CharacterEllipsis" />
         </Style>
+        <!-- Smaller text in one line each, for compact tables of items. -->
+        <Style Selector="^.Compact /template/ TextBlock#PART_Title">
+            <Setter Property="FontSize" Value="{DynamicResource UiFontSizeSmall}" />
+            <Setter Property="TextWrapping" Value="NoWrap" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+        <Style Selector="^.Compact /template/ TextBlock#PART_Subtitle, ^.Compact /template/ TextBlock#PART_Detail">
+            <Setter Property="FontSize" Value="{DynamicResource UiFontSizeCaption}" />
+            <Setter Property="TextTrimming" Value="CharacterEllipsis" />
+        </Style>
+        <Style Selector="^.Compact /template/ StackPanel">
+            <Setter Property="Spacing" Value="0" />
+        </Style>
+    </ControlTheme>
+
+    <!-- MobCell -->
+    <ControlTheme x:Key="{x:Type controls:MobCell}" TargetType="controls:MobCell">
+        <Setter Property="VerticalAlignment" Value="Center" />
+        <Setter Property="Template">
+            <ControlTemplate>
+                <Grid ColumnDefinitions="Auto,*" ColumnSpacing="8">
+                    <Image Width="{TemplateBinding IconSize}"
+                           Height="{TemplateBinding IconSize}"
+                           Stretch="Uniform"
+                           VerticalAlignment="Center"
+                           items:LazyMobImage.MobUniqueName="{TemplateBinding MobUniqueName}" />
+                    <StackPanel Grid.Column="1" VerticalAlignment="Center" Spacing="0">
+                        <TextBlock Text="{TemplateBinding Title}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{TemplateBinding Subtitle}"
+                                   IsVisible="{TemplateBinding Subtitle, Converter={x:Static StringConverters.IsNotNullOrEmpty}}"
+                                   FontSize="{DynamicResource UiFontSizeCaption}"
+                                   Foreground="{DynamicResource UiTextSecondaryBrush}"
+                                   TextTrimming="CharacterEllipsis" />
+                    </StackPanel>
+                </Grid>
+            </ControlTemplate>
+        </Setter>
     </ControlTheme>
 </ResourceDictionary>

@@ -595,6 +595,8 @@ public sealed class LegendaryItemRowViewModel
     public bool CanViewInCalculator => CalculatorUrl is not null;
     public string ServerName => AlbionServers.Get(Source.AlbionServerId)?.Name ?? UiText.Unknown;
     public string Quality => ItemQuality.Format(Source.Quality);
+    // Quality and soul share one line in the compact table.
+    public string QualityAndSoulText => HasSoulName ? $"{Quality} · {SoulName}" : Quality;
     public int ImageQuality => Source.Quality <= 0 ? 1 : Source.Quality;
     public string AttunedTo => string.IsNullOrWhiteSpace(Source.AttunedToPlayerName)
         ? UiText.Unknown

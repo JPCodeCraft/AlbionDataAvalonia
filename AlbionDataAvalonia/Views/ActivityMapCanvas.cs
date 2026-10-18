@@ -230,7 +230,8 @@ public sealed class ActivityMapCanvas : Control
         // Icons are asked for only for the tooltip on view; one that arrives later redraws it.
         if (hovered is { } hover && pointer is { } at)
             ChartDrawing.DrawTooltip(context, bounds, at, hover.Title,
-                hover.Items.Select(row => new ChartDrawing.TooltipRow(LazyItemImage.ForDrawing(row.UniqueName, row.Quality, InvalidateVisual), row.Text, row.Value)).ToArray(),
+                hover.Items.Select(row => new ChartDrawing.TooltipRow(row.Mob ? LazyMobImage.ForDrawing(row.UniqueName, InvalidateVisual)
+                    : LazyItemImage.ForDrawing(row.UniqueName, row.Quality, InvalidateVisual), row.Text, row.Value, row.Mob)).ToArray(),
                 hover.Lines);
     }
 
@@ -438,19 +439,32 @@ public sealed class ActivityMapCanvas : Control
         }
     }
 
-    // A pickup or harvest shows its item like the lists do: icon, name and EMV.
+    // A pickup or harvest shows its item like the lists do: icon, name and EMV. A mob kill shows the mob's portrait.
     private static Hit MarkerHit(Point at, ActivityMapMarker marker, ActivityMapScene scene) =>
         new(at, 9, marker.Title, new[] { marker.Detail, When(marker.CapturedAtUtc, scene) }.Where(x => x.Length > 0).ToArray(),
-            HasItems(marker.Kind) ? [ItemLine(marker.ItemUniqueName, marker.Quality, marker.Subject, marker.Quantity, marker.Value, marker.Value is null)] : []);
+            HasItems(marker.Kind) ? [ItemLine(marker.ItemUniqueName, marker.Quality, marker.Subject, marker.Quantity, marker.Value, marker.Value is null)]
+            : IsMobKill(marker) ? [MobLine(marker.MobUniqueName, marker.Subject, 1)] : []);
 
     private static bool HasItems(ActivityMapMarkerKind kind) => kind is ActivityMapMarkerKind.Loot or ActivityMapMarkerKind.Gathering;
+
+    private static bool IsMobKill(ActivityMapMarker marker) => marker.Kind == ActivityMapMarkerKind.Kill && marker.MobUniqueName.Length > 0;
+
+    private static ItemRow MobLine(string uniqueName, string name, int kills) =>
+        new(uniqueName, 1, name, kills > 1 ? $"×{UiFormat.Whole(kills)}" : "", Mob: true);
+
+    // Mobs that share a name (the tiers of one mob) share a row, with the most common one's portrait.
+    private static IGrouping<string, ActivityMapMarker>[] MobGroups(IReadOnlyList<ActivityMapMarker> members) =>
+        members.Where(IsMobKill).GroupBy(x => x.Subject).OrderByDescending(x => x.Count()).ThenBy(x => x.Key).ToArray();
 
     private static ItemRow ItemLine(string uniqueName, int quality, string name, long quantity, long? value, bool missing) =>
         new(uniqueName, quality, $"{name}{(quality > 1 ? $" ({ItemQuality.Format(quality)})" : "")} ×{UiFormat.Whole(quantity)}",
             missing && value is not > 0 ? "no price" : UiFormat.Compact(value ?? 0));
 
-    // Pickups and gathering list their items, most valuable first.
-    private static IReadOnlyList<ItemRow> GroupItems(ActivityMapMarkerKind kind, IReadOnlyList<ActivityMapMarker> members) => !HasItems(kind) ? []
+    // Pickups and gathering list their items, most valuable first; kills list their mobs, the most common first.
+    private static IReadOnlyList<ItemRow> GroupItems(ActivityMapMarkerKind kind, IReadOnlyList<ActivityMapMarker> members) =>
+        kind == ActivityMapMarkerKind.Kill ? MobGroups(members).Take(GroupLinesShown).Select(x => MobLine(
+            x.GroupBy(m => m.MobUniqueName).OrderByDescending(m => m.Count()).First().Key, x.Key, x.Count())).ToArray()
+        : !HasItems(kind) ? []
         : ItemGroups(members).Take(GroupLinesShown).Select(x => ItemLine(x.Key.ItemUniqueName, x.Key.Quality, x.Key.Subject,
             x.Sum(m => m.Quantity), x.Sum(m => m.Value ?? 0), x.Any(m => m.Value is null))).ToArray();
 
@@ -466,8 +480,8 @@ public sealed class ActivityMapCanvas : Control
         _ => UiFormat.Count(members.Count, "death")
     };
 
-    // Kills list their mobs and players, the most common first; pickups and gathering add a total under their item
-    // rows. The time the group covers comes last.
+    // Kills list the players under their mob rows, the most common first; pickups and gathering add a total under
+    // their item rows. The time the group covers comes last.
     private static IReadOnlyList<string> GroupLines(ActivityMapMarkerKind kind, IReadOnlyList<ActivityMapMarker> members, ActivityMapScene scene)
     {
         var lines = new List<string>();
@@ -481,11 +495,14 @@ public sealed class ActivityMapCanvas : Control
         }
         else
         {
-            var groups = members.GroupBy(x => kind == ActivityMapMarkerKind.Kill ? x.Subject : x.Title)
+            var mobs = kind == ActivityMapMarkerKind.Kill ? MobGroups(members) : [];
+            var shown = Math.Max(0, GroupLinesShown - mobs.Length);
+            var groups = members.Where(x => kind != ActivityMapMarkerKind.Kill || !IsMobKill(x))
+                .GroupBy(x => kind == ActivityMapMarkerKind.Kill ? x.Subject : x.Title)
                 .OrderByDescending(x => x.Count()).ThenBy(x => x.Key).ToArray();
-            lines = groups.Take(GroupLinesShown).Select(x => x.Count() > 1 ? $"{x.Key} ×{x.Count()}" : x.Key).ToList();
-            if (groups.Length > GroupLinesShown)
-                lines.Add($"and {UiFormat.Whole(groups.Skip(GroupLinesShown).Sum(x => x.Count()))} more");
+            lines = groups.Take(shown).Select(x => x.Count() > 1 ? $"{x.Key} ×{x.Count()}" : x.Key).ToList();
+            var more = mobs.Skip(GroupLinesShown).Sum(x => x.Count()) + groups.Skip(shown).Sum(x => x.Count());
+            if (more > 0) lines.Add($"and {UiFormat.Whole(more)} more");
         }
 
         var party = members.Count(x => !x.IsOwn);
@@ -686,7 +703,7 @@ public sealed class ActivityMapCanvas : Control
 
     private sealed record Hit(Point At, double Radius, string Title, IReadOnlyList<string> Lines, IReadOnlyList<ItemRow> Items);
 
-    private sealed record ItemRow(string UniqueName, int Quality, string Text, string Value);
+    private sealed record ItemRow(string UniqueName, int Quality, string Text, string Value, bool Mob = false);
 
     private sealed class MarkerCluster(ActivityMapMarkerKind kind, Point at, double opacity)
     {

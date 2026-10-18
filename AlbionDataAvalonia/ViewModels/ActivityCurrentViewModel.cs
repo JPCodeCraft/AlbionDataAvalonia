@@ -109,6 +109,7 @@ public partial class ActivityCurrentViewModel : ObservableObject, IDisposable
         currentQueryCancellation.Cancel();
         liveTimelineCancellation.Cancel();
         CancelCurrentLootRead();
+        CancelCurrentMobsRead();
     }
 
     // A new play session starts empty.
@@ -178,6 +179,7 @@ public partial class ActivityCurrentViewModel : ObservableObject, IDisposable
         }
         else await RefreshCurrentPeriodAsync(cancellationToken);
         await RefreshCurrentLootAsync();
+        await RefreshCurrentMobsAsync();
     }
 
     private async Task RefreshCurrentResourcesAsync(Guid? sessionId, ActivityScope scope, CancellationToken cancellationToken)
@@ -291,6 +293,7 @@ public partial class ActivityCurrentViewModel : ObservableObject, IDisposable
     {
         currentQueryCancellation.Cancel(); currentQueryCancellation.Dispose();
         CancelCurrentLootRead(); currentLootCancellation.Dispose();
+        CancelCurrentMobsRead(); currentMobsCancellation.Dispose();
         liveTimelineCancellation.Cancel(); liveTimelineCancellation.Dispose();
         DisposeParty();
     }

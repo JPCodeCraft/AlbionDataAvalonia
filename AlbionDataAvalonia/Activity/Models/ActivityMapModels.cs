@@ -8,11 +8,12 @@ public enum ActivityMapMarkerKind { Kill, Loot, Gathering, Death }
 /// <summary>
 /// Something the local character or a party member did, placed where the local character stood. Subject is the
 /// mob, player or item. For items, Title is only who did what ("Looted"), and ItemUniqueName, Quality, Quantity and
-/// Value (total EMV, null without a price) let the map show and total them.
+/// Value (total EMV, null without a price) let the map show and total them. A mob kill names the mob for its portrait:
+/// its unique name, or its name when the kill didn't keep one.
 /// </summary>
 public sealed record ActivityMapMarker(ActivityMapMarkerKind Kind, string RawMapId, DateTime CapturedAtUtc, double X, double Y,
     string Title, string Detail, bool IsOwn = true, Guid EventId = default, string Subject = "", long Quantity = 0, long? Value = null,
-    string ItemUniqueName = "", int Quality = 1)
+    string ItemUniqueName = "", int Quality = 1, string MobUniqueName = "")
 {
     // Positions are always the local character's, so a party member's event is placed where this
     // character stood when the client saw it. IsOwn lets the map show only the character's own events.
@@ -51,7 +52,8 @@ public sealed record ActivityMapMarker(ActivityMapMarkerKind Kind, string RawMap
         var hasItems = found.Kind is ActivityMapMarkerKind.Loot or ActivityMapMarkerKind.Gathering;
         return new(found.Kind, value.RawMapId, value.CapturedAtUtc, x, y, found.Title, found.Detail, found.Own, value.Id, found.Subject,
             hasItems ? Math.Max(0, value.Quantity) : 0, hasItems ? TotalValue(value) : null,
-            hasItems ? value.ItemUniqueName : "", value.Quality is >= 1 and <= 5 ? value.Quality.Value : 1);
+            hasItems ? value.ItemUniqueName : "", value.Quality is >= 1 and <= 5 ? value.Quality.Value : 1,
+            value.Kind != ActivityEventKind.MobKilled ? "" : string.IsNullOrWhiteSpace(value.MobUniqueName) ? value.TargetName : value.MobUniqueName);
     }
 
     private static string Name(string name, string fallback) => string.IsNullOrWhiteSpace(name) ? fallback : name;

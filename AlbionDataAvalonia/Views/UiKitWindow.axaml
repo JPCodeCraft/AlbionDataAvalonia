@@ -132,6 +132,8 @@
                     </controls:FilterField>
                 </WrapPanel>
                 <controls:ItemCell ItemUniqueName="T6_BAG" ImageQuality="2" Title="ItemCell" Subtitle="Good" Detail="An item's icon and name" />
+                <controls:ItemCell Classes="Compact" IconSize="28" ItemUniqueName="T6_BAG" ImageQuality="2" Title="ItemCell.Compact" Subtitle="Smaller text for compact tables" />
+                <controls:MobCell MobUniqueName="MOB_BEAR" Title="MobCell" Subtitle="A mob's portrait in its rank ring, and its name" />
                 <Border Classes="UiCard Sunken" Height="120">
                     <controls:EmptyState Message="EmptyState" Hint="Shown while a list or table has nothing in it." />
                 </Border>

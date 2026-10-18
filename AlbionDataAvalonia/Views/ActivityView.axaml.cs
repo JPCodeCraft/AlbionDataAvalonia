@@ -17,7 +17,8 @@ public partial class ActivityView : UserControl
     // DataGrid caps its initial rows when measured with unlimited height.
     public static readonly FuncValueConverter<int, double> HistoryTableHeightConverter = new(count => 52 + Math.Max(0, count) * 32d);
     public static readonly FuncValueConverter<int, double> HistoryMapTableHeightConverter = new(count => 52 + Math.Max(0, count) * 48d);
-    public static readonly FuncValueConverter<int, double> HistoryLootTableHeightConverter = new(count => 52 + Math.Max(0, count) * 56d);
+    public static readonly FuncValueConverter<int, double> HistoryMobTableHeightConverter = new(count => 52 + Math.Max(0, count) * 36d);
+    public static readonly FuncValueConverter<int, double> HistoryLootTableHeightConverter = new(count => 52 + Math.Max(0, count) * 40d);
     public static readonly FuncValueConverter<double, double> HistoryTimelineViewportHeightConverter = new(height => Math.Clamp(height - 120, 240, 640));
 
     private ActivityViewModel? activeViewModel;

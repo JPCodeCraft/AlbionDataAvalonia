@@ -19,14 +19,17 @@ public static class ChartDrawing
     public const double TooltipLineSize = 12;
     public const double TooltipRadius = 6;
     public static readonly Thickness TooltipPadding = new(10, 7);
-    private const double TooltipIconSize = 30;
+    public const double TooltipIconSize = 30;
     private const double TooltipRowHeight = 34;
     private const double TooltipRowGap = 6;
     private const double TooltipIconGap = 8;
     private const double TooltipValueGap = 16;
 
-    /// <summary>An item row in a tooltip; Icon is null until the image has loaded.</summary>
-    public sealed record TooltipRow(IImage? Icon, string Text, string Value = "");
+    /// <summary>
+    /// An item or mob row in a tooltip; Icon is null until the image has loaded. A round row (a mob's portrait) keeps a
+    /// round space while it loads.
+    /// </summary>
+    public sealed record TooltipRow(IImage? Icon, string Text, string Value = "", bool Round = false);
 
     public static FormattedText Text(string value, double size, Color color, FontWeight weight = FontWeight.Normal) =>
         new(value, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
@@ -57,7 +60,7 @@ public static class ChartDrawing
     {
         var heading = Text(title, TooltipTitleSize, UiPalette.Text, FontWeight.SemiBold);
         var texts = lines.Where(line => !string.IsNullOrWhiteSpace(line)).Select(line => Text(line, TooltipLineSize, UiPalette.Muted)).ToArray();
-        var cells = rows.Select(row => (row.Icon, Name: Text(row.Text, TooltipLineSize, UiPalette.Text),
+        var cells = rows.Select(row => (row.Icon, row.Round, Name: Text(row.Text, TooltipLineSize, UiPalette.Text),
             Value: row.Value.Length > 0 ? Text(row.Value, TooltipLineSize, UiPalette.Text, FontWeight.SemiBold) : null)).ToArray();
         var rowWidth = cells.Length == 0 ? 0 : cells.Max(cell => TooltipIconSize + TooltipIconGap + cell.Name.Width +
             (cell.Value is null ? 0 : TooltipValueGap + cell.Value.Width));
@@ -77,6 +80,7 @@ public static class ChartDrawing
         {
             var icon = new Rect(x, y + (TooltipRowHeight - TooltipIconSize) / 2, TooltipIconSize, TooltipIconSize);
             if (cell.Icon is { } image) context.DrawImage(image, new Rect(image.Size), icon);
+            else if (cell.Round) context.DrawEllipse(UiPalette.Brush(UiPalette.TooltipEdge), null, icon.Center, icon.Width * 0.35, icon.Height * 0.35);
             else context.DrawRectangle(UiPalette.Brush(UiPalette.TooltipEdge), null, icon, 4, 4);
             var middle = y + TooltipRowHeight / 2;
             context.DrawText(cell.Name, new Point(icon.Right + TooltipIconGap, middle - cell.Name.Height / 2));

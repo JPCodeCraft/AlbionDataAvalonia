@@ -56,21 +56,21 @@
             </Grid.ColumnDefinitions>
             <DataGrid Name="LegendaryItemsGrid"
                       Grid.Column="0"
+                      Classes="Compact"
                       IsVisible="{Binding HasItems}"
-                      RowHeight="52"
+                      RowHeight="40"
                       ItemsSource="{Binding Items}"
                       SelectedItem="{Binding SelectedItem}"
                       SelectionMode="Extended"
-                      SelectionChanged="ItemsGrid_SelectionChanged"
-                      FontSize="{DynamicResource UiFontSizeSmall}">
+                      SelectionChanged="ItemsGrid_SelectionChanged">
 
                 <DataGrid.Columns>
                     <DataGridTextColumn Header="Server" Binding="{Binding ServerName}" />
                     <DataGridTemplateColumn Header="Item" SortMemberPath="ItemName" CanUserSort="True">
                         <DataGridTemplateColumn.CellTemplate>
                             <DataTemplate x:DataType="vm:LegendaryItemRowViewModel">
-                                <controls:ItemCell Classes="SingleLine" IconSize="28" ItemUniqueName="{Binding ItemUniqueName}" ImageQuality="{Binding ImageQuality}"
-                                                   Title="{Binding ItemName}" Subtitle="{Binding Quality}" Detail="{Binding SoulName}" />
+                                <controls:ItemCell Classes="Compact" IconSize="28" ItemUniqueName="{Binding ItemUniqueName}" ImageQuality="{Binding ImageQuality}"
+                                                   Title="{Binding ItemName}" Subtitle="{Binding QualityAndSoulText}" />
                             </DataTemplate>
                         </DataGridTemplateColumn.CellTemplate>
                     </DataGridTemplateColumn>

@@ -167,6 +167,7 @@ public partial class ActivityCurrentViewModel
     private void ClearCurrentPeriod()
     {
         ClearCurrentLoot();
+        ClearCurrentMobs();
         currentPeriodKey = null;
         currentPeriodSnapshot = null;
         currentObservationKey = null;

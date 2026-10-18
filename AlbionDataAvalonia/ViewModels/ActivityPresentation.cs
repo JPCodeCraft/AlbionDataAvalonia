@@ -217,9 +217,24 @@ public sealed record ActivityPlayerColumns(bool Fame, bool Silver, bool Loot, bo
 
 public sealed class ActivityMobRow(ActivityMobTotal source)
 {
+    // Kills without a known mob are grouped as "Unknown".
+    public string MobUniqueName => source.MobId == "Unknown" ? "" : source.MobId;
     public string Name => ActivityDisplay.MobName(source.Name);
     public string Count => UiFormat.Compact(source.Kills);
+    public string KillsText => UiFormat.Count(source.Kills, "kill");
     public string InferredCount => UiFormat.Compact(source.InferredKills);
+    public ActivityTip Tip => new(Name, KillsText, Mob: MobUniqueName);
+}
+
+/// <summary>
+/// A hover card for an item or a mob in the Activity tables and tiles: its image larger than the row shows it, a title
+/// and details under it, like the chart and map tooltips.
+/// </summary>
+public sealed record ActivityTip(string Title, string Details = "", string ItemUniqueName = "", int Quality = 1, string Mob = "")
+{
+    public bool IsItem => ItemUniqueName.Length > 0;
+    public bool IsMob => Mob.Length > 0;
+    public bool HasDetails => Details.Length > 0;
 }
 
 public sealed class ActivityLootRow(ActivityEvent source)
@@ -261,11 +276,11 @@ public sealed class ActivityLootRow(ActivityEvent source)
     };
     public string Location => string.IsNullOrWhiteSpace(source.LocationName) ? UiText.Unavailable : source.LocationName;
     public string Evidence => IsImported ? "Imported summary" : source.Evidence == ActivityEvidence.Supplemental ? "Pending" : source.Evidence.ToString();
-    public string ItemDetails => $"{ItemName} · {Quality}\n" + (source.EstimatedUnitValue is null
+    public ActivityTip ItemTip => new(ItemName, Quality + "\n" + (source.EstimatedUnitValue is null
         ? "EMV unavailable" : $"{EmvName} each: {UnitValueText} silver")
         + (source.EstimatedUnitValue is not null && source.Quality is null
             ? source.Kind == ActivityEventKind.Loot ? $"\nAverage {EmvName} across qualities 1-4" : "\nNormal-quality EMV" : "")
-        + (source.Evidence != ActivityEvidence.Confirmed ? "\nNot included in totals" : "");
+        + (source.Evidence != ActivityEvidence.Confirmed ? "\nNot included in totals" : ""), ItemUniqueName, ImageQuality);
     public string RecipientDetails => $"{Recipient} · {Relationship}{(string.IsNullOrWhiteSpace(Guild) ? "" : $"\nGuild: {Guild}")}{(string.IsNullOrWhiteSpace(Alliance) ? "" : $"\nAlliance: {Alliance}")}";
     public string ContextDetails => Location;
 }
@@ -299,6 +314,15 @@ public sealed class ActivityEventRow(ActivityEvent source)
         ? "" : ActivityDisplay.ActorName(source.SourceName, source.SourceKind);
     public string Target => source.Kind is ActivityEventKind.Damage or ActivityEventKind.Healing or ActivityEventKind.MobKilled or ActivityEventKind.PlayerKilled or ActivityEventKind.Death or ActivityEventKind.Knockdown
         ? ActivityDisplay.ActorName(source.TargetName, source.TargetKind) : "";
+    // A mob shows its portrait beside its name. Kills keep the mob's unique name; other events find it by name.
+    public string SourceMob => Source.Length > 0 && source.SourceKind == ActivityActorKind.Mob && Source != "Unknown mob" ? source.SourceName : "";
+    public bool HasSourceMob => SourceMob.Length > 0;
+    public ActivityTip? SourceTip => HasSourceMob ? new(Source, Mob: SourceMob) : null;
+    public string TargetMob => Target.Length == 0 || Target == "Unknown mob" ? "" : source.Kind == ActivityEventKind.MobKilled
+        ? string.IsNullOrWhiteSpace(source.MobUniqueName) ? source.TargetName : source.MobUniqueName
+        : source.TargetKind == ActivityActorKind.Mob ? source.TargetName : "";
+    public bool HasTargetMob => TargetMob.Length > 0;
+    public ActivityTip? TargetTip => HasTargetMob ? new(Target, Mob: TargetMob) : null;
     public string Location => source.LocationName;
     public string Evidence => source.Evidence == ActivityEvidence.Supplemental ? source.Kind == ActivityEventKind.Loot ? "Pending" : "Unverified" : source.Evidence.ToString();
     public string Description => source.Kind switch
@@ -413,9 +437,9 @@ public sealed class ActivityResourceRow(ActivityResourceTotal source)
     public bool HasMissingPrices => source.MissingPriceItems > 0;
     public string ValueLabel => "Total EMV";
     public string MissingPricesText => source.MissingPriceItems > 0 ? $"{source.MissingPriceItems:N0} without EMV" : "";
-    public string Details => $"{ItemName} · {ItemQuality.Format(source.Quality)}\n{QuantityText} items · EMV {ValueText} silver" +
+    public ActivityTip Tip => new(ItemName, $"{ItemQuality.Format(source.Quality)}\n{QuantityText} items · EMV {ValueText} silver" +
         (JournalValueText is { } journal ? $"\n{journal}" : "") +
-        (HasMissingPrices ? $"\n{MissingPricesText}" : "");
+        (HasMissingPrices ? $"\n{MissingPricesText}" : ""), ItemUniqueName, ImageQuality);
 
     // A filled journal is worth the full journal minus the empty one it replaced.
     private string? JournalValueText
