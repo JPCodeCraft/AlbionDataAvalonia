@@ -121,7 +121,7 @@ public sealed partial class ActivityTrackerService : IDisposable
                 if (captureSuspended) return "Capture stopped.";
                 if (awaitingContext) return "Waiting for character and map confirmation. Nearby loot can still be observed.";
                 return encounter is not null ? "Recording encounter and session activity."
-                    : session is not null ? "Recording session activity." : "Ready. A session counts from your first activity.";
+                    : session is not null ? "Recording session activity." : "Ready. A session starts with your first activity or Start session.";
             }
         }
     }
@@ -136,7 +136,6 @@ public sealed partial class ActivityTrackerService : IDisposable
             if (!value) ResolvePending(DateTime.UtcNow);
             enabled = value;
             if (value && map is not null) { mapEnteredAt = DateTime.UtcNow; partialEntry = true; }
-            if (value) playOpenedAt = DateTime.UtcNow;
             if (!value) ClosePlaySession(DateTime.UtcNow, ActivityEndReason.Disabled);
             loot.ResetRecordingCorrelations();
             locations.ClearPending();
@@ -501,9 +500,10 @@ public sealed partial class ActivityTrackerService : IDisposable
             visits.Clear();
             knownInstances.Clear();
             encounterNumber = 0;
-            // An instance run counts from its entrance, but never from before its play session opened.
+            // While a session runs, a run counts from entering its map, though never from before the session
+            // started or continued; in town only from its first activity. A run that starts a session starts with it.
             var entered = mapEnteredAt > playOpenedAt ? mapEnteredAt : playOpenedAt;
-            var start = IsInstance(map.Kind) && entered < at ? entered : at;
+            var start = playSession is not null && !IsHub(map.Kind) && entered < at ? entered : at;
             visitStartedAt = start;
             session = new ActivitySession
             {
@@ -1133,7 +1133,14 @@ public sealed partial class ActivityTrackerService : IDisposable
         lock (sync)
         {
             if (disposed) return;
-            try { Expire(DateTime.UtcNow, fromTimer: true); FlushStalePath(DateTime.UtcNow); if (headersDirty) SaveHeaders(); }
+            try
+            {
+                var now = DateTime.UtcNow;
+                Expire(now, fromTimer: true);
+                InterruptIfGameLeft(now);
+                FlushStalePath(now);
+                if (headersDirty) SaveHeaders();
+            }
             catch (Exception error) { Log.Warning(error, "Failed to update activity recording state."); }
         }
         Changed?.Invoke(this, EventArgs.Empty);

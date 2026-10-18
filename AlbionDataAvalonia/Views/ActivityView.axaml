@@ -22,8 +22,7 @@
             <StackPanel>
             <Grid ColumnDefinitions="*,*" ColumnSpacing="6" Margin="0,0,0,6" ToolTip.Tip="{Binding TotalSilverDetailsText}">
                 <controls:StatTile Classes="Card Outlined Large Accent Compact" MinHeight="64" Label="Total silver" Value="{Binding TotalSilver}" />
-                <controls:StatTile Grid.Column="1" Classes="Card Outlined Large Accent Compact" MinHeight="64" Label="Total silver / hour" Value="{Binding TotalSilverPerHour}"
-                                   Detail="{Binding TotalSilverPerRunHourText}" />
+                <controls:StatTile Grid.Column="1" Classes="Card Outlined Large Accent Compact" MinHeight="64" Label="Total silver / hour" Value="{Binding TotalSilverPerHour}" />
             </Grid>
             <views:ResponsiveUniformGrid IsVisible="{Binding !IsImported}" MaximumColumns="4" MinimumItemWidth="156" Margin="-3">
                 <controls:StatTile Classes="Card Compact" Height="76" Margin="3" Label="Damage dealt" Value="{Binding DamageDealt}" Detail="{Binding DamageRate}" />
@@ -139,7 +138,7 @@
                     <Button Classes="UiAction" Content="{Binding RecordingButtonText}" Command="{Binding ToggleRecordingCommand}" Margin="10,0,0,4" />
                     <Button Classes="UiAction" Content="Start session" Command="{Binding StartSessionCommand}" IsEnabled="{Binding CanStartSession}"
                             IsVisible="{Binding !Current.HasCurrentPlaySession}" Margin="10,0,0,4"
-                            ToolTip.Tip="Starts a session now, before your first activity. It ends after 30 minutes without activity or when you press End session." />
+                            ToolTip.Tip="Starts a session now. It runs until you press End session or stop moving for 30 minutes." />
                     <Button Classes="UiAction" Content="End session…" Command="{Binding EndSessionCommand}" IsVisible="{Binding Current.HasCurrentPlaySession}" Margin="10,0,0,4"
                             ToolTip.Tip="Ends the session now. Your next activity starts a new session." />
                 </WrapPanel>
@@ -173,11 +172,9 @@
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                     <WrapPanel ToolTip.Tip="{Binding CurrentPeriodWarning}" Margin="0,0,0,-4">
                                         <TextBlock Text="{Binding CurrentDurationText}" Margin="0,0,18,4" />
-                                        <TextBlock Text="{Binding CurrentRunTimeText}" IsVisible="{Binding HasCurrentRunTime}" Margin="0,0,18,4" ToolTip.Tip="Time in runs only" />
                                         <TextBlock Text="{Binding CurrentCombatDurationText}" Margin="0,0,18,4" />
                                         <TextBlock Text="{Binding CurrentTagsText}" Foreground="{DynamicResource UiPositiveTextBrush}" Margin="0,0,18,4" IsVisible="{Binding CurrentTagsText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" />
-                                        <TextBlock Text="{Binding CurrentStateText}" IsVisible="{Binding HasCurrentState}" Foreground="{DynamicResource UiAccentTextBrush}" Margin="0,0,0,4"
-                                                   ToolTip.Tip="Gaps under 30 minutes count" />
+                                        <TextBlock Text="{Binding CurrentStateText}" IsVisible="{Binding HasCurrentState}" Foreground="{DynamicResource UiAccentTextBrush}" Margin="0,0,0,4" />
                                     </WrapPanel>
                                     <Button Grid.Column="1" Classes="UiChipButton" CornerRadius="{DynamicResource UiRadiusPill}" MinHeight="28" IsVisible="{Binding HasCurrentParty}" ToolTip.Tip="{Binding CurrentPartyDetailsText}"
                                             HorizontalAlignment="Right" VerticalAlignment="Top" Margin="0,-5,0,0" AutomationProperties.Name="Current party">

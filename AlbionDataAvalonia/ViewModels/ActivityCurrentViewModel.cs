@@ -19,6 +19,8 @@ namespace AlbionDataAvalonia.ViewModels;
 /// </summary>
 public partial class ActivityCurrentViewModel : ObservableObject, IDisposable
 {
+    // The state warns once the character has been still this long; the idle limit then ends the session.
+    private static readonly TimeSpan IdleNoticeDelay = TimeSpan.FromMinutes(5);
     private readonly ActivityViewModel page;
     private CancellationTokenSource currentQueryCancellation = new();
     private ActivitySession? currentSession;
@@ -43,9 +45,6 @@ public partial class ActivityCurrentViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(ShowCurrentRuns))]
     private ObservableCollection<ActivitySessionRow> currentRuns = new();
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(HasCurrentRunTime))]
-    private string currentRunTimeText = "";
-    [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasCurrentState))]
     private string currentStateText = "";
     [ObservableProperty] private bool hasCurrentPlaySession;
@@ -60,7 +59,6 @@ public partial class ActivityCurrentViewModel : ObservableObject, IDisposable
     public string CurrentCombatDurationText => $"Combat time: {UiFormat.Duration(CurrentSummary.Rates.CombatDurationSeconds)}";
     public string CurrentTagsText => ActivityDisplay.Tags(CurrentSummary.Summary.Tags);
     public bool ShowCurrentRuns => IsPlaySessionPeriod && CurrentRuns.Count > 0;
-    public bool HasCurrentRunTime => !string.IsNullOrEmpty(CurrentRunTimeText);
     public bool HasCurrentState => !string.IsNullOrEmpty(CurrentStateText);
     public bool HasCurrentResources => CurrentResources.Count > 0;
 
@@ -168,7 +166,6 @@ public partial class ActivityCurrentViewModel : ObservableObject, IDisposable
             var summary = ActivityProjection.GetSummary(current, scope);
             CurrentSummary = new(summary, ActivityProjection.GetRates(summary, current, combatTask.Result, DateTime.UtcNow), true);
             CurrentDurationText = $"Run time: {UiFormat.Duration(ActivityProjection.GetDurationSeconds(current, DateTime.UtcNow))}";
-            CurrentRunTimeText = "";
             CurrentPeriodDescription = $"Since {UiFormat.LocalDateTime(current.StartedAtUtc)}";
         }
         else if (period == ActivityPeriodMode.CurrentRun) ClearCurrentPeriod();
@@ -262,10 +259,10 @@ public partial class ActivityCurrentViewModel : ObservableObject, IDisposable
         HasCurrentPlaySession = context.PlaySession is not null;
         if (!IsPlaySessionPeriod || context.Owner is null) { CurrentStateText = ""; return; }
         if (context.PlaySession is not { } playSession) { CurrentStateText = "Waiting for your first activity"; return; }
-        // A session started with Start session has no run until the first activity.
-        if (context.Session is null && CurrentRuns.Count == 0) { CurrentStateText = "Started · waiting for your first activity"; return; }
-        if (ActivityPlaySessionProjection.IsIdle(playSession, nowUtc))
-            CurrentStateText = $"Idle {UiFormat.Duration((nowUtc - playSession.LastActivityAtUtc).TotalSeconds)} · time is paused";
+        // A while without moving or acting warns before the idle limit ends the session.
+        var idle = nowUtc - playSession.LastActivityAtUtc;
+        if (idle >= IdleNoticeDelay)
+            CurrentStateText = $"Not moving for {UiFormat.Duration(idle.TotalSeconds)} · the session ends at 30 minutes";
         else CurrentStateText = context.Session is null ? "Between runs" : "";
     }
 

@@ -5,75 +5,30 @@ using System.Linq;
 
 namespace AlbionDataAvalonia.Activity;
 
-public sealed record ActivityPlayDurations(double PlaySeconds, double RunSeconds);
-
 /// <summary>Rules shared by the tracker, persistence and presentation for play sessions.</summary>
 public static class ActivityPlaySessionProjection
 {
-    // Without activity for this long a play session ends at its last activity.
+    // A session ends after this long without moving or acting. One the game or app interrupted
+    // continues when the character is back within it.
     public static readonly TimeSpan IdleLimit = TimeSpan.FromMinutes(30);
-    // The last pickup after a fight still lands inside a session trimmed to its last activity.
-    public static readonly TimeSpan ActivityGrace = TimeSpan.FromMinutes(1);
-    // The live view reports a pause once nothing has happened for this long.
-    public static readonly TimeSpan IdleNoticeDelay = TimeSpan.FromMinutes(3);
+    // After this long without game traffic the game was closed or lost, which interrupts the session.
+    public static readonly TimeSpan GameLeftAfter = TimeSpan.FromSeconds(30);
 
-    /// <summary>
-    /// Run time counts recorded time in runs. Play time adds the gaps between runs up to the idle limit,
-    /// such as a town visit; a capture gap inside a run counts in neither. A play session started with
-    /// Start session counts from that press, so the wait before its first run is play time too; one
-    /// ended with End session counts to that press (<paramref name="countToEnd"/>).
-    /// </summary>
-    public static ActivityPlayDurations Durations(IEnumerable<ActivityObservationInterval> intervals, DateTime fromUtc, DateTime toUtc,
-        bool countToEnd = false)
-    {
-        var all = intervals.ToArray();
-        var run = ActivityPeriodProjection.MergeIntervals(all, fromUtc, toUtc).Sum(x => (x.EndedAtUtc!.Value - x.StartedAtUtc).TotalSeconds);
-        var spans = all.GroupBy(x => x.RunId ?? Guid.NewGuid())
-            .Select(group => ActivityPeriodProjection.MergeIntervals(group, fromUtc, toUtc))
-            .Where(merged => merged.Count > 0)
-            .Select(merged => (Start: merged[0].StartedAtUtc, End: merged[^1].EndedAtUtc!.Value))
-            .OrderBy(x => x.Start).ToArray();
-        if (spans.Length == 0) return new(toUtc > fromUtc && toUtc - fromUtc <= IdleLimit ? (toUtc - fromUtc).TotalSeconds : 0, 0);
-        var play = run;
-        DateTime reached = fromUtc;
-        foreach (var span in spans)
-        {
-            if (span.Start > reached && span.Start - reached <= IdleLimit) play += (span.Start - reached).TotalSeconds;
-            if (span.End > reached) reached = span.End;
-        }
-        if (countToEnd && toUtc > reached && toUtc - reached <= IdleLimit) play += (toUtc - reached).TotalSeconds;
-        return new(play, run);
-    }
+    /// <summary>A session's time is clock time from its start to its end, less the time it was away.</summary>
+    public static double Seconds(DateTime startUtc, DateTime endUtc, double awaySeconds = 0) =>
+        Math.Max(0, (endUtc - startUtc).TotalSeconds - awaySeconds);
 
-    /// <summary>Durations of saved runs, ending at the play session's trimmed end, or at the press of End session.</summary>
-    public static ActivityPlayDurations Durations(ActivityPlaySession playSession, IReadOnlyCollection<ActivitySession> runs,
-        ActivitySession? liveRun = null, DateTime? nowUtc = null)
-    {
-        if (runs.Count == 0 && liveRun is null) return new(0, 0);
-        var end = LiveEnd(playSession, nowUtc ?? DateTime.UtcNow);
-        var intervals = ActivityPeriodProjection.ObservationIntervals(liveRun is null ? runs : runs.Where(x => x.Id != liveRun.Id).Append(liveRun), liveRun);
-        var first = intervals.Count == 0 ? playSession.StartedAtUtc : intervals.Min(x => x.StartedAtUtc);
-        return Durations(intervals, first < playSession.StartedAtUtc ? first : playSession.StartedAtUtc, end, EndedByPress(playSession));
-    }
+    /// <summary>Time of a saved session, open or closed.</summary>
+    public static double Seconds(ActivityPlaySession playSession, IEnumerable<ActivitySession> runs, DateTime nowUtc) =>
+        Seconds(Start(playSession, runs), End(playSession, nowUtc), playSession.AwaySeconds);
 
-    /// <summary>End session closes a play session at the press, which may come after its last run.</summary>
-    public static bool EndedByPress(ActivityPlaySession playSession) =>
-        playSession.State == ActivityState.Closed && playSession.EndReason == ActivityEndReason.Finished;
+    /// <summary>A session starts at its saved start, or at a run that began before it.</summary>
+    public static DateTime Start(ActivityPlaySession playSession, IEnumerable<ActivitySession> runs) =>
+        runs.Select(x => x.StartedAtUtc).Append(playSession.StartedAtUtc).Min();
 
-    /// <summary>
-    /// A closed play session ends at its saved end; an open one pauses one grace period after its last activity.
-    /// One started with Start session keeps its clock running until its first run.
-    /// </summary>
-    public static DateTime LiveEnd(ActivityPlaySession playSession, DateTime nowUtc, bool hasRun = true)
-    {
-        if (playSession.State != ActivityState.Open) return playSession.EndedAtUtc ?? playSession.LastActivityAtUtc;
-        if (!hasRun) return nowUtc;
-        var paused = playSession.LastActivityAtUtc + ActivityGrace;
-        return paused < nowUtc ? paused : nowUtc;
-    }
-
-    public static bool IsIdle(ActivityPlaySession? playSession, DateTime nowUtc) =>
-        playSession is { State: ActivityState.Open } && nowUtc - playSession.LastActivityAtUtc >= IdleNoticeDelay;
+    /// <summary>An open session runs to now; a closed one ends at its saved end.</summary>
+    public static DateTime End(ActivityPlaySession playSession, DateTime nowUtc) =>
+        playSession.State == ActivityState.Open ? nowUtc : playSession.EndedAtUtc ?? playSession.LastActivityAtUtc;
 
     /// <summary>Totals of all runs in one scope.</summary>
     public static ActivitySummary Summary(IEnumerable<ActivitySession> runs, ActivityScope scope) =>

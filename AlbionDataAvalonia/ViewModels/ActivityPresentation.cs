@@ -15,21 +15,13 @@ public sealed class ActivitySummaryPresentation
 {
     public static ActivitySummaryPresentation Empty { get; } = new(new(), ActivityProjection.GetRates(new(), 0));
 
-    public ActivitySummaryPresentation(ActivitySummary summary, ActivityRates rates, bool isSessionAverage = false, bool hasRecordedDuration = true,
-        double? runSeconds = null)
+    public ActivitySummaryPresentation(ActivitySummary summary, ActivityRates rates, bool isSessionAverage = false, bool hasRecordedDuration = true)
     {
         Summary = summary;
         Rates = rates;
         IsSessionAverage = isSessionAverage;
         HasRecordedDuration = hasRecordedDuration;
-        RunSeconds = runSeconds;
     }
-
-    // A play session also reports its rate over time spent in runs, without the time between them.
-    public double? RunSeconds { get; }
-    public bool HasRunRate => RunSeconds is > 0 && HasRecordedDuration && !IsImported;
-    public string TotalSilverPerRunHourText => HasRunRate
-        ? $"{UiFormat.Compact((Summary.Silver + Summary.LootValue + Summary.ResourceValue) * 3600 / RunSeconds!.Value)} / h in runs" : "";
 
     public ActivitySummary Summary { get; }
     public bool IsImported => Summary.IsLegacyAggregate;

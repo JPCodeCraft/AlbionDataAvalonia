@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 
 namespace AlbionDataAvalonia.Activity.Models;
@@ -40,9 +41,10 @@ public enum ActivityEndReason
     CharacterChanged, Death, Interrupted
 }
 
-// One sitting of play. It opens at login, counts from its first run or from Start session, and ends
-// at its last activity after 30 minutes without activity, End session, a character switch, recording
-// turning off, or the app closing without reopening within 30 minutes. Runs belong to one.
+// One sitting of play. It starts at Start session or at the first activity, and its time runs on the
+// clock until End session, a character switch, recording turning off, or 30 minutes without moving or
+// acting. Leaving the game or closing the app interrupts it; back within 30 minutes, it continues
+// without the time away. Runs belong to one.
 public sealed record ActivityPlaySession
 {
     public Guid Id { get; init; }
@@ -51,10 +53,13 @@ public sealed record ActivityPlaySession
     public string CharacterId { get; init; } = "";
     public string CharacterName { get; init; } = "";
     public DateTime StartedAtUtc { get; init; }
+    // The last activity or movement; 30 minutes past it the session ends there.
     public DateTime LastActivityAtUtc { get; init; }
     public DateTime? EndedAtUtc { get; init; }
     public ActivityState State { get; init; }
     public ActivityEndReason EndReason { get; init; }
+    // Time between an interruption and the return that continued the session; it doesn't count.
+    [NotMapped] public double AwaySeconds { get; init; }
 }
 
 // A run: one dungeon, Mists visit, open-world stretch and so on, inside a play session.

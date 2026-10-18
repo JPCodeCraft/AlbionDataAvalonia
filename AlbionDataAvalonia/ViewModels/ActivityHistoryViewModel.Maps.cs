@@ -94,7 +94,7 @@ public partial class ActivityHistoryViewModel
         cachedMapSummary = totals;
         mapSummaryKey = key;
         var duration = map?.DurationSeconds ?? (run is not null ? ActivityProjection.GetDurationSeconds(run, DateTime.UtcNow)
-            : PlayDurations(headers, null, DateTime.UtcNow).PlaySeconds);
+            : PlaySeconds(headers, DateTime.UtcNow));
         DetailSummary = new(WithImportedTotals(totals.Summary), ActivityProjection.GetRates(totals.Summary, duration, totals.CombatDurationSeconds),
             true, map is null || map.Source.Visits > 0);
     }

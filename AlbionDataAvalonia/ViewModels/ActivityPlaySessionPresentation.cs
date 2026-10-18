@@ -35,8 +35,8 @@ public sealed class ActivityPlaySessionRow : ObservableObject
     public string WhenText => IsOpen ? "Active" : UiFormat.TimeAgo(EndOf(Header), DateTime.UtcNow);
     public string WhenDetailsText => $"Started {UiFormat.LocalDateTime(StartOf(Header))}" +
         (IsOpen ? "" : $"\nEnded {UiFormat.LocalDateTime(EndOf(Header))}") +
-        (Source.State == ActivityState.Interrupted ? " when the app closed" : "") + $"\n{OwnerText}";
-    public string DurationText => UiFormat.Duration(Durations(DateTime.UtcNow).PlaySeconds);
+        (Source.State == ActivityState.Interrupted ? " when the game or app closed" : "") + $"\n{OwnerText}";
+    public string DurationText => UiFormat.Duration(ActivityPlaySessionProjection.Seconds(Source, Runs, DateTime.UtcNow));
     public string RunsText => UiFormat.Count(Runs.Count, "run");
     public bool HasSeveralRuns => Runs.Count > 1;
     public string TagsText => ActivityDisplay.Tags(summary.Tags);
@@ -75,8 +75,6 @@ public sealed class ActivityPlaySessionRow : ObservableObject
     public static DateTime EndOf(ActivityPlaySessionHeader header) => header.PlaySession.EndedAtUtc ??
         (header.Runs.Count == 0 ? header.PlaySession.LastActivityAtUtc : header.Runs.Max(x => x.ClosedAtUtc ?? x.LastObservedAtUtc));
 
-    public ActivityPlayDurations Durations(DateTime nowUtc, ActivitySession? liveRun = null) =>
-        ActivityPlaySessionProjection.Durations(Source, Runs, liveRun?.PlaySessionId == Id ? liveRun : null, nowUtc);
 
     public void Update(ActivityPlaySessionHeader header, ActivityScope scope)
     {

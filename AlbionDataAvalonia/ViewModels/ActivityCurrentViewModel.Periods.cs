@@ -134,18 +134,15 @@ public partial class ActivityCurrentViewModel
     {
         if (currentPeriodSnapshot is not { } snapshot || currentPeriodKey is not { } key || key != GetCurrentPeriodKey() ||
             currentObservationKey?.SessionId != GetCurrentObservationKey().SessionId) return;
-        if (key.Mode == ActivityPeriodMode.PlaySession && Tracker?.GetCurrentContext() is { PlaySession: { } playSession } context)
+        if (key.Mode == ActivityPeriodMode.PlaySession && Tracker?.GetCurrentContext().PlaySession is { } playSession)
         {
-            // Time pauses one grace period after the last activity; a run within the idle limit adds the gap back.
-            // A session started with Start session keeps its clock running until its first run.
-            var hasRun = snapshot.ObservationIntervals.Count > 0 || context.Session is not null;
-            var end = ActivityPlaySessionProjection.LiveEnd(playSession, nowUtc, hasRun);
-            var durations = ActivityPlaySessionProjection.Durations(snapshot.ObservationIntervals, currentPeriodFromUtc, end);
+            // The session's time runs on the clock from its start, less any time away.
+            var end = ActivityPlaySessionProjection.End(playSession, nowUtc);
+            var seconds = ActivityPlaySessionProjection.Seconds(currentPeriodFromUtc, end, playSession.AwaySeconds);
             var combat = ActivityPeriodProjection.GetRates(snapshot, currentPeriodFromUtc, end).CombatDurationSeconds;
-            CurrentSummary = new(snapshot.Summary, ActivityProjection.GetRates(snapshot.Summary, durations.PlaySeconds, combat), true, true, durations.RunSeconds);
-            CurrentDurationText = $"Session time: {UiFormat.Duration(durations.PlaySeconds)}";
-            CurrentRunTimeText = $"In runs: {UiFormat.Duration(durations.RunSeconds)}";
-            CurrentPeriodDescription = $"Started {UiFormat.LocalDateTime(playSession.StartedAtUtc)} · ends after 30 minutes without activity";
+            CurrentSummary = new(snapshot.Summary, ActivityProjection.GetRates(snapshot.Summary, seconds, combat), true);
+            CurrentDurationText = $"Session time: {UiFormat.Duration(seconds)}";
+            CurrentPeriodDescription = $"Started {UiFormat.LocalDateTime(playSession.StartedAtUtc)} · ends with End session or after 30 minutes without moving";
             CurrentPeriodWarning = "";
             if (snapshot.IsPartial) CurrentPeriodDescription += " · incomplete recording";
             return;
@@ -155,7 +152,6 @@ public partial class ActivityCurrentViewModel
         var rates = ActivityPeriodProjection.GetRates(snapshot, currentPeriodFromUtc, presentationEndUtc);
         CurrentSummary = new(snapshot.Summary, rates, true);
         CurrentDurationText = $"Tracked time: {UiFormat.Duration(rates.DurationSeconds)}";
-        CurrentRunTimeText = "";
         var fromUtc = currentPeriodFromUtc;
         CurrentPeriodDescription = currentSession is not null
             ? $"Since {UiFormat.LocalDateTime(fromUtc)}"
@@ -182,7 +178,6 @@ public partial class ActivityCurrentViewModel
             ActivityPeriodMode.CurrentRun => "Run time: 0:00",
             _ => "Tracked time: 0:00"
         };
-        CurrentRunTimeText = "";
         CurrentPeriodDescription = SelectedPeriod.Value == ActivityPeriodMode.LastHours ? "Waiting for your character" : "Waiting for activity";
         CurrentPeriodWarning = "";
     }

@@ -99,10 +99,12 @@ public sealed partial class ActivityTrackerService
     // Move says where the character faces, standing or not; an arrival has no facing, so the last step decides.
     private void PlacePosition(DateTime at, ActivityWorldPosition point, double? facing = null)
     {
+        var moved = position is { } previous && positionEpoch == mapEpoch
+            && Math.Abs(point.X - previous.X) + Math.Abs(point.Y - previous.Y) > 0.3;
         if (facing is { } angle) heading = angle;
-        else if (position is { } previous && positionEpoch == mapEpoch
-            && Math.Abs(point.X - previous.X) + Math.Abs(point.Y - previous.Y) > 0.3)
-            heading = Math.Atan2(point.Y - previous.Y, point.X - previous.X);
+        else if (moved) heading = Math.Atan2(point.Y - position!.Value.Y, point.X - position.Value.X);
+        // Turning on the spot isn't moving; an idle character ends its session after the idle limit.
+        if (moved) MarkPresence(at);
         position = point;
         positionEpoch = mapEpoch;
         TrackLive(at, point);

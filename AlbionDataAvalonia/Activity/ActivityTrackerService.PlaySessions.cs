@@ -6,18 +6,20 @@ using System.Linq;
 namespace AlbionDataAvalonia.Activity;
 
 /// <summary>
-/// A play session opens when a character logs in and waits until its first run, or starts at once
-/// with Start session. It ends at its last activity after the idle limit, End session, a character
-/// switch, recording turning off or the app stopping; logging in again within the idle limit
-/// continues one the app stop closed.
+/// A play session starts at Start session or at the first activity, and its time runs on the clock until
+/// End session, a character switch, recording turning off, or the idle limit without moving or acting,
+/// which ends it at the last of those. Leaving the game or closing the app interrupts it; the same
+/// character back within the idle limit continues it, and the time away doesn't count.
 /// </summary>
 public sealed partial class ActivityTrackerService
 {
-    // The active play session; null while the open one waits for its first activity.
+    // Walking keeps a session alive; saving that on every step would rewrite its header several times a second.
+    private static readonly TimeSpan PresenceInterval = TimeSpan.FromSeconds(30);
+    // The active play session; null while none is running.
     private ActivityPlaySession? playSession;
-    // The character whose play session is open or waiting.
+    // The character whose play session is running or would start.
     private ActivityOwner? playOwner;
-    // When the open play session began in this app run. An instance run never starts before it.
+    // When the active play session started or last continued. A run never starts before it.
     private DateTime playOpenedAt;
     // The last run of the active play session ended here.
     private DateTime? lastRunClosedAt;
@@ -25,26 +27,26 @@ public sealed partial class ActivityTrackerService
     private readonly Dictionary<Guid, ActivityPlaySession> deferredPlaySessions = new();
 
     public Guid? CurrentPlaySessionId { get { lock (sync) return playSession?.Id; } }
-    /// <summary>Recording is on, a character is known and no play session is counting.</summary>
+    /// <summary>Recording is on, a character is known and no play session is running.</summary>
     public bool CanStartSession { get { lock (sync) return enabled && playOwner is not null && playSession is null; } }
 
-    /// <summary>Starts a play session now, before any activity; the idle limit counts from now.</summary>
+    /// <summary>Starts a play session now. Its first run starts with it, or on leaving town.</summary>
     public void StartSession()
     {
         lock (sync)
         {
             if (!enabled || playOwner is null || playSession is not null) return;
             var now = DateTime.UtcNow;
-            // An instance run of this session counts from now, not from its entrance.
-            playOpenedAt = now;
-            ActivatePlaySession(now, now);
+            // A new session replaces one the game or app interrupted.
+            persistence.TakeRecentPlaySession(playOwner, now);
+            ActivatePlaySession(now, now, resume: false);
             SaveHeaders();
         }
         _ = persistence.FlushAsync();
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
-    /// <summary>Ends the play session now, at the press; the next activity starts a new one.</summary>
+    /// <summary>Ends the play session now; the next activity starts a new one.</summary>
     public void EndSession(Guid? expectedPlaySessionId = null)
     {
         lock (sync)
@@ -52,7 +54,7 @@ public sealed partial class ActivityTrackerService
             if (expectedPlaySessionId is { } expected && playSession?.Id != expected) return;
             var now = DateTime.UtcNow;
             ResolvePending(now);
-            ClosePlaySession(now, ActivityEndReason.Finished, exact: true);
+            ClosePlaySession(now, ActivityEndReason.Finished);
             resumable = null;
             loot.ResetCandidates();
             locations.ClearPending();
@@ -68,32 +70,45 @@ public sealed partial class ActivityTrackerService
         Changed?.Invoke(this, EventArgs.Empty);
     }
 
-    // A login, or the character switching, opens a waiting play session for that character.
+    // Each join names the character. A new one ends the old character's session; the same one back
+    // after an interruption continues its session.
     private void OpenPlaySessionFor(ActivityOwner? owner, DateTime at)
     {
-        if (owner is null || owner == playOwner) return;
-        if (playOwner is not null) ClosePlaySession(at, ActivityEndReason.CharacterChanged);
-        playOwner = owner;
-        playOpenedAt = at;
-        if (persistence.TakeRecentPlaySession(owner, at) is { } recent)
+        if (owner is null) return;
+        if (owner != playOwner)
         {
-            playSession = recent with
-            {
-                Revision = recent.Revision + 1,
-                State = ActivityState.Open,
-                EndReason = ActivityEndReason.None,
-                EndedAtUtc = null
-            };
-            lastRunClosedAt = recent.EndedAtUtc;
-            playSessionDirty = true;
-            headersDirty = true;
+            if (playOwner is not null) ClosePlaySession(at, ActivityEndReason.CharacterChanged);
+            playOwner = owner;
         }
+        ResumePlaySession(at);
     }
 
-    // The first run of a waiting play session starts counting it.
-    private ActivityPlaySession? ActivatePlaySession(DateTime runStartedAt, DateTime at)
+    // The same character back within the idle limit continues a session the game or app interrupted.
+    private void ResumePlaySession(DateTime at)
+    {
+        if (!enabled || playOwner is null || playSession is not null
+            || persistence.TakeRecentPlaySession(playOwner, at) is not { } recent) return;
+        var away = recent.EndedAtUtc is { } left && at > left ? (at - left).TotalSeconds : 0;
+        playSession = recent with
+        {
+            Revision = recent.Revision + 1,
+            State = ActivityState.Open,
+            EndReason = ActivityEndReason.None,
+            EndedAtUtc = null,
+            LastActivityAtUtc = at,
+            AwaySeconds = recent.AwaySeconds + away
+        };
+        playOpenedAt = at;
+        lastRunClosedAt = null;
+        playSessionDirty = true;
+        headersDirty = true;
+    }
+
+    // The first run of a session starts it, unless it continues an interrupted one.
+    private ActivityPlaySession? ActivatePlaySession(DateTime runStartedAt, DateTime at, bool resume = true)
     {
         if (playOwner is null) return null;
+        if (resume) ResumePlaySession(at);
         if (playSession is null)
         {
             playSession = new ActivityPlaySession
@@ -106,6 +121,7 @@ public sealed partial class ActivityTrackerService
                 LastActivityAtUtc = at,
                 State = ActivityState.Open
             };
+            playOpenedAt = runStartedAt;
             lastRunClosedAt = null;
         }
         playSessionDirty = true;
@@ -121,13 +137,16 @@ public sealed partial class ActivityTrackerService
         headersDirty = true;
     }
 
-    // Closes the open run and the play session at the last activity plus a short grace, or exactly
-    // at the given time when End session was pressed.
-    private void ClosePlaySession(DateTime at, ActivityEndReason reason, bool exact = false)
+    // Moving shows the player is still there, so the session doesn't end as idle.
+    private void MarkPresence(DateTime at)
     {
-        var end = !exact && playSession is { } active && active.LastActivityAtUtc + ActivityPlaySessionProjection.ActivityGrace < at
-            ? active.LastActivityAtUtc + ActivityPlaySessionProjection.ActivityGrace : at;
-        if (session is not null) CloseSession(end > session.StartedAtUtc ? end : session.StartedAtUtc, reason);
+        if (playSession is { } active && at - active.LastActivityAtUtc >= PresenceInterval) MarkPlayActivity(at);
+    }
+
+    // Closes the open run and the play session at the given time. The run can end for its own reason.
+    private void ClosePlaySession(DateTime at, ActivityEndReason reason, ActivityEndReason? runReason = null)
+    {
+        if (session is not null) CloseSession(at > session.StartedAtUtc ? at : session.StartedAtUtc, runReason ?? reason);
         if (playSession is { } closing)
         {
             var ended = closing with
@@ -135,20 +154,35 @@ public sealed partial class ActivityTrackerService
                 Revision = closing.Revision + 1,
                 State = reason == ActivityEndReason.Interrupted ? ActivityState.Interrupted : ActivityState.Closed,
                 EndReason = reason,
-                EndedAtUtc = lastRunClosedAt is { } runEnd && runEnd > end ? runEnd : end
+                EndedAtUtc = lastRunClosedAt is { } runEnd && runEnd > at ? runEnd : at
             };
             QueuePlaySession(ended);
+            // An interrupted session waits for the same character to come back.
+            if (reason == ActivityEndReason.Interrupted) persistence.RememberRecentPlaySession(ended);
         }
         playSession = null;
         playSessionDirty = false;
         lastRunClosedAt = null;
-        playOpenedAt = at;
     }
 
     private void ExpirePlaySession(DateTime at)
     {
+        // Without moving or acting for the idle limit, the session ends at the last of those.
         if (playSession is { } active && at >= active.LastActivityAtUtc + ActivityPlaySessionProjection.IdleLimit)
-            ClosePlaySession(at, ActivityEndReason.Inactivity);
+            ClosePlaySession(active.LastActivityAtUtc, ActivityEndReason.Inactivity);
+    }
+
+    // Without game traffic for a while the game was closed or the connection lost. The session is
+    // interrupted where the traffic stopped and continues if the character is back soon.
+    private void InterruptIfGameLeft(DateTime now)
+    {
+        if (playSession is not { } active) return;
+        var lastTraffic = player.LastPacketTime;
+        if (now - lastTraffic < ActivityPlaySessionProjection.GameLeftAfter) return;
+        ResolvePending(now);
+        // The run ended where the player left, not part way through a recording.
+        ClosePlaySession(lastTraffic > active.StartedAtUtc ? lastTraffic : active.StartedAtUtc, ActivityEndReason.Interrupted,
+            ActivityEndReason.CaptureGap);
     }
 
     private void SavePlaySession()

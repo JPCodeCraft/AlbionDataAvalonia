@@ -156,9 +156,7 @@ public partial class ActivityHistoryViewModel : ObservableObject, IDisposable
             DurationText = map is not null ? $"Recorded time: {map.DurationText} · Combat time: {UiFormat.Duration(rates.CombatDurationSeconds)}"
                 : imported ? $"Duration: {UiFormat.Duration(rates.DurationSeconds)}" : SelectedEncounter is { } selected ? $"Combat time: {selected.DurationText}"
                 : SelectedSession is { } run ? $"Run time: {run.DurationText} · Combat time: {UiFormat.Duration(rates.CombatDurationSeconds)}"
-                : $"Session time: {UiFormat.Duration(rates.DurationSeconds)}" +
-                    (DetailSummary.RunSeconds is { } runSeconds ? $" · In runs: {UiFormat.Duration(runSeconds)}" : "") +
-                    $" · Combat time: {UiFormat.Duration(rates.CombatDurationSeconds)}",
+                : $"Session time: {UiFormat.Duration(rates.DurationSeconds)} · Combat time: {UiFormat.Duration(rates.CombatDurationSeconds)}",
             ScopeText = $"{SelectedPlayer?.Name ?? ""}{(isPartial ? $"{(SelectedPlayer is null ? "" : " · ")}Incomplete recording" : "")}",
             TagsText = map is not null ? ActivityDisplay.Tags(DetailSummary.Summary.Tags)
                 : SelectedSession is { } row ? ActivityDisplay.Tags(ActivityProjection.GetSummary(row.Source, Filters.Scope).Tags)
@@ -397,31 +395,29 @@ public partial class ActivityHistoryViewModel : ObservableObject, IDisposable
             detailReadVersion = dataVersion;
     }
 
-    // A whole play session counts the time between its runs up to the idle limit; one run counts only itself.
+    // A whole play session counts its clock time; one run counts only itself.
     // Rates of combined sessions divide their added totals by their added time.
     private ActivitySummaryPresentation DetailPresentation(ActivitySummary summary, IReadOnlyList<ActivityPlaySessionHeader> headers,
         ActivitySession? run, ActivityEncounter? encounter, double combatSeconds)
     {
         var nowUtc = DateTime.UtcNow;
         if (encounter is not null) return new(summary, ActivityProjection.GetRates(summary, encounter));
-        // A session started with Start session also counts the wait before its only run, and one ended
-        // with End session the time after it.
-        run ??= headers is [var header] && header.Runs.Count == 1 && header.Runs[0] is var only
-            && only.StartedAtUtc <= header.PlaySession.StartedAtUtc
-            && !(ActivityPlaySessionProjection.EndedByPress(header.PlaySession)
-                && header.PlaySession.EndedAtUtc > (only.ClosedAtUtc ?? only.LastObservedAtUtc)) ? only : null;
+        // An imported session is its one run and keeps that run's recorded time.
+        run ??= summary.IsLegacyAggregate && headers is [{ Runs: [var imported] }] ? imported : null;
         var live = page.Tracker?.GetCurrentContext().Session;
         if (run is not null)
             return new(summary, ActivityProjection.GetRates(summary, live?.Id == run.Id ? live : run, combatSeconds, nowUtc), true);
-        var durations = PlayDurations(headers, live, nowUtc);
-        return new(summary, ActivityProjection.GetRates(summary, durations.PlaySeconds, combatSeconds), true, true, durations.RunSeconds);
+        return new(summary, ActivityProjection.GetRates(summary, PlaySeconds(headers, nowUtc), combatSeconds), true);
     }
 
     // Each session counts its own time, so the days between combined sessions count for nothing.
-    private static ActivityPlayDurations PlayDurations(IEnumerable<ActivityPlaySessionHeader> headers, ActivitySession? live, DateTime nowUtc) =>
-        headers.Select(header => ActivityPlaySessionProjection.Durations(header.PlaySession, header.Runs,
-                live?.PlaySessionId == header.PlaySession.Id ? live : null, nowUtc))
-            .Aggregate(new ActivityPlayDurations(0, 0), (total, value) => new(total.PlaySeconds + value.PlaySeconds, total.RunSeconds + value.RunSeconds));
+    // The running session comes from the tracker, which knows the time it was away.
+    private double PlaySeconds(IEnumerable<ActivityPlaySessionHeader> headers, DateTime nowUtc)
+    {
+        var current = page.Tracker?.GetCurrentContext().PlaySession;
+        return headers.Sum(header => ActivityPlaySessionProjection.Seconds(
+            current?.Id == header.PlaySession.Id ? current : header.PlaySession, header.Runs, nowUtc));
+    }
 
     // Imported sessions only add gathering totals; mixed with recorded ones, the recorded view stays.
     private ActivitySummary WithImportedTotals(ActivitySummary summary) =>

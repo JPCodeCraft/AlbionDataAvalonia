@@ -183,18 +183,14 @@ public sealed partial class ActivityStreamerViewModel : ViewModelBase, IDisposab
             snapshotQuery = query;
             snapshotReadAtUtc = nowUtc;
         }
-        // A session started with Start session has no run until its first activity.
-        var hasRun = snapshot.ObservationIntervals.Count > 0 || context.Session is not null;
-        var end = ActivityPlaySessionProjection.LiveEnd(playSession, nowUtc, hasRun);
-        var durations = ActivityPlaySessionProjection.Durations(snapshot.ObservationIntervals, playSession.StartedAtUtc, end);
+        // The session's time runs on the clock from its start, less any time away.
+        var end = ActivityPlaySessionProjection.End(playSession, nowUtc);
+        var seconds = ActivityPlaySessionProjection.Seconds(playSession.StartedAtUtc, end, playSession.AwaySeconds);
         var combatSeconds = ActivityPeriodProjection.GetRates(snapshot, playSession.StartedAtUtc, end).CombatDurationSeconds;
-        Summary = new(snapshot.Summary, ActivityProjection.GetRates(snapshot.Summary, durations.PlaySeconds, combatSeconds), true, true, durations.RunSeconds);
+        Summary = new(snapshot.Summary, ActivityProjection.GetRates(snapshot.Summary, seconds, combatSeconds), true);
         HasSession = true;
-        TitleText = !hasRun ? "Session started"
-            : ActivityPlaySessionProjection.IsIdle(playSession, nowUtc)
-            ? $"Idle {UiFormat.Duration((nowUtc - playSession.LastActivityAtUtc).TotalSeconds)}"
-            : context.Session is { } run ? ActivityDisplay.SessionTitle(run) : "Between runs";
-        SessionTimeText = $"Session {UiFormat.Duration(durations.PlaySeconds)}";
+        TitleText = context.Session is { } run ? ActivityDisplay.SessionTitle(run) : "Between runs";
+        SessionTimeText = $"Session {UiFormat.Duration(seconds)}";
         DurationText = $"{SessionTimeText} · Combat {UiFormat.Duration(combatSeconds)}";
 
         // The chart scrolls between reads, so it is read every other tick.

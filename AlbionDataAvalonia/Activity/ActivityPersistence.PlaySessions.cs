@@ -13,7 +13,8 @@ public sealed record ActivityPlaySessionHeader(ActivityPlaySession PlaySession, 
 
 public sealed partial class ActivityPersistence
 {
-    // Play sessions closed by the app stopping. Logging in again within the idle limit continues one.
+    // Play sessions interrupted by the app stopping or the game closing. The same character back within
+    // the idle limit continues one.
     private readonly List<ActivityPlaySession> recentPlaySessions = [];
 
     public bool EnqueuePlaySession(ActivityPlaySession playSession) => Enqueue(new PlaySessionCommand(playSession));
@@ -34,17 +35,27 @@ public sealed partial class ActivityPersistence
             return new ActivityPlaySessionHeader(playSession, runs);
         }, cancellationToken);
 
-    /// <summary>Takes the play session closed by the last app stop when this character logs in within the idle limit.</summary>
+    /// <summary>Takes this character's interrupted play session when it is back within the idle limit.</summary>
     internal ActivityPlaySession? TakeRecentPlaySession(ActivityOwner owner, DateTime nowUtc)
     {
         lock (recentPlaySessions)
         {
             var match = recentPlaySessions.Where(x => x.Server == owner.Server &&
                     (owner.CharacterId.Length > 0 ? x.CharacterId == owner.CharacterId : x.CharacterName == owner.CharacterName) &&
-                    nowUtc - x.LastActivityAtUtc <= ActivityPlaySessionProjection.IdleLimit)
-                .OrderByDescending(x => x.LastActivityAtUtc).FirstOrDefault();
+                    nowUtc - (x.EndedAtUtc ?? x.LastActivityAtUtc) <= ActivityPlaySessionProjection.IdleLimit)
+                .OrderByDescending(x => x.EndedAtUtc ?? x.LastActivityAtUtc).FirstOrDefault();
             if (match is not null) recentPlaySessions.Remove(match);
             return match;
+        }
+    }
+
+    /// <summary>Keeps a play session the game closing interrupted, so the character's return continues it.</summary>
+    internal void RememberRecentPlaySession(ActivityPlaySession playSession)
+    {
+        lock (recentPlaySessions)
+        {
+            recentPlaySessions.RemoveAll(x => x.Id == playSession.Id);
+            recentPlaySessions.Add(playSession);
         }
     }
 
@@ -138,7 +149,7 @@ public sealed partial class ActivityPersistence
         await AssignPlaySessionsAsync(context, changes, cancellationToken);
         var cutoff = DateTime.UtcNow - ActivityPlaySessionProjection.IdleLimit;
         var recent = await context.ActivityPlaySessions.AsNoTracking()
-            .Where(x => x.State == ActivityState.Interrupted && x.LastActivityAtUtc >= cutoff).ToListAsync(cancellationToken);
+            .Where(x => x.State == ActivityState.Interrupted && (x.EndedAtUtc ?? x.LastActivityAtUtc) >= cutoff).ToListAsync(cancellationToken);
         lock (recentPlaySessions)
         {
             recentPlaySessions.Clear();
