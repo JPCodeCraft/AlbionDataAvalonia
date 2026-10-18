@@ -19,7 +19,13 @@ public sealed record ActivityLiveTimelineMarker(string Id, ActivityLiveTimelineM
     DateTime CapturedAtUtc, string Label, string Detail, IReadOnlyList<Guid> EventIds, Guid? EncounterId,
     double Amount = 0, bool HasUnknownAmount = false, string ValueText = "", ActivityLiveTimelineTooltip? Tooltip = null,
     DateTime? EndedAtUtc = null, double SecondaryAmount = 0);
-public sealed record ActivityLiveTimelineTooltip(string Title, string TimeText, string ContextText, IReadOnlyList<string> Lines);
+// Entries are the items or mobs behind a marker, most valuable or most common first, shown with their icons above Lines.
+public sealed record ActivityLiveTimelineTooltip(string Title, string TimeText, string ContextText, IReadOnlyList<string> Lines,
+    IReadOnlyList<ActivityTooltipEntry>? Entries = null);
+public enum ActivityTooltipIcon { Item, Mob }
+/// <summary>An item or a mob in a tooltip: how many, and for items their total EMV and how many have no price.</summary>
+public sealed record ActivityTooltipEntry(ActivityTooltipIcon Icon, string UniqueName, int Quality, string Name, long Count,
+    long Value = 0, long Unpriced = 0);
 // Summary holds the encounter's saved totals for the snapshot scope; null when the chart follows one player.
 public sealed record ActivityLiveTimelineEncounter(Guid Id, int Number, DateTime StartedAtUtc,
     DateTime LastCombatAtUtc, ActivityEncounterKind Kind, ActivityState State, string LocationName = "", ActivitySummary? Summary = null);
@@ -137,28 +143,16 @@ internal static class ActivityLiveTimeline
         var unknown = kind == ActivityLiveTimelineMarkerKind.Silver && summary.UnknownSilverEvents > 0;
         var valueText = MarkerValue(amount, unknown);
         var lines = new List<string>();
+        IReadOnlyList<ActivityTooltipEntry>? entries = null;
         var context = first.LocationName;
         if (kind is ActivityLiveTimelineMarkerKind.Loot or ActivityLiveTimelineMarkerKind.Gathering or ActivityLiveTimelineMarkerKind.Fishing)
         {
-            var items = events.GroupBy(x => (x.ItemUniqueName ?? x.ItemName, x.Quality)).ToArray();
-            lines.AddRange(items.Take(4).Select(g => $"{DisplayName(g.First().ItemName, g.First().ItemUniqueName, "Unknown item")} × {g.Sum(x => x.Quantity):N0}"));
-            if (items.Length > 4) lines.Add($"+{items.Length - 4:N0} more item types");
-            var itemCount = kind == ActivityLiveTimelineMarkerKind.Loot ? summary.LootItems :
-                kind == ActivityLiveTimelineMarkerKind.Gathering ? summary.GatheringItems : summary.FishingItems;
-            var missing = kind == ActivityLiveTimelineMarkerKind.Loot ? summary.MissingPriceItems : summary.MissingResourcePriceItems;
-            var value = kind == ActivityLiveTimelineMarkerKind.Loot ? summary.LootValue :
-                kind == ActivityLiveTimelineMarkerKind.Gathering ? summary.GatheringValue : summary.FishingValue;
-            var estimate = missing == itemCount ? "Estimated value unavailable" : $"Estimated value: {value:N0} silver";
+            entries = ItemEntries(events, kind, contribution);
             context = WithPlayer(context, first.SourceName);
-            lines.Add(estimate);
-            if (missing > 0 && missing != itemCount) lines.Add($"{missing:N0} items have no price");
+            lines.Add(ItemTotal(entries));
         }
         else if (kind == ActivityLiveTimelineMarkerKind.MobKill)
-        {
-            var mobs = events.GroupBy(x => string.IsNullOrWhiteSpace(x.TargetName) ? x.MobUniqueName ?? "" : x.TargetName).ToArray();
-            lines.AddRange(mobs.Take(4).Select(g => $"{DisplayName(g.First().TargetName, g.First().MobUniqueName, "Unknown mob")} × {g.Count():N0}"));
-            if (mobs.Length > 4) lines.Add($"+{mobs.Length - 4:N0} more mob types");
-        }
+            entries = MobEntries(events, contribution);
         else if (kind == ActivityLiveTimelineMarkerKind.Fame)
         {
             lines.Add($"{summary.Fame:N0} fame");
@@ -175,8 +169,8 @@ internal static class ActivityLiveTimeline
         if (events.Length > 1 && events[^1].CapturedAtUtc > first.CapturedAtUtc)
             time += " – " + UiFormat.LocalTime(events[^1].CapturedAtUtc);
         var tooltipTitle = kind is ActivityLiveTimelineMarkerKind.Fame or ActivityLiveTimelineMarkerKind.Silver or ActivityLiveTimelineMarkerKind.PlayerKill ? label : $"{label} · {amount:N0}";
-        var tooltip = new ActivityLiveTimelineTooltip(tooltipTitle, time, context, lines);
-        var detail = time + "\n" + context + "\n" + string.Join("\n", lines);
+        var tooltip = new ActivityLiveTimelineTooltip(tooltipTitle, time, context, lines, entries);
+        var detail = time + "\n" + context + "\n" + string.Join("\n", EntryLines(entries).Concat(lines));
         return new($"{kind}:{first.Id:N}", kind, first.CapturedAtUtc, label, detail,
             events.Select(x => x.Id).Distinct().Take(250).ToArray(), first.EncounterId, amount, unknown, valueText, tooltip, events[^1].CapturedAtUtc);
     }
@@ -249,14 +243,20 @@ internal static class ActivityLiveTimeline
         var time = UiFormat.LocalTime(first.CapturedAtUtc);
         if (end > first.CapturedAtUtc) time += " – " + UiFormat.LocalTime(end);
         var title = first.Label + " · " + (party ? PartyValue(amount, secondary) : amount.ToString("N0", CultureInfo.CurrentCulture) + (unknown ? " + ?" : ""));
-        // Keep constituent ranges and totals: their existing item/mob breakdowns may already be truncated.
-        var lines = group.Take(4).Select(marker =>
-            (marker.Tooltip?.TimeText ?? UiFormat.LocalTime(marker.CapturedAtUtc)) +
-            " · " + (party ? marker.ValueText : marker.Amount.ToString("N0", CultureInfo.CurrentCulture) + (marker.HasUnknownAmount ? " + ?" : "")) +
-            (marker.Kind is ActivityLiveTimelineMarkerKind.Loot or ActivityLiveTimelineMarkerKind.Gathering or ActivityLiveTimelineMarkerKind.Fishing
-                ? " items" : marker.Kind == ActivityLiveTimelineMarkerKind.MobKill ? " kills" : "")).ToList();
-        if (group.Count > 4) lines.Add($"+{group.Count - 4:N0} more groups");
-        var tooltip = new ActivityLiveTimelineTooltip(title, time, first.Tooltip?.ContextText ?? "", lines);
+        // Items and mobs add up across the markers; other kinds list each marker's range and total.
+        var entries = group.All(marker => marker.Tooltip?.Entries is not null)
+            ? MergeEntries(group.SelectMany(marker => marker.Tooltip!.Entries!)) : null;
+        List<string> lines;
+        if (entries is not null)
+            lines = first.Kind == ActivityLiveTimelineMarkerKind.MobKill ? [] : [ItemTotal(entries)];
+        else
+        {
+            lines = group.Take(4).Select(marker =>
+                (marker.Tooltip?.TimeText ?? UiFormat.LocalTime(marker.CapturedAtUtc)) +
+                " · " + (party ? marker.ValueText : marker.Amount.ToString("N0", CultureInfo.CurrentCulture) + (marker.HasUnknownAmount ? " + ?" : ""))).ToList();
+            if (group.Count > 4) lines.Add($"+{group.Count - 4:N0} more groups");
+        }
+        var tooltip = new ActivityLiveTimelineTooltip(title, time, first.Tooltip?.ContextText ?? "", lines, entries);
         return first with
         {
             Amount = amount,
@@ -266,10 +266,58 @@ internal static class ActivityLiveTimeline
             EndedAtUtc = end,
             EventIds = group.SelectMany(marker => marker.EventIds).Distinct().ToArray(),
             EncounterId = group.All(marker => marker.EncounterId == first.EncounterId) ? first.EncounterId : null,
-            Detail = time + "\n" + tooltip.ContextText + "\n" + string.Join("\n", lines),
+            Detail = time + "\n" + tooltip.ContextText + "\n" + string.Join("\n", EntryLines(entries).Concat(lines)),
             Tooltip = tooltip
         };
     }
+
+    // Each item and quality once, with the amount and EMV this marker's scope counts.
+    private static ActivityTooltipEntry[] ItemEntries(IEnumerable<ActivityEvent> events, ActivityLiveTimelineMarkerKind kind,
+        Func<ActivityEvent, ActivitySummary> contribution) => Sorted(events
+        .GroupBy(x => (Item: x.ItemUniqueName ?? x.ItemName, x.Quality))
+        .Select(group =>
+        {
+            var first = group.First();
+            var amounts = group.Select(contribution).ToArray();
+            return new ActivityTooltipEntry(ActivityTooltipIcon.Item, first.ItemUniqueName ?? "",
+                first.Quality is >= 1 and <= 5 ? first.Quality.Value : 1, DisplayName(first.ItemName, first.ItemUniqueName, "Unknown item"),
+                amounts.Sum(x => kind == ActivityLiveTimelineMarkerKind.Loot ? x.LootItems : kind == ActivityLiveTimelineMarkerKind.Gathering ? x.GatheringItems : x.FishingItems),
+                amounts.Sum(x => kind == ActivityLiveTimelineMarkerKind.Loot ? x.LootValue : kind == ActivityLiveTimelineMarkerKind.Gathering ? x.GatheringValue : x.FishingValue),
+                amounts.Sum(x => kind == ActivityLiveTimelineMarkerKind.Loot ? x.MissingPriceItems : x.MissingResourcePriceItems));
+        }));
+
+    // Mobs that share a name (the tiers of one mob) share a row, with the most common one's portrait.
+    private static ActivityTooltipEntry[] MobEntries(IEnumerable<ActivityEvent> events, Func<ActivityEvent, ActivitySummary> contribution) =>
+        Sorted(events.GroupBy(x => DisplayName(x.TargetName, x.MobUniqueName, "Unknown mob"))
+            .Select(group => new ActivityTooltipEntry(ActivityTooltipIcon.Mob,
+                group.GroupBy(x => string.IsNullOrWhiteSpace(x.MobUniqueName) ? x.TargetName : x.MobUniqueName)
+                    .OrderByDescending(x => x.Count()).First().Key, 1, group.Key,
+                group.Sum(x => (long)contribution(x).MobKills))));
+
+    private static ActivityTooltipEntry[] MergeEntries(IEnumerable<ActivityTooltipEntry> entries) => Sorted(entries
+        .GroupBy(x => x.Icon == ActivityTooltipIcon.Mob ? (x.Icon, "", 1, x.Name) : (x.Icon, x.UniqueName, x.Quality, x.Name))
+        .Select(group => group.First() with
+        {
+            Count = group.Sum(x => x.Count),
+            Value = group.Sum(x => x.Value),
+            Unpriced = group.Sum(x => x.Unpriced)
+        }));
+
+    // Most valuable first, then most common: items by EMV, mobs by kills.
+    private static ActivityTooltipEntry[] Sorted(IEnumerable<ActivityTooltipEntry> entries) => entries.Where(x => x.Count > 0)
+        .OrderByDescending(x => x.Value).ThenByDescending(x => x.Count).ThenBy(x => x.Name, StringComparer.CurrentCulture).ToArray();
+
+    private static string ItemTotal(IReadOnlyCollection<ActivityTooltipEntry> entries)
+    {
+        var count = entries.Sum(x => x.Count);
+        var unpriced = entries.Sum(x => x.Unpriced);
+        var value = entries.Sum(x => x.Value);
+        if (unpriced >= count && value == 0) return "Total EMV unavailable";
+        return $"Total EMV {UiFormat.Compact(value)}" + (unpriced > 0 ? $" · {UiFormat.Whole(unpriced)} without a price" : "");
+    }
+
+    private static IEnumerable<string> EntryLines(IReadOnlyList<ActivityTooltipEntry>? entries) =>
+        (entries ?? []).Take(4).Select(x => $"{x.Name} × {x.Count:N0}");
 
     private static string MarkerValue(double amount, bool unknown) =>
         unknown && amount == 0 ? "?" : UiFormat.Compact(amount) + (unknown ? " ?" : "");

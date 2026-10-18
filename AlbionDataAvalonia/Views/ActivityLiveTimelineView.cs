@@ -5,6 +5,7 @@ using System.Linq;
 using System.Windows.Input;
 using AlbionDataAvalonia.Activity;
 using AlbionDataAvalonia.Activity.Models;
+using AlbionDataAvalonia.Items;
 using AlbionDataAvalonia.Ui;
 using AlbionDataAvalonia.ViewModels;
 using AlbionDataAvalonia.Views.Controls;
@@ -46,6 +47,8 @@ public sealed class ActivityLiveTimelineView : UserControl
         AvaloniaProperty.Register<ActivityLiveTimelineView, ICommand?>(nameof(ReplayWindowCommand));
     public static readonly StyledProperty<bool> IsCompactProperty =
         AvaloniaProperty.Register<ActivityLiveTimelineView, bool>(nameof(IsCompact));
+    // The map's tooltips list as many items or mobs before "and N more".
+    private const int TooltipEntriesShown = 6;
     private readonly ActivityLiveTimelineCanvas canvas = new();
     private readonly Canvas tooltipLayer = new() { IsHitTestVisible = false, ClipToBounds = false };
     private readonly Border tooltipPanel = new()
@@ -475,7 +478,18 @@ public sealed class ActivityLiveTimelineView : UserControl
         var content = new StackPanel { Spacing = 4, IsHitTestVisible = false };
         content.Children.Add(header);
         if (!string.IsNullOrEmpty(tooltip.ContextText)) content.Children.Add(TooltipLine(tooltip.ContextText, true));
-        foreach (var line in tooltip.Lines) content.Children.Add(TooltipLine(line));
+        // Items and mobs show like the map's tooltips: icon, name and value, with the totals under them.
+        var entries = tooltip.Entries ?? [];
+        if (entries.Count > 0)
+        {
+            var rows = new StackPanel { Margin = new Thickness(0, 2) };
+            foreach (var entry in entries.Take(TooltipEntriesShown)) rows.Children.Add(TooltipEntry(entry));
+            content.Children.Add(rows);
+            if (entries.Count > TooltipEntriesShown)
+                content.Children.Add(TooltipLine("and " + UiFormat.Count(entries.Count - TooltipEntriesShown,
+                    entries[0].Icon == ActivityTooltipIcon.Mob ? "more mob" : "more item"), true));
+        }
+        foreach (var line in tooltip.Lines) content.Children.Add(TooltipLine(line, entries.Count > 0));
         tooltipPanel.Child = content;
         tooltipPanel.IsVisible = true;
         tooltipPanel.Measure(new Size(availableWidth, double.PositiveInfinity));
@@ -485,6 +499,47 @@ public sealed class ActivityLiveTimelineView : UserControl
         if (top + size.Height > canvas.Bounds.Height - 4) top = Math.Max(4, pointer.Y - size.Height - 12);
         Canvas.SetLeft(tooltipPanel, left);
         Canvas.SetTop(tooltipPanel, top);
+    }
+
+    private static Grid TooltipEntry(ActivityTooltipEntry entry)
+    {
+        var icon = new Image
+        {
+            Width = ChartDrawing.TooltipIconSize,
+            Height = ChartDrawing.TooltipIconSize,
+            Stretch = Stretch.Uniform,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        var mob = entry.Icon == ActivityTooltipIcon.Mob;
+        if (mob) LazyMobImage.SetMobUniqueName(icon, entry.UniqueName);
+        else
+        {
+            LazyItemImage.SetQuality(icon, entry.Quality);
+            LazyItemImage.SetItemUniqueName(icon, entry.UniqueName);
+        }
+        var name = new TextBlock
+        {
+            Text = mob ? entry.Name : $"{entry.Name}{(entry.Quality > 1 ? $" ({ItemQuality.Format(entry.Quality)})" : "")} ×{UiFormat.Whole(entry.Count)}",
+            FontSize = ChartDrawing.TooltipLineSize,
+            TextTrimming = TextTrimming.CharacterEllipsis,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        var value = new TextBlock
+        {
+            Text = mob ? "×" + UiFormat.Whole(entry.Count) : entry.Unpriced > 0 && entry.Value <= 0 ? "no price" : UiFormat.Compact(entry.Value),
+            FontSize = ChartDrawing.TooltipLineSize,
+            FontWeight = FontWeight.SemiBold,
+            VerticalAlignment = VerticalAlignment.Center
+        };
+        Grid.SetColumn(name, 1);
+        Grid.SetColumn(value, 2);
+        return new Grid
+        {
+            ColumnDefinitions = new ColumnDefinitions("Auto,*,Auto"),
+            ColumnSpacing = 8,
+            MinHeight = ChartDrawing.TooltipIconSize + 4,
+            Children = { icon, name, value }
+        };
     }
 
     private static TextBlock TooltipLine(string text, bool muted = false)

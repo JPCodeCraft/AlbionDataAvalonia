@@ -432,7 +432,8 @@ internal sealed class ActivityLiveTimelineCanvas : Control
                 $"{item.Label}: {UiFormat.Compact(sample != null ? item.Value(sample) : 0)} {RateUnit}").ToArray());
         }
         Cursor = new Cursor(encounter != null ? StandardCursorType.Hand : StandardCursorType.Cross);
-        var text = tooltip.Title + "\n" + tooltip.TimeText + "\n" + tooltip.ContextText + "\n" + string.Join("\n", tooltip.Lines);
+        var text = tooltip.Title + "\n" + tooltip.TimeText + "\n" + tooltip.ContextText + "\n" + string.Join("\n", tooltip.Lines) +
+            string.Concat((tooltip.Entries ?? []).Select(entry => $"\n{entry.UniqueName}:{entry.Quality}:{entry.Count}"));
         if (text == lastInspection) return;
         lastInspection = text;
         InspectionChanged?.Invoke(tooltip, point);
