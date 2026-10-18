@@ -1,5 +1,4 @@
 using AlbionDataAvalonia.Locations;
-using AlbionDataAvalonia.Settings;
 using Avalonia.Media.Imaging;
 using Serilog;
 using System;
@@ -10,6 +9,7 @@ using System.IO;
 using System.Linq;
 using System.Net;
 using System.Net.Http;
+using System.Net.Http.Json;
 using System.Text;
 using System.Text.Json;
 using System.Threading;
@@ -19,14 +19,21 @@ namespace AlbionDataAvalonia.Maps;
 
 /// <summary>
 /// Loads the AlbionWorld zone catalog, minimaps, minimap icons and zone features from the AFM CDN.
-/// Every file is versioned, so a downloaded copy never changes and is kept until the version moves on.
+/// The CDN publishes a version that changes with these files, so a downloaded copy never changes and is kept
+/// until the version moves on.
 /// </summary>
 public sealed class MapDataService : IDisposable
 {
-    private const string DefaultVersion = "2026-10-18-2";
+    private const string VersionUrl = "https://cdn.albionfreemarket.com/AlbionWorld/map-data-version.json";
     private const string CatalogUrl = "https://cdn.albionfreemarket.com/AlbionWorld/albionLocations.json";
     private const string MapsBase = "https://cdn.albionfreemarket.com/AlbionWorld/map";
     private const string FeaturesBase = "https://cdn.albionfreemarket.com/AlbionWorld/map-features";
+    // Used while no version has ever been read from the CDN.
+    private const string Unversioned = "unversioned";
+    // A running app looks for a new version now and then, so an AlbionWorld update reaches it without a restart.
+    private static readonly TimeSpan VersionCheckInterval = TimeSpan.FromHours(1);
+    private static readonly TimeSpan VersionRetryDelay = TimeSpan.FromMinutes(10);
+    private static readonly TimeSpan VersionCheckTimeout = TimeSpan.FromSeconds(10);
     private const int CachedImages = 3;
     // A feature on an exit's spot is the exit itself; the exit marker already shows it.
     private const double ExitTolerance = 0.01;
@@ -34,7 +41,6 @@ public sealed class MapDataService : IDisposable
     private const double OutpostIconScale = 1.65;
     private static readonly HashSet<string> OutpostIcons = ["Outpost_Forest", "Outpost_Highland", "Outpost_Mountain", "Outpost_Steppe", "Outpost_Swamp"];
 
-    private readonly SettingsManager settings;
     private readonly HttpClient http = new() { Timeout = TimeSpan.FromSeconds(60) };
     private readonly SemaphoreSlim downloads = new(3);
     private readonly object sync = new();
@@ -42,16 +48,14 @@ public sealed class MapDataService : IDisposable
     private readonly ConcurrentDictionary<string, Task<Bitmap?>> iconImages = new();
     private readonly LinkedList<(string File, Task<Bitmap?> Image)> images = new();
     private Task<IReadOnlyDictionary<string, MapZone>>? catalog;
+    private string? version;
+    private Task? versionCheck;
+    private DateTime nextVersionCheck;
     private bool staleVersionsRemoved;
 
-    public MapDataService(SettingsManager settings)
-    {
-        this.settings = settings;
-    }
-
-    private string Version => string.IsNullOrWhiteSpace(settings.AppSettings.MapDataVersion) ? DefaultVersion : settings.AppSettings.MapDataVersion!;
     private static string CacheRoot => Path.Combine(AppData.LocalPath, "cache", "maps");
-    private string VersionDirectory => Path.Combine(CacheRoot, SafeFileName(Version));
+    // The last version read from the CDN, so cached maps still show when it can't be reached.
+    private static string LastVersionFile => Path.Combine(CacheRoot, "version.txt");
 
     /// <summary>The catalog zone for a captured map id, trying the full id first and then its '@' parts.
     /// A Mists instance has no zone of its own, so its fixed layout is tried last.</summary>
@@ -116,16 +120,21 @@ public sealed class MapDataService : IDisposable
         }
     }
 
-    private Task<IReadOnlyDictionary<string, MapZone>> GetCatalogAsync(CancellationToken cancellationToken)
+    private async Task<IReadOnlyDictionary<string, MapZone>> GetCatalogAsync(CancellationToken cancellationToken)
     {
+        // Every map change comes through here, so this is also where a running app notices a new version.
+        var current = await GetVersionAsync().ConfigureAwait(false);
+        Task<IReadOnlyDictionary<string, MapZone>> loading;
         lock (sync)
         {
-            if (catalog is null || catalog.IsFaulted || catalog.IsCanceled) catalog = LoadCatalogAsync();
-            return catalog;
+            if (catalog is null || catalog.IsFaulted || catalog.IsCanceled) catalog = LoadCatalogAsync(current);
+            loading = catalog;
         }
+
+        return await loading.ConfigureAwait(false);
     }
 
-    private async Task<IReadOnlyDictionary<string, MapZone>> LoadCatalogAsync()
+    private async Task<IReadOnlyDictionary<string, MapZone>> LoadCatalogAsync(string current)
     {
         var path = await DownloadAsync(CatalogUrl, "albionLocations.json").ConfigureAwait(false);
         await using var stream = File.OpenRead(path);
@@ -148,9 +157,100 @@ public sealed class MapDataService : IDisposable
                 min.Value, max.Value, exits);
         }
 
-        Log.Information("Loaded {ZoneCount} map zones for map data version {Version}", zones.Count, Version);
+        Log.Information("Loaded {ZoneCount} map zones for map data version {Version}", zones.Count, current);
         return zones;
     }
+
+    /// <summary>The version the cached files belong to. Only the first check is waited for; later ones switch
+    /// the version when they finish.</summary>
+    private async Task<string> GetVersionAsync()
+    {
+        Task check;
+        lock (sync)
+        {
+            if (versionCheck is null || versionCheck.IsCompleted && DateTime.UtcNow >= nextVersionCheck)
+                versionCheck = CheckVersionAsync();
+
+            if (version is not null) return version;
+            check = versionCheck;
+        }
+
+        await check.ConfigureAwait(false);
+        lock (sync) return version!;
+    }
+
+    private async Task CheckVersionAsync()
+    {
+        var published = await LoadPublishedVersionAsync().ConfigureAwait(false);
+        lock (sync)
+        {
+            nextVersionCheck = DateTime.UtcNow + (published is null ? VersionRetryDelay : VersionCheckInterval);
+            var next = published ?? version ?? ReadLastVersion() ?? Unversioned;
+            if (next == version) return;
+            if (version is not null)
+            {
+                // Everything loaded so far belongs to the old version.
+                Log.Information("Map data version changed from {OldVersion} to {Version}", version, next);
+                catalog = null;
+                icons.Clear();
+                iconImages.Clear();
+                images.Clear();
+            }
+
+            version = next;
+        }
+
+        if (published is not null) SaveLastVersion(published);
+    }
+
+    private async Task<string?> LoadPublishedVersionAsync()
+    {
+        try
+        {
+            using var timeout = new CancellationTokenSource(VersionCheckTimeout);
+            var file = await http.GetFromJsonAsync<VersionFile>(VersionUrl, JsonOptions, timeout.Token).ConfigureAwait(false);
+            if (IsValidVersion(file?.Version)) return file!.Version;
+            Log.Warning("The map data version file has no usable version");
+        }
+        catch (Exception error)
+        {
+            // Any failure only means the cached version is kept until the next check.
+            Log.Warning(error, "Could not check the map data version");
+        }
+
+        return null;
+    }
+
+    private static string? ReadLastVersion()
+    {
+        try
+        {
+            var saved = File.Exists(LastVersionFile) ? File.ReadAllText(LastVersionFile).Trim() : null;
+            return IsValidVersion(saved) ? saved : null;
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            Log.Debug(error, "Could not read the last map data version");
+            return null;
+        }
+    }
+
+    private static void SaveLastVersion(string value)
+    {
+        try
+        {
+            Directory.CreateDirectory(CacheRoot);
+            File.WriteAllText(LastVersionFile, value);
+        }
+        catch (Exception error) when (error is IOException or UnauthorizedAccessException)
+        {
+            Log.Debug(error, "Could not save the map data version");
+        }
+    }
+
+    // The version names a cache directory, so it may only hold letters, digits, '-' and '_'.
+    private static bool IsValidVersion(string? value) =>
+        !string.IsNullOrEmpty(value) && value.Length <= 64 && value.All(c => char.IsAsciiLetterOrDigit(c) || c is '-' or '_');
 
     private async Task<IReadOnlyList<MapZoneIcon>> LoadIconsAsync(MapZone zone)
     {
@@ -199,15 +299,16 @@ public sealed class MapDataService : IDisposable
     // Writes to a temporary file first so a cut download never leaves a broken cache entry.
     private async Task<string> DownloadAsync(string url, string relativePath)
     {
-        var path = Path.Combine(VersionDirectory, relativePath);
+        var current = await GetVersionAsync().ConfigureAwait(false);
+        var path = Path.Combine(CacheRoot, current, relativePath);
         if (File.Exists(path)) return path;
-        RemoveStaleVersions();
+        RemoveStaleVersions(current);
         await downloads.WaitAsync().ConfigureAwait(false);
         try
         {
             if (File.Exists(path)) return path;
             Directory.CreateDirectory(Path.GetDirectoryName(path)!);
-            var versioned = $"{url}{(url.Contains('?') ? '&' : '?')}v={Uri.EscapeDataString(Version)}";
+            var versioned = $"{url}{(url.Contains('?') ? '&' : '?')}v={Uri.EscapeDataString(current)}";
             using var response = await http.GetAsync(versioned, HttpCompletionOption.ResponseHeadersRead).ConfigureAwait(false);
             response.EnsureSuccessStatusCode();
             var temporary = path + ".download";
@@ -222,7 +323,8 @@ public sealed class MapDataService : IDisposable
         }
     }
 
-    private void RemoveStaleVersions()
+    // Runs once per start, so a version that changes while the app runs is cleaned up on the next start.
+    private void RemoveStaleVersions(string current)
     {
         lock (sync)
         {
@@ -234,7 +336,7 @@ public sealed class MapDataService : IDisposable
         {
             if (!Directory.Exists(CacheRoot)) return;
             foreach (var directory in Directory.EnumerateDirectories(CacheRoot)
-                         .Where(x => !string.Equals(Path.GetFileName(x), SafeFileName(Version), StringComparison.OrdinalIgnoreCase)))
+                         .Where(x => !string.Equals(Path.GetFileName(x), current, StringComparison.OrdinalIgnoreCase)))
                 Directory.Delete(directory, recursive: true);
         }
         catch (Exception error) when (error is IOException or UnauthorizedAccessException)
@@ -291,6 +393,11 @@ public sealed class MapDataService : IDisposable
     }
 
     private static readonly JsonSerializerOptions JsonOptions = new() { PropertyNameCaseInsensitive = true };
+
+    private sealed class VersionFile
+    {
+        public string? Version { get; set; }
+    }
 
     private sealed class CatalogEntry
     {

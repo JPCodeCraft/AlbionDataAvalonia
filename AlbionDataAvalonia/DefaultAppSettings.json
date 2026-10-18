@@ -17,7 +17,6 @@
   "NetworkDevicesStartDelaySecs": 5,
   "NetworkDevicesRescanSeconds": 10,
   "NetworkDevicesTrafficTimeoutSeconds": 30,
-  "MapDataVersion": "2026-10-18-2",
   "AfmAuthClientId": "615549188968-7fo3h0ldc144p8pq6fm0nts43db8rd6j.apps.googleusercontent.com",
   "AfmAuthApiUrl": "https://api.albionfreemarket.com/be/api",
   "AfmBackendApiBase": "https://api.albionfreemarket.com/be",
