@@ -107,19 +107,13 @@ The app isn't signed, so macOS may say `"AFMDataClient_MacOS" is damaged and can
    open /Applications/AFMDataClient_MacOS.app
    ```
 
-The first time, the Main tab shows `Allow packet capture on this Mac` and the sidebar reads `Capture not set up`.
+The first time, the Main tab shows `Allow packet capture on this Mac` and the sidebar reads `Capture not set up`. Click **Install permissions** on the Main tab or in the sidebar, approve the administrator prompt, and let the app restart.
 
-<img width="177" height="166" alt="Capture not set up in the sidebar" src="https://github.com/user-attachments/assets/3775d64b-e785-4d9c-a5f9-c08cfb41007c" />
+<img width="242" height="296" alt="The macOS administrator prompt" src="https://github.com/user-attachments/assets/35751693-36b9-459e-b9a5-fbef9a356767" />
 
-Click **Install permissions** on the Main tab or in the sidebar, approve the administrator prompt, and let the app restart.
+Once it restarts, log in to the game and the Main tab checks the rest, as in [First start](#first-start).
 
-<img width="242" height="296" alt="The Install permissions button" src="https://github.com/user-attachments/assets/35751693-36b9-459e-b9a5-fbef9a356767" />
-
-Once it restarts and you log in to the game, you should see the client working.
-
-<img width="930" height="631" alt="The client working on macOS" src="https://github.com/user-attachments/assets/84cfa92a-dc84-431a-ae92-c6815d0dea66" />
-
-Older installations may show `Permissions Update Available` with an **Update permissions** button instead. Run it once to replace the old permission service.
+Older installations show an **Update permissions** button instead. Run it once to replace the old permission service.
 
 The client tells you when a new version is out, but on macOS you download and install updates yourself.
 
