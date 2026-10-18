@@ -23,7 +23,7 @@ namespace AlbionDataAvalonia.Maps;
 /// </summary>
 public sealed class MapDataService : IDisposable
 {
-    private const string DefaultVersion = "2026-10-18-1";
+    private const string DefaultVersion = "2026-10-18-2";
     private const string CatalogUrl = "https://cdn.albionfreemarket.com/AlbionWorld/albionLocations.json";
     private const string MapsBase = "https://cdn.albionfreemarket.com/AlbionWorld/map";
     private const string FeaturesBase = "https://cdn.albionfreemarket.com/AlbionWorld/map-features";
