@@ -73,7 +73,7 @@ public sealed partial class ActivityTrackerService
                     $"stream {packet.MessageIdentity?.DirectionalConnection} vs {connectionIdentity?.DirectionalConnection}, " +
                     $"same parser {packet.MessageIdentity?.ReceiverGeneration == connectionIdentity?.ReceiverGeneration}");
             }
-            PlacePosition(at, point);
+            PlacePosition(at, point, packet.Heading);
         }
     }
 
@@ -96,9 +96,11 @@ public sealed partial class ActivityTrackerService
         DiagnosticNote?.Invoke($"Position ignored: {reason}");
     }
 
-    private void PlacePosition(DateTime at, ActivityWorldPosition point)
+    // Move says where the character faces, standing or not; an arrival has no facing, so the last step decides.
+    private void PlacePosition(DateTime at, ActivityWorldPosition point, double? facing = null)
     {
-        if (position is { } previous && positionEpoch == mapEpoch
+        if (facing is { } angle) heading = angle;
+        else if (position is { } previous && positionEpoch == mapEpoch
             && Math.Abs(point.X - previous.X) + Math.Abs(point.Y - previous.Y) > 0.3)
             heading = Math.Atan2(point.Y - previous.Y, point.X - previous.X);
         position = point;

@@ -148,7 +148,8 @@ public sealed class ActivityMapCanvas : Control
             return;
         }
 
-        if (!newView && glideTo is { } previous && previous.X == target.X && previous.Y == target.Y) return;
+        // Standing still, the facing can still change; the arrow then turns in place.
+        if (!newView && glideTo is { } previous && previous.X == target.X && previous.Y == target.Y && glideHeadingTo == scene.Heading) return;
         var now = Stopwatch.GetTimestamp();
         var shown = newView ? null : Shown(now);
         if (shown is { } from && Math.Sqrt(Math.Pow(target.X - from.Point.X, 2) + Math.Pow(target.Y - from.Point.Y, 2)) <= PathBreakDistance)
