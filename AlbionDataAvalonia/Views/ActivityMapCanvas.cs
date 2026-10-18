@@ -1,4 +1,5 @@
 using AlbionDataAvalonia.Activity.Models;
+using AlbionDataAvalonia.Items;
 using AlbionDataAvalonia.Ui;
 using AlbionDataAvalonia.ViewModels;
 using Avalonia;
@@ -157,7 +158,11 @@ public sealed class ActivityMapCanvas : Control
         if (scene.Layers.HasFlag(ActivityMapLayers.Path)) DrawPath(context, scene, scale);
         DrawMarkers(context, scene, scale);
         DrawPosition(context, scene, scale);
-        if (hovered is { } hover && pointer is { } at) ChartDrawing.DrawTooltip(context, bounds, at, hover.Title, hover.Lines);
+        // Icons are asked for only for the tooltip on view; one that arrives later redraws it.
+        if (hovered is { } hover && pointer is { } at)
+            ChartDrawing.DrawTooltip(context, bounds, at, hover.Title,
+                hover.Items.Select(row => new ChartDrawing.TooltipRow(LazyItemImage.ForDrawing(row.UniqueName, row.Quality, InvalidateVisual), row.Text, row.Value)).ToArray(),
+                hover.Lines);
     }
 
     private void DrawZoneOutline(DrawingContext context, ActivityMapScene scene, double scale)
@@ -195,7 +200,7 @@ public sealed class ActivityMapCanvas : Control
             if (!Visible(at, iconSize)) continue;
             var rect = new Rect(at.X - iconSize / 2, at.Y - iconSize / 2, iconSize, iconSize);
             context.DrawImage(image, new Rect(image.Size), rect);
-            hits.Add(new Hit(at, iconSize / 2 + 2, icon.Label, []));
+            hits.Add(new Hit(at, iconSize / 2 + 2, icon.Label, [], []));
         }
     }
 
@@ -206,7 +211,7 @@ public sealed class ActivityMapCanvas : Control
             var at = ToScreen(ImagePoint(scene, exit.Position.X, exit.Position.Y), scale);
             if (!Visible(at, 8)) continue;
             context.DrawEllipse(UiPalette.Brush(ActivityPalette.Zone(exit.Zone)), OutlinePen, at, 6, 6);
-            hits.Add(new Hit(at, 9, exit.Label, []));
+            hits.Add(new Hit(at, 9, exit.Label, [], []));
         }
     }
 
@@ -283,7 +288,7 @@ public sealed class ActivityMapCanvas : Control
             {
                 var start = ToScreen(ImagePoint(scene, visible[0].X, visible[0].Y), scale);
                 context.DrawEllipse(UiPalette.Brush(ActivityPalette.PathStart), WhitePen, start, 5, 5);
-                hits.Add(new Hit(start, 7, "Run started here", [When(visible[0].CapturedAtUtc, scene)]));
+                hits.Add(new Hit(start, 7, "Run started here", [When(visible[0].CapturedAtUtc, scene)], []));
             }
         }
     }
@@ -357,15 +362,31 @@ public sealed class ActivityMapCanvas : Control
                     if (count > 1) ChartDrawing.DrawCountBadge(context, at, count);
                 }
 
-                hits.Add(count == 1 ? new Hit(at, 9, cluster.Members[0].Title, MarkerLines(cluster.Members[0], scene))
-                    : new Hit(at, 11, GroupTitle(cluster.Kind, cluster.Members), GroupLines(cluster.Kind, cluster.Members, scene)));
+                hits.Add(count == 1 ? MarkerHit(at, cluster.Members[0], scene)
+                    : new Hit(at, 11, GroupTitle(cluster.Kind, cluster.Members), GroupLines(cluster.Kind, cluster.Members, scene), GroupItems(cluster.Kind, cluster.Members)));
             }
         }
     }
 
-    private static IReadOnlyList<string> MarkerLines(ActivityMapMarker marker, ActivityMapScene scene) =>
-        new[] { marker.Kind is ActivityMapMarkerKind.Loot or ActivityMapMarkerKind.Gathering ? Emv(marker.Value) : "", marker.Detail,
-            When(marker.CapturedAtUtc, scene) }.Where(x => x.Length > 0).ToArray();
+    // A pickup or harvest shows its item like the lists do: icon, name and EMV.
+    private static Hit MarkerHit(Point at, ActivityMapMarker marker, ActivityMapScene scene) =>
+        new(at, 9, marker.Title, new[] { marker.Detail, When(marker.CapturedAtUtc, scene) }.Where(x => x.Length > 0).ToArray(),
+            HasItems(marker.Kind) ? [ItemLine(marker.ItemUniqueName, marker.Quality, marker.Subject, marker.Quantity, marker.Value, marker.Value is null)] : []);
+
+    private static bool HasItems(ActivityMapMarkerKind kind) => kind is ActivityMapMarkerKind.Loot or ActivityMapMarkerKind.Gathering;
+
+    private static ItemRow ItemLine(string uniqueName, int quality, string name, long quantity, long? value, bool missing) =>
+        new(uniqueName, quality, $"{name}{(quality > 1 ? $" ({ItemQuality.Format(quality)})" : "")} ×{UiFormat.Whole(quantity)}",
+            missing && value is not > 0 ? "no price" : UiFormat.Compact(value ?? 0));
+
+    // Pickups and gathering list their items, most valuable first.
+    private static IReadOnlyList<ItemRow> GroupItems(ActivityMapMarkerKind kind, IReadOnlyList<ActivityMapMarker> members) => !HasItems(kind) ? []
+        : ItemGroups(members).Take(GroupLinesShown).Select(x => ItemLine(x.Key.ItemUniqueName, x.Key.Quality, x.Key.Subject,
+            x.Sum(m => m.Quantity), x.Sum(m => m.Value ?? 0), x.Any(m => m.Value is null))).ToArray();
+
+    private static IGrouping<(string Subject, string ItemUniqueName, int Quality), ActivityMapMarker>[] ItemGroups(IReadOnlyList<ActivityMapMarker> members) =>
+        members.GroupBy(x => (x.Subject, x.ItemUniqueName, x.Quality))
+            .OrderByDescending(x => x.Sum(m => m.Value ?? 0)).ThenByDescending(x => x.Sum(m => m.Quantity)).ThenBy(x => x.Key.Subject).ToArray();
 
     private static string GroupTitle(ActivityMapMarkerKind kind, IReadOnlyList<ActivityMapMarker> members) => kind switch
     {
@@ -375,19 +396,16 @@ public sealed class ActivityMapCanvas : Control
         _ => UiFormat.Count(members.Count, "death")
     };
 
-    // Kills list their mobs and players; pickups and gathering list their items with EMV and a total; the time the
-    // group covers comes last. The most common entries come first.
+    // Kills list their mobs and players, the most common first; pickups and gathering add a total under their item
+    // rows. The time the group covers comes last.
     private static IReadOnlyList<string> GroupLines(ActivityMapMarkerKind kind, IReadOnlyList<ActivityMapMarker> members, ActivityMapScene scene)
     {
-        List<string> lines;
-        if (kind is ActivityMapMarkerKind.Loot or ActivityMapMarkerKind.Gathering)
+        var lines = new List<string>();
+        if (HasItems(kind))
         {
-            var items = members.GroupBy(x => x.Subject).Select(x => (Name: x.Key, Quantity: x.Sum(m => m.Quantity),
-                    Value: x.Sum(m => m.Value ?? 0), Missing: x.Any(m => m.Value is null)))
-                .OrderByDescending(x => x.Value).ThenByDescending(x => x.Quantity).ThenBy(x => x.Name).ToArray();
-            lines = items.Take(GroupLinesShown).Select(x => $"{x.Name} ×{UiFormat.Whole(x.Quantity)} · {(x.Missing && x.Value == 0 ? "no price" : UiFormat.Compact(x.Value))}").ToList();
-            if (items.Length > GroupLinesShown)
-                lines.Add($"and {UiFormat.Count(items.Length - GroupLinesShown, "more item")}");
+            var items = ItemGroups(members).Length;
+            if (items > GroupLinesShown)
+                lines.Add($"and {UiFormat.Count(items - GroupLinesShown, "more item")}");
             var missing = members.Where(x => x.Value is null).Sum(x => x.Quantity);
             lines.Add($"Total {Emv(members.Sum(x => x.Value ?? 0))}{(missing > 0 ? $" · {UiFormat.Whole(missing)} without a price" : "")}");
         }
@@ -408,7 +426,7 @@ public sealed class ActivityMapCanvas : Control
         return lines;
     }
 
-    private static string Emv(long? value) => value is { } silver ? $"EMV {UiFormat.Compact(silver)}" : "EMV unavailable";
+    private static string Emv(long silver) => $"EMV {UiFormat.Compact(silver)}";
 
     private static void DrawMarkerShape(DrawingContext context, ActivityMapMarkerKind kind, Point at, double radius)
     {
@@ -596,7 +614,9 @@ public sealed class ActivityMapCanvas : Control
 
     private static double Distance(Point a, Point b) => Math.Sqrt(Math.Pow(a.X - b.X, 2) + Math.Pow(a.Y - b.Y, 2));
 
-    private sealed record Hit(Point At, double Radius, string Title, IReadOnlyList<string> Lines);
+    private sealed record Hit(Point At, double Radius, string Title, IReadOnlyList<string> Lines, IReadOnlyList<ItemRow> Items);
+
+    private sealed record ItemRow(string UniqueName, int Quality, string Text, string Value);
 
     private sealed class MarkerCluster(ActivityMapMarkerKind kind, Point at, double opacity)
     {

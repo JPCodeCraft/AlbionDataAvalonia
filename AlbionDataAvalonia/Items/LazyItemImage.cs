@@ -1,6 +1,7 @@
 using AlbionDataAvalonia.Items.Services;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Media.Imaging;
 using Avalonia.Threading;
 using Avalonia.VisualTree;
 using Serilog;
@@ -36,6 +37,19 @@ public sealed class LazyItemImage
     public static void Configure(ItemImageService service)
     {
         itemImageService = service;
+    }
+
+    /// <summary>
+    /// An item's icon for code that draws it (the map's tooltips), from the same cache as <see cref="Image"/> controls.
+    /// Null until it has loaded; <paramref name="loaded"/> then runs on the UI thread so the caller can redraw.
+    /// </summary>
+    public static Bitmap? ForDrawing(string? itemUniqueName, int quality, Action loaded)
+    {
+        if (itemImageService is not { } service || string.IsNullOrWhiteSpace(itemUniqueName)) return null;
+        var image = service.GetItemImageAsync(itemUniqueName, NormalizeQuality(quality));
+        if (image.IsCompletedSuccessfully) return image.Result;
+        if (!image.IsCompleted) image.ContinueWith(_ => Dispatcher.UIThread.Post(loaded), TaskScheduler.Default);
+        return null;
     }
 
     public static string? GetItemUniqueName(Image image)
