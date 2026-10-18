@@ -320,6 +320,9 @@ namespace AlbionDataAvalonia.Migrations
                         .ValueGeneratedOnAdd()
                         .HasColumnType("TEXT");
 
+                    b.Property<double>("AwaySeconds")
+                        .HasColumnType("REAL");
+
                     b.Property<string>("CharacterId")
                         .IsRequired()
                         .HasColumnType("TEXT");

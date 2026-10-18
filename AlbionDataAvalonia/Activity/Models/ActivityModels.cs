@@ -1,6 +1,5 @@
 using System;
 using System.Collections.Generic;
-using System.ComponentModel.DataAnnotations.Schema;
 using System.Linq;
 
 namespace AlbionDataAvalonia.Activity.Models;
@@ -59,7 +58,7 @@ public sealed record ActivityPlaySession
     public ActivityState State { get; init; }
     public ActivityEndReason EndReason { get; init; }
     // Time between an interruption and the return that continued the session; it doesn't count.
-    [NotMapped] public double AwaySeconds { get; init; }
+    public double AwaySeconds { get; init; }
 }
 
 // A run: one dungeon, Mists visit, open-world stretch and so on, inside a play session.
