@@ -139,7 +139,7 @@
                     <Button Classes="UiAction" Content="{Binding RecordingButtonText}" Command="{Binding ToggleRecordingCommand}" Margin="10,0,0,4" />
                     <Button Classes="UiAction" Content="Start session" Command="{Binding StartSessionCommand}" IsEnabled="{Binding CanStartSession}"
                             IsVisible="{Binding !Current.HasCurrentPlaySession}" Margin="10,0,0,4"
-                            ToolTip.Tip="Starts a session now. It lasts until you press End session." />
+                            ToolTip.Tip="Starts a session now, before your first activity. It ends after 30 minutes without activity or when you press End session." />
                     <Button Classes="UiAction" Content="End session…" Command="{Binding EndSessionCommand}" IsVisible="{Binding Current.HasCurrentPlaySession}" Margin="10,0,0,4"
                             ToolTip.Tip="Ends at your last activity. Your next activity starts a new session." />
                 </WrapPanel>

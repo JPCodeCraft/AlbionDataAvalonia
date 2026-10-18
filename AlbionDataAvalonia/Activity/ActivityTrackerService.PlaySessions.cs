@@ -9,14 +9,12 @@ namespace AlbionDataAvalonia.Activity;
 /// A play session opens when a character logs in and waits until its first run, or starts at once
 /// with Start session. It ends at its last activity after the idle limit, End session, a character
 /// switch, recording turning off or the app stopping; logging in again within the idle limit
-/// continues one the app stop closed. One started with Start session ignores the idle limit.
+/// continues one the app stop closed.
 /// </summary>
 public sealed partial class ActivityTrackerService
 {
     // The active play session; null while the open one waits for its first activity.
     private ActivityPlaySession? playSession;
-    // The active play session was started with Start session, so only an explicit end closes it.
-    private bool manualPlaySession;
     // The character whose play session is open or waiting.
     private ActivityOwner? playOwner;
     // When the open play session began in this app run. An instance run never starts before it.
@@ -27,11 +25,10 @@ public sealed partial class ActivityTrackerService
     private readonly Dictionary<Guid, ActivityPlaySession> deferredPlaySessions = new();
 
     public Guid? CurrentPlaySessionId { get { lock (sync) return playSession?.Id; } }
-    public bool IsCurrentPlaySessionManual { get { lock (sync) return manualPlaySession && playSession is not null; } }
     /// <summary>Recording is on, a character is known and no play session is counting.</summary>
     public bool CanStartSession { get { lock (sync) return enabled && playOwner is not null && playSession is null; } }
 
-    /// <summary>Starts a play session now, before any activity; it lasts until it is ended.</summary>
+    /// <summary>Starts a play session now, before any activity; the idle limit counts from now.</summary>
     public void StartSession()
     {
         lock (sync)
@@ -41,7 +38,6 @@ public sealed partial class ActivityTrackerService
             // An instance run of this session counts from now, not from its entrance.
             playOpenedAt = now;
             ActivatePlaySession(now, now);
-            manualPlaySession = true;
             SaveHeaders();
         }
         _ = persistence.FlushAsync();
@@ -143,7 +139,6 @@ public sealed partial class ActivityTrackerService
             QueuePlaySession(ended);
         }
         playSession = null;
-        manualPlaySession = false;
         playSessionDirty = false;
         lastRunClosedAt = null;
         playOpenedAt = at;
@@ -151,7 +146,7 @@ public sealed partial class ActivityTrackerService
 
     private void ExpirePlaySession(DateTime at)
     {
-        if (playSession is { } active && !manualPlaySession && at >= active.LastActivityAtUtc + ActivityPlaySessionProjection.IdleLimit)
+        if (playSession is { } active && at >= active.LastActivityAtUtc + ActivityPlaySessionProjection.IdleLimit)
             ClosePlaySession(at, ActivityEndReason.Inactivity);
     }
 

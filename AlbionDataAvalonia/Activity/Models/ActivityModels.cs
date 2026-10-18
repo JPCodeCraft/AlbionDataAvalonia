@@ -40,9 +40,8 @@ public enum ActivityEndReason
 }
 
 // One sitting of play. It opens at login, counts from its first run or from Start session, and ends
-// at its last activity after 30 minutes without activity (unless started with Start session), End
-// session, a character switch, recording turning off, or the app closing without reopening within
-// 30 minutes. Runs belong to one.
+// at its last activity after 30 minutes without activity, End session, a character switch, recording
+// turning off, or the app closing without reopening within 30 minutes. Runs belong to one.
 public sealed record ActivityPlaySession
 {
     public Guid Id { get; init; }
