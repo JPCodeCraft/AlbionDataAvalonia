@@ -1,5 +1,6 @@
 using AlbionDataAvalonia.Activity;
 using AlbionDataAvalonia.Activity.Models;
+using AlbionDataAvalonia.Locations;
 using AlbionDataAvalonia.Maps;
 using AlbionDataAvalonia.Settings;
 using AlbionDataAvalonia.Ui;
@@ -281,6 +282,8 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
         var geometry = zone?.Geometry ?? LiveFallbackGeometry();
         Note = live.Position is null ? "Waiting for your position. Take a few steps in game."
             : zone is { Failed: true } ? "Couldn't load map data. Check your connection; your path still shows."
+            : zone is { Zone: null } && live.Layout is null && AlbionLocations.ResolveActivityLocation(live.RawMapId).Kind == ActivityMapKind.Mists
+                ? "Finding this Mists layout. The map shows once a wisp or exit comes into view."
             : zone is { Image: null } ? "No map image for this zone. Showing your path only."
             : "";
         if (geometry is null)
@@ -501,6 +504,12 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
         catch (Exception error) when (error is HttpRequestException or TaskCanceledException or System.IO.IOException or JsonException)
         {
             Log.Warning(error, "Could not load map data for {RawMapId}", rawMapId);
+            return new ZoneView(rawMapId, null, null, null, [], [], fallbackName, "", null, true);
+        }
+        // The callers start this without waiting, so any other failure would vanish and leave the map empty.
+        catch (Exception error) when (error is not OperationCanceledException)
+        {
+            Log.Error(error, "Could not build the map for {RawMapId}", rawMapId);
             return new ZoneView(rawMapId, null, null, null, [], [], fallbackName, "", null, true);
         }
     }
