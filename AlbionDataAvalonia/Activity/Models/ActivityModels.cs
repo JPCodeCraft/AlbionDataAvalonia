@@ -1,5 +1,6 @@
 using System;
 using System.Collections.Generic;
+using System.Linq;
 
 namespace AlbionDataAvalonia.Activity.Models;
 
@@ -240,9 +241,33 @@ public sealed record ActivitySummary
         (PveEvents > 0 ? ActivityTags.Pve : ActivityTags.None) | (PvpEvents > 0 ? ActivityTags.Pvp : ActivityTags.None);
 }
 
+/// <summary>Ids read together, such as the play sessions combined in History. Equal sets compare equal, so a query stays a value.</summary>
+public sealed class ActivityIdSet : IEquatable<ActivityIdSet>
+{
+    public ActivityIdSet(IEnumerable<Guid> ids) => Ids = ids.Distinct().Order().ToArray();
+
+    public IReadOnlyList<Guid> Ids { get; }
+    public int Count => Ids.Count;
+    // Foreign keys are nullable columns; EF compares them against nullable values.
+    public Guid?[] Nullable() => Ids.Select(id => (Guid?)id).ToArray();
+    public bool Contains(Guid id) => Ids.Contains(id);
+
+    public bool Equals(ActivityIdSet? other) => other is not null && Ids.SequenceEqual(other.Ids);
+    public override bool Equals(object? obj) => Equals(obj as ActivityIdSet);
+    public override int GetHashCode()
+    {
+        var hash = new HashCode();
+        foreach (var id in Ids) hash.Add(id);
+        return hash.ToHashCode();
+    }
+    public override string ToString() => string.Join(",", Ids);
+}
+
 public sealed record ActivityQuery
 {
     public Guid? PlaySessionId { get; init; }
+    // Several play sessions read together; used instead of PlaySessionId.
+    public ActivityIdSet? PlaySessionIds { get; init; }
     public Guid? SessionId { get; init; }
     public Guid? EncounterId { get; init; }
     public ActivityScope Scope { get; init; } = ActivityScope.Personal;

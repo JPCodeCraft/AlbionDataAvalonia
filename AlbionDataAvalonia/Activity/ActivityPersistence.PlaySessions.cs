@@ -71,18 +71,48 @@ public sealed partial class ActivityPersistence
     private static async Task<HashSet<Guid>?> PlayRunsAsync(LocalContext context, ActivityQuery query, PendingRead pendingRead,
         ActivitySession? liveSession, CancellationToken cancellationToken)
     {
-        if (query.PlaySessionId is not { } playSessionId) return null;
-        var runs = (await context.ActivitySessions.AsNoTracking().Where(x => x.PlaySessionId == playSessionId)
+        if (query.PlaySessionId is null && query.PlaySessionIds is null) return null;
+        var runs = (await RunsInPlaySessions(context.ActivitySessions.AsNoTracking(), query)
             .Select(x => x.Id).ToArrayAsync(cancellationToken)).ToHashSet();
         foreach (var header in pendingRead.Accepted.OfType<SessionCommand>().Select(x => x.Value))
-            if (header.PlaySessionId == playSessionId) runs.Add(header.Id);
-        if (liveSession?.PlaySessionId == playSessionId) runs.Add(liveSession.Id);
+            if (InPlaySessions(header.PlaySessionId, query)) runs.Add(header.Id);
+        if (liveSession is not null && InPlaySessions(liveSession.PlaySessionId, query)) runs.Add(liveSession.Id);
         runs.ExceptWith(pendingRead.Deleted);
         return runs;
     }
 
+    private static bool InPlaySessions(Guid? playSessionId, ActivityQuery query) =>
+        query.PlaySessionId is { } single ? playSessionId == single
+        : query.PlaySessionIds is not { } set || playSessionId is { } id && set.Contains(id);
+
+    // A query names one play session or several; without either it keeps every run.
+    private static IQueryable<ActivitySession> RunsInPlaySessions(IQueryable<ActivitySession> runs, ActivityQuery query)
+    {
+        if (query.PlaySessionId is { } playSessionId) return runs.Where(x => x.PlaySessionId == playSessionId);
+        if (query.PlaySessionIds is not { } set) return runs;
+        var ids = set.Nullable();
+        return runs.Where(x => ids.Contains(x.PlaySessionId));
+    }
+
     private static IQueryable<ActivityEvent> InPlaySession(LocalContext context, IQueryable<ActivityEvent> events, Guid playSessionId) =>
         events.Where(x => x.SessionId != null && context.ActivitySessions.Any(s => s.Id == x.SessionId && s.PlaySessionId == playSessionId));
+
+    private static IQueryable<ActivityEvent> InPlaySessions(LocalContext context, IQueryable<ActivityEvent> events, ActivityQuery query)
+    {
+        if (query.PlaySessionId is { } playSessionId) return InPlaySession(context, events, playSessionId);
+        if (query.PlaySessionIds is not { } set) return events;
+        var ids = set.Nullable();
+        return events.Where(x => x.SessionId != null && context.ActivitySessions.Any(s => s.Id == x.SessionId && ids.Contains(s.PlaySessionId)));
+    }
+
+    private static IQueryable<ActivityEncounter> InPlaySessions(LocalContext context, IQueryable<ActivityEncounter> encounters, ActivityQuery query)
+    {
+        if (query.PlaySessionId is { } playSessionId)
+            return encounters.Where(x => context.ActivitySessions.Any(s => s.Id == x.SessionId && s.PlaySessionId == playSessionId));
+        if (query.PlaySessionIds is not { } set) return encounters;
+        var ids = set.Nullable();
+        return encounters.Where(x => context.ActivitySessions.Any(s => s.Id == x.SessionId && ids.Contains(s.PlaySessionId)));
+    }
 
     // Recovery closes play sessions left open by a crash or shutdown and gives older runs their play sessions.
     private async Task RecoverPlaySessionsAsync(LocalContext context, CommittedChanges changes, CancellationToken cancellationToken)

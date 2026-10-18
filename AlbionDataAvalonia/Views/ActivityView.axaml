@@ -299,17 +299,33 @@
                         <ColumnDefinition Width="3*" />
                     </Grid.ColumnDefinitions>
                     <Grid RowDefinitions="Auto,*,Auto" RowSpacing="12">
-                    <TextBlock Classes="UiSectionTitle" Text="Sessions" />
+                    <Grid ColumnDefinitions="*,Auto">
+                        <TextBlock Classes="UiSectionTitle" Text="Sessions" />
+                        <TextBlock Grid.Column="1" Classes="UiLabel" Text="{Binding CombineHintText}" VerticalAlignment="Center"
+                                   ToolTip.Tip="Select several sessions to see their combined totals. Shift+click selects a range." />
+                    </Grid>
                     <Border Grid.Row="1" Background="{DynamicResource UiSurfaceBrush}" CornerRadius="6">
-                        <ListBox x:Name="SessionList" Classes="ActivitySessionList" ItemsSource="{Binding PlaySessions}" SelectedItem="{Binding SelectedPlaySession, Mode=TwoWay}" SelectionMode="Single">
+                        <!-- Ctrl and Shift add sessions; code-behind hands the whole selection to the view model. -->
+                        <ListBox x:Name="SessionList" Classes="ActivitySessionList" ItemsSource="{Binding PlaySessions}" SelectedItem="{Binding SelectedPlaySession, Mode=OneWay}"
+                                 SelectionMode="Multiple" SelectionChanged="SessionList_SelectionChanged">
                             <ListBox.ItemTemplate>
                                 <DataTemplate x:DataType="vm:ActivityPlaySessionRow">
-                                    <StackPanel Spacing="6">
-                                        <TextBlock Classes="UiRowTitle" Text="{Binding Title}" />
-                                        <TextBlock Text="{Binding MetadataText}" Classes="UiLabel" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding MetadataText}" />
-                                        <WrapPanel><TextBlock Text="{Binding DurationText}" Margin="0,0,12,0" /><TextBlock Text="{Binding RunsText}" Classes="UiLabel" VerticalAlignment="Center" Margin="0,0,12,0" /><TextBlock Text="{Binding TagsText}" Foreground="{DynamicResource UiPositiveTextBrush}" Margin="0,0,12,0" /><TextBlock Text="{Binding StateText}" Classes="UiLabel" VerticalAlignment="Center" /></WrapPanel>
-                                        <TextBlock Text="{Binding PartyText}" IsVisible="{Binding HasParty}" ToolTip.Tip="{Binding PartyDetailsText}" Classes="UiLabel" TextTrimming="CharacterEllipsis" />
-                                    </StackPanel>
+                                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="8" RowSpacing="4">
+                                        <TextBlock Classes="UiRowTitle" Text="{Binding Title}" MaxLines="2" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Title}" />
+                                        <TextBlock Grid.Column="1" Classes="UiLabel" Classes.UiAccent="{Binding IsOpen}" Text="{Binding WhenText}" TextWrapping="NoWrap"
+                                                   ToolTip.Tip="{Binding WhenDetailsText}" Margin="0,1,0,0" />
+                                        <StackPanel Grid.Row="1" Orientation="Horizontal" Spacing="8">
+                                            <TextBlock Text="{Binding DurationText}" />
+                                            <TextBlock Text="{Binding RunsText}" IsVisible="{Binding HasSeveralRuns}" Classes="UiLabel" VerticalAlignment="Center" />
+                                        </StackPanel>
+                                        <TextBlock Grid.Row="1" Grid.Column="1" Text="{Binding TotalSilverText}" IsVisible="{Binding HasTotalSilver}" Classes="UiAccent" FontWeight="SemiBold"
+                                                   HorizontalAlignment="Right" ToolTip.Tip="Total silver: silver + loot EMV + gathering EMV" />
+                                        <DockPanel Grid.Row="2" Grid.ColumnSpan="2" IsVisible="{Binding HasFooter}">
+                                            <TextBlock DockPanel.Dock="Left" Text="{Binding TagsText}" Classes="UiLabel" Foreground="{DynamicResource UiPositiveTextBrush}" TextWrapping="NoWrap" Margin="0,0,8,0" />
+                                            <TextBlock Text="{Binding DetailsText}" IsVisible="{Binding HasDetails}" ToolTip.Tip="{Binding PartyDetailsText}"
+                                                       Classes="UiLabel" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" />
+                                        </DockPanel>
+                                    </Grid>
                                 </DataTemplate>
                             </ListBox.ItemTemplate>
                         </ListBox>
@@ -323,7 +339,7 @@
                     <ScrollViewer x:Name="HistorySessionDetailScroll" Grid.Column="2" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding HasSelectedPlaySession}">
                     <StackPanel Spacing="12">
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                            <StackPanel Spacing="4"><TextBlock Classes="UiHeading" Text="{Binding Detail.Title}" /><TextBlock Text="{Binding Detail.MapMetadataText}" IsVisible="{Binding Detail.HasMapMetadata}" Classes="UiLabel" /><TextBlock Text="{Binding Detail.DurationText}" TextWrapping="Wrap" /><TextBlock Text="{Binding SelectedPlaySession.PartyText, FallbackValue=''}" IsVisible="{Binding SelectedPlaySession.HasParty, FallbackValue=False}" ToolTip.Tip="{Binding SelectedPlaySession.PartyDetailsText, FallbackValue=''}" TextWrapping="Wrap" Foreground="{DynamicResource UiAccentTextBrush}" /><TextBlock Text="{Binding Detail.ScopeText}" IsVisible="{Binding Detail.ScopeText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" Classes="UiLabel" /><TextBlock Text="{Binding Detail.TagsText}" IsVisible="{Binding Detail.TagsText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" Foreground="{DynamicResource UiPositiveTextBrush}" /><TextBlock Text="{Binding Detail.ImportedText}" IsVisible="{Binding Detail.IsImported}" Classes="UiLabel" ToolTip.Tip="{Binding Detail.ImportedTooltipText}" /></StackPanel>
+                            <StackPanel Spacing="4"><TextBlock Classes="UiHeading" Text="{Binding Detail.Title}" /><TextBlock Text="{Binding Detail.MapMetadataText}" IsVisible="{Binding Detail.HasMapMetadata}" Classes="UiLabel" /><TextBlock Text="{Binding Detail.SelectionText}" IsVisible="{Binding Detail.HasSelectionText}" Classes="UiLabel" /><TextBlock Text="{Binding Detail.DurationText}" TextWrapping="Wrap" /><TextBlock Text="{Binding Detail.PartyText}" IsVisible="{Binding Detail.HasParty}" ToolTip.Tip="{Binding Detail.PartyDetailsText}" TextWrapping="Wrap" Foreground="{DynamicResource UiAccentTextBrush}" /><TextBlock Text="{Binding Detail.ScopeText}" IsVisible="{Binding Detail.ScopeText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" Classes="UiLabel" /><TextBlock Text="{Binding Detail.TagsText}" IsVisible="{Binding Detail.TagsText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" Foreground="{DynamicResource UiPositiveTextBrush}" /><TextBlock Text="{Binding Detail.ImportedText}" IsVisible="{Binding Detail.IsImported}" Classes="UiLabel" ToolTip.Tip="{Binding Detail.ImportedTooltipText}" /></StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                 <Button Classes="UiAction" Content="Show on map" Command="{Binding ShowRunOnMapCommand}" IsVisible="{Binding Detail.CanShowOnMap}"
                                         ToolTip.Tip="Replay this run's path and events on the map" />
@@ -366,7 +382,8 @@
                                     <Button Grid.Row="1" Classes="UiAction" Content="Load more" Command="{Binding LoadMoreEncountersCommand}" IsVisible="{Binding HasMoreEncounters}" HorizontalAlignment="Left" />
                                 </Grid>
                             </TabItem>
-                            <TabItem Header="Charts" IsEnabled="{Binding Detail.HasDetailedHistory}">
+                            <TabItem Header="Charts" IsEnabled="{Binding Detail.HasCharts}" ToolTip.ShowOnDisabled="True"
+                                     ToolTip.Tip="{Binding Detail.ChartsTip}">
                                 <StackPanel Spacing="12">
                                     <ContentControl Content="{Binding Filters}" ContentTemplate="{StaticResource ActivityVisibilityTemplate}" />
                                     <views:ActivityLiveTimelineView Snapshot="{Binding HistoryLiveTimeline}" ReplaySnapshot="{Binding HistoryReplayTimeline}" ReplayWindowCommand="{Binding LoadHistoryReplayCommand}" ShowReplayControls="True" ChartMode="{Binding Filters.ChartMode, Mode=TwoWay}" IsRolling="False" ShowWindowSelector="False" Title="Activity over time" OpenEncounterCommand="{Binding OpenTimelineEncounterCommand}" />
@@ -476,7 +493,7 @@
                             </TabItem>
                             <TabItem Header="Party" IsEnabled="{Binding Detail.HasDetailedHistory}">
                                 <StackPanel Spacing="12">
-                                    <controls:EmptyState Classes="Inline" Message="No party members were recorded in this session." IsVisible="{Binding !HasPartyHistory}" />
+                                    <controls:EmptyState Classes="Inline" Message="No party members were recorded." IsVisible="{Binding !HasPartyHistory}" />
                                     <TextBlock Text="{Binding PartyHistory.SummaryText}" IsVisible="{Binding HasPartyHistory}" Classes="UiLabel" />
                                     <DataGrid ItemsSource="{Binding PartyHistory.Members}" IsVisible="{Binding HasPartyHistory}" Height="{Binding PartyHistory.MemberCount, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}" MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto">
                                         <DataGrid.Columns>

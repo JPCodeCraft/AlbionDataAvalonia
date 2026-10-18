@@ -12,14 +12,23 @@ public sealed record ActivityPartyMemberChip(string Name, bool IsYou);
 public sealed record ActivityPartyChangeRow(DateTime AtUtc, bool Joined, IReadOnlyList<string> Players, int PartySize)
 {
     internal static readonly TimeSpan MergeWindow = TimeSpan.FromSeconds(10);
-    public string TimeText => UiFormat.LocalTime(AtUtc);
+    // Changes from several sessions can fall on different days.
+    public bool WithDate { get; init; }
+    public string TimeText => WithDate ? UiFormat.LocalDateTime(AtUtc) : UiFormat.LocalTime(AtUtc);
     public string Change => Joined ? "Joined" : "Left";
     public string Player => ActivityPartyText.Preview(Players);
     public string PlayerDetails => ActivityPartyText.Members(Players);
     public string PartySizeText => PartySize <= 0 ? "" : PartySize == 1 ? "Solo" : PartySize.ToString("N0");
 }
 
-public sealed record ActivityPartyMemberRow(string Name, string JoinedText, string LeftText, string DurationText, bool StayedUntilEnd);
+public sealed record ActivityPartyMemberRow(string Name, string JoinedText, string LeftText, string DurationText, bool StayedUntilEnd)
+{
+    // The times behind the texts, so several sessions can add up; members known only from activity have none.
+    public TimeSpan? Duration { get; init; }
+    public DateTime? FirstSeenUtc { get; init; }
+    public DateTime? LastSeenUtc { get; init; }
+    public bool StillInParty { get; init; }
+}
 
 public sealed record ActivityPartyHistory(IReadOnlyList<ActivityPartyMemberRow> Members, IReadOnlyList<ActivityPartyChangeRow> Changes, string SummaryText)
 {
@@ -72,7 +81,13 @@ public sealed record ActivityPartyHistory(IReadOnlyList<ActivityPartyMemberRow> 
             return (Order: span.FirstJoined ?? DateTime.MaxValue, Row: new ActivityPartyMemberRow(x.Key,
                 span.AtStart ? "Session start" : span.FirstJoined is { } joined ? UiFormat.LocalTime(joined) : "",
                 stayed ? session.State == ActivityState.Open ? "Still in party" : "Session end" : span.LastLeft is { } left ? UiFormat.LocalTime(left) : "",
-                UiFormat.Duration(total.TotalSeconds), stayed));
+                UiFormat.Duration(total.TotalSeconds), stayed)
+            {
+                Duration = total,
+                FirstSeenUtc = span.FirstJoined,
+                LastSeenUtc = stayed ? end : span.LastLeft,
+                StillInParty = stayed && session.State == ActivityState.Open
+            });
         }).OrderBy(x => x.Order).ThenBy(x => x.Row.Name, StringComparer.OrdinalIgnoreCase).Select(x => x.Row).ToList();
         foreach (var name in recordedMembers.Where(name => !members.ContainsKey(name)).Order(StringComparer.OrdinalIgnoreCase))
             rows.Add(new(name, UiText.NotRecorded, "", "", false));
@@ -83,6 +98,36 @@ public sealed record ActivityPartyHistory(IReadOnlyList<ActivityPartyMemberRow> 
         if (events.Count == 0) summary += " · joins and departures were not recorded for this session";
         changes.Reverse();
         return new(rows, changes, summary);
+    }
+
+    /// <summary>
+    /// Several sessions list each member once, with their time in party added up. Joins, departures and
+    /// changes show their dates, since the sessions can be days apart.
+    /// </summary>
+    public static ActivityPartyHistory Combine(IReadOnlyList<ActivityPartyHistory> sessions)
+    {
+        var members = sessions.SelectMany(x => x.Members).GroupBy(x => x.Name, StringComparer.OrdinalIgnoreCase).Select(group =>
+        {
+            var first = group.Where(x => x.FirstSeenUtc is not null).MinBy(x => x.FirstSeenUtc);
+            var last = group.Where(x => x.LastSeenUtc is not null).MaxBy(x => x.LastSeenUtc);
+            var timed = group.Where(x => x.Duration is not null).ToArray();
+            var total = TimeSpan.FromSeconds(timed.Sum(x => x.Duration!.Value.TotalSeconds));
+            return new ActivityPartyMemberRow(group.First().Name,
+                first?.FirstSeenUtc is { } joined ? UiFormat.LocalDateTime(joined) : UiText.NotRecorded,
+                last is { StillInParty: true } ? "Still in party" : last?.LastSeenUtc is { } left ? UiFormat.LocalDateTime(left) : "",
+                timed.Length > 0 ? UiFormat.Duration(total.TotalSeconds) : "", last?.StayedUntilEnd == true)
+            {
+                Duration = timed.Length > 0 ? total : null,
+                FirstSeenUtc = first?.FirstSeenUtc,
+                LastSeenUtc = last?.LastSeenUtc,
+                StillInParty = last?.StillInParty == true
+            };
+        }).OrderBy(x => x.FirstSeenUtc ?? DateTime.MaxValue).ThenBy(x => x.Name, StringComparer.OrdinalIgnoreCase).ToArray();
+        if (members.Length == 0) return Empty;
+        var changes = sessions.SelectMany(x => x.Changes).OrderByDescending(x => x.AtUtc).Select(x => x with { WithDate = true }).ToArray();
+        var summary = $"{UiFormat.Count(members.Length, "member")} besides you across {UiFormat.Count(sessions.Count, "session")}";
+        if (changes.Length > 0) summary += $" · {UiFormat.Count(changes.Length, "change")}";
+        return new(members, changes, summary);
     }
 
     private static TimeSpan Positive(TimeSpan value) => value > TimeSpan.Zero ? value : TimeSpan.Zero;

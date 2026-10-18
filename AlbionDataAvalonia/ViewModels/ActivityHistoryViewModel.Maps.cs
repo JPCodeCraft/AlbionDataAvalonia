@@ -59,33 +59,33 @@ public sealed class ActivityMapRow(ActivityMap source, DateTime? durationEndUtc 
 public partial class ActivityHistoryViewModel
 {
     private int mapPage;
-    private (Guid PlaySessionId, Guid? RunId)? mapsOwner;
+    private ActivityQuery? mapsOwner;
     private long mapsDataVersion = -1;
-    private (Guid PlaySessionId, Guid? RunId, string? MapId, ActivityScope Scope, long Version)? mapSummaryKey;
+    private (ActivityQuery Owner, string? MapId, long Version)? mapSummaryKey;
     private ActivityMapSummary? cachedMapSummary;
 
     [ObservableProperty] private ObservableCollection<ActivityMapRow> maps = new();
     [ObservableProperty] private ActivityMapRow? selectedMap;
     [ObservableProperty] private bool hasMoreMaps;
 
-    // A session with a single run maps that run; with several, a run chip picks one.
-    private Guid? MapRunId => SelectedSession?.Id ?? (SelectedPlaySession?.Runs is { Count: 1 } runs ? runs[0].Id : null);
+    // A session with a single run maps that run; with several, a run chip picks one. Combined sessions have no one run.
+    private Guid? MapRunId => IsCombined ? null : SelectedSession?.Id ?? (SelectedPlaySession?.Runs is { Count: 1 } runs ? runs[0].Id : null);
 
-    // Maps cover the chosen run, or every run of the play session.
-    private async Task RefreshMapsAsync(long version, ActivityPlaySessionHeader header, ActivitySession? run, CancellationToken cancellationToken)
+    // Maps cover the chosen run, or every run of the play sessions on view.
+    private async Task RefreshMapsAsync(long version, Guid playSessionId, IReadOnlyList<ActivityPlaySessionHeader> headers, ActivitySession? run,
+        CancellationToken cancellationToken)
     {
-        var playSessionId = header.PlaySession.Id;
         await LoadMapsAsync(false, version);
         if (!IsCurrentDetail(version, playSessionId) || SelectedDetailTab != ActivityDetailTab.Maps || page.Persistence is not { } persistence) return;
         var map = SelectedMap;
         var scope = Filters.Scope;
-        var owner = new ActivityQuery { PlaySessionId = playSessionId, SessionId = run?.Id, Scope = scope };
-        var key = (playSessionId, run?.Id, map?.RawMapId, scope, detailDataVersion);
+        var owner = SelectionOwner(run?.Id) with { Scope = scope };
+        var key = (owner, map?.RawMapId, detailDataVersion);
         var totals = cachedMapSummary;
         if (totals is null || mapSummaryKey != key)
         {
             totals = map is null
-                ? new ActivityMapSummary(run is null ? ActivityPlaySessionProjection.Summary(header.Runs, scope) : ActivityProjection.GetSummary(run, scope),
+                ? new ActivityMapSummary(run is null ? ActivityPlaySessionProjection.Summary(headers.SelectMany(header => header.Runs), scope) : ActivityProjection.GetSummary(run, scope),
                     await persistence.GetCombatDurationSecondsAsync(owner, cancellationToken))
                 : await persistence.GetMapSummaryAsync(owner, map.RawMapId, scope, cancellationToken);
         }
@@ -94,8 +94,8 @@ public partial class ActivityHistoryViewModel
         cachedMapSummary = totals;
         mapSummaryKey = key;
         var duration = map?.DurationSeconds ?? (run is not null ? ActivityProjection.GetDurationSeconds(run, DateTime.UtcNow)
-            : ActivityPlaySessionProjection.Durations(header.PlaySession, header.Runs, null, DateTime.UtcNow).PlaySeconds);
-        DetailSummary = new(totals.Summary, ActivityProjection.GetRates(totals.Summary, duration, totals.CombatDurationSeconds),
+            : PlayDurations(headers, null, DateTime.UtcNow).PlaySeconds);
+        DetailSummary = new(WithImportedTotals(totals.Summary), ActivityProjection.GetRates(totals.Summary, duration, totals.CombatDurationSeconds),
             true, map is null || map.Source.Visits > 0);
     }
 
@@ -103,17 +103,18 @@ public partial class ActivityHistoryViewModel
     {
         if (page.Persistence is not { } persistence || SelectedPlaySession is not { } playSession || SelectedDetailTab != ActivityDetailTab.Maps) return;
         var run = SelectedSession;
-        var owner = (playSession.Id, run?.Id);
+        var owner = SelectionOwner(run?.Id);
         var dataVersion = detailDataVersion;
         if (!append && mapsOwner == owner && mapsDataVersion == dataVersion) return;
         var pageIndex = append ? mapPage + 1 : mapPage;
-        var query = new ActivityQuery { PlaySessionId = playSession.Id, SessionId = run?.Id };
-        var result = await ReadPagesAsync(index => persistence.GetMapsAsync(query, index, detailQueryCancellation.Token), pageIndex, append);
-        if (!IsCurrentDetail(version, playSession.Id) || SelectedSession?.Id != run?.Id || SelectedDetailTab != ActivityDetailTab.Maps) return;
+        var result = await ReadPagesAsync(index => persistence.GetMapsAsync(owner, index, detailQueryCancellation.Token), pageIndex, append);
+        if (!IsCurrentDetail(version, playSession.Id) || SelectionOwner(SelectedSession?.Id) != owner || SelectedDetailTab != ActivityDetailTab.Maps) return;
         var selectedId = SelectedMap?.RawMapId;
         // A visit still open keeps counting; a closed run or session ends at its last observation.
-        var live = run is not null ? page.Tracker?.CurrentSessionId == run.Id : playSession.IsOpen;
-        var durationEndUtc = live ? (DateTime?)null : run?.Source.LastObservedAtUtc ?? playSession.Source.EndedAtUtc ?? playSession.Source.LastActivityAtUtc;
+        var rows = SelectedRows;
+        var live = run is not null ? page.Tracker?.CurrentSessionId == run.Id : rows.Any(row => row.IsOpen);
+        var durationEndUtc = live ? (DateTime?)null : run?.Source.LastObservedAtUtc ??
+            rows.Max(row => row.Source.EndedAtUtc ?? row.Source.LastActivityAtUtc);
         applyingSelection = true;
         try
         {

@@ -16,7 +16,11 @@ namespace AlbionDataAvalonia.ViewModels;
 public partial class ActivityHistoryViewModel
 {
     private CancellationTokenSource historyQueryCancellation = new();
-    private ActivityPlaySessionHeader? cachedDetailHeader;
+    private IReadOnlyList<ActivityPlaySessionHeader>? cachedDetailHeaders;
+    // Ctrl or Shift picks several sessions; details then show their combined totals.
+    private IReadOnlyList<ActivityPlaySessionRow> selectedPlaySessions = [];
+    private ActivityIdSet? combinedIds;
+    private long whenMinute;
     private int sessionPage;
     private long sessionListVersion;
     private long historyChangeVersion = 1;
@@ -29,6 +33,24 @@ public partial class ActivityHistoryViewModel
     [ObservableProperty] private bool hasMoreSessions;
 
     public bool HasSelectedPlaySession => SelectedPlaySession is not null;
+    public string CombineHintText => OperatingSystem.IsMacOS() ? "⌘-click to combine" : "Ctrl+click to combine";
+
+    private bool IsCombined => combinedIds is not null;
+    private IReadOnlyList<ActivityPlaySessionRow> SelectedRows => IsCombined ? selectedPlaySessions
+        : SelectedPlaySession is { } selected ? [selected] : [];
+
+    // The chosen run, the selected play session or every combined one, without the detail filters.
+    private ActivityQuery SelectionOwner(Guid? runId = null) => new()
+    {
+        PlaySessionId = IsCombined ? null : SelectedPlaySession?.Id,
+        PlaySessionIds = combinedIds,
+        SessionId = runId
+    };
+
+    // Whether headers read earlier still describe what is selected.
+    private bool ShowsHeaders(IReadOnlyList<ActivityPlaySessionHeader> headers) => combinedIds is { } combined
+        ? combined.Equals(new ActivityIdSet(headers.Select(header => header.PlaySession.Id)))
+        : headers is [var header] && header.PlaySession.Id == SelectedPlaySession?.Id;
 
     private ActivityQuery HistoryQuery() => new() { Scope = Filters.Scope };
 
@@ -52,6 +74,9 @@ public partial class ActivityHistoryViewModel
             var kept = selected is null ? null : PlaySessions.FirstOrDefault(row => row.Id == selected.Id);
             if (selected is not null && kept is null) { PlaySessions.Insert(0, selected); kept = selected; }
             SelectedPlaySession = kept;
+            // Rows name their character and server only when they aren't the ones most sessions were played on.
+            var usual = PlaySessions.CountBy(row => (row.Source.CharacterName, row.Source.Server)).MaxBy(owner => owner.Value).Key;
+            foreach (var row in PlaySessions) row.ShowsOwner = (row.Source.CharacterName, row.Source.Server) != usual;
             sessionPage = pageIndex;
             HasMoreSessions = result.HasMore;
             UpdateDetail();
@@ -89,10 +114,34 @@ public partial class ActivityHistoryViewModel
         UpdateDetail();
     }
 
+    /// <summary>The session list's selection: one session, or several picked with Ctrl or Shift.</summary>
+    internal void SelectPlaySessions(ActivityPlaySessionRow? primary, IReadOnlyList<ActivityPlaySessionRow> rows)
+    {
+        var combined = rows.Count > 1 ? new ActivityIdSet(rows.Select(row => row.Id)) : null;
+        var changed = !Equals(combined, combinedIds);
+        selectedPlaySessions = rows;
+        combinedIds = combined;
+        primary ??= rows.FirstOrDefault();
+        if (SelectedPlaySession != primary) SelectedPlaySession = primary;
+        else if (changed) OnPlaySessionSelectionChanged(primary);
+    }
+
     partial void OnSelectedPlaySessionChanged(ActivityPlaySessionRow? value)
     {
+        // A session chosen in code replaces a combined selection; the list follows through its binding.
+        if (value is null ? selectedPlaySessions.Count > 0 : !selectedPlaySessions.Contains(value))
+        {
+            selectedPlaySessions = value is null ? [] : [value];
+            combinedIds = null;
+        }
+        OnPlaySessionSelectionChanged(value);
+    }
+
+    private void OnPlaySessionSelectionChanged(ActivityPlaySessionRow? value)
+    {
         UpdateDetail();
-        if (applyingSelection) return;
+        // The caller reads the details itself; a list refresh that dropped a combined session reads them on the next tick.
+        if (applyingSelection) { ++detailChangeVersion; return; }
         ++detailChangeVersion;
         applyingSelection = true;
         try
@@ -103,6 +152,7 @@ public partial class ActivityHistoryViewModel
             ResetMaps();
             Sessions.Clear();
             if (IsImportedDetail) SelectedDetailTab = ActivityDetailTab.Items;
+            else if (IsCombined && SelectedDetailTab == ActivityDetailTab.Charts) SelectedDetailTab = ActivityDetailTab.Encounters;
         }
         finally { applyingSelection = false; }
         ResetDetailRows();
@@ -136,6 +186,8 @@ public partial class ActivityHistoryViewModel
         applyingSelection = true;
         try
         {
+            // Opening one session ends a combined selection; clearing first makes the list let go of the others.
+            if (IsCombined) SelectedPlaySession = null;
             SelectedPlaySession = row;
             ApplyRunRows(header);
             SelectedSession = runId is { } id ? Sessions.FirstOrDefault(run => run.Id == id) : null;

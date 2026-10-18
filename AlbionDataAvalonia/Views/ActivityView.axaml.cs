@@ -52,6 +52,11 @@ public partial class ActivityView : UserControl
         args.Handled = true;
     }
 
+    // Ctrl and Shift add sessions to the list's selection; the view model combines them.
+    private void SessionList_SelectionChanged(object? sender, SelectionChangedEventArgs args) =>
+        (DataContext as ActivityViewModel)?.History.SelectPlaySessions(SessionList.SelectedItem as ActivityPlaySessionRow,
+            SessionList.SelectedItems?.OfType<ActivityPlaySessionRow>().ToArray() ?? []);
+
     private void SynchronizeViewModel()
     {
         if (activeViewModel != DataContext)

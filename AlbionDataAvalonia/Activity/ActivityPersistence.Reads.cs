@@ -51,7 +51,9 @@ public sealed partial class ActivityPersistence
     public Task<ActivityPage<ActivityEncounter>> GetEncountersAsync(Guid sessionId, int page = 0, CancellationToken cancellationToken = default) =>
         ReadAsync(ct => GetEncountersCoreAsync(sessionId, page, ct), cancellationToken);
     public Task<ActivityPage<ActivityEncounter>> GetPlaySessionEncountersAsync(Guid playSessionId, int page = 0, CancellationToken cancellationToken = default) =>
-        ReadAsync(ct => GetPlaySessionEncountersCoreAsync(playSessionId, page, ct), cancellationToken);
+        ReadAsync(ct => GetPlaySessionEncountersCoreAsync(new ActivityQuery { PlaySessionId = playSessionId }, page, ct), cancellationToken);
+    public Task<ActivityPage<ActivityEncounter>> GetPlaySessionEncountersAsync(ActivityIdSet playSessionIds, int page = 0, CancellationToken cancellationToken = default) =>
+        ReadAsync(ct => GetPlaySessionEncountersCoreAsync(new ActivityQuery { PlaySessionIds = playSessionIds }, page, ct), cancellationToken);
     public Task<ActivityPage<ActivityEvent>> GetEventsAsync(ActivityQuery filter, int page = 0, CancellationToken cancellationToken = default) =>
         ReadAsync(ct => GetEventsCoreAsync(filter, page, ct), cancellationToken);
     internal Task<ActivityPage<ActivityEvent>> GetEventsThroughPageAsync(ActivityQuery filter, int lastPage, CancellationToken cancellationToken = default) =>

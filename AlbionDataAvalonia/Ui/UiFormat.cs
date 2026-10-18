@@ -74,6 +74,16 @@ public static class UiFormat
             : LocalShortTime(utc);
     }
 
+    /// <summary>"just now", "25 min ago", "3h 12m ago", then "1d 4h ago", for things that can be days old.</summary>
+    public static string TimeAgo(DateTime utc, DateTime nowUtc)
+    {
+        var age = nowUtc - utc;
+        return age < TimeSpan.FromMinutes(1) ? "just now"
+            : age < TimeSpan.FromHours(1) ? $"{(int)age.TotalMinutes} min ago"
+            : age < TimeSpan.FromDays(1) ? $"{(int)age.TotalHours}h {age.Minutes}m ago"
+            : $"{(int)age.TotalDays}d {age.Hours}h ago";
+    }
+
     /// <summary>The local time with seconds in the user's format, such as "14:05:09" or "2:05:09 PM".</summary>
     public static string LocalTime(DateTime utc) => ToLocal(utc).ToString("T", Culture);
 

@@ -212,7 +212,7 @@ public sealed partial class ActivityPersistence
             gaps, headers.Values.Any(x => x.IsPartial), truncated || markersTruncated, categories)
         {
             HasContext = true,
-            ContextKey = $"{query.PlaySessionId}:{id}:{query.EncounterId}:{scope}:{query.ActorKey}:{query.Server}:{query.CharacterId}:{query.CharacterName}:{categories}:{windowSeconds}",
+            ContextKey = $"{query.PlaySessionId}{query.PlaySessionIds}:{id}:{query.EncounterId}:{scope}:{query.ActorKey}:{query.Server}:{query.CharacterId}:{query.CharacterName}:{categories}:{windowSeconds}",
             SampleSeconds = sampleSeconds
         };
 
@@ -271,9 +271,7 @@ public sealed partial class ActivityPersistence
         var combatEvents = FilterEvents(context, filter).Where(x => x.EncounterId != null &&
             (x.Kind == ActivityEventKind.Damage || x.Kind == ActivityEventKind.Healing));
         var participatingIds = combatEvents.Select(x => x.EncounterId!.Value).Distinct();
-        var encounters = context.ActivityEncounters.AsNoTracking().AsQueryable();
-        if (filter.PlaySessionId is { } playSessionId)
-            encounters = encounters.Where(x => context.ActivitySessions.Any(s => s.Id == x.SessionId && s.PlaySessionId == playSessionId));
+        var encounters = InPlaySessions(context, context.ActivityEncounters.AsNoTracking(), filter);
         if (filter.SessionId is { } sessionId) encounters = encounters.Where(x => x.SessionId == sessionId);
         if (filter.EncounterId is { } encounterId) encounters = encounters.Where(x => x.Id == encounterId);
         // Encounter boundaries are shared, but an encounter contributes time only when this scope participated.
@@ -291,12 +289,11 @@ public sealed partial class ActivityPersistence
         return new(rows.Take(100).ToArray(), rows.Count > 100);
     }
 
-    // A play session lists the encounters of all its runs in the order they happened.
-    private async Task<ActivityPage<ActivityEncounter>> GetPlaySessionEncountersCoreAsync(Guid playSessionId, int page, CancellationToken cancellationToken)
+    // A play session, or several, lists the encounters of all their runs in the order they happened.
+    private async Task<ActivityPage<ActivityEncounter>> GetPlaySessionEncountersCoreAsync(ActivityQuery owner, int page, CancellationToken cancellationToken)
     {
         await using var context = contextFactory();
-        var rows = await context.ActivityEncounters.AsNoTracking()
-            .Where(x => context.ActivitySessions.Any(s => s.Id == x.SessionId && s.PlaySessionId == playSessionId))
+        var rows = await InPlaySessions(context, context.ActivityEncounters.AsNoTracking(), owner)
             .OrderBy(x => x.StartedAtUtc).ThenBy(x => x.Number).Skip(Math.Max(0, page) * 100).Take(101).ToListAsync(cancellationToken);
         return new(rows.Take(100).ToArray(), rows.Count > 100);
     }
@@ -315,7 +312,7 @@ public sealed partial class ActivityPersistence
     private static IQueryable<ActivityEvent> FilterEvents(LocalContext context, ActivityQuery filter)
     {
         var query = context.ActivityEvents.AsNoTracking().Where(x => !x.IsRetracted && x.Kind != ActivityEventKind.LegacyImportMarker);
-        if (filter.PlaySessionId is { } playSessionId) query = InPlaySession(context, query, playSessionId);
+        query = InPlaySessions(context, query, filter);
         if (filter.SessionId is { } session) query = query.Where(x => x.SessionId == session);
         if (filter.EncounterId is { } encounter) query = query.Where(x => x.EncounterId == encounter);
         if (filter.FromUtc is { } from) query = query.Where(x => x.CapturedAtUtc >= from);
@@ -536,7 +533,7 @@ public sealed partial class ActivityPersistence
         await using var context = contextFactory();
         var events = context.ActivityEvents.AsNoTracking().Where(x => !x.IsRetracted &&
             (x.Kind == ActivityEventKind.PartyJoined || x.Kind == ActivityEventKind.PartyLeft));
-        if (filter.PlaySessionId is { } playSessionId) events = InPlaySession(context, events, playSessionId);
+        events = InPlaySessions(context, events, filter);
         if (filter.SessionId is { } sessionId) events = events.Where(x => x.SessionId == sessionId);
         return await events.OrderBy(x => x.CapturedAtUtc).ThenBy(x => x.CaptureOrder).Take(5000).ToArrayAsync(cancellationToken);
     }

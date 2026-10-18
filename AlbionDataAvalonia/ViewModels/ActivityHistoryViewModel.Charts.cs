@@ -26,14 +26,14 @@ public partial class ActivityHistoryViewModel
 
     private async Task LoadChartAsync(long version, ActivityQuery query)
     {
-        if (page.Persistence is not { } persistence || query.PlaySessionId is not { } playSessionId || cachedDetailHeader is not { } header ||
+        if (page.Persistence is not { } persistence || query.PlaySessionId is not { } playSessionId || cachedDetailHeaders is not [var header] ||
             header.PlaySession.Id != playSessionId) return;
         var categories = Filters.VisibleCategories;
         var selectedEncounter = SelectedEncounter?.Source;
         var run = SelectedSession?.Source;
-        var fromUtc = selectedEncounter?.StartedAtUtc ?? run?.StartedAtUtc ?? PlaySessionStart(header);
+        var fromUtc = selectedEncounter?.StartedAtUtc ?? run?.StartedAtUtc ?? ActivityPlaySessionRow.StartOf(header);
         var toUtc = selectedEncounter is not null ? selectedEncounter.ClosedAtUtc ?? selectedEncounter.LastObservedAtUtc :
-            run is not null ? run.ClosedAtUtc ?? run.LastObservedAtUtc : PlaySessionEnd(header);
+            run is not null ? run.ClosedAtUtc ?? run.LastObservedAtUtc : ActivityPlaySessionRow.EndOf(header);
         var snapshot = await persistence.GetTimelineAsync(query with { ShowCategories = categories },
             fromUtc, toUtc, detailQueryCancellation.Token);
         if (!IsCurrentDetail(version, playSessionId) || Filters.VisibleCategories != categories || DetailQuery() != query) return;

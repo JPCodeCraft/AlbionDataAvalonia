@@ -13,7 +13,7 @@ namespace AlbionDataAvalonia.Activity;
 
 public sealed partial class ActivityPersistence
 {
-    // The owner selects one run (SessionId) or all runs of a play session (PlaySessionId).
+    // The owner selects one run (SessionId), all runs of a play session (PlaySessionId) or of several (PlaySessionIds).
     public Task<ActivityPage<ActivityMap>> GetMapsAsync(ActivityQuery owner, int page = 0,
         CancellationToken cancellationToken = default) =>
         ReadAsync(ct => GetMapsCoreAsync(owner, page, ct), cancellationToken);
@@ -25,7 +25,7 @@ public sealed partial class ActivityPersistence
     private async Task<ActivityPage<ActivityMap>> GetMapsCoreAsync(ActivityQuery owner, int page,
         CancellationToken cancellationToken)
     {
-        if (owner.SessionId is null && owner.PlaySessionId is null) return new([], false);
+        if (owner.SessionId is null && owner.PlaySessionId is null && owner.PlaySessionIds is null) return new([], false);
         await using var context = contextFactory();
         var connection = (SqliteConnection)context.Database.GetDbConnection();
         await connection.OpenAsync(cancellationToken);
@@ -138,8 +138,7 @@ public sealed partial class ActivityPersistence
         // first-to-last combat span used by the session's other summaries.
         var encounters = context.ActivityEncounters.AsNoTracking().Where(x => x.RawMapId == rawMapId && participating.Contains(x.Id));
         if (owner.SessionId is { } sessionId) encounters = encounters.Where(x => x.SessionId == sessionId);
-        if (owner.PlaySessionId is { } playSessionId)
-            encounters = encounters.Where(x => context.ActivitySessions.Any(s => s.Id == x.SessionId && s.PlaySessionId == playSessionId));
+        encounters = InPlaySessions(context, encounters, owner);
         var combatSeconds = await encounters
             .SumAsync(x => Math.Max(1, (ActivityDatabaseFunctions.JulianDay(x.LastCombatAtUtc) -
                 ActivityDatabaseFunctions.JulianDay(x.StartedAtUtc)) * 86400), cancellationToken);
