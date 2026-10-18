@@ -443,6 +443,16 @@ public sealed partial class ActivityTrackerService : IDisposable
             Persist(LocationEvent(at, Origin(packet, "Location")));
             headersDirty = true;
         }
+        else OpenEntryRun(at);
+    }
+
+    // While a session runs, every map but a town has a run from its entry, so a run with nothing in it
+    // still keeps where the character went.
+    private void OpenEntryRun(DateTime at)
+    {
+        if (playSession is null || session is not null || map is null || IsHub(map.Kind)) return;
+        EnsureRun(at);
+        if (session is not null && position is { } point && positionEpoch == mapEpoch) SamplePath(session.Id, at, point);
     }
 
     private bool Compatible(ActivityLocationDescriptor next, ActivityLocationDescriptor? previous)
@@ -491,6 +501,7 @@ public sealed partial class ActivityTrackerService : IDisposable
             RestoreLocationMetadata();
             visits.Add(new ActivityVisit(map.RawLocationId, map.DisplayName, mapEnteredAt, null, map.InstanceId?.ToString(), mapMetadata));
             visitStartedAt = mapEnteredAt;
+            resumable = null;
             // Existing encounter numbers remain monotonic after a resumed visit.
         }
         else
@@ -523,7 +534,7 @@ public sealed partial class ActivityTrackerService : IDisposable
             };
             visits.Add(new ActivityVisit(map.RawLocationId, map.DisplayName, start, null, map.InstanceId?.ToString(), mapMetadata));
         }
-        resumable = null;
+        // A new run doesn't stop the instance just left from continuing; its first activity does (TouchRelevant).
         reentryConfirmed = false;
         TrackInstance(map);
         SaveHeaders();
@@ -1071,7 +1082,7 @@ public sealed partial class ActivityTrackerService : IDisposable
         QueueSession(ended);
         session = null;
         locationObservation = null;
-        resumable = null;
+        // An instance left earlier stays resumable past a run with nothing in it; activity already ended that.
         mobParticipation.Clear();
         pendingTerminals.Clear();
         headersDirty = false;

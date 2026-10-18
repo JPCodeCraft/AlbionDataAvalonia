@@ -40,6 +40,7 @@ public sealed partial class ActivityTrackerService
             // A new session replaces one the game or app interrupted.
             persistence.TakeRecentPlaySession(playOwner, now);
             ActivatePlaySession(now, now, resume: false);
+            OpenEntryRun(now);
             SaveHeaders();
         }
         _ = persistence.FlushAsync();
@@ -55,7 +56,6 @@ public sealed partial class ActivityTrackerService
             var now = DateTime.UtcNow;
             ResolvePending(now);
             ClosePlaySession(now, ActivityEndReason.Finished);
-            resumable = null;
             loot.ResetCandidates();
             locations.ClearPending();
             ClearPendingActorMetadata();
@@ -163,6 +163,7 @@ public sealed partial class ActivityTrackerService
         playSession = null;
         playSessionDirty = false;
         lastRunClosedAt = null;
+        resumable = null;
     }
 
     private void ExpirePlaySession(DateTime at)
