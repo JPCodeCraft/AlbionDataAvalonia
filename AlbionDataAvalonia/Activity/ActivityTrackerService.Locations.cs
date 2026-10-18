@@ -16,10 +16,10 @@ public sealed partial class ActivityTrackerService
     private readonly ActivityLocationCollector locations = new();
     private ActivityMapMetadata mapMetadata = new();
     private ActivityEvent? locationObservation;
-    // Mists wisp spawns and border exits since the last join request. Those of an instance being entered
-    // arrive just before its join, on the new connection, so they wait until the join places them.
-    private readonly List<ActivityWorldPosition> mistsLandmarks = new();
-    private bool landmarksAwaitJoin;
+    // Mists wisp spawns and border exits. Those of an instance being entered arrive just before its join, on the
+    // new connection, so only landmarks on the current map's connection from shortly before its join place it.
+    private static readonly TimeSpan LandmarkLead = TimeSpan.FromSeconds(10);
+    private readonly List<(ActivityWorldPosition Position, DateTime At, string ConnectionId, PhotonMessageIdentity? Identity)> mistsLandmarks = new();
 
     internal void CancelEntranceSelection(RequestPacket packet)
     {
@@ -44,8 +44,9 @@ public sealed partial class ActivityTrackerService
         if (packet.Position is not { } position) return;
         lock (sync)
         {
-            if (disposed || mistsLandmarks.Count >= 256) return;
-            mistsLandmarks.Add(position);
+            if (disposed) return;
+            if (mistsLandmarks.Count >= 256) mistsLandmarks.RemoveAt(0);
+            mistsLandmarks.Add((position, Utc(packet.CapturedAt), packet.ConnectionId, packet.MessageIdentity));
             ApplyMapMetadata(WithMistsLayout(mapMetadata));
         }
     }
@@ -53,10 +54,12 @@ public sealed partial class ActivityTrackerService
     // Entering the Mists through a wisp names no layout, so its landmarks place it.
     private ActivityMapMetadata WithMistsLayout(ActivityMapMetadata metadata)
     {
-        if (map is not { Kind: ActivityMapKind.Mists } || metadata.LayoutTurns is not null || landmarksAwaitJoin
-            || MistsLayoutRecognizer.Recognize(mistsLandmarks) is not { } placement) return metadata;
+        if (map is not { Kind: ActivityMapKind.Mists } || metadata.LayoutTurns is not null) return metadata;
+        var landmarks = mistsLandmarks.Where(x => x.At >= mapEnteredAt - LandmarkLead && SameConnection(x.ConnectionId, x.Identity))
+            .Select(x => x.Position).ToArray();
+        if (MistsLayoutRecognizer.Recognize(landmarks) is not { } placement) return metadata;
         Log.Debug("Placed {RawMapId} as Mists layout {Layout} turned {QuarterTurns} quarter turns from {Count} landmarks",
-            map.RawLocationId, placement.Layout, placement.QuarterTurns, mistsLandmarks.Count);
+            map.RawLocationId, placement.Layout, placement.QuarterTurns, landmarks.Length);
         return metadata with { Layout = placement.Layout, LayoutTurns = placement.QuarterTurns };
     }
 

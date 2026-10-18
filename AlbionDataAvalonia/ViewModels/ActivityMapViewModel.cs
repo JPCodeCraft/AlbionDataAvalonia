@@ -289,9 +289,10 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
             return;
         }
 
+        var turns = LayoutTurns(zone, live.Layout, live.LayoutTurns);
         Scene = new ActivityMapScene($"live:{live.RawMapId}:{zone?.Zone?.Id}", geometry, zone?.Image, zone?.Frame, live.Trail, Shown(live.Markers),
-            zone?.Exits ?? [], zone?.Icons ?? [], live.Position, live.Heading, true, DateTime.UtcNow, FadeSeconds, null, null, Layers,
-            LayoutTurns(zone, live.Layout, live.LayoutTurns));
+            Turned(zone?.Exits ?? [], turns), Turned(zone?.Icons ?? [], turns), live.Position, live.Heading, true, DateTime.UtcNow, FadeSeconds,
+            null, null, Layers, turns);
     }
 
     // Grows with the path so the view stays steady while walking a zone without a minimap.
@@ -435,14 +436,28 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
             return;
         }
 
+        var turns = LayoutTurns(zone, option.Layout, option.LayoutTurns);
         Scene = new ActivityMapScene($"history:{runMap.Run.Id}:{option.RawMapId}:{zone?.Zone?.Id}", geometry, zone?.Image, zone?.Frame, option.Points,
-            markers, zone?.Exits ?? [], zone?.Icons ?? [], null, null, false, DateTime.UtcNow, 0, option.StartUtc, until, Layers,
-            LayoutTurns(zone, option.Layout, option.LayoutTurns));
+            markers, Turned(zone?.Exits ?? [], turns), Turned(zone?.Icons ?? [], turns), null, null, false, DateTime.UtcNow, 0, option.StartUtc, until,
+            Layers, turns);
     }
 
     // Only a minimap found by its layout follows the instance's turn.
     private static int LayoutTurns(ZoneView? zone, string? layout, int? turns) =>
         zone?.Zone is { } shown && string.Equals(shown.Id, layout, StringComparison.OrdinalIgnoreCase) ? turns ?? 0 : 0;
+
+    // A layout's exits and icons are in its own coordinates; a turned instance places them where the game does.
+    private static IReadOnlyList<ActivityMapExit> Turned(IReadOnlyList<ActivityMapExit> exits, int turns) =>
+        turns % 4 == 0 ? exits : exits.Select(exit => exit with { Position = Turn(exit.Position, turns) }).ToArray();
+
+    private static IReadOnlyList<ActivityMapIcon> Turned(IReadOnlyList<ActivityMapIcon> icons, int turns) =>
+        turns % 4 == 0 ? icons : icons.Select(icon => icon with { Position = Turn(icon.Position, turns) }).ToArray();
+
+    private static MapPoint Turn(MapPoint point, int turns)
+    {
+        for (var turn = 0; turn < turns % 4; turn++) point = new MapPoint(point.Y, -point.X);
+        return point;
+    }
 
     private async Task<ZoneView> LoadZoneAsync(string rawMapId, string? layout, string fallbackName)
     {

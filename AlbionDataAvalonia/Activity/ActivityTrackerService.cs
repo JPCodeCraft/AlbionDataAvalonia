@@ -340,7 +340,7 @@ public sealed partial class ActivityTrackerService : IDisposable
         {
             if (disposed || !Accept(packet.MessageIdentity?.OriginKey, packet.GetType().Name, packet.CapturedAt)) return;
             var at = Utc(packet.CapturedAt);
-            if (packet is JoinRequest) { BeginActorJoin(at); fameCollector.Reset(); mistsLandmarks.Clear(); landmarksAwaitJoin = true; }
+            if (packet is JoinRequest) { BeginActorJoin(at); fameCollector.Reset(); }
             if (packet is not JoinResponse && !awaitingContext && (at < mapEnteredAt || !SameConnection(packet.ConnectionId, packet.MessageIdentity)))
             { gathering.Reset(); fameCollector.Reset(); return; }
             Expire(at);
@@ -418,9 +418,8 @@ public sealed partial class ActivityTrackerService : IDisposable
         mapMetadata = nextMetadata;
         locationObservation = null;
         if (sameCharacter) RestoreLocationMetadata();
-        landmarksAwaitJoin = false;
-        mapMetadata = WithMistsLayout(mapMetadata);
         mapEnteredAt = at;
+        mapMetadata = WithMistsLayout(mapMetadata);
         partialEntry = !enabled;
         awaitingContext = !actors.HasIdentity;
         captureSuspended = false;
