@@ -386,9 +386,6 @@ public sealed partial class ActivityTrackerService : IDisposable
             && actors.CharacterId == (packet.userGuid?.ToString() ?? "")
             && (actors.CharacterId.Length > 0 || actors.CharacterName == packet.playerName);
         var nextMetadata = locations.Join(packet, next, previous?.RawLocationId, sameCharacter, at);
-        if (next.Kind is ActivityMapKind.Mists or ActivityMapKind.MistsDungeon)
-            Log.Debug("Joined {RawMapId} from {PreviousMapId} with layout {Layout} (same character: {SameCharacter})",
-                next.RawLocationId, previous?.RawLocationId, nextMetadata.Layout, sameCharacter);
         var switched = session is not null && (session.Server != nextServer.ToString(CultureInfo.InvariantCulture)
             || session.CharacterId != (packet.userGuid?.ToString() ?? "")
             || session.CharacterId.Length == 0 && session.CharacterName != packet.playerName);

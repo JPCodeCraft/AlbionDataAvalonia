@@ -3,6 +3,7 @@ using AlbionDataAvalonia.Activity.Models;
 using AlbionDataAvalonia.Locations;
 using AlbionDataAvalonia.Network.Events;
 using AlbionDataAvalonia.Network.Responses;
+using Serilog;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -50,10 +51,14 @@ public sealed partial class ActivityTrackerService
     }
 
     // Entering the Mists through a wisp names no layout, so its landmarks place it.
-    private ActivityMapMetadata WithMistsLayout(ActivityMapMetadata metadata) =>
-        map is { Kind: ActivityMapKind.Mists } && metadata.LayoutTurns is null && !landmarksAwaitJoin
-        && MistsLayoutRecognizer.Recognize(mistsLandmarks) is { } placement
-            ? metadata with { Layout = placement.Layout, LayoutTurns = placement.QuarterTurns } : metadata;
+    private ActivityMapMetadata WithMistsLayout(ActivityMapMetadata metadata)
+    {
+        if (map is not { Kind: ActivityMapKind.Mists } || metadata.LayoutTurns is not null || landmarksAwaitJoin
+            || MistsLayoutRecognizer.Recognize(mistsLandmarks) is not { } placement) return metadata;
+        Log.Debug("Placed {RawMapId} as Mists layout {Layout} turned {QuarterTurns} quarter turns from {Count} landmarks",
+            map.RawLocationId, placement.Layout, placement.QuarterTurns, mistsLandmarks.Count);
+        return metadata with { Layout = placement.Layout, LayoutTurns = placement.QuarterTurns };
+    }
 
     private void ApplyMapMetadata(ActivityMapMetadata enriched)
     {

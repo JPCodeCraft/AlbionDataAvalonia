@@ -249,7 +249,6 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddRequestHandler(new AuctionSellSpecificItemRequestRequestHandler(_playerState, _tradeService));
 
                 ActivityPacketSubscriptions.Register(builder, _activityTracker);
-                MapSlotDiagnostics.Register(builder, () => _packetDiagnostics.IsEnabled);
                 builder.ObserveHandledPackets(_packetDiagnostics.Write, () => _packetDiagnostics.IsEnabled);
 
                 var localReceiver = builder.Build();
