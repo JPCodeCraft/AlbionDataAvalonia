@@ -27,6 +27,13 @@
         <TabItem Header="General">
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Classes="Page">
+                    <controls:SettingsGroup Header="UPDATES">
+                        <controls:SettingsRow Title="Update channel" Hint="{Binding UpdateChannelText}">
+                            <controls:SegmentedSelector ItemsSource="{Binding UpdateChannelOptions}"
+                                                        SelectedIndex="{Binding UpdateChannelIndex}" />
+                        </controls:SettingsRow>
+                    </controls:SettingsGroup>
+
                     <controls:SettingsGroup Header="STARTUP">
                         <controls:SettingsRow Classes="Stacked" Title="When the client starts" Hint="The client keeps capturing in every mode.">
                             <controls:SegmentedSelector ItemsSource="{Binding StartupWindowModeOptions}" SelectedIndex="{Binding StartupWindowModeIndex}" />
@@ -379,10 +386,6 @@
                 <StackPanel Classes="Page">
                     <controls:SettingsGroup Header="VERSION">
                         <controls:SettingsRow Title="{Binding AppVersionText}" Hint="{Binding UpdatesText}" />
-                        <controls:SettingsRow Title="Update channel" Hint="{Binding UpdateChannelText}">
-                            <controls:SegmentedSelector ItemsSource="{Binding UpdateChannelOptions}"
-                                                        SelectedIndex="{Binding UpdateChannelIndex}" />
-                        </controls:SettingsRow>
                     </controls:SettingsGroup>
 
                     <controls:SettingsGroup Header="LINKS">

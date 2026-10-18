@@ -209,12 +209,12 @@ Press **Disable recording** on the Activity page, or turn off **Record activity*
 
 ![Settings › Uploads & sharing](docs/screenshots/settings.png)
 
-- **General**: what the window does when the client starts, starting with your system, and whether minimize and close hide it in the tray.
+- **General**: the update channel (**Stable** or **Beta**), what the window does when the client starts, starting with your system, and whether minimize and close hide it in the tray.
 - **Uploads & sharing**: public or Private mode for market orders, sharing, character specs, the island tracker and upload speed.
 - **Trackers**: turn activity recording and awakened items on or off.
 - **Streamer**: what the streamer window shows.
 - **Data & backups**: storage used, deleting old history, and automatic backups.
-- **About**: your version, the update channel (**Stable** or **Beta**), links, and a diagnostics mode for bug reports.
+- **About**: your version, links, and a diagnostics mode for bug reports.
 
 ## Signing in to AFM
 
@@ -252,7 +252,7 @@ Still stuck? Click **Copy diagnostics** and paste it in the [AFM Discord](https:
 
 ### How do I get beta versions?
 
-Choose **Beta** under **Settings › About › Update channel**. Beta builds arrive first and can have bugs. You can also download them from the [releases page](https://github.com/JPCodeCraft/AlbionDataAvalonia/releases).
+Choose **Beta** under **Settings › General › Update channel**. Beta builds arrive first and can have bugs. You can also download them from the [releases page](https://github.com/JPCodeCraft/AlbionDataAvalonia/releases).
 
 ### Where is my data stored, and how do I move it to another PC?
 
