@@ -30,9 +30,13 @@ class Program
     }
 
     // Avalonia configuration, don't remove; also used by visual designer.
+    // Windows composition (the default) wakes the renderer on every screen refresh, up to 165 times a second, even
+    // while every window is hidden in the tray. Drawing to the window's own surface ticks about 60 times a second, and
+    // the client has no see-through windows that need composition.
     public static AppBuilder BuildAvaloniaApp()
         => AppBuilder.Configure<App>()
             .UsePlatformDetect()
+            .With(new Win32PlatformOptions { CompositionMode = [Win32CompositionMode.RedirectionSurface] })
             .WithInterFont()
             .LogToTrace();
 
