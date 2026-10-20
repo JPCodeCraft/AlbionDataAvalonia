@@ -605,6 +605,7 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<DatabaseBackupService>();
         collection.AddSingleton<DataCleanupService>();
         collection.AddSingleton<PacketDiagnostics>();
+        collection.AddSingleton<DiagnosticsReport>();
 
         collection.AddSingleton<IDialogService, DialogService>();
         collection.AddSingleton<IClipboardService, ClipboardService>();

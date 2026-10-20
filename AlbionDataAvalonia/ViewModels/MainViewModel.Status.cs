@@ -1,9 +1,8 @@
 using AlbionDataAvalonia.Ui;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Serilog;
 using System;
-using System.Runtime.InteropServices;
-using System.Text;
 using System.Threading.Tasks;
 
 namespace AlbionDataAvalonia.ViewModels;
@@ -29,22 +28,23 @@ public partial class MainViewModel
             : Setup.IsReady ? "Uploads idle" : "Uploads start once you’re detected";
     }
 
-    public string BuildDiagnosticsText()
-    {
-        var text = new StringBuilder();
-        text.AppendLine($"AFM Data Client {AppVersion} ({RuntimeInformation.OSDescription}, {RuntimeInformation.OSArchitecture})");
-        Setup.AppendDiagnostics(text);
-        text.AppendLine($"Signed in: {(UserLoggedIn ? "yes" : "no")} · Private mode: {(UploadToAfmOnly ? "on" : "off")}");
-        text.AppendLine($"Uploads since start: public {PublicUploadSuccessCount:N0} ok, {PublicUploadFailedCount:N0} failed · private {PrivateUploadSuccessCount:N0} ok, {PrivateUploadFailedCount:N0} failed");
-        text.AppendLine($"Upload queue: {UploadQueueSize:N0} waiting, {RunningTasksCount:N0} running");
-        text.Append($"Diagnostics mode: {(IsDiagnosticsEnabled ? "on" : "off")}");
-        return text.ToString();
-    }
-
     [RelayCommand]
     private async Task CopyDiagnostics()
     {
-        var copied = _clipboard is not null && await _clipboard.SetTextAsync(BuildDiagnosticsText());
+        var copied = false;
+        if (_clipboard is not null && _diagnosticsReport is not null)
+        {
+            CopyDiagnosticsLabel = "Copying…";
+            try
+            {
+                copied = await _clipboard.SetTextAsync(await _diagnosticsReport.BuildAsync(Setup));
+            }
+            catch (Exception error)
+            {
+                Log.Error(error, "Could not build the diagnostics report.");
+            }
+        }
+
         CopyDiagnosticsLabel = copied ? "Copied" : "Couldn’t copy";
         await Task.Delay(TimeSpan.FromSeconds(2));
         CopyDiagnosticsLabel = "Copy diagnostics";

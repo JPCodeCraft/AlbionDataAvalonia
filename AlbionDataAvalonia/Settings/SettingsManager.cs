@@ -19,6 +19,8 @@ public class SettingsManager
     private string appSettingsDownloadUrl = "https://cdn.albionfreemarket.com/AlbionDataAvalonia/AlbionDataAvalonia/DefaultAppSettings.json";
     public UserSettings UserSettings { get; } = new();
     public AppSettings AppSettings { get; private set; } = new();
+    /// <summary>False while the app runs on the bundled defaults because the CDN couldn't be reached.</summary>
+    public bool AppSettingsFromCdn => loadedAppSettingsFromRemote;
     public SettingsManager(WindowsStartupService windowsStartupService)
     {
         this.windowsStartupService = windowsStartupService;

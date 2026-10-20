@@ -20,6 +20,9 @@ public static class ClientUpdater
 
     private static readonly HttpClient httpClient = new HttpClient(new HttpClientHandler { AutomaticDecompression = DecompressionMethods.All });
 
+    /// <summary>The outcome of the latest update check, for Copy diagnostics.</summary>
+    public static ClientUpdateCheckOutcome? LastCheck { get; private set; }
+
     public static string? GetVersion()
     {
         return Assembly.GetExecutingAssembly()?.GetName()?.Version?.ToString();
@@ -61,6 +64,7 @@ public static class ClientUpdater
             if (candidates.Count == 0)
             {
                 Log.Error("Failed to get any valid update versions from the server.");
+                LastCheck = new ClientUpdateCheckOutcome("no valid versions in the version file", DateTime.UtcNow);
                 return ClientUpdateCheckResult.NoUpdate(currentVersion);
             }
 
@@ -80,6 +84,7 @@ public static class ClientUpdater
                     currentVersion,
                     latestEligibleVersion.Version,
                     latestEligibleVersion.Channel);
+                LastCheck = new ClientUpdateCheckOutcome("up to date", DateTime.UtcNow);
                 return ClientUpdateCheckResult.NoUpdate(currentVersion);
             }
 
@@ -89,11 +94,13 @@ public static class ClientUpdater
                 latestEligibleUpdate.Version,
                 currentVersion);
 
+            LastCheck = new ClientUpdateCheckOutcome($"{latestEligibleUpdate.ChannelLabel.ToLowerInvariant()} {latestEligibleUpdate.Version} available", DateTime.UtcNow);
             return new ClientUpdateCheckResult(currentVersion, latestEligibleUpdate);
         }
         catch (Exception ex)
         {
             Log.Error(ex, "An error occurred while checking for updates.");
+            LastCheck = new ClientUpdateCheckOutcome("failed", DateTime.UtcNow);
             return ClientUpdateCheckResult.NoUpdate(currentVersion);
         }
     }
@@ -302,6 +309,8 @@ public static class ClientUpdater
         return $"https://github.com/JPCodeCraft/AlbionDataAvalonia/releases/tag/{tag}";
     }
 }
+
+public sealed record ClientUpdateCheckOutcome(string Summary, DateTime CheckedUtc);
 
 public sealed record ClientUpdateCheckResult(string CurrentVersion, ClientUpdateInfo? Update)
 {

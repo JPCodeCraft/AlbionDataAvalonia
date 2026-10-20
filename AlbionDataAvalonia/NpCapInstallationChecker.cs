@@ -88,6 +88,52 @@ public static class NpCapInstallationChecker
         return false;
     }
 
+    /// <summary>The capture library's own version line, such as "Npcap version 1.79, based on libpcap version 1.10.4",
+    /// so a leftover WinPcap shows up in Copy diagnostics.</summary>
+    public static string DescribeCaptureLibrary()
+    {
+        try
+        {
+            var version = SharpPcap.Pcap.Version?.Trim();
+            // SharpPcap answers with a sentence instead of a version when no library loads.
+            return string.IsNullOrEmpty(version) || version.StartsWith("Pcap version can't be identified", StringComparison.Ordinal)
+                ? "not found"
+                : version;
+        }
+        catch (Exception error) when (error is DllNotFoundException or EntryPointNotFoundException or BadImageFormatException or TypeInitializationException)
+        {
+            return "not found";
+        }
+    }
+
+    /// <summary>Whether Npcap was installed with "Restrict Npcap driver's access to Administrators only", which keeps
+    /// a client that isn't run as administrator from opening any adapter. Null when it can't be read.</summary>
+    public static bool? IsNpcapAdminOnly()
+    {
+        if (!OperatingSystem.IsWindows())
+        {
+            return null;
+        }
+
+        try
+        {
+            // Npcap 1.x keeps its options under Parameters; older versions kept them on the service key.
+            foreach (var path in new[] { @"SYSTEM\CurrentControlSet\Services\npcap\Parameters", @"SYSTEM\CurrentControlSet\Services\npcap" })
+            {
+                using var key = Registry.LocalMachine.OpenSubKey(path);
+                if (key?.GetValue("AdminOnly") is int value)
+                {
+                    return value != 0;
+                }
+            }
+        }
+        catch (Exception error) when (error is System.Security.SecurityException or UnauthorizedAccessException or IOException)
+        {
+        }
+
+        return null;
+    }
+
     static private bool TryLoadLibpcap()
     {
         var candidateNames = new[]

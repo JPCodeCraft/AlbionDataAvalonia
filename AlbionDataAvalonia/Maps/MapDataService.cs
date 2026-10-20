@@ -58,6 +58,7 @@ public sealed class MapDataService : IDisposable
     private Task<Bitmap?>? frameImage;
     private Task<IReadOnlyDictionary<string, MapZone>>? catalog;
     private string? version;
+    private bool? versionFromCdn;
     private Task? versionCheck;
     private DateTime nextVersionCheck;
     private bool staleVersionsRemoved;
@@ -191,6 +192,16 @@ public sealed class MapDataService : IDisposable
         return zones;
     }
 
+    /// <summary>The map data version in use and whether the last check reached the CDN, for Copy diagnostics.
+    /// The version stays null until a map or zone name is first needed.</summary>
+    public (string? Version, bool? FromCdn) VersionStatus
+    {
+        get
+        {
+            lock (sync) return (version, versionFromCdn);
+        }
+    }
+
     /// <summary>The version the cached files belong to. Only the first check is waited for; later ones switch
     /// the version when they finish.</summary>
     private async Task<string> GetVersionAsync()
@@ -214,6 +225,7 @@ public sealed class MapDataService : IDisposable
         var published = await LoadPublishedVersionAsync().ConfigureAwait(false);
         lock (sync)
         {
+            versionFromCdn = published is not null;
             nextVersionCheck = DateTime.UtcNow + (published is null ? VersionRetryDelay : VersionCheckInterval);
             var next = published ?? version ?? ReadLastVersion() ?? Unversioned;
             if (next == version) return;

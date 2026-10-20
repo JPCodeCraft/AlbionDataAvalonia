@@ -10,6 +10,7 @@ using CommunityToolkit.Mvvm.Input;
 using Serilog;
 using System;
 using System.Collections.Generic;
+using System.Linq;
 using System.Runtime.InteropServices;
 using System.Text;
 using System.Threading.Tasks;
@@ -113,6 +114,7 @@ public sealed partial class SetupStatusViewModel : ViewModelBase
     private DateTime? listeningSinceUtc;
     private DateTime? inGameSinceUtc;
     private bool gameProcessRunning;
+    private IReadOnlyList<string> trafficRouters = [];
     private bool isCheckingGameProcess;
     private DateTime lastGameProcessCheckUtc;
     private bool troubleshootingAutoOpened;
@@ -231,17 +233,18 @@ public sealed partial class SetupStatusViewModel : ViewModelBase
         {
             try
             {
-                return GameProcessDetector.IsGameRunning();
+                return GameProcessDetector.Scan();
             }
             catch (Exception error)
             {
                 Log.Debug(error, "Could not list processes to look for the game.");
-                return false;
+                return new GameProcessScan(false, []);
             }
         }).ContinueWith(task => Dispatcher.UIThread.Post(() =>
         {
             isCheckingGameProcess = false;
-            gameProcessRunning = task.Result;
+            gameProcessRunning = task.Result.IsGameRunning;
+            trafficRouters = task.Result.TrafficRouters;
         }));
     }
 
@@ -372,6 +375,8 @@ public sealed partial class SetupStatusViewModel : ViewModelBase
         // 3. Game traffic.
         var stuck = !inGame && adaptersReady && gameProcessRunning && quietFor >= HelpDelay;
         var waitingLong = !inGame && !everReceived && quietFor >= HelpDelay;
+        var routerAdvice = DescribeTrafficRouters();
+        var routerStep = trafficRouters.Count > 0 ? $"Pause {TrafficRouterDetector.JoinNames(trafficRouters)}, then change zones." : null;
         if (!adaptersReady && !inGame)
         {
             trafficStep.Set(SetupStepState.Pending, UiText.None);
@@ -383,7 +388,7 @@ public sealed partial class SetupStatusViewModel : ViewModelBase
         else if (stuck)
         {
             trafficStep.Set(SetupStepState.Warning, $"Nothing for {UiFormat.Clock(quietFor)}",
-                "Albion Online is running, but no game traffic reached the client. Try the steps below.");
+                $"Albion Online is running, but no game traffic reached the client. {routerStep ?? "Try the steps below."}");
         }
         else if (everReceived)
         {
@@ -393,7 +398,7 @@ public sealed partial class SetupStatusViewModel : ViewModelBase
         else if (waitingLong)
         {
             trafficStep.Set(SetupStepState.Warning, $"Nothing for {UiFormat.Clock(quietFor)}",
-                "Still waiting. If the game is already open, try the steps below.");
+                $"Still waiting. {routerStep ?? "If the game is already open, try the steps below."}");
         }
         else
         {
@@ -493,13 +498,26 @@ public sealed partial class SetupStatusViewModel : ViewModelBase
         IsLocationUnrecognized = inGame && locationUnknown;
         ShowReadyView = setupStage == SetupStage.Ready;
 
-        UpdateHero(quietFor, now - lastPacket, character, location);
+        UpdateHero(quietFor, now - lastPacket, character, location, routerAdvice);
         UpdateStatusSummary(firstOpen, quietFor);
         UpdateTroubleshooting(waitingLong);
         IsReady = setupStage == SetupStage.Ready;
     }
 
-    private void UpdateHero(TimeSpan quietFor, TimeSpan sinceLastPacket, string character, AlbionLocation location)
+    /// <summary>Advice naming the VPNs and ping boosters found running, or null when there are none.</summary>
+    private string? DescribeTrafficRouters()
+    {
+        if (trafficRouters.Count == 0) return null;
+        var one = trafficRouters.Count == 1;
+        var advice = $"{TrafficRouterDetector.JoinNames(trafficRouters)} {(one ? "is" : "are")} running and may be sending the game’s traffic " +
+            $"where the client can’t see it. Pause {(one ? "it" : "them")}, then change zones.";
+        // The README's ExitLag fix, for players who want to keep it on.
+        return trafficRouters.Contains("ExitLag")
+            ? advice + " In ExitLag you can instead set Tools › Packets redirection method to Legacy - NDIS."
+            : advice;
+    }
+
+    private void UpdateHero(TimeSpan quietFor, TimeSpan sinceLastPacket, string character, AlbionLocation location, string? routerAdvice)
     {
         var listening = $"Listening for {UiFormat.Clock(quietFor)}";
         (HeroKind, HeroTitle, HeroText, HeroMeta) = setupStage switch
@@ -517,14 +535,14 @@ public sealed partial class SetupStatusViewModel : ViewModelBase
             SetupStage.AdaptersBlocked => (SetupHeroKind.Blocked, "The client can’t open your network adapters",
                 "Fix the step below, then restart the client.", ""),
             SetupStage.Stuck => (SetupHeroKind.Warning, "The game is running, but no traffic is reaching the client",
-                "Something between the game and your network card is usually the cause.", listening),
+                routerAdvice ?? "Something between the game and your network card is usually the cause.", listening),
             SetupStage.Closed => (SetupHeroKind.Idle, "Albion Online closed",
                 !string.IsNullOrWhiteSpace(character) && location != AlbionLocations.Unset && location != AlbionLocations.Unknown
                     ? $"{character} was last seen in {location.FriendlyName}. Log in again and the client picks up where it left off."
                     : "Log in again and the client picks up where it left off.",
                 $"Last packet {UiFormat.Clock(sinceLastPacket)} ago"),
             SetupStage.Waiting when quietFor >= HelpDelay => (SetupHeroKind.Waiting, "Still waiting for game traffic",
-                "If the game is already open, something may be hiding its traffic. The steps below usually fix it.", listening),
+                routerAdvice ?? "If the game is already open, something may be hiding its traffic. The steps below usually fix it.", listening),
             SetupStage.Waiting => (SetupHeroKind.Waiting, "Waiting for Albion Online",
                 "Start the game and log in. This page updates by itself, so you can leave the client in the tray.",
                 $"{listening}  ·  Help opens after 1 minute"),
@@ -583,19 +601,17 @@ public sealed partial class SetupStatusViewModel : ViewModelBase
         }
     }
 
-    /// <summary>The checks, adapters and game state for Copy diagnostics, without the character's name.</summary>
-    public void AppendDiagnostics(StringBuilder text)
+    /// <summary>The checks and game state for Copy diagnostics, without the character's name.</summary>
+    public void AppendDiagnostics(StringBuilder text, string indent)
     {
         foreach (var step in SetupSteps)
         {
             var value = step.State == SetupStepState.Pending ? "not detected" : step.Value;
             // Diagnostics get pasted in public channels, so leave the character name out.
             if (step == characterStep && step.IsChecked) value = step.IsStale ? "detected (last session)" : "detected";
-            text.AppendLine($"{step.Label}: {value}");
+            text.AppendLine($"{indent}{step.Label}: {value}");
         }
 
-        text.AppendLine($"Adapters reported: {captureStatus.AvailableDeviceCount}, open: {captureStatus.ListeningDeviceCount}");
-        text.AppendLine($"Game process: {(playerState.IsInGame ? "sending traffic" : gameProcessRunning ? "running" : "not detected")}");
-        text.AppendLine($"Status: {StatusTitle}");
+        text.AppendLine($"{indent}Game process: {(playerState.IsInGame ? "sending traffic" : gameProcessRunning ? "running" : "not detected")}");
     }
 }

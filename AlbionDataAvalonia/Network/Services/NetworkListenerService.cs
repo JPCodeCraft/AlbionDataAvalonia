@@ -16,6 +16,7 @@ using PhotonPackageParser;
 using Serilog;
 using SharpPcap;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
@@ -37,6 +38,13 @@ namespace AlbionDataAvalonia.Network.Services
         private const ushort AlbionGamePort = 5056;
         private static readonly TimeSpan RepeatedFailureLogInterval = TimeSpan.FromMinutes(1);
         private readonly HashSet<string> _unknownServerIps = new HashSet<string>();
+        private readonly object _unknownServerIpsLock = new object();
+        // Adapter names and why one couldn't open, for Copy diagnostics. Keyed by the driver's device name.
+        private volatile IReadOnlyDictionary<string, string> _knownAdapters = new Dictionary<string, string>();
+        private readonly ConcurrentDictionary<string, bool> _adapterOpenFailures = new(StringComparer.Ordinal);
+        private int _gameTrafficTransport;
+        private int _captureRestartCount;
+        private CaptureRestart? _lastCaptureRestart;
         private readonly Dictionary<string, long> _failureLogTimestamps =
             new Dictionary<string, long>(StringComparer.Ordinal);
         private readonly object _failureLogLock = new object();
@@ -105,6 +113,39 @@ namespace AlbionDataAvalonia.Network.Services
 
             var selected = Volatile.Read(ref session.SelectedRegistration);
             return new CaptureStatus(true, session.GetActiveDeviceCount(), session.AvailableDeviceCount, selected?.DisplayName);
+        }
+
+        /// <summary>Adapters with their state, unknown server addresses and capture restarts, for Copy diagnostics.</summary>
+        public CaptureDiagnostics GetCaptureDiagnostics()
+        {
+            var session = Volatile.Read(ref _activeSession);
+            var selected = session is null ? null : Volatile.Read(ref session.SelectedRegistration);
+            var registrations = session?.GetDevicesSnapshot() ?? [];
+            var adapters = new List<CaptureAdapterState>();
+            foreach (var (deviceName, displayName) in _knownAdapters)
+            {
+                var registration = registrations.FirstOrDefault(candidate =>
+                    candidate.DeviceName == deviceName && Volatile.Read(ref candidate.IsTerminated) == 0);
+                var state = selected?.DeviceName == deviceName ? "selected"
+                    : registration is not null && Volatile.Read(ref registration.CaptureStoppedUnexpectedly) != 0 ? "stopped"
+                    : registration is not null && Volatile.Read(ref registration.IsRetired) == 0 ? "open"
+                    : _adapterOpenFailures.TryGetValue(deviceName, out var denied) ? denied ? "permission denied" : "couldn't open"
+                    : selected is not null ? "not used" : "closed";
+                adapters.Add(new CaptureAdapterState(displayName, state));
+            }
+
+            string[] unknownServerIps;
+            lock (_unknownServerIpsLock)
+            {
+                unknownServerIps = _unknownServerIps.ToArray();
+            }
+
+            return new CaptureDiagnostics(
+                adapters,
+                unknownServerIps,
+                (GameTrafficTransport)Volatile.Read(ref _gameTrafficTransport),
+                Volatile.Read(ref _captureRestartCount),
+                Volatile.Read(ref _lastCaptureRestart));
         }
 
         public Task StartNetworkListeningAsync()
@@ -435,6 +476,7 @@ namespace AlbionDataAvalonia.Network.Services
                     registration.DisplayName,
                     filter);
                 ClearFailureLog($"open:{registration.DeviceName}");
+                _adapterOpenFailures.TryRemove(registration.DeviceName, out _);
                 return new CaptureDeviceOpenResult(true, false);
             }
             catch (Exception ex)
@@ -456,7 +498,9 @@ namespace AlbionDataAvalonia.Network.Services
                         registration.DisplayName);
                 }
 
-                return new CaptureDeviceOpenResult(false, IsPacketCapturePermissionError(ex));
+                var permissionDenied = IsPacketCapturePermissionError(ex);
+                _adapterOpenFailures[registration.DeviceName] = permissionDenied;
+                return new CaptureDeviceOpenResult(false, permissionDenied);
             }
             finally
             {
@@ -663,7 +707,7 @@ namespace AlbionDataAvalonia.Network.Services
                 : device.Description;
         }
 
-        private static Dictionary<string, ILiveDevice> EnumerateCaptureDevices()
+        private Dictionary<string, ILiveDevice> EnumerateCaptureDevices()
         {
             var devicesByName = new Dictionary<string, ILiveDevice>(StringComparer.Ordinal);
 
@@ -688,6 +732,10 @@ namespace AlbionDataAvalonia.Network.Services
                     }
                 }
 
+                _knownAdapters = devicesByName.ToDictionary(
+                    entry => entry.Key,
+                    entry => GetDeviceDisplayName(entry.Value),
+                    StringComparer.Ordinal);
                 return devicesByName;
             }
             catch
@@ -927,9 +975,16 @@ namespace AlbionDataAvalonia.Network.Services
                 return;
             }
 
+            // The server is the end on the game port. On IPv6 the player's own address is public
+            // too, so it can't be told apart from the server by the address alone.
+            var serverAddress = packet.DestinationPort == AlbionGamePort
+                ? ipPacket.DestinationAddress
+                : ipPacket.SourceAddress;
+
             // Packets sent to the server name it as well as packets coming from it.
             var server = AlbionServers.FindByAddress(ipPacket.SourceAddress)
                 ?? AlbionServers.FindByAddress(ipPacket.DestinationAddress);
+            Volatile.Write(ref _gameTrafficTransport, (int)GetTransport(serverAddress, server is not null));
             if (server is not null)
             {
                 _clientCore.Core.Session.SetServer(server);
@@ -937,19 +992,35 @@ namespace AlbionDataAvalonia.Network.Services
                 return;
             }
 
-            // The server is the end on the game port. On IPv6 the player's own address is public
-            // too, so it can't be told apart from the server by the address alone.
-            var serverAddress = packet.DestinationPort == AlbionGamePort
-                ? ipPacket.DestinationAddress
-                : ipPacket.SourceAddress;
-            var serverIp = serverAddress.ToString();
-            if (!IsPrivateIp(serverAddress) && _unknownServerIps.Add(serverIp))
+            if (IsPrivateIp(serverAddress))
             {
-                Log.Warning(
-                    "Albion traffic uses unknown server IP {Ip}; could not determine Albion server. Known unknown IPs so far: {Ips}",
-                    serverIp,
-                    string.Join(", ", _unknownServerIps));
+                return;
             }
+
+            var serverIp = serverAddress.ToString();
+            lock (_unknownServerIpsLock)
+            {
+                if (_unknownServerIps.Add(serverIp))
+                {
+                    Log.Warning(
+                        "Albion traffic uses unknown server IP {Ip}; could not determine Albion server. Known unknown IPs so far: {Ips}",
+                        serverIp,
+                        string.Join(", ", _unknownServerIps));
+                }
+            }
+        }
+
+        private static GameTrafficTransport GetTransport(IPAddress serverAddress, bool knownServer)
+        {
+            if (serverAddress.AddressFamily == AddressFamily.InterNetwork)
+            {
+                return GameTrafficTransport.IPv4;
+            }
+
+            // A known server over IPv6 is its IPv4 address carried by NAT64 (see AlbionServers.FindByAddress).
+            return serverAddress.IsIPv4MappedToIPv6 ? GameTrafficTransport.IPv4MappedIPv6
+                : knownServer ? GameTrafficTransport.IPv6Nat64
+                : GameTrafficTransport.IPv6;
         }
 
         private void HandlePacketResult(PacketReceiveResult result, int payloadBytes)
@@ -1737,6 +1808,8 @@ namespace AlbionDataAvalonia.Network.Services
             }
 
             Log.Warning("Re-evaluating network capture devices: {Reason}.", reason);
+            Interlocked.Increment(ref _captureRestartCount);
+            Volatile.Write(ref _lastCaptureRestart, new CaptureRestart(reason, DateTime.UtcNow));
             CancelLifecycleRequest(previousCancellation);
             return ApplyStartRequestAsync(
                 request,

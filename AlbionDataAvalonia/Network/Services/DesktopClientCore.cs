@@ -11,6 +11,9 @@ using System.Net.Http;
 
 namespace AlbionDataAvalonia.Network.Services;
 
+/// <summary>The latest failed upload to one destination, for Copy diagnostics.</summary>
+public sealed record UploadFailure(string Kind, string Reason, DateTime Utc);
+
 /// <summary>Maps desktop preferences and presentation state onto the shared client runtime.</summary>
 public sealed class DesktopClientCore : IDisposable
 {
@@ -51,6 +54,9 @@ public sealed class DesktopClientCore : IDisposable
     }
 
     public ClientCore Core { get; }
+
+    public UploadFailure? LastPublicFailure { get; private set; }
+    public UploadFailure? LastPrivateFailure { get; private set; }
 
     private HttpClient CreateHttpClient(Uri? baseAddress = null)
     {
@@ -132,6 +138,13 @@ public sealed class DesktopClientCore : IDisposable
     {
         // A skipped duplicate or invalidated session is not an attempted upload.
         if (result.Status == UploadStatus.Skipped) return;
+        if (result.Status == UploadStatus.Failed)
+        {
+            var failure = new UploadFailure(result.Kind, result.FailureReason ?? "did not complete", DateTime.UtcNow);
+            if (result.Scope == UploadScope.Public) LastPublicFailure = failure;
+            else LastPrivateFailure = failure;
+        }
+
         switch (result.Payload)
         {
             case MarketUpload market when result.Server is { } server:

@@ -51,6 +51,7 @@ public partial class MainViewModel : ViewModelBase
     private readonly AuthService _authService;
     private readonly PacketDiagnostics? _packetDiagnostics;
     private readonly IClipboardService? _clipboard;
+    private readonly DiagnosticsReport? _diagnosticsReport;
 
     [ObservableProperty]
     private string appVersion;
@@ -237,7 +238,7 @@ public partial class MainViewModel : ViewModelBase
     {
     }
 
-    public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, PlayerIdentityService playerIdentityService, SettingsManager settingsManager, SettingsViewModel settingsViewModel, LogsViewModel logsViewModel, TradesViewModel tradesViewModel, ActivityViewModel activityViewModel, LegendaryViewModel legendaryViewModel, Uploader uploader, AuthService authService, PacketDiagnostics? packetDiagnostics = null, IClipboardService? clipboard = null)
+    public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, PlayerIdentityService playerIdentityService, SettingsManager settingsManager, SettingsViewModel settingsViewModel, LogsViewModel logsViewModel, TradesViewModel tradesViewModel, ActivityViewModel activityViewModel, LegendaryViewModel legendaryViewModel, Uploader uploader, AuthService authService, PacketDiagnostics? packetDiagnostics = null, IClipboardService? clipboard = null, DiagnosticsReport? diagnosticsReport = null)
     {
         _playerState = playerState;
         _playerIdentityService = playerIdentityService;
@@ -252,6 +253,7 @@ public partial class MainViewModel : ViewModelBase
         _authService = authService;
         _packetDiagnostics = packetDiagnostics;
         _clipboard = clipboard;
+        _diagnosticsReport = diagnosticsReport;
         Setup = new SetupStatusViewModel(networkListener, playerState, InstallNpCapCommand, InstallMacOSCapturePermissionsCommand);
         Setup.PropertyChanged += (_, e) =>
         {

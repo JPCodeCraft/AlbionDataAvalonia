@@ -140,7 +140,7 @@ rm -rf "$HOME/Library/Application Support/AFMDataClient"
 
 Open the client and start Albion Online. The **Main** tab checks each step for you: capture driver, network adapters, game traffic, server, character and location. It updates by itself, so you can leave the client in the tray. Uploads start once your character is detected.
 
-If a step gets stuck, open **Not working? Troubleshooting** on the Main tab for steps for your system. **Copy diagnostics** copies a report you can paste in the [AFM Discord](https://discord.com/invite/BPmDE3zznH).
+If a step gets stuck, open **Not working? Troubleshooting** on the Main tab for steps for your system. **Copy diagnostics** copies a report you can paste in the [AFM Discord](https://discord.com/invite/BPmDE3zznH). It covers your setup, network adapters, uploads and recent warnings, and leaves out your character, guild, email, IP address and file paths.
 
 The sidebar always shows the current status, and the **Market orders** box below it switches between public uploads and Private mode (see [Signing in to AFM](#signing-in-to-afm)).
 
@@ -246,7 +246,7 @@ You are responsible for following Sandbox Interactive's rules, which can change.
 
 ### It isn't detecting the game. What can I do?
 
-Open **Not working? Troubleshooting** on the Main tab. Ping boosters and VPNs (ExitLag, WTFast, NoPing and similar) can route game traffic where the client can't see it, so pause them and change zones. If you use ExitLag, set `Packets redirection method` to `Legacy - NDIS` under `TOOLS`:
+Open **Not working? Troubleshooting** on the Main tab. Ping boosters and VPNs (ExitLag, WTFast, NoPing and similar) can route game traffic where the client can't see it, so pause them and change zones. When no traffic arrives, the Main tab names any it finds running. If you use ExitLag, set `Packets redirection method` to `Legacy - NDIS` under `TOOLS`:
 
 ![ExitLag settings](https://github.com/JPCodeCraft/AlbionDataAvalonia/assets/11092613/94a76ea6-6023-40df-8d6e-e816e612befe)
 
