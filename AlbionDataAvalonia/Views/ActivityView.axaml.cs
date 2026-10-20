@@ -23,12 +23,13 @@ public partial class ActivityView : UserControl
 
     private ActivityViewModel? activeViewModel;
     private bool isAttached;
+    private Window? window;
     public ActivityView()
     {
         InitializeComponent();
         HistorySessionDetailScroll.AddHandler(PointerWheelChangedEvent, HistoryTable_PointerWheelChanged, RoutingStrategies.Tunnel);
-        AttachedToVisualTree += (_, _) => { isAttached = true; SynchronizeViewModel(); };
-        DetachedFromVisualTree += (_, _) => { isAttached = false; activeViewModel?.SetActive(false); };
+        AttachedToVisualTree += (_, _) => { isAttached = true; WatchWindow(TopLevel.GetTopLevel(this) as Window); SynchronizeViewModel(); };
+        DetachedFromVisualTree += (_, _) => { isAttached = false; WatchWindow(null); activeViewModel?.SetActive(false); };
         // The main window hides a page it leaves, then drops it.
         PropertyChanged += (_, args) => { if (args.Property == IsVisibleProperty) SynchronizeViewModel(); };
         // A dropped view lets go of the view model, which would otherwise keep it alive through its event.
@@ -68,7 +69,22 @@ public partial class ActivityView : UserControl
             if (activeViewModel is not null) activeViewModel.History.PropertyChanged += HistoryPropertyChanged;
             ApplyPlayerColumns();
         }
-        activeViewModel?.SetActive(isAttached && IsVisible);
+        activeViewModel?.SetActive(isAttached && IsVisible && IsWindowShown);
+    }
+
+    // The page reads the journal every second; nobody sees it while the window is minimized or in the tray.
+    private bool IsWindowShown => window is null || window.IsVisible && window.WindowState != WindowState.Minimized;
+
+    private void WatchWindow(Window? value)
+    {
+        if (window is not null) window.PropertyChanged -= WindowPropertyChanged;
+        window = value;
+        if (window is not null) window.PropertyChanged += WindowPropertyChanged;
+    }
+
+    private void WindowPropertyChanged(object? sender, AvaloniaPropertyChangedEventArgs args)
+    {
+        if (args.Property == IsVisibleProperty || args.Property == Window.WindowStateProperty) SynchronizeViewModel();
     }
 
     private void ReleaseViewModel()

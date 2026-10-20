@@ -233,7 +233,7 @@ public sealed class ActivityLiveTimelineView : UserControl
     private void RenderTick()
     {
         UpdateReplayClock();
-        if (!IsEffectivelyVisible) return;
+        if (!IsEffectivelyVisible || TopLevel.GetTopLevel(this) is Window { WindowState: WindowState.Minimized }) return;
         if (replayMode)
         {
             if (replayPlaying && ReplayCursorUtc() >= latest!.WindowEndUtc)
