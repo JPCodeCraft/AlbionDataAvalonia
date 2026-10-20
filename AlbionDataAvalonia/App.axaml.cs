@@ -313,6 +313,7 @@ public partial class App : Application
             services.GetRequiredService<ActivityStreamerWindowService>().RestoreIfOpen();
             services.GetRequiredService<ActivityMapWindowService>().RestoreIfOpen();
             Log.Information("Startup initialization completed in {ElapsedMilliseconds} ms", startupStopwatch.ElapsedMilliseconds);
+            _ = ReleaseStartupMemoryAsync();
         }
     }
 
@@ -542,6 +543,19 @@ public partial class App : Application
         {
             currentProcess.Kill();
         }
+    }
+
+    // Parsing the reference data leaves about 100 MB behind: garbage that an idle client may not collect for hours, and
+    // the large buffers the shared array pool keeps. The pool only drops a buffer at a full collection a minute after
+    // an earlier one first saw it unused, so the first collection marks them and the second hands everything back.
+    private static async Task ReleaseStartupMemoryAsync()
+    {
+        await Task.Delay(TimeSpan.FromSeconds(30)).ConfigureAwait(false);
+        GC.Collect();
+        await Task.Delay(TimeSpan.FromSeconds(70)).ConfigureAwait(false);
+        GC.Collect();
+        GC.WaitForPendingFinalizers();
+        GC.Collect(2, GCCollectionMode.Aggressive, blocking: true, compacting: true);
     }
 
     // Base copies shipped with the app for a first load that cannot download or use a cache.
