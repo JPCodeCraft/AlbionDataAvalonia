@@ -89,7 +89,9 @@ public sealed class ActivityMapCanvas : Control
     {
         ClipToBounds = true;
         Focusable = true;
-        RenderOptions.SetBitmapInterpolationMode(this, Avalonia.Media.Imaging.BitmapInterpolationMode.HighQuality);
+        // Mipmapped linear filtering looks the same as high quality on the minimaps, which are large and mostly drawn
+        // smaller than they are, and costs a fraction as much on every frame.
+        RenderOptions.SetBitmapInterpolationMode(this, Avalonia.Media.Imaging.BitmapInterpolationMode.MediumQuality);
     }
 
     public ActivityMapScene? Scene
