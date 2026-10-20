@@ -75,7 +75,6 @@ public sealed partial class ActivityPersistence
         var pveContribution = ActivityProjection.CountExpression(scope, nameof(ActivitySummary.PveEvents));
         var pvpContribution = ActivityProjection.CountExpression(scope, nameof(ActivitySummary.PvpEvents));
         var combatExpression = ActivityClassification.CombatExpression(scope);
-        var isScopedCombat = combatExpression.Compile();
         var proofs = await FilterEventOwners(context, query).Where(x => x.EncounterId != null && proofIds.Contains(x.EncounterId.Value))
             .GroupBy(x => x.EncounterId!.Value).Select(g => new
             {
@@ -99,7 +98,7 @@ public sealed partial class ActivityPersistence
                 (categories & ActivityCategories.Other) != 0 && x.Value.Pve == 0 && x.Value.Pvp == 0))
             .Select(x => x.Key).ToArray();
         var categoryExpression = ActivityClassification.CategoryExpression(categories, pveIds, pvpIds);
-        var matchesCategory = categoryExpression.Compile();
+        var matchesCategory = ActivityClassification.CategoryMatcher(categories, pveIds, pvpIds);
         var filtered = FilterEvents(context, query with { ShowCategories = ActivityCategories.All }).Where(categoryExpression)
             .Where(x => x.SessionId == null || !deleted.Contains(x.SessionId.Value));
         var sampleEvents = FilterEvents(context, query with { FromUtc = sampleFromUtc, ShowCategories = ActivityCategories.All }).Where(categoryExpression)
@@ -117,7 +116,7 @@ public sealed partial class ActivityPersistence
         var gatheringFame = ActivityProjection.ChartExpression(scope, query.ActorKey, ActivityChartMetric.GatheringFame);
         var fishingFame = ActivityProjection.ChartExpression(scope, query.ActorKey, ActivityChartMetric.FishingFame);
         var unknownFame = ActivityProjection.ChartExpression(scope, query.ActorKey, ActivityChartMetric.UnclassifiedFame);
-        var pendingContribution = string.IsNullOrWhiteSpace(query.ActorKey) ? null : ActivityProjection.ContributionExpression(scope, query.ActorKey).Compile();
+        var pendingContribution = ActivityProjection.ContributionFor(scope, query.ActorKey);
         var firstSecond = gridFromUtc.Hour * 3600 + gridFromUtc.Minute * 60 + gridFromUtc.Second;
         var firstDate = gridFromUtc.Date;
         // Only whole calendar days use julianday, where midnight differences are exact. Calendar
@@ -226,7 +225,7 @@ public sealed partial class ActivityPersistence
                 !matchesCategory(value) || !ActivityClassification.IsTemporal(value.Kind)) return;
             var index = (int)((value.CapturedAtUtc.Ticks - gridFromUtc.Ticks) / TimeSpan.TicksPerSecond / sampleSeconds);
             if (index < 0 || index >= samples.Length) return;
-            var contribution = pendingContribution?.Invoke(value) ?? ActivityProjection.Contribution(value, scope);
+            var contribution = pendingContribution(value);
             // An in-progress trailing bucket keeps the full divisor, so it rises smoothly instead of spiking.
             var seconds = sampleSeconds;
             var sample = samples[index];
@@ -251,7 +250,7 @@ public sealed partial class ActivityPersistence
             var contribution = ActivityProjection.Contribution(value, scope);
             var previous = proofCounts.GetValueOrDefault(encounterId);
             proofCounts[encounterId] = (previous.Pve + sign * contribution.PveEvents, previous.Pvp + sign * contribution.PvpEvents,
-                previous.Combat + (isScopedCombat(value) ? sign : 0));
+                previous.Combat + (ActivityClassification.IsCombat(value, scope) ? sign : 0));
         }
     }
 

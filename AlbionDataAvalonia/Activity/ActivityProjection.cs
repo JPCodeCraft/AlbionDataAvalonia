@@ -1,5 +1,6 @@
 using AlbionDataAvalonia.Activity.Models;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
@@ -147,6 +148,20 @@ public static class ActivityProjection
     { protected override Expression VisitParameter(ParameterExpression node) => node == source ? target : base.VisitParameter(node); }
 
     public static ActivitySummary Contribution(ActivityEvent observation, ActivityScope scope) => Contributions[scope](observation);
+
+    // Compiling builds and JITs new code, so one player's contribution, read on every refresh, is compiled once.
+    private static readonly ConcurrentDictionary<(ActivityScope Scope, string ActorKey), Func<ActivityEvent, ActivitySummary>> ActorContributions = new();
+    private const int MaximumActorContributions = 64;
+
+    /// <summary>The compiled <see cref="ContributionExpression"/>, for everyone in the scope when there is no actor.</summary>
+    public static Func<ActivityEvent, ActivitySummary> ContributionFor(ActivityScope scope, string? actorKey)
+    {
+        if (string.IsNullOrWhiteSpace(actorKey)) return Contributions[scope];
+        if (ActorContributions.TryGetValue((scope, actorKey), out var cached)) return cached;
+        if (ActorContributions.Count >= MaximumActorContributions) ActorContributions.Clear();
+        return ActorContributions.GetOrAdd((scope, actorKey), static key => ContributionExpression(key.Scope, key.ActorKey).Compile());
+    }
+
     public static long? GetLootValue(ActivityEvent observation) => ActivityClassification.GetItemValue(observation);
     internal static Expression<Func<ActivityEvent, double>> ChartExpression(ActivityScope scope, string? actorKey, ActivityChartMetric metric)
     {

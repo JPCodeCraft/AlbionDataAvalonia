@@ -1,5 +1,6 @@
 using AlbionDataAvalonia.Activity.Models;
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.Linq;
 using System.Linq.Expressions;
@@ -69,6 +70,13 @@ public static class ActivityClassification
             e.Quantity > 0 && e.Evidence == ActivityEvidence.Confirmed && (actorKey == null || e.SourceActorId == actorKey) &&
             (all || e.SourceRelationship == ActorRelationship.Self || party && e.SourceRelationship == ActorRelationship.Party);
     }
+    // Compiling an expression builds and JITs new code, so the activity pages' refreshes reuse these.
+    private static readonly ConcurrentDictionary<ActivityScope, Func<ActivityEvent, bool>> CombatChecks = new();
+    private static readonly ConcurrentDictionary<ActivityCategories, Func<ActivityEvent, bool, bool, bool>> CategoryChecks = new();
+
+    internal static bool IsCombat(ActivityEvent value, ActivityScope scope) =>
+        CombatChecks.GetOrAdd(scope, static scope => CombatExpression(scope).Compile())(value);
+
     internal static Expression<Func<ActivityEvent, bool>> CombatExpression(ActivityScope scope, string? actorKey = null)
     {
         var party = scope != ActivityScope.Personal;
@@ -124,10 +132,30 @@ public static class ActivityClassification
         e => e.EncounterId != null && pveEncounters.Contains(e.EncounterId.Value),
         e => e.EncounterId != null && pvpEncounters.Contains(e.EncounterId.Value));
 
+    /// <summary><see cref="CategoryExpression(ActivityCategories, IReadOnlyCollection{Guid}, IReadOnlyCollection{Guid})"/> for events in memory.</summary>
+    internal static Func<ActivityEvent, bool> CategoryMatcher(ActivityCategories show,
+        IReadOnlyCollection<Guid> pveEncounters, IReadOnlyCollection<Guid> pvpEncounters)
+    {
+        if (show == ActivityCategories.All) return static _ => true;
+        var matches = CategoryChecks.GetOrAdd(show, static show => CategoryPredicate(show).Compile());
+        return e => matches(e, e.EncounterId is { } pve && pveEncounters.Contains(pve), e.EncounterId is { } pvp && pvpEncounters.Contains(pvp));
+    }
+
     private static Expression<Func<ActivityEvent, bool>> CategoryExpression(ActivityCategories show,
         Expression<Func<ActivityEvent, bool>> pve, Expression<Func<ActivityEvent, bool>> pvp)
     {
         if (show == ActivityCategories.All) return e => true;
+        var predicate = CategoryPredicate(show);
+        var parameter = predicate.Parameters[0];
+        var body = new ReplaceParameter(predicate.Parameters[1], new ReplaceParameter(pve.Parameters[0], parameter).Visit(pve.Body)!)
+            .Visit(predicate.Body)!;
+        body = new ReplaceParameter(predicate.Parameters[2], new ReplaceParameter(pvp.Parameters[0], parameter).Visit(pvp.Body)!).Visit(body)!;
+        return Expression.Lambda<Func<ActivityEvent, bool>>(body, parameter);
+    }
+
+    // Whether an event shows under the categories, given whether its encounter counts as PvE and as PvP.
+    private static Expression<Func<ActivityEvent, bool, bool, bool>> CategoryPredicate(ActivityCategories show)
+    {
         var gathering = (show & ActivityCategories.Gathering) != 0;
         var fishing = (show & ActivityCategories.Fishing) != 0;
         var showPve = (show & ActivityCategories.Pve) != 0;
@@ -163,11 +191,7 @@ public static class ActivityClassification
             other && (e.Kind == ActivityEventKind.Location || e.Kind == ActivityEventKind.CaptureGap) ||
             // Party changes explain the other activity, so every category filter keeps them.
             e.Kind == ActivityEventKind.PartyJoined || e.Kind == ActivityEventKind.PartyLeft;
-        var parameter = predicate.Parameters[0];
-        var body = new ReplaceParameter(predicate.Parameters[1], new ReplaceParameter(pve.Parameters[0], parameter).Visit(pve.Body)!)
-            .Visit(predicate.Body)!;
-        body = new ReplaceParameter(predicate.Parameters[2], new ReplaceParameter(pvp.Parameters[0], parameter).Visit(pvp.Body)!).Visit(body)!;
-        return Expression.Lambda<Func<ActivityEvent, bool>>(body, parameter);
+        return predicate;
     }
 
     private sealed class ReplaceParameter(ParameterExpression parameter, Expression replacement) : ExpressionVisitor

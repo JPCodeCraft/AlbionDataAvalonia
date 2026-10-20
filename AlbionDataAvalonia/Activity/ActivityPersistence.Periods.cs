@@ -203,7 +203,7 @@ public sealed partial class ActivityPersistence
         var resources = rows.Select(x => new ActivityResourceTotal(x.ItemId, x.Quality, x.ItemUniqueName, x.Name ?? "",
             x.Kind == ActivityEventKind.Gathered ? ActivityResourceMethod.Gathering : ActivityResourceMethod.Fishing,
             x.Quantity, x.KnownValue, x.Missing, x.FullJournalValue, x.EmptyJournalValue)).ToDictionary(ResourceKey);
-        var contribution = ActivityProjection.ContributionExpression(query.Scope).Compile();
+        var contribution = ActivityProjection.ContributionFor(query.Scope, null);
         foreach (var value in after.Values)
         {
             if (before.TryGetValue(value.Id, out var old)) Adjust(old, -1);
@@ -225,8 +225,7 @@ public sealed partial class ActivityPersistence
             .Where(ActivityClassification.CombatExpression(query.Scope)).Where(x => x.EncounterId != null &&
                 !touched.Contains(x.Id) && (x.SessionId == null || !deleted.Contains(x.SessionId.Value)));
         var combatIds = (await combatEvents.Select(x => x.EncounterId!.Value).Distinct().ToArrayAsync(cancellationToken)).ToHashSet();
-        var isCombat = ActivityClassification.CombatExpression(query.Scope).Compile();
-        foreach (var value in after.Values.Where(x => InPeriod(x) && x.EncounterId != null && isCombat(x)))
+        foreach (var value in after.Values.Where(x => InPeriod(x) && x.EncounterId != null && ActivityClassification.IsCombat(x, query.Scope)))
             combatIds.Add(value.EncounterId!.Value);
         var qualified = combatIds.ToArray();
         var encounterHeaders = (await context.ActivityEncounters.AsNoTracking().Where(x => qualified.Contains(x.Id))

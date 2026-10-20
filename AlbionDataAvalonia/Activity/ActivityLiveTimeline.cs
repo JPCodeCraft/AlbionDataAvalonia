@@ -53,8 +53,7 @@ internal static class ActivityLiveTimeline
         ActivityScope scope, out bool truncated, double windowSeconds = WindowSeconds, string? actorKey = null)
     {
         var groupingSeconds = Math.Clamp(windowSeconds / 30, 3, 60);
-        Func<ActivityEvent, ActivitySummary> contribution = string.IsNullOrWhiteSpace(actorKey)
-            ? value => ActivityProjection.Contribution(value, scope) : ActivityProjection.ContributionExpression(scope, actorKey).Compile();
+        var contribution = ActivityProjection.ContributionFor(scope, actorKey);
         var candidates = new List<(ActivityEvent Event, ActivityLiveTimelineMarkerKind Kind)>();
         foreach (var observation in events.OrderBy(x => x.CapturedAtUtc).ThenBy(x => x.CaptureOrder))
         {
