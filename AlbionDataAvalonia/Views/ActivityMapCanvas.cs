@@ -49,6 +49,10 @@ public sealed class ActivityMapCanvas : Control
     private static readonly TimeSpan MaxGlide = TimeSpan.FromMilliseconds(400);
     // About 60 frames a second is smooth; a faster screen would otherwise redraw the whole map on every refresh.
     private static readonly TimeSpan GlideFrameInterval = TimeSpan.FromMilliseconds(15);
+    // Walking moves the map only a few pixels a second at the live zoom, so a glide frame is drawn once the marker
+    // has moved or turned about this far on screen, not on every refresh.
+    private const double GlideStepPixels = 1;
+    private const double ArrowLength = 11;
 
     private readonly List<Hit> hits = new();
     // The trail is built once per scene in map image coordinates and drawn through a transform, so gliding, panning
@@ -64,6 +68,8 @@ public sealed class ActivityMapCanvas : Control
     private TimeSpan glideLength;
     private bool glideFrameRequested;
     private long glideFrameDrawnAt;
+    private (ActivityPathPoint Point, double? Heading)? drawnGlide;
+    private double drawnScale;
     private string? viewKey;
     private bool livePositioned;
     private double zoom = 1;
@@ -200,13 +206,21 @@ public sealed class ActivityMapCanvas : Control
             glideFrameRequested = false;
             var gliding = Gliding;
             // The glide's last frame is always drawn, so the marker comes to rest where it stopped.
-            if (!gliding || Stopwatch.GetElapsedTime(glideFrameDrawnAt) >= GlideFrameInterval)
+            if (!gliding || Stopwatch.GetElapsedTime(glideFrameDrawnAt) >= GlideFrameInterval && GlidedVisibly())
             {
                 glideFrameDrawnAt = Stopwatch.GetTimestamp();
                 InvalidateVisual();
             }
             if (gliding) RequestGlideFrame();
         });
+    }
+
+    private bool GlidedVisibly()
+    {
+        if (Scene is not { } scene || drawnGlide is not { } drawn || Shown(Stopwatch.GetTimestamp()) is not { } shown) return true;
+        var moved = Distance(ImagePoint(scene, drawn.Point.X, drawn.Point.Y), ImagePoint(scene, shown.Point.X, shown.Point.Y)) * drawnScale;
+        var turned = drawn.Heading is { } from && shown.Heading is { } to ? Math.Abs(Math.IEEERemainder(to - from, 2 * Math.PI)) * ArrowLength : 0;
+        return moved >= GlideStepPixels || turned >= GlideStepPixels;
     }
 
     protected override void OnSizeChanged(SizeChangedEventArgs e)
@@ -227,6 +241,8 @@ public sealed class ActivityMapCanvas : Control
         var shown = scene.IsLive ? Shown(Stopwatch.GetTimestamp()) : null;
         if (Follow && shown is { } position) center = ImagePoint(scene, position.Point.X, position.Point.Y);
         var scale = FitScale(scene) * zoom;
+        drawnGlide = shown;
+        drawnScale = scale;
 
         if (scene.Image is { } image)
         {
