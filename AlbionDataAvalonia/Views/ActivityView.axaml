@@ -240,11 +240,12 @@
                             </StackPanel>
                         </StackPanel>
                         <ContentControl Content="{Binding CurrentSummary}" ContentTemplate="{StaticResource SummaryTemplate}" />
+                        <!-- A tile list in a scroller that sizes to it needs a row of minimum height: with none, the list sees no room and one row of tiles shows nothing. -->
                         <Expander Header="Gathered" IsExpanded="False" HorizontalAlignment="Stretch" Padding="0">
-                            <StackPanel Margin="8,8,8,2"><controls:EmptyState Classes="Inline" Message="No items gathered yet." IsVisible="{Binding !HasCurrentResources}" Margin="4,4,4,8" /><ScrollViewer MaxHeight="144" HorizontalScrollBarVisibility="Disabled"><ItemsRepeater ItemsSource="{Binding CurrentResources}" ItemTemplate="{StaticResource ActivityResourceTileTemplate}"><ItemsRepeater.Layout><UniformGridLayout MinItemWidth="236" MinItemHeight="56" ItemsStretch="None" /></ItemsRepeater.Layout></ItemsRepeater></ScrollViewer></StackPanel>
+                            <StackPanel Margin="8,8,8,2"><controls:EmptyState Classes="Inline" Message="No items gathered yet." IsVisible="{Binding !HasCurrentResources}" Margin="4,4,4,8" /><ScrollViewer MinHeight="56" MaxHeight="144" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding HasCurrentResources}"><ItemsRepeater ItemsSource="{Binding CurrentResources}" ItemTemplate="{StaticResource ActivityResourceTileTemplate}"><ItemsRepeater.Layout><UniformGridLayout MinItemWidth="236" MinItemHeight="56" ItemsStretch="None" /></ItemsRepeater.Layout></ItemsRepeater></ScrollViewer></StackPanel>
                         </Expander>
                         <Expander Header="Killed mobs" IsExpanded="{Binding IsCurrentMobsExpanded, Mode=TwoWay}" HorizontalAlignment="Stretch" Padding="0">
-                            <StackPanel Margin="8,8,8,2"><controls:EmptyState Classes="Inline" Message="No mobs killed yet." IsVisible="{Binding !HasCurrentMobs}" Margin="4,4,4,8" /><ScrollViewer MaxHeight="144" HorizontalScrollBarVisibility="Disabled"><ItemsRepeater ItemsSource="{Binding CurrentMobs}" ItemTemplate="{StaticResource ActivityMobTileTemplate}"><ItemsRepeater.Layout><UniformGridLayout MinItemWidth="236" MinItemHeight="58" ItemsStretch="None" /></ItemsRepeater.Layout></ItemsRepeater></ScrollViewer></StackPanel>
+                            <StackPanel Margin="8,8,8,2"><controls:EmptyState Classes="Inline" Message="No mobs killed yet." IsVisible="{Binding !HasCurrentMobs}" Margin="4,4,4,8" /><ScrollViewer MinHeight="58" MaxHeight="144" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding HasCurrentMobs}"><ItemsRepeater ItemsSource="{Binding CurrentMobs}" ItemTemplate="{StaticResource ActivityMobTileTemplate}"><ItemsRepeater.Layout><UniformGridLayout MinItemWidth="236" MinItemHeight="58" ItemsStretch="None" /></ItemsRepeater.Layout></ItemsRepeater></ScrollViewer></StackPanel>
                         </Expander>
                         <Expander x:Name="CurrentLootPanel" Header="Loot" IsExpanded="{Binding IsCurrentLootExpanded, Mode=TwoWay}" HorizontalAlignment="Stretch" Padding="0">
                             <StackPanel Margin="8,8,8,2" Spacing="8">
@@ -550,7 +551,7 @@
                         </WrapPanel>
                     </StackPanel>
                     <Expander Header="Gathered" IsVisible="{Binding HasGlobalResources}" IsExpanded="False" Padding="0" HorizontalAlignment="Stretch">
-                                        <ScrollViewer MaxHeight="108" HorizontalScrollBarVisibility="Disabled" Margin="8,8,8,2"><ItemsRepeater ItemsSource="{Binding GlobalResources}" ItemTemplate="{StaticResource ActivityResourceTileTemplate}"><ItemsRepeater.Layout><UniformGridLayout MinItemWidth="236" MinItemHeight="56" ItemsStretch="None" /></ItemsRepeater.Layout></ItemsRepeater></ScrollViewer>
+                                        <ScrollViewer MinHeight="56" MaxHeight="108" HorizontalScrollBarVisibility="Disabled" Margin="8,8,8,2"><ItemsRepeater ItemsSource="{Binding GlobalResources}" ItemTemplate="{StaticResource ActivityResourceTileTemplate}"><ItemsRepeater.Layout><UniformGridLayout MinItemWidth="236" MinItemHeight="56" ItemsStretch="None" /></ItemsRepeater.Layout></ItemsRepeater></ScrollViewer>
                                     </Expander>
                     <Expander Header="Loot" IsVisible="{Binding ShowGlobalLootPanel}" IsExpanded="False" Padding="0" HorizontalAlignment="Stretch">
                     <DataGrid ItemsSource="{Binding GlobalLoot}" Classes="Compact" RowHeight="40" MaxHeight="420">
