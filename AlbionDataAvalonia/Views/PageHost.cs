@@ -6,18 +6,20 @@ using System.Collections.Generic;
 namespace AlbionDataAvalonia.Views;
 
 /// <summary>
-/// Shows the view for <see cref="Page"/>, built from the host's data templates on the page's first visit. Switching
-/// pages hides the old view rather than detaching it, so returning to a page doesn't restyle every control or rebuild
-/// its grids' rows, and keeps its scroll position and selection. A hidden page stays attached: a view that pauses
-/// while away watches its own <see cref="Visual.IsVisible"/> (or <see cref="Visual.IsEffectivelyVisible"/> deeper in),
-/// not attachment.
+/// Shows the view for <see cref="Page"/>, built from the host's data templates on the page's first visit. A page it
+/// leaves stays a logical child, so returning to it doesn't restyle every control and keeps its scroll position and
+/// selection, but it leaves the visual tree and is hidden: the renderer walks every attached visual each frame, hidden
+/// or not, so keeping every visited page attached made each frame cost as much as all of them. A view that pauses
+/// while away watches its own <see cref="Visual.IsVisible"/> (or <see cref="Visual.IsEffectivelyVisible"/> deeper in)
+/// or its visual tree attachment.
 /// </summary>
-public sealed class PageHost : Panel
+public sealed class PageHost : Control
 {
     public static readonly StyledProperty<object?> PageProperty =
         AvaloniaProperty.Register<PageHost, object?>(nameof(Page));
 
     private readonly Dictionary<object, Control> views = new();
+    private Control? shown;
 
     public object? Page
     {
@@ -33,13 +35,38 @@ public sealed class PageHost : Panel
 
     private void Show(object? page)
     {
-        Control? shown = null;
-        if (page is not null && !views.TryGetValue(page, out shown) && this.FindDataTemplate(page)?.Build(page) is { } view)
+        Control? view = null;
+        if (page is not null && !views.TryGetValue(page, out view) && this.FindDataTemplate(page)?.Build(page) is { } built)
         {
-            view.DataContext = page;
-            views[page] = shown = view;
-            Children.Add(view);
+            built.DataContext = page;
+            views[page] = view = built;
+            LogicalChildren.Add(built);
         }
-        foreach (var child in Children) child.IsVisible = ReferenceEquals(child, shown);
+        if (ReferenceEquals(view, shown)) return;
+        if (shown is not null)
+        {
+            shown.IsVisible = false;
+            VisualChildren.Remove(shown);
+        }
+        shown = view;
+        if (shown is not null)
+        {
+            shown.IsVisible = true;
+            VisualChildren.Add(shown);
+        }
+        InvalidateMeasure();
+    }
+
+    protected override Size MeasureOverride(Size availableSize)
+    {
+        if (shown is null) return default;
+        shown.Measure(availableSize);
+        return shown.DesiredSize;
+    }
+
+    protected override Size ArrangeOverride(Size finalSize)
+    {
+        shown?.Arrange(new Rect(finalSize));
+        return finalSize;
     }
 }

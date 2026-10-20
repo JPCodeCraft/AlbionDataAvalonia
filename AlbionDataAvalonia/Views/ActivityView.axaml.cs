@@ -29,7 +29,7 @@ public partial class ActivityView : UserControl
         HistorySessionDetailScroll.AddHandler(PointerWheelChangedEvent, HistoryTable_PointerWheelChanged, RoutingStrategies.Tunnel);
         AttachedToVisualTree += (_, _) => { isAttached = true; SynchronizeViewModel(); };
         DetachedFromVisualTree += (_, _) => { isAttached = false; activeViewModel?.SetActive(false); };
-        // The main window hides a page it leaves rather than detaching it.
+        // The main window hides a page it leaves before taking it out of the visual tree.
         PropertyChanged += (_, args) => { if (args.Property == IsVisibleProperty) SynchronizeViewModel(); };
         DataContextChanged += (_, _) => SynchronizeViewModel();
     }
