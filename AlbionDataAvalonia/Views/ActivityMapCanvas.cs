@@ -30,6 +30,8 @@ public sealed class ActivityMapCanvas : Control
     private static Color MarkerOutline => UiPalette.Color("UiMapMarkerOutlineColor");
     private static ImmutablePen OutlinePen => UiPalette.Pen(MarkerOutline, 1.4);
     private static ImmutablePen WhitePen => UiPalette.Pen(UiPalette.Color("UiMapMarkerEdgeColor"), 1.6, join: PenLineJoin.Round);
+    private static StreamGeometry? arrow;
+    private static readonly Dictionary<(ActivityMapMarkerKind Kind, double Radius), StreamGeometry> MarkerShapes = new();
     private const double LiveZoom = 3.5;
     private const double MinZoom = 0.5;
     private const double MaxZoom = 40;
@@ -49,6 +51,11 @@ public sealed class ActivityMapCanvas : Control
     private static readonly TimeSpan GlideFrameInterval = TimeSpan.FromMilliseconds(15);
 
     private readonly List<Hit> hits = new();
+    // The trail is built once per scene in map image coordinates and drawn through a transform, so gliding, panning
+    // and hovering reuse it: Skia strokes a shape once and keeps it, but strokes a new shape on every frame.
+    private ActivityMapScene? trailScene;
+    private TrailPart[] trail = [];
+    private double trailScale;
     private ActivityPathPoint? glideFrom;
     private ActivityPathPoint? glideTo;
     private double? glideHeadingFrom;
@@ -318,8 +325,41 @@ public sealed class ActivityMapCanvas : Control
 
     private void DrawPath(DrawingContext context, ActivityMapScene scene, double scale)
     {
+        if (!ReferenceEquals(trailScene, scene))
+        {
+            trailScene = scene;
+            trail = BuildTrail(scene);
+            trailScale = 0;
+        }
+
+        // Drawn scaled, a pen's width is divided by the scale so the line keeps its width on screen.
+        if (trailScale != scale)
+        {
+            trailScale = scale;
+            foreach (var part in trail)
+                part.Pen = new ImmutablePen(UiPalette.Brush(part.Color), part.Width / scale, lineCap: PenLineCap.Round, lineJoin: PenLineJoin.Round);
+        }
+
+        if (trail.Length > 0)
+            using (context.PushTransform(Matrix.CreateScale(scale, scale)
+                * Matrix.CreateTranslation(Bounds.Width / 2 - center.X * scale, Bounds.Height / 2 - center.Y * scale)))
+                foreach (var part in trail) context.DrawGeometry(null, part.Pen, part.Geometry);
+
         var points = scene.Path;
-        if (points.Count < 2) return;
+        if (scene.IsLive || points.Count < 2) return;
+        var endUtc = scene.UntilUtc ?? points[^1].CapturedAtUtc;
+        var visible = points.Where(x => x.CapturedAtUtc <= endUtc).ToArray();
+        if (visible.Length == 0) return;
+        var start = ToScreen(ImagePoint(scene, visible[0].X, visible[0].Y), scale);
+        context.DrawEllipse(UiPalette.Brush(ActivityPalette.PathStart), WhitePen, start, 5, 5);
+        hits.Add(new Hit(start, 7, "Run started here", [When(visible[0].CapturedAtUtc, scene)], []));
+    }
+
+    // The path in image coordinates, one shape per color step.
+    private static TrailPart[] BuildTrail(ActivityMapScene scene)
+    {
+        var points = scene.Path;
+        if (points.Count < 2) return [];
         var live = scene.IsLive;
         var buckets = live ? FadeBuckets : GradientBuckets;
         var figures = new StreamGeometry?[buckets];
@@ -345,8 +385,8 @@ public sealed class ActivityMapCanvas : Control
                 }
                 else bucket = Math.Clamp((int)((to.CapturedAtUtc - startUtc).TotalSeconds / span * buckets), 0, buckets - 1);
 
-                var a = ToScreen(ImagePoint(scene, from.X, from.Y), scale);
-                var b = ToScreen(ImagePoint(scene, to.X, to.Y), scale);
+                var a = ImagePoint(scene, from.X, from.Y);
+                var b = ImagePoint(scene, to.X, to.Y);
                 if (contexts[bucket] is null)
                 {
                     figures[bucket] = new StreamGeometry();
@@ -373,26 +413,17 @@ public sealed class ActivityMapCanvas : Control
             }
         }
 
+        var parts = new List<TrailPart>();
         for (var bucket = 0; bucket < buckets; bucket++)
         {
             if (figures[bucket] is not { } figure) continue;
             var fraction = (bucket + 1d) / buckets;
             // History runs the first step at the start color and the last at the end color, as the legend does.
             var color = live ? UiPalette.WithAlpha(ActivityPalette.PathEnd, 40 + 215 * fraction) : ActivityPalette.Path(bucket / (buckets - 1d));
-            var width = live ? 2 + 1.6 * fraction : 3;
-            context.DrawGeometry(null, UiPalette.Pen(color, width, PenLineCap.Round, PenLineJoin.Round), figure);
+            parts.Add(new TrailPart(figure, color, live ? 2 + 1.6 * fraction : 3));
         }
 
-        if (!live)
-        {
-            var visible = points.Where(x => x.CapturedAtUtc <= endUtc).ToArray();
-            if (visible.Length > 0)
-            {
-                var start = ToScreen(ImagePoint(scene, visible[0].X, visible[0].Y), scale);
-                context.DrawEllipse(UiPalette.Brush(ActivityPalette.PathStart), WhitePen, start, 5, 5);
-                hits.Add(new Hit(start, 7, "Run started here", [When(visible[0].CapturedAtUtc, scene)], []));
-            }
-        }
+        return parts.ToArray();
     }
 
     // Events of one kind close together on screen merge into one marker with a count, so a cleared mob pack
@@ -546,35 +577,41 @@ public sealed class ActivityMapCanvas : Control
 
     private static string Emv(long silver) => $"EMV {UiFormat.Compact(silver)}";
 
-    private static void DrawMarkerShape(DrawingContext context, ActivityMapMarkerKind kind, Point at, double radius)
+    // Kill diamonds and gathering triangles are shared shapes around the origin, moved into place when drawn.
+    private static StreamGeometry MarkerShape(ActivityMapMarkerKind kind, double radius)
     {
-        var geometry = new StreamGeometry();
-        using (var path = geometry.Open())
+        if (MarkerShapes.TryGetValue((kind, radius), out var shape)) return shape;
+        shape = new StreamGeometry();
+        using (var path = shape.Open())
         {
-            switch (kind)
+            path.BeginFigure(new Point(0, -radius * 1.2), true);
+            if (kind == ActivityMapMarkerKind.Kill)
             {
-                case ActivityMapMarkerKind.Kill:
-                    path.BeginFigure(new Point(at.X, at.Y - radius * 1.2), true);
-                    path.LineTo(new Point(at.X + radius * 1.2, at.Y));
-                    path.LineTo(new Point(at.X, at.Y + radius * 1.2));
-                    path.LineTo(new Point(at.X - radius * 1.2, at.Y));
-                    path.EndFigure(true);
-                    break;
-                case ActivityMapMarkerKind.Gathering:
-                    path.BeginFigure(new Point(at.X, at.Y - radius * 1.2), true);
-                    path.LineTo(new Point(at.X + radius * 1.1, at.Y + radius * 0.85));
-                    path.LineTo(new Point(at.X - radius * 1.1, at.Y + radius * 0.85));
-                    path.EndFigure(true);
-                    break;
+                path.LineTo(new Point(radius * 1.2, 0));
+                path.LineTo(new Point(0, radius * 1.2));
+                path.LineTo(new Point(-radius * 1.2, 0));
             }
+            else
+            {
+                path.LineTo(new Point(radius * 1.1, radius * 0.85));
+                path.LineTo(new Point(-radius * 1.1, radius * 0.85));
+            }
+
+            path.EndFigure(true);
         }
 
+        return MarkerShapes[(kind, radius)] = shape;
+    }
+
+    private static void DrawMarkerShape(DrawingContext context, ActivityMapMarkerKind kind, Point at, double radius)
+    {
         var fill = UiPalette.Brush(ActivityPalette.MapMarker(kind));
         switch (kind)
         {
             case ActivityMapMarkerKind.Kill:
             case ActivityMapMarkerKind.Gathering:
-                context.DrawGeometry(fill, OutlinePen, geometry);
+                using (context.PushTransform(Matrix.CreateTranslation(at.X, at.Y)))
+                    context.DrawGeometry(fill, OutlinePen, MarkerShape(kind, radius));
                 break;
             case ActivityMapMarkerKind.Loot:
                 context.DrawEllipse(fill, OutlinePen, at, radius * 0.9, radius * 0.9);
@@ -615,19 +652,24 @@ public sealed class ActivityMapCanvas : Control
         // Project the local heading through the minimap rotation so the arrow matches the drawn map.
         var ahead = ToScreen(ImagePoint(scene, point.X + Math.Cos(angle), point.Y + Math.Sin(angle)), scale);
         var screenAngle = Math.Atan2(ahead.Y - at.Y, ahead.X - at.X);
-        Point Rotate(double x, double y) => new(at.X + x * Math.Cos(screenAngle) - y * Math.Sin(screenAngle),
-            at.Y + x * Math.Sin(screenAngle) + y * Math.Cos(screenAngle));
-        var arrow = new StreamGeometry();
-        using (var path = arrow.Open())
+        using (context.PushTransform(Matrix.CreateRotation(screenAngle) * Matrix.CreateTranslation(at.X, at.Y)))
+            context.DrawGeometry(UiPalette.Brush(you), WhitePen, arrow ??= CreateArrow());
+    }
+
+    // Points along +X; drawing turns it to the heading.
+    private static StreamGeometry CreateArrow()
+    {
+        var shape = new StreamGeometry();
+        using (var path = shape.Open())
         {
-            path.BeginFigure(Rotate(11, 0), true);
-            path.LineTo(Rotate(-7, -7));
-            path.LineTo(Rotate(-3, 0));
-            path.LineTo(Rotate(-7, 7));
+            path.BeginFigure(new Point(11, 0), true);
+            path.LineTo(new Point(-7, -7));
+            path.LineTo(new Point(-3, 0));
+            path.LineTo(new Point(-7, 7));
             path.EndFigure(true);
         }
 
-        context.DrawGeometry(UiPalette.Brush(you), WhitePen, arrow);
+        return shape;
     }
 
     private static string When(DateTime? at, ActivityMapScene scene)
@@ -741,6 +783,14 @@ public sealed class ActivityMapCanvas : Control
     private sealed record Hit(Point At, double Radius, string Title, IReadOnlyList<string> Lines, IReadOnlyList<ItemRow> Items);
 
     private sealed record ItemRow(string UniqueName, int Quality, string Text, string Value, bool Mob = false);
+
+    private sealed class TrailPart(StreamGeometry geometry, Color color, double width)
+    {
+        public StreamGeometry Geometry { get; } = geometry;
+        public Color Color { get; } = color;
+        public double Width { get; } = width;
+        public ImmutablePen? Pen { get; set; }
+    }
 
     private sealed class MarkerCluster(ActivityMapMarkerKind kind, Point at, double opacity)
     {

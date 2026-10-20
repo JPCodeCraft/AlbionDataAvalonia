@@ -46,6 +46,9 @@ internal sealed class ActivityLiveTimelineCanvas : Control
     private readonly List<MarkerHit> markerHits = new();
     private readonly List<EncounterHit> encounterHits = new();
     private readonly Dictionary<string, long> introducedMarkers = new();
+    private readonly Dictionary<Series, SeriesShape> shapes = new();
+    private ShapeKey? shapeKey;
+    private DateTime shapesStartUtc;
     private HashSet<string> knownMarkerIds = new();
     private ActivityLiveTimelineSnapshot? snapshot;
     private ActivityLiveTimelineSnapshot? groupedSnapshot;
@@ -161,7 +164,14 @@ internal sealed class ActivityLiveTimelineCanvas : Control
         Text(context, RateUnit, new Point(3, ChartTop - 19), 10, UiPalette.Muted);
         using (context.PushClip(plot))
         {
-            foreach (var item in series) DrawArea(context, samples, max, item.Value, item.Color);
+            var key = new ShapeKey(samples, snapshot?.Gaps ?? [], max, plot.Width, WindowSeconds, SampleSeconds);
+            if (key != shapeKey)
+            {
+                shapes.Clear();
+                shapeKey = key;
+                shapesStartUtc = StartUtc;
+            }
+            foreach (var item in series) DrawArea(context, item);
             DrawGaps(context);
         }
         DrawAxis(context);
@@ -183,58 +193,68 @@ internal sealed class ActivityLiveTimelineCanvas : Control
         if (pointer is { } position) Inspect(position);
     }
 
-    private void DrawArea(DrawingContext context, IReadOnlyList<ActivityLiveTimelineSample> samples, double maximum,
-        Func<ActivityLiveTimelineSample, double> value, Color color)
+    // The chart slides left between snapshots, so each series is built once per snapshot, scale and width and moved
+    // into place: Skia strokes a line once and keeps it, but strokes a new one on every redraw. The plot's clip
+    // trims what lies outside the window.
+    private void DrawArea(DrawingContext context, Series series)
     {
-        var points = new List<Point>(samples.Count);
-        void DrawSegment()
+        if (shapeKey is not { } key) return;
+        if (!shapes.TryGetValue(series, out var shape)) shapes[series] = shape = BuildShape(key, series.Value);
+        using (context.PushTransform(Matrix.CreateTranslation(X(shapesStartUtc) - Plot.Left, 0)))
         {
-            if (points.Count == 0) return;
-            var area = new StreamGeometry();
-            using (var path = area.Open())
-            {
-                path.BeginFigure(new Point(points[0].X, ChartBottom), true);
-                foreach (var point in points) path.LineTo(point);
-                path.LineTo(new Point(points[^1].X, ChartBottom));
-                path.EndFigure(true);
-            }
-            context.DrawGeometry(UiPalette.Brush(UiPalette.WithAlpha(color, 65)), null, area);
-            var line = new StreamGeometry();
-            using (var path = line.Open())
-            {
-                path.BeginFigure(points[0], false);
-                foreach (var point in points.Skip(1)) path.LineTo(point);
-                path.EndFigure(false);
-            }
-            context.DrawGeometry(null, UiPalette.Pen(color, 1.5), line);
-            points.Clear();
+            context.DrawGeometry(UiPalette.Brush(UiPalette.WithAlpha(series.Color, 65)), null, shape.Area);
+            context.DrawGeometry(null, UiPalette.Pen(series.Color, 1.5), shape.Line);
         }
-        var gaps = snapshot?.Gaps.OrderBy(gap => gap.StartedAtUtc).ToArray() ?? [];
-        foreach (var sample in samples)
+    }
+
+    // Laid out as the window stood when the shapes were built.
+    private SeriesShape BuildShape(ShapeKey key, Func<ActivityLiveTimelineSample, double> value)
+    {
+        double LocalX(DateTime time) => Plot.Left + (time - shapesStartUtc).TotalSeconds / key.Window * key.Width;
+        var area = new StreamGeometry();
+        var line = new StreamGeometry();
+        var points = new List<Point>(key.Samples.Count);
+        using (var areaPath = area.Open())
+        using (var linePath = line.Open())
         {
-            var bucketEnd = BucketEndUtc(sample);
-            if (bucketEnd <= StartUtc || sample.CapturedAtUtc >= endUtc) continue;
-            if (bucketEnd > endUtc) bucketEnd = endUtc;
-            var segmentStart = sample.CapturedAtUtc < StartUtc ? StartUtc : sample.CapturedAtUtc;
-            var y = ChartBottom - Math.Clamp(value(sample) / maximum, 0, 1) * Plot.Height;
-            foreach (var gap in gaps.Where(gap => gap.EndedAtUtc > segmentStart && gap.StartedAtUtc < bucketEnd))
+            void EndSegment()
             {
-                if (gap.StartedAtUtc > segmentStart)
+                if (points.Count == 0) return;
+                areaPath.BeginFigure(new Point(points[0].X, ChartBottom), true);
+                foreach (var point in points) areaPath.LineTo(point);
+                areaPath.LineTo(new Point(points[^1].X, ChartBottom));
+                areaPath.EndFigure(true);
+                linePath.BeginFigure(points[0], false);
+                foreach (var point in points.Skip(1)) linePath.LineTo(point);
+                linePath.EndFigure(false);
+                points.Clear();
+            }
+            var gaps = key.Gaps.OrderBy(gap => gap.StartedAtUtc).ToArray();
+            foreach (var sample in key.Samples)
+            {
+                var bucketEnd = BucketEndUtc(sample);
+                var segmentStart = sample.CapturedAtUtc;
+                var y = ChartBottom - Math.Clamp(value(sample) / key.Maximum, 0, 1) * Plot.Height;
+                foreach (var gap in gaps.Where(gap => gap.EndedAtUtc > segmentStart && gap.StartedAtUtc < bucketEnd))
                 {
-                    points.Add(new Point(X(segmentStart), y));
-                    points.Add(new Point(X(gap.StartedAtUtc), y));
+                    if (gap.StartedAtUtc > segmentStart)
+                    {
+                        points.Add(new Point(LocalX(segmentStart), y));
+                        points.Add(new Point(LocalX(gap.StartedAtUtc), y));
+                    }
+                    EndSegment();
+                    if (gap.EndedAtUtc > segmentStart) segmentStart = gap.EndedAtUtc;
+                    if (segmentStart >= bucketEnd) break;
                 }
-                DrawSegment();
-                if (gap.EndedAtUtc > segmentStart) segmentStart = gap.EndedAtUtc;
-                if (segmentStart >= bucketEnd) break;
+                if (segmentStart < bucketEnd)
+                {
+                    points.Add(new Point(LocalX(segmentStart), y));
+                    points.Add(new Point(LocalX(bucketEnd), y));
+                }
             }
-            if (segmentStart < bucketEnd)
-            {
-                points.Add(new Point(X(segmentStart), y));
-                points.Add(new Point(X(bucketEnd), y));
-            }
+            EndSegment();
         }
-        DrawSegment();
+        return new SeriesShape(area, line);
     }
 
     private void DrawGaps(DrawingContext context)
@@ -606,6 +626,10 @@ internal sealed class ActivityLiveTimelineCanvas : Control
     private static void Text(DrawingContext context, string value, Point position, double size, Color color, bool centered = false, bool rightAligned = false) =>
         ChartDrawing.DrawText(context, value, position, size, color, centered ? TextAlign.Center : rightAligned ? TextAlign.Right : TextAlign.Left);
     internal sealed record Series(string Label, Color Color, Func<ActivityLiveTimelineSample, double> Value);
+    // Lists compare by reference: a new snapshot brings new lists.
+    private sealed record ShapeKey(IReadOnlyList<ActivityLiveTimelineSample> Samples, IReadOnlyList<ActivityLiveTimelineGap> Gaps,
+        double Maximum, double Width, double Window, double SampleSeconds);
+    private sealed record SeriesShape(StreamGeometry Area, StreamGeometry Line);
     private sealed record MarkerHit(Rect Bounds, ActivityLiveTimelineMarker Marker);
     private sealed record EncounterHit(Rect Bounds, ActivityLiveTimelineEncounter Encounter);
 }
