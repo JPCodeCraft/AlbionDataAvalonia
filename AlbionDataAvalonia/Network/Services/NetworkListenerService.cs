@@ -21,6 +21,7 @@ using System.Diagnostics;
 using System.IO;
 using System.Linq;
 using System.Net;
+using System.Net.Sockets;
 using System.Runtime.InteropServices;
 using System.Threading;
 using System.Threading.Tasks;
@@ -33,6 +34,7 @@ namespace AlbionDataAvalonia.Network.Services
         private const string MacOSCapturePermissionLaunchDaemonPath =
             "/Library/LaunchDaemons/com.albionfreemarket.afmdataclient.chmodbpf.plist";
         private const string MacOSLegacyCapturePermissionScheduleKey = "<key>StartInterval</key>";
+        private const ushort AlbionGamePort = 5056;
         private static readonly TimeSpan RepeatedFailureLogInterval = TimeSpan.FromMinutes(1);
         private readonly HashSet<string> _unknownServerIps = new HashSet<string>();
         private readonly Dictionary<string, long> _failureLogTimestamps =
@@ -917,25 +919,35 @@ namespace AlbionDataAvalonia.Network.Services
 
         private void UpdateAlbionServer(UdpPacket packet)
         {
-            var srcIp = (packet.ParentPacket as IPPacket)?.SourceAddress?.ToString();
-            if (string.IsNullOrEmpty(srcIp))
+            if (packet.ParentPacket is not IPPacket ipPacket
+                || ipPacket.SourceAddress is null
+                || ipPacket.DestinationAddress is null)
             {
-                Log.Verbose("Packet source IP is null or empty.");
+                Log.Verbose("Packet has no source or destination IP.");
                 return;
             }
 
-            var server = AlbionServers.GetAll()
-                .SingleOrDefault(x => x.HostIps.Any(prefix => srcIp.StartsWith(prefix)));
+            // Packets sent to the server name it as well as packets coming from it.
+            var server = AlbionServers.FindByAddress(ipPacket.SourceAddress)
+                ?? AlbionServers.FindByAddress(ipPacket.DestinationAddress);
             if (server is not null)
             {
                 _clientCore.Core.Session.SetServer(server);
                 _playerState.AlbionServer = server;
+                return;
             }
-            else if (!IsPrivateIp(srcIp) && _unknownServerIps.Add(srcIp))
+
+            // The server is the end on the game port. On IPv6 the player's own address is public
+            // too, so it can't be told apart from the server by the address alone.
+            var serverAddress = packet.DestinationPort == AlbionGamePort
+                ? ipPacket.DestinationAddress
+                : ipPacket.SourceAddress;
+            var serverIp = serverAddress.ToString();
+            if (!IsPrivateIp(serverAddress) && _unknownServerIps.Add(serverIp))
             {
                 Log.Warning(
-                    "Received packet from unknown IP {Ip}; could not determine Albion server. Known unknown IPs so far: {Ips}",
-                    srcIp,
+                    "Albion traffic uses unknown server IP {Ip}; could not determine Albion server. Known unknown IPs so far: {Ips}",
+                    serverIp,
                     string.Join(", ", _unknownServerIps));
             }
         }
@@ -1007,15 +1019,23 @@ namespace AlbionDataAvalonia.Network.Services
             }
         }
 
-        private static bool IsPrivateIp(string ip)
+        private static bool IsPrivateIp(IPAddress address)
         {
-            return ip.StartsWith("10.") ||
-                   ip.StartsWith("127.") ||
-                   ip.StartsWith("169.254.") ||
-                   ip.StartsWith("192.168.") ||
-                   ip == "::1" ||
-                   (ip.StartsWith("172.") && System.Net.IPAddress.TryParse(ip, out var addr) &&
-                    addr.GetAddressBytes() is var b && b.Length == 4 && b[1] >= 16 && b[1] <= 31);
+            if (IPAddress.IsLoopback(address))
+            {
+                return true;
+            }
+
+            if (address.AddressFamily == AddressFamily.InterNetworkV6)
+            {
+                return address.IsIPv6LinkLocal || address.IsIPv6UniqueLocal;
+            }
+
+            var b = address.GetAddressBytes();
+            return b[0] == 10
+                || (b[0] == 169 && b[1] == 254)
+                || (b[0] == 192 && b[1] == 168)
+                || (b[0] == 172 && b[1] >= 16 && b[1] <= 31);
         }
 
         private void TerminateDeviceCapture(CaptureDeviceRegistration registration)
