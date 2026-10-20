@@ -16,6 +16,9 @@ public sealed class ItemImageService : IDisposable
     private const string AlbionImageBaseDomain = "https://cdn.albionfreemarket.com";
     private const string AlbionImageItemPath = "/item/";
     private const int MaxConcurrentDownloads = 4;
+    // Icons arrive at 217 pixels and show at 64 or less; 128 stays sharp at 200% scaling and keeps each cached icon
+    // at about a third of the memory.
+    private const int DecodedWidth = 128;
     private static readonly TimeSpan DiskCacheTtl = TimeSpan.FromDays(30);
 
     private readonly HttpClient httpClient = new();
@@ -134,7 +137,7 @@ public sealed class ItemImageService : IDisposable
     private static Bitmap CreateBitmap(byte[] bytes)
     {
         using var stream = new MemoryStream(bytes);
-        return new Bitmap(stream);
+        return Bitmap.DecodeToWidth(stream, DecodedWidth, BitmapInterpolationMode.HighQuality);
     }
 
     private readonly record struct ItemImageKey(string ItemUniqueName, int Quality);
