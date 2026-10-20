@@ -37,7 +37,8 @@
 				<TextBlock HorizontalAlignment="Center"
 						   Classes="UiTitle"
 						   Text="Starting Albion Data Client…" />
-				<ProgressBar Height="6" IsIndeterminate="True" />
+				<!-- An indeterminate bar animates even while hidden, redrawing the window every frame, so it only spins while starting. -->
+				<ProgressBar Height="6" IsIndeterminate="{Binding IsInitializing}" />
 			</StackPanel>
 		</Border>
 

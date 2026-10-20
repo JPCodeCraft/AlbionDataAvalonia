@@ -157,7 +157,7 @@
                 <TextBlock Classes="UiError"
                            Text="{Binding ValidationText}"
                            IsVisible="{Binding ValidationText, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-                <ProgressBar IsIndeterminate="True" IsVisible="{Binding IsPosting}" />
+                <ProgressBar IsIndeterminate="{Binding IsPosting}" IsVisible="{Binding IsPosting}" />
             </StackPanel>
         </ScrollViewer>
 
