@@ -45,6 +45,8 @@ public sealed class ActivityMapCanvas : Control
     // The live position updates a few times a second. The marker, and the view while following, glide to
     // each new one over about as long as the last update took, so walking reads as movement, not hops.
     private static readonly TimeSpan MaxGlide = TimeSpan.FromMilliseconds(400);
+    // About 60 frames a second is smooth; a faster screen would otherwise redraw the whole map on every refresh.
+    private static readonly TimeSpan GlideFrameInterval = TimeSpan.FromMilliseconds(15);
 
     private readonly List<Hit> hits = new();
     private ActivityPathPoint? glideFrom;
@@ -54,6 +56,7 @@ public sealed class ActivityMapCanvas : Control
     private long glideStartedAt;
     private TimeSpan glideLength;
     private bool glideFrameRequested;
+    private long glideFrameDrawnAt;
     private string? viewKey;
     private bool livePositioned;
     private double zoom = 1;
@@ -188,8 +191,14 @@ public sealed class ActivityMapCanvas : Control
         top.RequestAnimationFrame(_ =>
         {
             glideFrameRequested = false;
-            InvalidateVisual();
-            if (Gliding) RequestGlideFrame();
+            var gliding = Gliding;
+            // The glide's last frame is always drawn, so the marker comes to rest where it stopped.
+            if (!gliding || Stopwatch.GetElapsedTime(glideFrameDrawnAt) >= GlideFrameInterval)
+            {
+                glideFrameDrawnAt = Stopwatch.GetTimestamp();
+                InvalidateVisual();
+            }
+            if (gliding) RequestGlideFrame();
         });
     }
 
