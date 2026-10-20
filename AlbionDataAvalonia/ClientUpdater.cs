@@ -4,6 +4,7 @@ using System.Collections.Generic;
 using System.Diagnostics;
 using System.IO;
 using System.Linq;
+using System.Net;
 using System.Net.Http;
 using System.Reflection;
 using System.Runtime.InteropServices;
@@ -17,7 +18,7 @@ public static class ClientUpdater
     public const string StableChannel = "stable";
     public const string BetaChannel = "beta";
 
-    private static readonly HttpClient httpClient = new HttpClient();
+    private static readonly HttpClient httpClient = new HttpClient(new HttpClientHandler { AutomaticDecompression = DecompressionMethods.All });
 
     public static string? GetVersion()
     {

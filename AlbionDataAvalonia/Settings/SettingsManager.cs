@@ -1,6 +1,7 @@
 ﻿using Serilog;
 using System;
 using System.IO;
+using System.Net;
 using System.Net.Http;
 using System.Text.Json;
 using System.Threading.Tasks;
@@ -120,7 +121,7 @@ public class SettingsManager
 
         try
         {
-            using HttpClient client = new HttpClient();
+            using HttpClient client = new HttpClient(new HttpClientHandler { AutomaticDecompression = DecompressionMethods.All });
             string json = await client.GetStringAsync(appSettingsDownloadUrl);
 
             if (string.IsNullOrEmpty(json))
