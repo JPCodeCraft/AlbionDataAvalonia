@@ -14,7 +14,8 @@ namespace AlbionDataAvalonia.Legendary;
 public sealed class LegendaryDefinitionsService
 {
     private const string DefinitionsUrl = "https://cdn.albionfreemarket.com/ao-bin-dumps/legendaryitems.json";
-    private const string LocalizationUrl = "https://cdn.albionfreemarket.com/AlbionLocalization/merged_localization.json";
+    // English only: the merged file carries every language and is 15 times larger for the same names.
+    private const string LocalizationUrl = "https://cdn.albionfreemarket.com/AlbionLocalization/processed_localization/en-US.json";
     private const string ItemsUrl = "https://cdn.albionfreemarket.com/AlbionLocalization/processed_items.json";
     private const string SpellsUrl = "https://cdn.albionfreemarket.com/AlbionLocalization/processed_spells.json";
     private const string GameDataUrl = "https://cdn.albionfreemarket.com/ao-bin-dumps/gamedata.json";
@@ -376,29 +377,22 @@ public sealed class LegendaryDefinitionsService
             itemBaseTraits);
     }
 
+    // The English file maps each lower-case key to its text, or to the key itself when a text has no English.
     private static IReadOnlyDictionary<string, string> ParseUsNames(string json)
     {
         using var document = JsonDocument.Parse(json);
         var usNames = new Dictionary<string, string>(StringComparer.OrdinalIgnoreCase);
-        foreach (var entry in document.RootElement.EnumerateArray())
+        foreach (var entry in document.RootElement.EnumerateObject())
         {
-            var key = NormalizeKey(GetString(entry, "@tuid"));
-            if (!IsRelevantLocalizationKey(key) || !entry.TryGetProperty("tuv", out var translations))
+            var key = NormalizeKey(entry.Name);
+            if (!IsRelevantLocalizationKey(key) || entry.Value.ValueKind != JsonValueKind.String)
             {
                 continue;
             }
-            foreach (var translation in EnumerateArrayOrSingle(translations))
+            var name = entry.Value.GetString();
+            if (!string.IsNullOrWhiteSpace(name) && !string.Equals(NormalizeKey(name), key, StringComparison.OrdinalIgnoreCase))
             {
-                if (!string.Equals(GetString(translation, "@xml:lang"), "EN-US", StringComparison.OrdinalIgnoreCase))
-                {
-                    continue;
-                }
-                var name = GetString(translation, "seg");
-                if (!string.IsNullOrWhiteSpace(name))
-                {
-                    usNames[key] = name;
-                }
-                break;
+                usNames[key] = name;
             }
         }
         if (usNames.Count == 0)

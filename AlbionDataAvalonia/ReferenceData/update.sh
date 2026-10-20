@@ -11,7 +11,7 @@ for path in \
     ao-bin-dumps/legendaryitems.json \
     ao-bin-dumps/gamedata.json \
     AlbionLocalization/processed_mobs.json \
-    AlbionLocalization/merged_localization.json \
+    AlbionLocalization/processed_localization/en-US.json \
     AlbionLocalization/processed_items.json \
     AlbionLocalization/processed_spells.json; do
     file="$(basename "$path").gz"
