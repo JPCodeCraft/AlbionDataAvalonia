@@ -258,7 +258,7 @@ public partial class ActivityCurrentViewModel : ObservableObject, IDisposable
     {
         HasCurrentPlaySession = context.PlaySession is not null;
         if (!IsPlaySessionPeriod || context.Owner is null) { CurrentStateText = ""; return; }
-        if (context.PlaySession is not { } playSession) { CurrentStateText = "Waiting for your first activity"; return; }
+        if (context.PlaySession is not { } playSession) { CurrentStateText = "Starts on your next map or activity outside town"; return; }
         // A while without moving or acting warns before the idle limit ends the session.
         var idle = nowUtc - playSession.LastActivityAtUtc;
         if (idle >= IdleNoticeDelay)

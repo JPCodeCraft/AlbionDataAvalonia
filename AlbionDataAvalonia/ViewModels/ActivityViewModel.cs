@@ -298,7 +298,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     {
         if (Dialogs is null || !Current.HasCurrentPlaySession) return;
         var id = Tracker?.CurrentPlaySessionId;
-        if (await Dialogs.ConfirmAsync("End this session?", "It ends now and stays in History. Your next activity starts a new session, or you can press Start session.", "End session", destructive: false)
+        if (await Dialogs.ConfirmAsync("End this session?", "It ends now and stays in History. A new one starts on your next map or activity outside town, or when you press Start session.", "End session", destructive: false)
             && Tracker?.CurrentPlaySessionId == id)
             EndCurrentSession(id);
     }

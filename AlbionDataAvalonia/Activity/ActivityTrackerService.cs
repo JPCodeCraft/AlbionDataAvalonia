@@ -121,7 +121,8 @@ public sealed partial class ActivityTrackerService : IDisposable
                 if (captureSuspended) return "Capture stopped.";
                 if (awaitingContext) return "Waiting for character and map confirmation. Nearby loot can still be observed.";
                 return encounter is not null ? "Recording encounter and session activity."
-                    : session is not null ? "Recording session activity." : "Ready. A session starts with your first activity or Start session.";
+                    : session is not null || playSession is not null ? "Recording session activity."
+                    : "Ready. A session starts when you leave town or press Start session.";
             }
         }
     }
@@ -144,6 +145,13 @@ public sealed partial class ActivityTrackerService : IDisposable
             fameCollector.Reset();
             mobParticipation.Clear();
             pendingTerminals.Clear();
+            // Turning recording on out in the world starts a session there, as arriving would.
+            if (value)
+            {
+                var now = DateTime.UtcNow;
+                StartSessionOnArrival(now);
+                OpenEntryRun(now);
+            }
             SaveHeaders();
         }
         Changed?.Invoke(this, EventArgs.Empty);
@@ -443,7 +451,19 @@ public sealed partial class ActivityTrackerService : IDisposable
             Persist(LocationEvent(at, Origin(packet, "Location")));
             headersDirty = true;
         }
-        else OpenEntryRun(at);
+        else
+        {
+            StartSessionOnArrival(at);
+            OpenEntryRun(at);
+        }
+    }
+
+    // Arriving in a play area with no session running starts one there, so the way out to the first fight
+    // counts. Nothing in town starts one; Start session does.
+    private void StartSessionOnArrival(DateTime at)
+    {
+        if (playSession is not null || !CanRecord || map is null || !IsPlayArea(map.Kind)) return;
+        ActivatePlaySession(at, at, resume: false);
     }
 
     // While a session runs, every map but a town has a run from its entry, so a run with nothing in it
@@ -479,6 +499,8 @@ public sealed partial class ActivityTrackerService : IDisposable
     private void EnsureRun(DateTime at)
     {
         if (session is not null || !CanRecord || map is null) return;
+        // Activity in town with no session running is saved outside one, so it never starts a session.
+        if (playSession is null && IsHub(map.Kind)) return;
         var visitStartedAt = at;
         if (reentryConfirmed && resumable is { ClosedAtUtc: { } exited } old
             && mapEnteredAt - exited <= ReentryGrace && old.Server == actors.ServerId?.ToString(CultureInfo.InvariantCulture)
@@ -1221,6 +1243,8 @@ public sealed partial class ActivityTrackerService : IDisposable
     private static DateTime Max(DateTime a, DateTime b) => a > b ? a : b;
     private static string InstanceKey(ActivityLocationDescriptor value) => $"{value.Kind}:{value.InstanceId?.ToString() ?? value.RawLocationId}";
     private static bool IsHub(ActivityMapKind kind) => kind is ActivityMapKind.Hub or ActivityMapKind.Island or ActivityMapKind.Hideout;
+    // Open world and every instance. A map the reference doesn't know yet starts a session only by its first activity.
+    private static bool IsPlayArea(ActivityMapKind kind) => kind is not ActivityMapKind.Unknown && !IsHub(kind);
     private static bool MultiFloor(ActivityMapKind kind) => kind is ActivityMapKind.RandomDungeon or ActivityMapKind.Expedition or ActivityMapKind.AbyssalDepths;
     private static bool IsInstance(ActivityMapKind kind) => kind is not (ActivityMapKind.Unknown or ActivityMapKind.OpenWorld
         or ActivityMapKind.Hub or ActivityMapKind.Island or ActivityMapKind.Hideout);

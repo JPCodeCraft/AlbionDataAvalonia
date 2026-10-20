@@ -40,8 +40,8 @@ public enum ActivityEndReason
     CharacterChanged, Death, Interrupted
 }
 
-// One sitting of play. It starts at Start session or at the first activity, and its time runs on the
-// clock until End session, a character switch, recording turning off, or 30 minutes without moving or
+// One sitting of play. It starts at Start session, on arriving in a play area, or at the first activity
+// outside town, and its time runs on the clock until End session, a character switch, recording turning off, or 30 minutes without moving or
 // acting. Leaving the game or closing the app interrupts it; back within 30 minutes, it continues
 // without the time away. Runs belong to one.
 public sealed record ActivityPlaySession

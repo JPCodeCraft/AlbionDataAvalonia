@@ -6,9 +6,9 @@ using System.Linq;
 namespace AlbionDataAvalonia.Activity;
 
 /// <summary>
-/// A play session starts at Start session or at the first activity, and its time runs on the clock until
-/// End session, a character switch, recording turning off, or the idle limit without moving or acting,
-/// which ends it at the last of those. Leaving the game or closing the app interrupts it; the same
+/// A play session starts at Start session, on arriving in a play area, or at the first activity outside
+/// town, and its time runs on the clock until End session, a character switch, recording turning off, or
+/// the idle limit without moving or acting, which ends it at the last of those. Leaving the game or closing the app interrupts it; the same
 /// character back within the idle limit continues it, and the time away doesn't count.
 /// </summary>
 public sealed partial class ActivityTrackerService

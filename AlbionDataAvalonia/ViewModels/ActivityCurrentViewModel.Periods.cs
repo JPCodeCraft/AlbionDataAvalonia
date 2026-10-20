@@ -53,7 +53,7 @@ public partial class ActivityCurrentViewModel
         if (context.Owner is not { } owner) return null;
         var mode = SelectedPeriod.Value;
         if (mode == ActivityPeriodMode.CurrentRun && context.Session is null) return null;
-        // A play session waiting for its first activity has nothing to total yet.
+        // With no play session running there is nothing to total yet.
         if (mode == ActivityPeriodMode.PlaySession && context.PlaySession is null) return null;
         return new(mode, IsLastHoursPeriod ? LastHours : 0, Filters.Scope,
             owner.Server, owner.CharacterId, owner.CharacterName,
