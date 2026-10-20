@@ -1,24 +1,20 @@
 using Avalonia;
 using Avalonia.Controls;
 using Avalonia.Controls.Templates;
-using System.Collections.Generic;
 
 namespace AlbionDataAvalonia.Views;
 
 /// <summary>
-/// Shows the view for <see cref="Page"/>, built from the host's data templates on the page's first visit. A page it
-/// leaves stays a logical child, so returning to it doesn't restyle every control and keeps its scroll position and
-/// selection, but it leaves the visual tree and is hidden: the renderer walks every attached visual each frame, hidden
-/// or not, so keeping every visited page attached made each frame cost as much as all of them. A view that pauses
-/// while away watches its own <see cref="Visual.IsVisible"/> (or <see cref="Visual.IsEffectivelyVisible"/> deeper in)
-/// or its visual tree attachment.
+/// Shows the view for <see cref="Page"/>, built from the host's data templates each time the page opens. A page it
+/// leaves is hidden and dropped, so only the open page's controls stay in memory and in the renderer's tree; returning
+/// builds it again from its view model. A view drops its own subscriptions to long-lived objects when it leaves the
+/// logical tree, or the object keeps it alive.
 /// </summary>
 public sealed class PageHost : Control
 {
     public static readonly StyledProperty<object?> PageProperty =
         AvaloniaProperty.Register<PageHost, object?>(nameof(Page));
 
-    private readonly Dictionary<object, Control> views = new();
     private Control? shown;
 
     public object? Page
@@ -35,24 +31,20 @@ public sealed class PageHost : Control
 
     private void Show(object? page)
     {
-        Control? view = null;
-        if (page is not null && !views.TryGetValue(page, out view) && this.FindDataTemplate(page)?.Build(page) is { } built)
-        {
-            built.DataContext = page;
-            views[page] = view = built;
-            LogicalChildren.Add(built);
-        }
-        if (ReferenceEquals(view, shown)) return;
         if (shown is not null)
         {
+            // Hiding first lets a view that pauses while away do so before it goes.
             shown.IsVisible = false;
             VisualChildren.Remove(shown);
+            LogicalChildren.Remove(shown);
+            shown = null;
         }
-        shown = view;
-        if (shown is not null)
+        if (page is not null && this.FindDataTemplate(page)?.Build(page) is { } view)
         {
-            shown.IsVisible = true;
-            VisualChildren.Add(shown);
+            view.DataContext = page;
+            shown = view;
+            LogicalChildren.Add(view);
+            VisualChildren.Add(view);
         }
         InvalidateMeasure();
     }

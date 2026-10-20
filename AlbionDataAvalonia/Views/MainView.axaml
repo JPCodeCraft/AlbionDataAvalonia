@@ -269,8 +269,8 @@
 		</Grid>
 
 		<!-- Main Content -->
-		<!-- Each page's view model picks its view; the Main tab's page is this view model. Views are built on the
-		     first visit, then hidden and taken out of the visual tree while another page shows. -->
+		<!-- Each page's view model picks its view; the Main tab's page is this view model. A page's view is built
+		     each time it opens and dropped when another page shows. -->
 		<views:PageHost Grid.Column="1" Margin="10" Page="{Binding CurrentPage}">
 			<views:PageHost.DataTemplates>
 				<DataTemplate DataType="vm:MainViewModel"><views:DashboardView /></DataTemplate>

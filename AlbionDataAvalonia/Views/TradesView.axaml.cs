@@ -13,12 +13,20 @@ namespace AlbionDataAvalonia.Views
         public TradesView()
         {
             InitializeComponent();
-            DataContextChanged += (_, _) =>
-            {
-                if (watchedViewModel is not null) watchedViewModel.Trades.CollectionChanged -= Trades_CollectionChanged;
-                watchedViewModel = DataContext as TradesViewModel;
-                if (watchedViewModel is not null) watchedViewModel.Trades.CollectionChanged += Trades_CollectionChanged;
-            };
+            DataContextChanged += (_, _) => Watch(DataContext as TradesViewModel);
+            // The main window drops a page it leaves; the trades list would otherwise keep this view alive.
+            DetachedFromLogicalTree += (_, _) => Watch(null);
+            AttachedToLogicalTree += (_, _) => Watch(DataContext as TradesViewModel);
+        }
+
+        private void Watch(TradesViewModel? viewModel)
+        {
+            if (watchedViewModel is not null) watchedViewModel.Trades.CollectionChanged -= Trades_CollectionChanged;
+            watchedViewModel = viewModel;
+            if (watchedViewModel is null) return;
+            watchedViewModel.Trades.CollectionChanged += Trades_CollectionChanged;
+            // A page built again starts with nothing selected; the view model's selection follows the grid's.
+            watchedViewModel.UpdateSelectedTrades(TradesGrid.SelectedItems.OfType<TradeRowViewModel>());
         }
 
         // A load refills the same list, and the grid would keep its current row selected and its scroll position.

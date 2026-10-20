@@ -29,8 +29,10 @@ public partial class ActivityView : UserControl
         HistorySessionDetailScroll.AddHandler(PointerWheelChangedEvent, HistoryTable_PointerWheelChanged, RoutingStrategies.Tunnel);
         AttachedToVisualTree += (_, _) => { isAttached = true; SynchronizeViewModel(); };
         DetachedFromVisualTree += (_, _) => { isAttached = false; activeViewModel?.SetActive(false); };
-        // The main window hides a page it leaves before taking it out of the visual tree.
+        // The main window hides a page it leaves, then drops it.
         PropertyChanged += (_, args) => { if (args.Property == IsVisibleProperty) SynchronizeViewModel(); };
+        // A dropped view lets go of the view model, which would otherwise keep it alive through its event.
+        DetachedFromLogicalTree += (_, _) => ReleaseViewModel();
         DataContextChanged += (_, _) => SynchronizeViewModel();
     }
 
@@ -61,13 +63,20 @@ public partial class ActivityView : UserControl
     {
         if (activeViewModel != DataContext)
         {
-            activeViewModel?.SetActive(false);
-            if (activeViewModel is not null) activeViewModel.History.PropertyChanged -= HistoryPropertyChanged;
+            ReleaseViewModel();
             activeViewModel = DataContext as ActivityViewModel;
             if (activeViewModel is not null) activeViewModel.History.PropertyChanged += HistoryPropertyChanged;
             ApplyPlayerColumns();
         }
         activeViewModel?.SetActive(isAttached && IsVisible);
+    }
+
+    private void ReleaseViewModel()
+    {
+        if (activeViewModel is null) return;
+        activeViewModel.SetActive(false);
+        activeViewModel.History.PropertyChanged -= HistoryPropertyChanged;
+        activeViewModel = null;
     }
 
     private void HistoryPropertyChanged(object? sender, System.ComponentModel.PropertyChangedEventArgs args)

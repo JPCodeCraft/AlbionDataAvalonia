@@ -23,7 +23,7 @@ namespace AlbionDataAvalonia.Views
             base.OnDetachedFromVisualTree(e);
         }
 
-        // The main window hides a page it leaves before taking it out of the visual tree.
+        // The main window hides a page it leaves, then drops it.
         protected override void OnPropertyChanged(AvaloniaPropertyChangedEventArgs change)
         {
             base.OnPropertyChanged(change);
