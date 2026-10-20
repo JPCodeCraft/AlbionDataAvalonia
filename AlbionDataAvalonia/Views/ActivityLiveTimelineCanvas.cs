@@ -12,6 +12,7 @@ using Avalonia.Controls;
 using Avalonia.Input;
 using Avalonia.Media;
 using Avalonia.Media.Immutable;
+using Avalonia.Media.TextFormatting;
 using Avalonia.Threading;
 
 namespace AlbionDataAvalonia.Views;
@@ -622,7 +623,7 @@ internal sealed class ActivityLiveTimelineCanvas : Control
         var ratio = maximum / magnitude;
         return (ratio <= 2 ? 2 : ratio <= 5 ? 5 : 10) * magnitude;
     }
-    private static FormattedText MakeText(string value, double size, Color color) => ChartDrawing.Text(value, size, color);
+    private static TextLayout MakeText(string value, double size, Color color) => ChartDrawing.Text(value, size, color);
     private static void Text(DrawingContext context, string value, Point position, double size, Color color, bool centered = false, bool rightAligned = false) =>
         ChartDrawing.DrawText(context, value, position, size, color, centered ? TextAlign.Center : rightAligned ? TextAlign.Right : TextAlign.Left);
     internal sealed record Series(string Label, Color Color, Func<ActivityLiveTimelineSample, double> Value);

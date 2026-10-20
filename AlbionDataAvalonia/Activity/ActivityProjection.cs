@@ -163,7 +163,25 @@ public static class ActivityProjection
     }
 
     public static long? GetLootValue(ActivityEvent observation) => ActivityClassification.GetItemValue(observation);
-    internal static Expression<Func<ActivityEvent, double>> ChartExpression(ActivityScope scope, string? actorKey, ActivityChartMetric metric)
+
+    // Live charts read about a dozen metrics every second or two, and each one built the whole contribution
+    // expression to keep a single value, so each metric's expression is built once.
+    private static readonly ConcurrentDictionary<(ActivityScope Scope, string? ActorKey, ActivityChartMetric Metric),
+        Expression<Func<ActivityEvent, double>>> ChartExpressions = new();
+    private static readonly ConcurrentDictionary<(ActivityScope Scope, string? ActorKey, string Property),
+        Expression<Func<ActivityEvent, long>>> CountExpressions = new();
+
+    private static TValue Cached<TKey, TValue>(ConcurrentDictionary<TKey, TValue> cache, TKey key, Func<TKey, TValue> build) where TKey : notnull
+    {
+        if (cache.TryGetValue(key, out var cached)) return cached;
+        if (cache.Count >= MaximumActorContributions * 16) cache.Clear();
+        return cache.GetOrAdd(key, build);
+    }
+
+    internal static Expression<Func<ActivityEvent, double>> ChartExpression(ActivityScope scope, string? actorKey, ActivityChartMetric metric) =>
+        Cached(ChartExpressions, (Scope: scope, ActorKey: actorKey, Metric: metric), static key => BuildChartExpression(key.Scope, key.ActorKey, key.Metric));
+
+    private static Expression<Func<ActivityEvent, double>> BuildChartExpression(ActivityScope scope, string? actorKey, ActivityChartMetric metric)
     {
         var contribution = ContributionExpression(scope, actorKey);
         var property = metric == ActivityChartMetric.Silver ? nameof(ActivitySummary.SilverRaw) : metric.ToString();
@@ -185,7 +203,10 @@ public static class ActivityProjection
         Expression Sum(params string[] properties) => bindings.Where(x => properties.Contains(x.Member.Name))
             .Select(x => x.Expression).Aggregate(Expression.Add);
     }
-    internal static Expression<Func<ActivityEvent, long>> CountExpression(ActivityScope scope, string property, string? actorKey = null)
+    internal static Expression<Func<ActivityEvent, long>> CountExpression(ActivityScope scope, string property, string? actorKey = null) =>
+        Cached(CountExpressions, (Scope: scope, ActorKey: actorKey, Property: property), static key => BuildCountExpression(key.Scope, key.Property, key.ActorKey));
+
+    private static Expression<Func<ActivityEvent, long>> BuildCountExpression(ActivityScope scope, string property, string? actorKey)
     {
         var contribution = ContributionExpression(scope, actorKey);
         var bindings = ((MemberInitExpression)contribution.Body).Bindings.OfType<MemberAssignment>().ToArray();

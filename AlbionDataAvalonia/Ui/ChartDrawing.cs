@@ -1,5 +1,6 @@
 using Avalonia;
 using Avalonia.Media;
+using Avalonia.Media.TextFormatting;
 using System;
 using System.Collections.Generic;
 using System.Globalization;
@@ -31,9 +32,21 @@ public static class ChartDrawing
     /// </summary>
     public sealed record TooltipRow(IImage? Icon, string Text, string Value = "", bool Round = false);
 
-    public static FormattedText Text(string value, double size, Color color, FontWeight weight = FontWeight.Normal) =>
-        new(value, CultureInfo.CurrentCulture, FlowDirection.LeftToRight,
-            new Typeface(FontFamily.Default, FontStyle.Normal, weight), size, UiPalette.Brush(color));
+    // Canvases draw and measure the same labels on every frame, and shaping text is most of their cost, so each
+    // label is shaped once: a text layout keeps its shaped lines, where formatted text shapes them again on every draw.
+    // Only the UI thread draws; the cache starts over when it grows past a few screens of labels.
+    [ThreadStatic] private static Dictionary<(string Value, double Size, Color Color, FontWeight Weight), TextLayout>? texts;
+    private const int MaximumTexts = 1000;
+
+    public static TextLayout Text(string value, double size, Color color, FontWeight weight = FontWeight.Normal)
+    {
+        texts ??= new();
+        if (texts.TryGetValue((value, size, color, weight), out var cached)) return cached;
+        if (texts.Count >= MaximumTexts) texts.Clear();
+        var text = new TextLayout(value, new Typeface(FontFamily.Default, FontStyle.Normal, weight), size, UiPalette.Brush(color));
+        texts[(value, size, color, weight)] = text;
+        return text;
+    }
 
     /// <summary>Draws text with its left, center or right edge at the point.</summary>
     public static void DrawText(DrawingContext context, string value, Point at, double size, Color color,
@@ -41,7 +54,7 @@ public static class ChartDrawing
     {
         var text = Text(value, size, color, weight);
         var x = align switch { TextAlign.Center => at.X - text.Width / 2, TextAlign.Right => at.X - text.Width, _ => at.X };
-        context.DrawText(text, new Point(x, at.Y));
+        text.Draw(context, new Point(x, at.Y));
     }
 
     /// <summary>
@@ -74,7 +87,7 @@ public static class ChartDrawing
             TooltipRadius, TooltipRadius);
         var x = left + TooltipPadding.Left;
         var y = top + TooltipPadding.Top;
-        context.DrawText(heading, new Point(x, y));
+        heading.Draw(context, new Point(x, y));
         y += heading.Height + (cells.Length > 0 ? TooltipRowGap / 2 : 0);
         foreach (var cell in cells)
         {
@@ -83,14 +96,14 @@ public static class ChartDrawing
             else if (cell.Round) context.DrawEllipse(UiPalette.Brush(UiPalette.TooltipEdge), null, icon.Center, icon.Width * 0.35, icon.Height * 0.35);
             else context.DrawRectangle(UiPalette.Brush(UiPalette.TooltipEdge), null, icon, 4, 4);
             var middle = y + TooltipRowHeight / 2;
-            context.DrawText(cell.Name, new Point(icon.Right + TooltipIconGap, middle - cell.Name.Height / 2));
-            if (cell.Value is { } value) context.DrawText(value, new Point(left + width - TooltipPadding.Right - value.Width, middle - value.Height / 2));
+            cell.Name.Draw(context, new Point(icon.Right + TooltipIconGap, middle - cell.Name.Height / 2));
+            if (cell.Value is { } value) value.Draw(context, new Point(left + width - TooltipPadding.Right - value.Width, middle - value.Height / 2));
             y += TooltipRowHeight;
         }
         y += cells.Length > 0 ? TooltipRowGap / 2 : 0;
         foreach (var text in texts)
         {
-            context.DrawText(text, new Point(x, y));
+            text.Draw(context, new Point(x, y));
             y += text.Height;
         }
     }
@@ -102,6 +115,6 @@ public static class ChartDrawing
         var width = Math.Max(15, text.Width + 7);
         var badge = new Rect(at.X + 4, at.Y - 15, width, 14);
         context.DrawRectangle(UiPalette.Brush("UiMapCountColor"), UiPalette.Pen(UiPalette.Color("UiMapCountEdgeColor")), badge, 7, 7);
-        context.DrawText(text, new Point(badge.X + (width - text.Width) / 2, badge.Y + (14 - text.Height) / 2));
+        text.Draw(context, new Point(badge.X + (width - text.Width) / 2, badge.Y + (14 - text.Height) / 2));
     }
 }

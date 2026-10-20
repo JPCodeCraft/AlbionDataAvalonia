@@ -48,7 +48,8 @@ public sealed class MapDataService : IDisposable
         ["roads_of_avalon_raid_pve"] = "Avalonian chest (elite)",
     };
 
-    private readonly HttpClient http = new() { Timeout = TimeSpan.FromSeconds(60) };
+    // The CDN compresses the map catalog and feature files about ten times when asked.
+    private readonly HttpClient http = new(new HttpClientHandler { AutomaticDecompression = DecompressionMethods.All }) { Timeout = TimeSpan.FromSeconds(60) };
     private readonly SemaphoreSlim downloads = new(3);
     private readonly object sync = new();
     private readonly ConcurrentDictionary<string, Task<IReadOnlyList<MapZoneIcon>>> icons = new();
