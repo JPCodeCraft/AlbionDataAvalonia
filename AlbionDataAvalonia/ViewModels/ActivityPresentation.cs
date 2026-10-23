@@ -399,7 +399,7 @@ internal static class ActivityDisplay
         ActivitySessionKind.Corrupted => "Corrupted dungeon",
         ActivitySessionKind.MistsDungeon => "Mists dungeon",
         ActivitySessionKind.AbyssalDepths => "Abyssal Depths",
-        ActivitySessionKind.DragonArea => "Dragon area",
+        ActivitySessionKind.DragonArea => "Ancient Lands",
         ActivitySessionKind.StaticDungeon => "Static dungeon",
         _ => value.ToString()
     };
