@@ -199,7 +199,7 @@ Press **Disable recording** on the Activity page, or turn off **Record activity*
 
 ## Trades
 
-**Trades** keeps every instant buy and sell you make at the market, plus completed buy and sell orders read from your market mails. Filter by item, server, trade type, operation and location, select rows to see their total and average price, and export them to CSV. Signed-in users can also send trades to their AFM Portfolio.
+**Trades** keeps every instant buy and sell you make at the market, plus completed buy and sell orders read from your market mails. Filter by item, server, trade type, operation and location, select rows to see their total and average price, and export them to CSV. The CSV's **Order Amount** column holds each order's full size, and orders that expired with nothing filled are listed too, with an amount of 0, so you can work out what their setup fees cost. Signed-in users can also send trades to their AFM Portfolio.
 
 ![The Trades page](docs/screenshots/trades.png)
 
