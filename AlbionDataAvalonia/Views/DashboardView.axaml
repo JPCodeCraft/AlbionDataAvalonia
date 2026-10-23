@@ -306,6 +306,10 @@
 								<TextBlock Text="Bandit events" />
 								<TextBlock Grid.Column="1" Text="{Binding PublicUploadedBanditEventsCount, StringFormat=N0}" />
 							</Grid>
+							<Grid Classes="DetailRow" ColumnDefinitions="*,Auto">
+								<TextBlock Text="Festivities" />
+								<TextBlock Grid.Column="1" Text="{Binding PublicUploadedFestivitiesCount, StringFormat=N0}" />
+							</Grid>
 						</StackPanel>
 						<StackPanel Grid.Column="2">
 							<TextBlock Classes="UiCaption" Text="PRIVATE · AFM" Margin="0,0,0,4" />

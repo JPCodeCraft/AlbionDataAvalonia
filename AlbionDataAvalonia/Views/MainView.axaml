@@ -222,7 +222,7 @@
 							<TextBlock Classes="UiCaption" Text="MARKET ORDERS" Margin="0,0,0,5" />
 							<!-- The same switches as Settings › Uploads & sharing, in a narrow row. -->
 							<Grid ColumnDefinitions="*,Auto" ColumnSpacing="6" Margin="0,0,0,6"
-								ToolTip.Tip="Send buy and sell orders to AFM for your flipper and website price tools instead of AODP. Sharing follows the options below. Market history, gold prices and bandit events remain public. Requires sign-in.">
+								ToolTip.Tip="Send buy and sell orders to AFM for your flipper and website price tools instead of AODP. Sharing follows the options below. Market history, gold prices, bandit events and festivities remain public. Requires sign-in.">
 								<TextBlock Classes="UiFine" Foreground="{DynamicResource UiTextBrush}" Text="Private mode" VerticalAlignment="Center" />
 								<ToggleSwitch Grid.Column="1" IsChecked="{Binding UploadToAfmOnly}" AutomationProperties.Name="Private mode" />
 							</Grid>

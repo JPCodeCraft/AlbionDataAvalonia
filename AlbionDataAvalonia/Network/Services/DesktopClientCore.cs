@@ -168,6 +168,9 @@ public sealed class DesktopClientCore : IDisposable
             case FestivitiesUpload festivities:
                 player.FestivitiesUploadHandler(this, new FestivitiesUploadEventArgs(festivities, result.Status, result.Scope, result.Identifier));
                 break;
+            case PublicFestivitiesUpload festivities:
+                player.RecordPublicFestivitiesUpload(result.Status, result.Identifier, festivities.Events.Count);
+                break;
             case ItemEstimatedMarketValueUpload emv:
                 player.ItemEstimatedMarketValueUploadHandler(this, new ItemEstimatedMarketValueUploadEventArgs(emv, result.Status, result.Scope, result.Identifier));
                 break;

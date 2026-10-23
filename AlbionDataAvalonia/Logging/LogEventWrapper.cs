@@ -10,7 +10,8 @@ public class LogEventWrapper
         "Public market upload complete",
         "Gold price upload complete",
         "Market history upload complete",
-        "Bandit event upload complete"
+        "Bandit event upload complete",
+        "Festivities upload complete"
     };
 
     public LogEvent LogEvent { get; }

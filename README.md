@@ -222,7 +222,7 @@ Press **Disable recording** on the Activity page, or turn off **Record activity*
 
 Everything above works without an account, and public uploads to AODP never need one. Click **Sign in** in the sidebar and sign in with Google to also:
 
-- use **Private mode**, which sends your buy and sell orders only to AFM for your flipper and website price tools instead of AODP. Market history, gold prices and bandit events stay public. You can share your private orders with other AFM users, or with up to five friends who add each other in **Settings › Uploads & sharing**;
+- use **Private mode**, which sends your buy and sell orders only to AFM for your flipper and website price tools instead of AODP. Market history, gold prices, bandit events and festivities stay public. You can share your private orders with other AFM users, or with up to five friends who add each other in **Settings › Uploads & sharing**;
 - upload your character specs to the AFM website;
 - track your island plots and farming;
 - add trades to your AFM Portfolio and list awakened items for sale.
