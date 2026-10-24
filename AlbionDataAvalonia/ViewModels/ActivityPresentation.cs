@@ -151,10 +151,14 @@ public sealed class ActivityEncounterRow : ObservableObject
         hasSummary = true;
         var summary = ActivityProjection.GetSummary(source, scope);
         var rates = ActivityProjection.GetRates(summary, source);
-        DamageText = UiFormat.Compact(summary.DamageDealt);
-        HealingText = UiFormat.Compact(summary.HealingDone);
-        DamageRateText = UiFormat.Compact(rates.DamagePerSecond);
-        HealingRateText = UiFormat.Compact(rates.HealingPerSecond);
+        DamageDealt = summary.DamageDealt;
+        HealingDone = summary.HealingDone;
+        DamagePerSecond = rates.DamagePerSecond;
+        HealingPerSecond = rates.HealingPerSecond;
+        DamageText = UiFormat.Compact(DamageDealt);
+        HealingText = UiFormat.Compact(HealingDone);
+        DamageRateText = UiFormat.Compact(DamagePerSecond);
+        HealingRateText = UiFormat.Compact(HealingPerSecond);
         OnPropertyChanged(string.Empty);
     }
 
@@ -168,6 +172,11 @@ public sealed class ActivityEncounterRow : ObservableObject
     public string Location => Source.LocationName;
     public string Classification => ActivityDisplay.EncounterKind(Source.Kind);
     public string DurationText => UiFormat.Duration(Source.CombatDurationSeconds);
+    // The numbers behind the texts, which the table sorts by.
+    public double DamageDealt { get; private set; }
+    public double DamagePerSecond { get; private set; }
+    public double HealingDone { get; private set; }
+    public double HealingPerSecond { get; private set; }
     public string DamageText { get; private set; } = "0";
     public string DamageRateText { get; private set; } = "0";
     public string HealingText { get; private set; } = "0";
@@ -212,6 +221,7 @@ public sealed class ActivityMobRow(ActivityMobTotal source)
     // Kills without a known mob are grouped as "Unknown".
     public string MobUniqueName => source.MobId == "Unknown" ? "" : source.MobId;
     public string Name => ActivityDisplay.MobName(source.Name);
+    public long Kills => source.Kills;
     public string Count => UiFormat.Compact(source.Kills);
     public string KillsText => UiFormat.Count(source.Kills, "kill");
     public string InferredCount => UiFormat.Compact(source.InferredKills);
@@ -234,6 +244,7 @@ public sealed class ActivityLootRow(ActivityEvent source)
     public ActivityEvent SourceEvent { get; } = source;
     public Guid Id => source.Id;
     public bool IsImported => source.Kind == ActivityEventKind.LegacyGatheringAggregate;
+    public DateTime CapturedAtUtc => source.CapturedAtUtc;
     public string TimeText => IsImported ? "Session total" : UiFormat.LocalTime(source.CapturedAtUtc);
     public string DateTimeText => UiFormat.LocalDateTime(source.CapturedAtUtc) + (IsImported ? " · session total" : "");
     public string Recipient => ActivityDisplay.ActorName(source.SourceName, source.SourceKind);
@@ -247,6 +258,9 @@ public sealed class ActivityLootRow(ActivityEvent source)
     public string ItemName => ActivityDisplay.ItemName(source.ItemName);
     public int ImageQuality => source.Quality ?? 1;
     public string Quality => ItemQuality.Format(source.Quality);
+    // The table sorts by these; rows without a quantity or an EMV sort below every number.
+    public long? Quantity => source.Quantity > 0 ? source.Quantity : null;
+    public long? Value => source.Quantity > 0 ? ActivityProjection.GetLootValue(source) : null;
     public string AmountText => source.Quantity > 0 ? UiFormat.Compact(source.Quantity) : source.Evidence == ActivityEvidence.Supplemental ? "Pending" : UiText.Unknown;
     public string UnitValueText => source.EstimatedUnitValue is { } value ? UiFormat.Compact(value) : UiText.Unavailable;
     public string ValueText => source.Quantity <= 0 ? source.Evidence == ActivityEvidence.Supplemental ? "Quantity pending" : "Unknown quantity" : ActivityProjection.GetLootValue(source) is { } value
@@ -281,6 +295,7 @@ public sealed class ActivityEventRow(ActivityEvent source)
 {
     public ActivityEvent SourceEvent { get; } = source;
     public Guid Id => source.Id;
+    public DateTime CapturedAtUtc => source.CapturedAtUtc;
     public string TimeText => UiFormat.LocalTime(source.CapturedAtUtc);
     public string Kind => source.Kind switch
     {
