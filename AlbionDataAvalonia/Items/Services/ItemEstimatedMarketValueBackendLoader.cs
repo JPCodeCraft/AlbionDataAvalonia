@@ -305,8 +305,8 @@ public sealed class ItemEstimatedMarketValueBackendLoader : IDisposable
 
     private Uri CreateNewestEstimatedMarketValuesUri(int serverId, IReadOnlyList<string> uniqueNames, IReadOnlyList<int> qualities)
     {
-        // serverId is the client's 1-3 server number; the API's `server` parameter is the website's 0-2.
-        var query = $"serverId={serverId}"
+        // The client numbers servers 1-3, as in its uploads; this endpoint takes the website's 0-2.
+        var query = $"server={serverId - 1}"
             + $"&uniqueNames={Uri.EscapeDataString(string.Join(",", uniqueNames))}"
             + $"&qualities={Uri.EscapeDataString(string.Join(",", qualities))}";
         return new Uri(httpClient.BaseAddress!, $"{NewestEstimatedMarketValuesPath}?{query}");
