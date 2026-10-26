@@ -11,6 +11,7 @@ public class PublicUploadStatsSnapshot
     public int DailyHistoriesCount { get; set; }
     public int GoldHistoriesCount { get; set; }
     public int BanditEventsCount { get; set; }
+    public int FestivitiesCount { get; set; }
 }
 
 public class PrivateUploadStatsSnapshot

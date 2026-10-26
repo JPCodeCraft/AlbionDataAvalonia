@@ -342,6 +342,18 @@ namespace AlbionDataAvalonia.State
             NotifyPrivateUploadStatsChanged();
         }
 
+        public void RecordPublicFestivitiesUpload(UploadStatus status, Guid identifier, int count)
+        {
+            ProcessUploadStatus(UploadScope.Public, status, identifier);
+            if (status != UploadStatus.Success)
+            {
+                return;
+            }
+
+            PublicUploadStats.FestivitiesCount += count;
+            NotifyPublicUploadStatsChanged();
+        }
+
         public void ItemEstimatedMarketValueUploadHandler(object? sender, ItemEstimatedMarketValueUploadEventArgs e)
         {
             ProcessUploadStatus(e.Scope, e.UploadStatus, e.Identifier);
@@ -418,7 +430,8 @@ namespace AlbionDataAvalonia.State
                 WeeklyHistoriesCount = source.WeeklyHistoriesCount,
                 DailyHistoriesCount = source.DailyHistoriesCount,
                 GoldHistoriesCount = source.GoldHistoriesCount,
-                BanditEventsCount = source.BanditEventsCount
+                BanditEventsCount = source.BanditEventsCount,
+                FestivitiesCount = source.FestivitiesCount
             };
         }
 

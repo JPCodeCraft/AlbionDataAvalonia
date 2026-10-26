@@ -280,10 +280,10 @@ namespace AlbionDataAvalonia.Auth.Services
         private async Task RefreshFirebaseTokenAsync(string refreshToken, CancellationToken cancellationToken = default)
         {
             var url = $"{_settingsManager.AppSettings.AfmAuthApiUrl}/refreshToken";
-            var query = $"?refreshToken={Uri.EscapeDataString(refreshToken)}";
 
+            // The token goes in the body: a query string would land in the server's access logs.
             using var client = new HttpClient();
-            var response = await client.GetAsync(url + query, cancellationToken);
+            var response = await client.PostAsJsonAsync(url, new { refreshToken }, cancellationToken);
 
             if (response.IsSuccessStatusCode)
             {

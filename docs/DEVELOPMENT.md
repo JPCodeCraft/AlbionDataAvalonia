@@ -21,7 +21,7 @@ After switching branches or pulling a change to the submodule pointer, run `git 
 
 The app embeds gzipped base copies of its reference data (items, locations, achievements, mobs and awakened-item data) from `AlbionDataAvalonia/ReferenceData`. They are used only when a file cannot be downloaded and has no validated disk cache yet, such as a first start without access to the CDN. Run `AlbionDataAvalonia/ReferenceData/update.sh` before a release to refresh them from the CDN.
 
-Shared-library integration validation includes building the desktop solution and running the PoW correctness tests. Manual checks cover ordinary and loadout market routing, gold and bandit uploads during Private Mode, authenticated specs/EMV/world events, local tracker updates, account/server changes, and island collection, failed actions, offline retry, and restart recovery. Cross-platform capture and UI checks require the corresponding operating systems; builds alone do not validate live game traffic.
+Shared-library integration validation includes building the desktop solution and running the PoW correctness tests. Manual checks cover ordinary and loadout market routing, gold, bandit and AODP festivities uploads during Private Mode, authenticated specs/EMV/world events, local tracker updates, account/server changes, and island collection, failed actions, offline retry, and restart recovery. Cross-platform capture and UI checks require the corresponding operating systems; builds alone do not validate live game traffic.
 
 ## How Activity records
 
@@ -61,7 +61,7 @@ Existing gathering history is converted automatically at startup into closed Act
 
 Private Mode saves all captured buy/sell orders, including loadout offers, to your
 AFM account for the flipper and website price tools. No market-order categories
-are also sent to AODP. Market history, gold prices and bandit events remain public.
+are also sent to AODP. Market history, gold prices, bandit events and festivities remain public.
 Private Mode and both sharing choices default off and are saved in UserSettings.json.
 All three survive restarts, sign-out and account changes. Turning Private Mode off
 keeps the sharing choices saved for when it is enabled again. Sharing only applies
@@ -81,6 +81,6 @@ Turn Private Mode off and back on, then disable each sharing choice and repeat
 restart/sign-out checks to confirm both enabled and disabled values persist. Capture an
 ordinary item and each former public exception (runes, souls, relics, alchemy
 extracts and fish sauce), including loadout offers, and confirm no market orders
-reach AODP. Verify history/gold/bandit uploads remain public. Check tooltips and the
+reach AODP. Verify history/gold/bandit/festivities uploads remain public. Check tooltips and the
 Sharing field on a narrow window, and add/remove friends by all three identifiers.
 These UI/capture checks require a signed-in client and live game traffic.

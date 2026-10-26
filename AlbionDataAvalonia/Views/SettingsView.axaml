@@ -74,7 +74,7 @@
                             <RadioButton Classes="Choice" GroupName="MarketOrders" IsChecked="{Binding IsPrivateMode}" IsEnabled="{Binding IsUserLoggedIn}">
                                 <StackPanel>
                                     <TextBlock Classes="UiRowTitle" Text="Private mode" />
-                                    <TextBlock Classes="UiLabel" Margin="0,2,0,0" Text="Orders go to AFM only, for your flipper and website price tools. Market history, gold prices and bandit events stay public." />
+                                    <TextBlock Classes="UiLabel" Margin="0,2,0,0" Text="Orders go to AFM only, for your flipper and website price tools. Market history, gold prices, bandit events and festivities stay public." />
                                 </StackPanel>
                             </RadioButton>
                         </controls:SettingsRow>

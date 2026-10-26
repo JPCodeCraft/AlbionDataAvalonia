@@ -199,7 +199,7 @@ Press **Disable recording** on the Activity page, or turn off **Record activity*
 
 ## Trades
 
-**Trades** keeps every instant buy and sell you make at the market, plus completed buy and sell orders read from your market mails. Filter by item, server, trade type, operation and location, select rows to see their total and average price, and export them to CSV. Signed-in users can also send trades to their AFM Portfolio.
+**Trades** keeps every instant buy and sell you make at the market, plus completed buy and sell orders read from your market mails. Filter by item, server, trade type, operation and location, select rows to see their total and average price, and export them to CSV. The CSV's **Order Amount** column holds each order's full size, and orders that expired with nothing filled are listed too, with an amount of 0, so you can work out what their setup fees cost. Signed-in users can also send trades to their AFM Portfolio.
 
 ![The Trades page](docs/screenshots/trades.png)
 
@@ -222,7 +222,7 @@ Press **Disable recording** on the Activity page, or turn off **Record activity*
 
 Everything above works without an account, and public uploads to AODP never need one. Click **Sign in** in the sidebar and sign in with Google to also:
 
-- use **Private mode**, which sends your buy and sell orders only to AFM for your flipper and website price tools instead of AODP. Market history, gold prices and bandit events stay public. You can share your private orders with other AFM users, or with up to five friends who add each other in **Settings › Uploads & sharing**;
+- use **Private mode**, which sends your buy and sell orders only to AFM for your flipper and website price tools instead of AODP. Market history, gold prices, bandit events and festivities stay public. You can share your private orders with other AFM users, or with up to five friends who add each other in **Settings › Uploads & sharing**;
 - upload your character specs to the AFM website;
 - track your island plots and farming;
 - add trades to your AFM Portfolio and list awakened items for sale.

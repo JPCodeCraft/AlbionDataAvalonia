@@ -43,7 +43,17 @@ public class CsvExportService
         }));
 
         using var db = new LocalContext();
-        var totalCount = await db.Trades.Where(x => !x.Deleted && x.Amount > 0).CountAsync(cancellationToken);
+        // An order that expired with nothing filled has no trade, but its setup fee was paid, so its mail
+        // becomes a row with amount 0 and the full order amount. The mail doesn't say a sell order's price.
+        var unfilled = (await db.AlbionMails
+                .Where(x => !x.Deleted && x.IsSet && x.PartialAmount == 0 && x.TotalAmount > 0 && x.AuctionType != AuctionType.unknown)
+                .AsNoTracking()
+                .ToListAsync(cancellationToken))
+            .Select(mail => new Trade(mail))
+            .OrderByDescending(x => x.DateTime)
+            .ToList();
+        var tradeCount = await db.Trades.Where(x => !x.Deleted && x.Amount > 0).CountAsync(cancellationToken);
+        var totalCount = tradeCount + unfilled.Count;
 
         if (totalCount == 0)
         {
@@ -53,8 +63,38 @@ public class CsvExportService
 
         const int batchSize = 500;
         int processed = 0;
+        int nextUnfilled = 0;
 
-        var batches = (int)Math.Ceiling(totalCount / (double)batchSize);
+        async Task WriteAsync(Trade trade)
+        {
+            var server = AlbionServers.Get(trade.AlbionServerId ?? 0);
+            var location = AlbionLocations.ResolveStoredLocation(trade.RawLocationId, trade.LocationId);
+            var marketName = location?.MarketLocation?.FriendlyName ?? location?.FriendlyName ?? "";
+            var fullName = location?.FriendlyName ?? "";
+            var itemName = itemsIdsService.GetUsNameByUniqueName(trade.ItemId);
+
+            var line = string.Join(delimiter, new[]
+            {
+                Escape(server?.Name ?? "", delimiter),
+                Escape(trade.PlayerName, delimiter),
+                Escape(trade.DateTime.ToString(culture), delimiter),
+                Escape(trade.TradeTypeFormatted, delimiter),
+                Escape(trade.TradeOperationFormatted, delimiter),
+                Escape(trade.QualityLevelFormatted, delimiter),
+                Escape(itemName, delimiter),
+                Escape(marketName, delimiter),
+                Escape(fullName, delimiter),
+                trade.Amount.ToString(culture),
+                trade.Amount == 0 && trade.UnitSilver == 0 ? "" : trade.UnitSilver.ToString("F2", culture),
+                trade.TotalSilver.ToString("F0", culture),
+                trade.OrderAmount?.ToString(culture) ?? ""
+            });
+
+            await writer.WriteLineAsync(line);
+            processed++;
+        }
+
+        var batches = (int)Math.Ceiling(tradeCount / (double)batchSize);
 
         for (int i = 0; i < batches; i++)
         {
@@ -70,41 +110,23 @@ public class CsvExportService
 
             foreach (var trade in trades)
             {
-                var server = AlbionServers.Get(trade.AlbionServerId ?? 0);
-                var location = AlbionLocations.ResolveStoredLocation(trade.RawLocationId, trade.LocationId);
-                var marketName = location?.MarketLocation?.FriendlyName ?? location?.FriendlyName ?? "";
-                var fullName = location?.FriendlyName ?? "";
-                var itemName = itemsIdsService.GetUsNameByUniqueName(trade.ItemId);
-
-                var line = string.Join(delimiter, new[]
-                {
-                    Escape(server?.Name ?? "", delimiter),
-                    Escape(trade.PlayerName, delimiter),
-                    Escape(trade.DateTime.ToString(culture), delimiter),
-                    Escape(trade.TradeTypeFormatted, delimiter),
-                    Escape(trade.TradeOperationFormatted, delimiter),
-                    Escape(trade.QualityLevelFormatted, delimiter),
-                    Escape(itemName, delimiter),
-                    Escape(marketName, delimiter),
-                    Escape(fullName, delimiter),
-                    trade.Amount.ToString(culture),
-                    trade.UnitSilver.ToString("F2", culture),
-                    trade.TotalSilver.ToString("F0", culture),
-                    trade.OrderAmount?.ToString(culture) ?? ""
-                });
-
-                await writer.WriteLineAsync(line);
-                processed++;
+                // Keep the newest-first order across trades and unfilled orders.
+                while (nextUnfilled < unfilled.Count && unfilled[nextUnfilled].DateTime >= trade.DateTime)
+                    await WriteAsync(unfilled[nextUnfilled++]);
+                await WriteAsync(trade);
             }
 
             var percent = (int)((double)processed / totalCount * 100);
             progress?.Report(percent);
         }
 
+        while (nextUnfilled < unfilled.Count)
+            await WriteAsync(unfilled[nextUnfilled++]);
+
         await writer.FlushAsync(cancellationToken);
         progress?.Report(100);
 
-        Log.Information("Exported {Count} trades to CSV", processed);
+        Log.Information("Exported {Count} trades and {Unfilled} unfilled orders to CSV", processed - unfilled.Count, unfilled.Count);
     }
 
     public async Task ExportLootToCsvAsync(

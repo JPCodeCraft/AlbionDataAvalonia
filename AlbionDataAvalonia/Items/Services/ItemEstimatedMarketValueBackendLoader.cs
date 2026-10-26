@@ -280,6 +280,10 @@ public sealed class ItemEstimatedMarketValueBackendLoader : IDisposable
                 {
                     RequeueLookups(lookups);
                 }
+                else
+                {
+                    CacheAsMissing(lookups);
+                }
                 return;
             }
 
@@ -301,7 +305,8 @@ public sealed class ItemEstimatedMarketValueBackendLoader : IDisposable
 
     private Uri CreateNewestEstimatedMarketValuesUri(int serverId, IReadOnlyList<string> uniqueNames, IReadOnlyList<int> qualities)
     {
-        var query = $"server={serverId}"
+        // The client numbers servers 1-3, as in its uploads; this endpoint takes the website's 0-2.
+        var query = $"server={serverId - 1}"
             + $"&uniqueNames={Uri.EscapeDataString(string.Join(",", uniqueNames))}"
             + $"&qualities={Uri.EscapeDataString(string.Join(",", qualities))}";
         return new Uri(httpClient.BaseAddress!, $"{NewestEstimatedMarketValuesPath}?{query}");
@@ -355,7 +360,7 @@ public sealed class ItemEstimatedMarketValueBackendLoader : IDisposable
                     serverId,
                     itemId,
                     value.Quality,
-                    value.Emv,
+                    value.Emv!.Value,
                     value.BlackMarketEmv));
             }
         }
@@ -378,10 +383,12 @@ public sealed class ItemEstimatedMarketValueBackendLoader : IDisposable
     private void RequeueLookups(List<PendingLookup> lookups)
     {
         var requeued = 0;
+        var exhausted = new List<PendingLookup>();
         foreach (var lookup in lookups)
         {
             if (lookup.Attempts >= MaxRetries)
             {
+                exhausted.Add(lookup);
                 continue;
             }
 
@@ -390,9 +397,21 @@ public sealed class ItemEstimatedMarketValueBackendLoader : IDisposable
             requeued++;
         }
 
+        CacheAsMissing(exhausted);
         if (requeued > 0)
         {
             ScheduleFlush(RetryDelay);
+        }
+    }
+
+    // A lookup the backend refused, or that kept failing, waits like an item without an EMV.
+    // Activity lists ask again for every unpriced item each time they re-read, every few seconds.
+    private void CacheAsMissing(IEnumerable<PendingLookup> lookups)
+    {
+        var nowUtc = DateTime.UtcNow;
+        foreach (var lookup in lookups)
+        {
+            negativeLookups[new NegativeLookupKey(lookup.Key.ServerId, lookup.Key.ItemUniqueName, lookup.Key.Quality)] = nowUtc;
         }
     }
 
@@ -473,11 +492,12 @@ public sealed class ItemEstimatedMarketValueBackendLoader : IDisposable
 
     private readonly record struct PendingLookup(PendingLookupKey Key, int Attempts);
 
+    // Day and Emv are null for items that only have a Black Market EMV.
     private sealed record ItemEstimatedMarketValueResponse(
         string ItemUniqueName,
         int Server,
         int Quality,
-        DateOnly Day,
-        long Emv,
+        DateOnly? Day,
+        long? Emv,
         long? BlackMarketEmv);
 }
