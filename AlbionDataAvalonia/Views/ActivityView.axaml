@@ -9,44 +9,47 @@
              x:DataType="vm:ActivityViewModel" Classes="AppPage">
     <UserControl.Resources>
         <StreamGeometry x:Key="ActivityPartyIcon">M6,2.5 A2.5,2.5 0 1 0 6,7.5 A2.5,2.5 0 1 0 6,2.5 Z M1,14 C1,10.5 3,9 6,9 C9,9 11,10.5 11,14 Z M11.5,2.5 A2,2 0 1 0 11.5,6.5 A2,2 0 1 0 11.5,2.5 Z M12,8.5 C14,8.7 15.5,10 15.5,13 L12.3,13 C12.1,11 11.5,9.6 10.6,8.9 C11,8.6 11.5,8.5 12,8.5 Z</StreamGeometry>
-        <DataTemplate x:Key="KillSummaryTemplate" x:DataType="vm:ActivitySummaryPresentation">
-            <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto" ColumnSpacing="8" ToolTip.Tip="{Binding OutcomesDetailsText}">
-                <TextBlock Classes="UiLabel" Text="Mob kills" />
-                <TextBlock Grid.Column="1" Classes="UiLabel" Text="{Binding PlayerKillsLabel}" />
-                <TextBlock Grid.Row="1" Classes="UiValue" Margin="0,2" Text="{Binding MobKills}" />
-                <TextBlock Grid.Row="1" Grid.Column="1" Classes="UiValue" Margin="0,2" Text="{Binding PlayerKills}" Foreground="{DynamicResource UiActivityKillBrush}" />
-                <TextBlock Grid.Row="2" Grid.ColumnSpan="2" Classes="UiLabel" Text="{Binding DeathsAndKnockdowns}" />
-            </Grid>
-        </DataTemplate>
+        <!-- The stat cards both tabs show: Silver, Fame, Combat and Kills, plus Gathering when something was gathered.
+             A card with nothing to say (combat on an imported session) stays away; an empty row inside a card dims. -->
         <DataTemplate x:Key="SummaryTemplate" x:DataType="vm:ActivitySummaryPresentation">
-            <StackPanel>
-            <Grid ColumnDefinitions="*,*" ColumnSpacing="6" Margin="0,0,0,6" ToolTip.Tip="{Binding TotalSilverDetailsText}">
-                <controls:StatTile Classes="Card Outlined Large Accent Compact" MinHeight="64" Label="Total silver" Value="{Binding TotalSilver}" />
-                <controls:StatTile Grid.Column="1" Classes="Card Outlined Large Accent Compact" MinHeight="64" Label="Total silver / hour" Value="{Binding TotalSilverPerHour}" />
-            </Grid>
-            <views:ResponsiveUniformGrid IsVisible="{Binding !IsImported}" MaximumColumns="4" MinimumItemWidth="156" Margin="-3">
-                <controls:StatTile Classes="Card Compact" Height="76" Margin="3" Label="Damage dealt" Value="{Binding DamageDealt}" Detail="{Binding DamageRate}" />
-                <controls:StatTile Classes="Card Compact" Height="76" Margin="3" Label="Damage received" Value="{Binding DamageReceived}" Detail="{Binding DamageReceivedRate}" />
-                <controls:StatTile Classes="Card Compact" Height="76" Margin="3" Label="Healing done" Value="{Binding HealingDone}" Detail="{Binding HealingRate}" />
-                <controls:StatTile Classes="Card Compact" Height="76" Margin="3" Label="Healing received" Value="{Binding HealingReceived}" Detail="{Binding HealingReceivedRate}" />
-                <controls:StatTile Classes="Card Compact" Height="76" Margin="3" Label="Combat fame" Value="{Binding CombatFame}" Detail="{Binding CombatFameFooterText}" ToolTip.Tip="{Binding CombatFameDetailsText}" />
-                <controls:StatTile Classes="Card Compact" Height="76" Margin="3" Label="Silver picked up" Value="{Binding Silver}" Detail="{Binding SilverFooterText}" ToolTip.Tip="{Binding SilverDetailsText}" />
-                <controls:StatTile Classes="Card Compact" Height="76" Margin="3" Label="Loot EMV" Value="{Binding LootValue}" Detail="{Binding ItemsFooterText}" ToolTip.Tip="{Binding ItemsDetailsText}" />
-                <Border Classes="UiCard" Height="76" Margin="3" Padding="10,8"><ContentControl Content="{Binding}" ContentTemplate="{StaticResource KillSummaryTemplate}" /></Border>
-                </views:ResponsiveUniformGrid>
-                <Border IsVisible="{Binding !IsImported}" Margin="0,6,0,0" Classes="UiCard" Padding="10,8" ToolTip.Tip="{Binding ResourceValueDetailsText}">
-                    <WrapPanel>
-                        <StackPanel Margin="0,0,20,0"><TextBlock Classes="UiSectionTitle" Text="{Binding ResourceItemsText}" /><TextBlock Classes="UiLabel" Text="{Binding ResourceBreakdownText}" /></StackPanel>
-                        <StackPanel Margin="0,0,20,0"><StackPanel Orientation="Horizontal" Spacing="6"><TextBlock Classes="UiLabel" Text="Gathering EMV" VerticalAlignment="Center" /><TextBlock Classes="UiSectionTitle" Text="{Binding ResourceValueText}" /></StackPanel><TextBlock Classes="UiLabel" Text="{Binding ResourceRateText}" /></StackPanel>
-                        <StackPanel Margin="0,0,20,0" ToolTip.Tip="{Binding GatheringFameDetailsText}"><StackPanel Orientation="Horizontal" Spacing="6"><TextBlock Classes="UiLabel" Text="Gathering fame" VerticalAlignment="Center" /><TextBlock Classes="UiSectionTitle" Text="{Binding GatheringFame}" /></StackPanel><TextBlock Classes="UiLabel" Text="{Binding GatheringFameRate}" IsVisible="{Binding IsSessionAverage}" /></StackPanel>
-                    </WrapPanel>
-                </Border>
-            <TextBlock Classes="UiLabel" Text="{Binding UnknownFameText}" IsVisible="{Binding HasUnknownFame}" Margin="0,6,0,0" ToolTip.Tip="Fame without a known activity" />
-            <Grid IsVisible="{Binding IsImported}" ColumnDefinitions="*,*" ColumnSpacing="6">
-                <controls:StatTile Classes="Card Compact" Height="76" Label="Items gathered" Value="{Binding ResourceQuantityText}" Detail="{Binding ResourceBreakdownText}" ToolTip.Tip="{Binding ResourceBreakdownText}" />
-                <controls:StatTile Grid.Column="1" Classes="Card Compact" Height="76" Label="Gathering EMV" Value="{Binding ResourceValueText}" Detail="{Binding ResourceRateText}" ToolTip.Tip="{Binding ResourceValueDetailsText}" />
-            </Grid>
-            </StackPanel>
+            <views:ResponsiveUniformGrid MaximumColumns="5" MinimumItemWidth="210" Margin="-3">
+                <controls:StatCard Classes="Accent" Margin="3" Caption="SILVER" Value="{Binding TotalSilver}" Unit="{Binding TotalSilverUnit}" ToolTip.Tip="{Binding TotalSilverDetailsText}">
+                    <StackPanel Spacing="3">
+                        <controls:StatRow Label="Picked up" Value="{Binding Silver}" Rate="{Binding SilverRowRate}" IsVisible="{Binding !IsImported}" ToolTip.Tip="{Binding SilverDetailsText}" />
+                        <controls:StatRow Label="Loot EMV" Value="{Binding LootValueRowText}" Rate="{Binding LootRowRate}" Classes.Dim="{Binding !HasLoot}" IsVisible="{Binding !IsImported}" ToolTip.Tip="{Binding ItemsDetailsText}" />
+                        <controls:StatRow Label="Gathering EMV" Value="{Binding ResourceValueRowText}" Rate="{Binding ResourceRowRate}" Classes.Dim="{Binding !HasResources}" ToolTip.Tip="{Binding GatheringRowDetails}" />
+                    </StackPanel>
+                </controls:StatCard>
+                <controls:StatCard Classes="Accent" Margin="3" Caption="FAME" Value="{Binding TotalFame}" Unit="{Binding TotalFameUnit}" ToolTip.Tip="{Binding TotalFameDetailsText}" IsVisible="{Binding !IsImported}">
+                    <StackPanel Spacing="3">
+                        <controls:StatRow Label="PvE" Value="{Binding PveFame}" Rate="{Binding PveFameRowRate}" Classes.Dim="{Binding !HasPveFame}" />
+                        <controls:StatRow Label="PvP" Value="{Binding PvpFame}" Rate="{Binding PvpFameRowRate}" Classes.Dim="{Binding !HasPvpFame}" />
+                        <controls:StatRow Label="Gathering" Value="{Binding GatheringFame}" Rate="{Binding GatheringFameRowRate}" Classes.Dim="{Binding !HasGatheringFame}" ToolTip.Tip="{Binding GatheringFameDetailsText}" />
+                        <controls:StatRow Label="Unknown" Value="{Binding UnknownFame}" IsVisible="{Binding HasUnknownFame}" ToolTip.Tip="Fame without a known activity" />
+                    </StackPanel>
+                </controls:StatCard>
+                <controls:StatCard Margin="3" Caption="COMBAT" Value="{Binding DamageDealt}" Unit="{Binding DamageDealtUnit}" IsVisible="{Binding !IsImported}">
+                    <StackPanel Spacing="3">
+                        <controls:StatRow Label="Damage received" Value="{Binding DamageReceived}" Rate="{Binding DamageReceivedRate}" />
+                        <controls:StatRow Label="Healing done" Value="{Binding HealingDone}" Rate="{Binding HealingRate}" />
+                        <controls:StatRow Label="Healing received" Value="{Binding HealingReceived}" Rate="{Binding HealingReceivedRate}" />
+                    </StackPanel>
+                </controls:StatCard>
+                <controls:StatCard Margin="3" Caption="KILLS" Value="{Binding MobKills}" Unit="mobs" ToolTip.Tip="{Binding OutcomesDetailsText}" IsVisible="{Binding !IsImported}">
+                    <StackPanel Spacing="3">
+                        <controls:StatRow Label="PvP kills" Value="{Binding PlayerKills}" Rate="{Binding PlayerKillsRowRate}" Classes.Dim="{Binding !HasPlayerKills}" />
+                        <controls:StatRow Label="Deaths" Value="{Binding DeathsText}" Rate="{Binding DeathsRowRate}" Classes.Dim="{Binding !HasDeaths}" />
+                        <controls:StatRow Label="Knockdowns" Value="{Binding KnockdownsText}" Classes.Dim="{Binding !HasKnockdowns}" />
+                    </StackPanel>
+                </controls:StatCard>
+                <controls:StatCard Margin="3" Caption="GATHERING" Value="{Binding ResourceQuantityText}" Unit="{Binding ResourceItemsUnit}" ToolTip.Tip="{Binding ResourceValueDetailsText}" IsVisible="{Binding ShowGatheringCard}">
+                    <StackPanel Spacing="3">
+                        <controls:StatRow Label="EMV" Value="{Binding ResourceValueRowText}" Rate="{Binding ResourceValueRate}" />
+                        <controls:StatRow Label="Fame" Value="{Binding GatheringFame}" Rate="{Binding GatheringFameRowRateInCard}" Classes.Dim="{Binding !HasGatheringFame}" IsVisible="{Binding !IsImported}" />
+                        <controls:StatRow Label="Fished" Value="{Binding FishingItemsText}" Rate="{Binding FishingRowRate}" IsVisible="{Binding HasFishing}" />
+                    </StackPanel>
+                </controls:StatCard>
+            </views:ResponsiveUniformGrid>
         </DataTemplate>
         <DataTemplate x:Key="LootTemplate" x:DataType="vm:ActivityLootRow">
             <controls:ItemCell Classes="Compact" IconSize="28" ItemUniqueName="{Binding ItemUniqueName}" ImageQuality="{Binding ImageQuality}" Title="{Binding ItemName}" Subtitle="{Binding Quality}"
@@ -68,8 +71,7 @@
             <WrapPanel Margin="0,0,0,-4">
                 <TextBlock Text="Show" Classes="UiLabel" VerticalAlignment="Center" Margin="0,0,12,4" />
                 <ToggleButton Theme="{StaticResource UiToggleChip}" Content="All" IsChecked="{Binding ShowAllActivities, Mode=TwoWay}" />
-                <ToggleButton Theme="{StaticResource UiToggleChip}" Content="Gathering" IsChecked="{Binding ShowGathering, Mode=TwoWay}" />
-                <ToggleButton Theme="{StaticResource UiToggleChip}" Content="Fishing" IsChecked="{Binding ShowFishing, Mode=TwoWay}" />
+                <ToggleButton Theme="{StaticResource UiToggleChip}" Content="Gathering" IsChecked="{Binding ShowGathering, Mode=TwoWay}" ToolTip.Tip="Gathering and fishing" />
                 <ToggleButton Theme="{StaticResource UiToggleChip}" Content="PvE" IsChecked="{Binding ShowPve, Mode=TwoWay}" />
                 <ToggleButton Theme="{StaticResource UiToggleChip}" Content="PvP" IsChecked="{Binding ShowPvp, Mode=TwoWay}" />
                 <ToggleButton Theme="{StaticResource UiToggleChip}" Content="Other" IsChecked="{Binding ShowOther, Mode=TwoWay}" />
@@ -109,9 +111,10 @@
     <!-- The session list and party changes appear only here. -->
     <UserControl.Styles>
         <Style Selector="ListBox.ActivitySessionList"><Setter Property="Background" Value="Transparent" /><Setter Property="BorderThickness" Value="0" /></Style>
-        <Style Selector="ListBox.ActivitySessionList ListBoxItem"><Setter Property="Background" Value="Transparent" /><Setter Property="Padding" Value="12" /><Setter Property="HorizontalContentAlignment" Value="Stretch" /></Style>
+        <Style Selector="ListBox.ActivitySessionList ListBoxItem"><Setter Property="Background" Value="Transparent" /><Setter Property="Padding" Value="12,10" /><Setter Property="HorizontalContentAlignment" Value="Stretch" /></Style>
         <Style Selector="ListBox.ActivitySessionList ListBoxItem:pointerover"><Setter Property="Background" Value="{DynamicResource UiInputBrush}" /></Style>
         <Style Selector="ListBox.ActivitySessionList ListBoxItem:selected"><Setter Property="Background" Value="{DynamicResource UiSelectedBrush}" /><Setter Property="BorderBrush" Value="{DynamicResource UiAccentTextBrush}" /><Setter Property="BorderThickness" Value="3,0,0,0" /></Style>
+        <Style Selector="ListBox.ActivityRunList ListBoxItem"><Setter Property="Margin" Value="0,0,6,0" /></Style>
         <Style Selector="TextBlock.PartyChange"><Setter Property="Foreground" Value="{DynamicResource UiNegativeTextBrush}" /></Style>
         <Style Selector="TextBlock.PartyChange.Joined"><Setter Property="Foreground" Value="{DynamicResource UiPositiveTextBrush}" /></Style>
     </UserControl.Styles>
@@ -152,9 +155,9 @@
                     <StackPanel Spacing="12" Margin="0,8,12,8">
                         <StackPanel Spacing="8">
                             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                                <StackPanel Spacing="4">
-                                    <TextBlock Classes="UiHeading" Text="{Binding CurrentTitle}" />
-                                    <TextBlock Classes="UiMuted" Text="{Binding CurrentDescription}" IsVisible="{Binding CurrentDescription, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" TextWrapping="Wrap" />
+                                <StackPanel Spacing="2">
+                                    <TextBlock Classes="UiTitle" Text="{Binding CurrentTitle}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding CurrentTitle}" />
+                                    <TextBlock Classes="UiLabel" Text="{Binding CurrentDescription}" IsVisible="{Binding CurrentDescription, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" TextWrapping="Wrap" />
                                 </StackPanel>
                                 <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                     <Button Classes="UiAction" Content="View session" Command="{Binding OpenCurrentSessionCommand}" IsEnabled="{Binding HasCurrentPlaySession}" />
@@ -171,9 +174,9 @@
                                 <TextBlock Text="{Binding CurrentPeriodDescription}" MinHeight="16" Classes="UiLabel" />
                                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                                     <WrapPanel ToolTip.Tip="{Binding CurrentPeriodWarning}" Margin="0,0,0,-4">
-                                        <TextBlock Text="{Binding CurrentDurationText}" Margin="0,0,18,4" />
-                                        <TextBlock Text="{Binding CurrentCombatDurationText}" Margin="0,0,18,4" />
-                                        <TextBlock Text="{Binding CurrentTagsText}" Foreground="{DynamicResource UiPositiveTextBrush}" Margin="0,0,18,4" IsVisible="{Binding CurrentTagsText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" />
+                                        <TextBlock Margin="0,0,14,4"><Run Text="{Binding CurrentTimeLabel}" Foreground="{DynamicResource UiTextSecondaryBrush}" /><Run Text=" " /><Run Text="{Binding CurrentTimeValue}" /></TextBlock>
+                                        <TextBlock Margin="0,0,14,4"><Run Text="Combat " Foreground="{DynamicResource UiTextSecondaryBrush}" /><Run Text="{Binding CurrentCombatTimeValue}" /></TextBlock>
+                                        <TextBlock Text="{Binding CurrentTagsText}" Foreground="{DynamicResource UiPositiveTextBrush}" Margin="0,0,14,4" IsVisible="{Binding HasCurrentTags}" />
                                         <TextBlock Text="{Binding CurrentStateText}" IsVisible="{Binding HasCurrentState}" Foreground="{DynamicResource UiAccentTextBrush}" Margin="0,0,0,4" />
                                     </WrapPanel>
                                     <Button Grid.Column="1" Classes="UiChipButton" CornerRadius="{DynamicResource UiRadiusPill}" MinHeight="28" IsVisible="{Binding HasCurrentParty}" ToolTip.Tip="{Binding CurrentPartyDetailsText}"
@@ -221,23 +224,26 @@
                                     </Button>
                                 </Grid>
                             </StackPanel>
-                            <StackPanel Spacing="4" IsVisible="{Binding ShowCurrentRuns}">
-                                <TextBlock Text="Runs in this session" Classes="UiLabel" />
-                                <ItemsControl ItemsSource="{Binding CurrentRuns}">
-                                    <ItemsControl.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
-                                    <ItemsControl.ItemTemplate>
-                                        <DataTemplate x:DataType="vm:ActivitySessionRow">
-                                            <Button Classes="UiChipButton" Classes.Accent="{Binding IsLive}" Margin="0,0,6,6" ToolTip.Tip="{Binding RunDetailsText}"
-                                                    Command="{Binding $parent[ItemsControl].((vm:ActivityCurrentViewModel)DataContext).OpenRunRowCommand}" CommandParameter="{Binding}">
-                                                <StackPanel Spacing="1">
-                                                    <TextBlock Text="{Binding RunLabel}" FontSize="{DynamicResource UiFontSizeSmall}" FontWeight="SemiBold" MaxWidth="180" TextTrimming="CharacterEllipsis" />
-                                                    <TextBlock Text="{Binding RunSummaryText}" Classes="UiLabel" />
-                                                </StackPanel>
-                                            </Button>
-                                        </DataTemplate>
-                                    </ItemsControl.ItemTemplate>
-                                </ItemsControl>
-                            </StackPanel>
+                            <!-- The runs stay on one line and scroll sideways; a chip opens that run in History. -->
+                            <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" IsVisible="{Binding ShowCurrentRuns}">
+                                <TextBlock Text="{Binding CurrentRunsText}" Classes="UiLabel" VerticalAlignment="Center" />
+                                <controls:ScrollRail Grid.Column="1">
+                                    <ItemsControl ItemsSource="{Binding CurrentRuns}">
+                                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="6" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                                        <ItemsControl.ItemTemplate>
+                                            <DataTemplate x:DataType="vm:ActivitySessionRow">
+                                                <Button Classes="UiChipButton" Classes.Accent="{Binding IsLive}" ToolTip.Tip="{Binding RunDetailsText}"
+                                                        Command="{Binding $parent[ItemsControl].((vm:ActivityCurrentViewModel)DataContext).OpenRunRowCommand}" CommandParameter="{Binding}">
+                                                    <StackPanel Spacing="1">
+                                                        <TextBlock Text="{Binding RunLabel}" FontSize="{DynamicResource UiFontSizeSmall}" FontWeight="SemiBold" MaxWidth="160" TextTrimming="CharacterEllipsis" />
+                                                        <TextBlock Text="{Binding RunSummaryText}" Classes="UiFine" TextWrapping="NoWrap" />
+                                                    </StackPanel>
+                                                </Button>
+                                            </DataTemplate>
+                                        </ItemsControl.ItemTemplate>
+                                    </ItemsControl>
+                                </controls:ScrollRail>
+                            </Grid>
                         </StackPanel>
                         <ContentControl Content="{Binding CurrentSummary}" ContentTemplate="{StaticResource SummaryTemplate}" />
                         <!-- A tile list in a scroller that sizes to it needs a row of minimum height: with none, the list sees no room and one row of tiles shows nothing. -->
@@ -337,7 +343,20 @@
                     <ScrollViewer x:Name="HistorySessionDetailScroll" Grid.Column="2" HorizontalScrollBarVisibility="Disabled" IsVisible="{Binding HasSelectedPlaySession}">
                     <StackPanel Spacing="12">
                         <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                            <StackPanel Spacing="4"><TextBlock Classes="UiHeading" Text="{Binding Detail.Title}" /><TextBlock Text="{Binding Detail.MapMetadataText}" IsVisible="{Binding Detail.HasMapMetadata}" Classes="UiLabel" /><TextBlock Text="{Binding Detail.SelectionText}" IsVisible="{Binding Detail.HasSelectionText}" Classes="UiLabel" /><TextBlock Text="{Binding Detail.DurationText}" TextWrapping="Wrap" /><TextBlock Text="{Binding Detail.PartyText}" IsVisible="{Binding Detail.HasParty}" ToolTip.Tip="{Binding Detail.PartyDetailsText}" TextWrapping="Wrap" Foreground="{DynamicResource UiAccentTextBrush}" /><TextBlock Text="{Binding Detail.ScopeText}" IsVisible="{Binding Detail.ScopeText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" Classes="UiLabel" /><TextBlock Text="{Binding Detail.TagsText}" IsVisible="{Binding Detail.TagsText, Converter={x:Static converters:StringConverters.IsNotNullOrEmpty}}" Foreground="{DynamicResource UiPositiveTextBrush}" /><TextBlock Text="{Binding Detail.ImportedText}" IsVisible="{Binding Detail.IsImported}" Classes="UiLabel" ToolTip.Tip="{Binding Detail.ImportedTooltipText}" /></StackPanel>
+                            <!-- Two lines: the title, then everything about the selection in one wrapping line. -->
+                            <StackPanel Spacing="3" MinWidth="0">
+                                <TextBlock Classes="UiTitle" Text="{Binding Detail.Title}" TextWrapping="NoWrap" TextTrimming="CharacterEllipsis" ToolTip.Tip="{Binding Detail.Title}" />
+                                <WrapPanel Margin="0,0,0,-4">
+                                    <TextBlock Margin="0,0,14,4"><Run Text="{Binding Detail.TimeLabel}" Foreground="{DynamicResource UiTextSecondaryBrush}" /><Run Text=" " /><Run Text="{Binding Detail.TimeValue}" /></TextBlock>
+                                    <TextBlock Margin="0,0,14,4" IsVisible="{Binding Detail.HasCombatTime}"><Run Text="Combat " Foreground="{DynamicResource UiTextSecondaryBrush}" /><Run Text="{Binding Detail.CombatTimeValue}" /></TextBlock>
+                                    <TextBlock Text="{Binding Detail.TagsText}" IsVisible="{Binding Detail.HasTags}" Foreground="{DynamicResource UiPositiveTextBrush}" Margin="0,0,14,4" />
+                                    <TextBlock Text="{Binding Detail.ScopeText}" IsVisible="{Binding Detail.HasScopeText}" Classes="UiWarning" Margin="0,0,14,4" />
+                                    <TextBlock Text="{Binding Detail.PartyText}" IsVisible="{Binding Detail.HasParty}" ToolTip.Tip="{Binding Detail.PartyDetailsText}" Foreground="{DynamicResource UiAccentTextBrush}" Margin="0,0,14,4" />
+                                    <TextBlock Text="{Binding Detail.MapMetadataText}" IsVisible="{Binding Detail.HasMapMetadata}" Classes="UiLabel" Margin="0,0,14,4" />
+                                    <TextBlock Text="{Binding Detail.SelectionText}" IsVisible="{Binding Detail.HasSelectionText}" Classes="UiLabel" Margin="0,0,14,4" />
+                                    <TextBlock Text="{Binding Detail.ImportedText}" IsVisible="{Binding Detail.IsImported}" Classes="UiLabel" ToolTip.Tip="{Binding Detail.ImportedTooltipText}" Margin="0,0,14,4" />
+                                </WrapPanel>
+                            </StackPanel>
                             <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                                 <Button Classes="UiAction" Content="Show on map" Command="{Binding ShowRunOnMapCommand}" IsVisible="{Binding Detail.CanShowOnMap}"
                                         ToolTip.Tip="Replay this run's path and events on the map" />
@@ -346,20 +365,25 @@
                                 <Button Classes="UiAction" Content="All players" Command="{Binding ClearPlayerCommand}" IsVisible="{Binding Detail.HasPlayer}" />
                             </StackPanel>
                         </Grid>
-                        <StackPanel Spacing="4" IsVisible="{Binding Detail.HasMultipleRuns}">
-                            <TextBlock Text="Runs · choose one to see only that run" Classes="UiLabel" />
-                            <ListBox Classes="UiChipList" ItemsSource="{Binding Sessions}" SelectedItem="{Binding SelectedSession, Mode=TwoWay}" SelectionMode="Single" AutomationProperties.Name="Runs in this session">
-                                <ListBox.ItemsPanel><ItemsPanelTemplate><WrapPanel /></ItemsPanelTemplate></ListBox.ItemsPanel>
-                                <ListBox.ItemTemplate>
-                                    <DataTemplate x:DataType="vm:ActivitySessionRow">
-                                        <StackPanel Spacing="1" ToolTip.Tip="{Binding RunDetailsText}">
-                                            <TextBlock Text="{Binding RunLabel}" FontSize="{DynamicResource UiFontSizeSmall}" FontWeight="SemiBold" MaxWidth="180" TextTrimming="CharacterEllipsis" />
-                                            <TextBlock Text="{Binding RunSummaryText}" Classes="UiLabel" />
-                                        </StackPanel>
-                                    </DataTemplate>
-                                </ListBox.ItemTemplate>
-                            </ListBox>
-                        </StackPanel>
+                        <!-- The runs stay on one line and scroll sideways; the list's own scrolling is off so the rail does it. -->
+                        <Grid ColumnDefinitions="Auto,*" ColumnSpacing="10" IsVisible="{Binding Detail.HasMultipleRuns}">
+                            <TextBlock Text="{Binding Detail.RunsText}" Classes="UiLabel" VerticalAlignment="Center" ToolTip.Tip="Choose a run to see only that run" />
+                            <controls:ScrollRail Grid.Column="1">
+                                <ListBox x:Name="RunList" Classes="UiChipList ActivityRunList" ItemsSource="{Binding Sessions}" SelectedItem="{Binding SelectedSession, Mode=TwoWay}" SelectionMode="Single"
+                                         SelectionChanged="RunList_SelectionChanged" ScrollViewer.HorizontalScrollBarVisibility="Disabled" ScrollViewer.VerticalScrollBarVisibility="Disabled"
+                                         AutomationProperties.Name="Runs in this session">
+                                    <ListBox.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" /></ItemsPanelTemplate></ListBox.ItemsPanel>
+                                    <ListBox.ItemTemplate>
+                                        <DataTemplate x:DataType="vm:ActivitySessionRow">
+                                            <StackPanel Spacing="1" ToolTip.Tip="{Binding RunDetailsText}">
+                                                <TextBlock Text="{Binding RunLabel}" FontSize="{DynamicResource UiFontSizeSmall}" FontWeight="SemiBold" MaxWidth="160" TextTrimming="CharacterEllipsis" />
+                                                <TextBlock Text="{Binding RunSummaryText}" Classes="UiFine" TextWrapping="NoWrap" />
+                                            </StackPanel>
+                                        </DataTemplate>
+                                    </ListBox.ItemTemplate>
+                                </ListBox>
+                            </controls:ScrollRail>
+                        </Grid>
                         <ContentControl Content="{Binding DetailSummary}" ContentTemplate="{StaticResource SummaryTemplate}" />
                         <TabControl SelectedIndex="{Binding SelectedDetailTabIndex, Mode=TwoWay}">
                             <TabItem Header="Encounters" IsEnabled="{Binding Detail.HasDetailedHistory}">

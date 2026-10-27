@@ -52,6 +52,8 @@
     <Color x:Key="UiSurfaceSunkenColor">#262626</Color>
     <Color x:Key="UiInputColor">#424242</Color>
     <Color x:Key="UiInputHoverColor">#505050</Color>
+    <!-- The window colour with no alpha, for fades that end on the window. -->
+    <Color x:Key="UiWindowClearColor">#00303030</Color>
     <SolidColorBrush x:Key="UiWindowBrush" Color="{StaticResource UiWindowColor}" />
     <SolidColorBrush x:Key="UiSurfaceBrush" Color="{StaticResource UiSurfaceColor}" />
     <SolidColorBrush x:Key="UiSurfacePressedBrush" Color="{StaticResource UiSurfacePressedColor}" />
@@ -166,15 +168,15 @@
     <SolidColorBrush x:Key="UiBadgeWarningBrush" Color="#7A6230" />
     <SolidColorBrush x:Key="UiBadgeDangerBrush" Color="#70413D" />
 
-    <!-- Type scale. -->
+    <!-- Type scale. Body is also Fluent's ControlContentThemeFontSize below, so plain text and controls match. -->
     <x:Double x:Key="UiFontSizeCaption">11</x:Double>
     <x:Double x:Key="UiFontSizeSmall">12</x:Double>
     <x:Double x:Key="UiFontSizeCompact">13</x:Double>
-    <x:Double x:Key="UiFontSizeBody">14</x:Double>
-    <x:Double x:Key="UiFontSizeSection">16</x:Double>
-    <x:Double x:Key="UiFontSizeTitle">18</x:Double>
-    <x:Double x:Key="UiFontSizeHeading">20</x:Double>
-    <x:Double x:Key="UiFontSizeValueLarge">24</x:Double>
+    <x:Double x:Key="UiFontSizeBody">13</x:Double>
+    <x:Double x:Key="UiFontSizeSection">15</x:Double>
+    <x:Double x:Key="UiFontSizeTitle">16</x:Double>
+    <x:Double x:Key="UiFontSizeHeading">18</x:Double>
+    <x:Double x:Key="UiFontSizeValueLarge">20</x:Double>
     <FontFamily x:Key="UiMonoFontFamily">Cascadia Mono, Consolas, Menlo, DejaVu Sans Mono, monospace</FontFamily>
 
     <!-- Shape and spacing. -->
@@ -187,6 +189,8 @@
     <Thickness x:Key="UiBannerPadding">12,10</Thickness>
     <x:Double x:Key="UiDisabledOpacity">0.5</x:Double>
 
+    <!-- Fluent overrides: text in every control is body size (keep equal to UiFontSizeBody). -->
+    <x:Double x:Key="ControlContentThemeFontSize">13</x:Double>
     <!-- Fluent overrides: a plain Button is the secondary button. -->
     <Thickness x:Key="ButtonBorderThemeThickness">1</Thickness>
     <SolidColorBrush x:Key="ButtonBackground" Color="{StaticResource UiSurfaceColor}" />

@@ -31,9 +31,13 @@ public class ResponsiveUniformGrid : UniformGrid
 
     protected override Size MeasureOverride(Size availableSize)
     {
+        // Hidden children take no cell, so fewer cards than columns still fill the row.
+        var visible = 0;
+        foreach (var child in Children) if (child.IsVisible) visible++;
+        var maximum = Math.Clamp(visible, 1, MaximumColumns);
         Columns = double.IsFinite(availableSize.Width)
-            ? (int)Math.Clamp(Math.Floor(availableSize.Width / MinimumItemWidth), 1, MaximumColumns)
-            : MaximumColumns;
+            ? (int)Math.Clamp(Math.Floor(availableSize.Width / MinimumItemWidth), 1, maximum)
+            : maximum;
         return base.MeasureOverride(availableSize);
     }
 }

@@ -21,6 +21,7 @@ public partial class UiKitWindow : Window
     }
 
     public IReadOnlyList<Option<int>> Choices { get; } = [new(0, "First"), new(1, "Second"), new(2, "Third")];
+    public IReadOnlyList<string> RailChips { get; } = Enumerable.Range(1, 12).Select(number => $"ScrollRail chip {number}").ToList();
 
     // The tokens dictionary is the one that defines UiTextColor.
     private static IEnumerable<UiKitSwatch> ColorTokens()

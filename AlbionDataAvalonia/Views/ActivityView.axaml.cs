@@ -60,6 +60,12 @@ public partial class ActivityView : UserControl
         (DataContext as ActivityViewModel)?.History.SelectPlaySessions(SessionList.SelectedItem as ActivityPlaySessionRow,
             SessionList.SelectedItems?.OfType<ActivityPlaySessionRow>().ToArray() ?? []);
 
+    // The rail scrolls so the chosen run chip is in view, also when the timeline or the map chose it.
+    private void RunList_SelectionChanged(object? sender, SelectionChangedEventArgs args)
+    {
+        if (RunList.SelectedItem is { } item && RunList.ContainerFromItem(item) is Control chip) chip.BringIntoView();
+    }
+
     private void SynchronizeViewModel()
     {
         if (activeViewModel != DataContext)
