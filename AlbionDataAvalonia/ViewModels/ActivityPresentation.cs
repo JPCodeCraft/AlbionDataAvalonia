@@ -93,20 +93,23 @@ public sealed class ActivitySummaryPresentation
     public string ItemsFooterText => $"{UiFormat.Compact(Summary.LootItems)} items"
         + (IsSessionAverage && HasRecordedDuration && (Summary.LootValue > 0 || !HasMissingLootPrices) ? $" · {UiFormat.Compact(Rates.LootValuePerHour)} / h" : "")
         + (HasMissingLootPrices ? " *" : "");
-    public string ItemsDetailsText => "Black Market EMV when available, otherwise EMV" + (HasMissingLootPrices ? $"\n{MissingLootPrices}" : "");
-    public string ResourceValueDetailsText => ResourceRateText + (Summary.MissingResourcePriceItems > 0 ? $"\n{Summary.MissingResourcePriceItems:N0} items without EMV" : "");
+    public string ItemsDetailsText => (HasLoot ? $"{LootItemsText}\n" : "") + "Black Market EMV when available, otherwise EMV"
+        + (HasMissingLootPrices ? $"\n{MissingLootPrices}" : "");
     private static string ValueRateText(long knownValue, long missingItems, double rate) => missingItems > 0 && knownValue == 0
         ? "EMV / hour unavailable" : $"{UiFormat.Compact(rate)} EMV / hour";
 
-    // The stat cards: Silver, Fame, Combat and Kills, plus Gathering when something was gathered. A headline per card,
-    // short "/ h" rates in the rows, and empty rows dimmed rather than hidden so the cards keep one shape.
+    // The stat cards: Silver, Fame, Combat and Kills. A headline per card, short "/ h" rates in the rows,
+    // and empty rows dimmed rather than hidden so the cards keep one shape. The EMV rows have no room for
+    // item counts, so their hover cards carry them.
     public string TotalSilverUnit => HasRecordedDuration ? $"{TotalSilverPerHour} / hour" : "";
     public string SilverRowRate => IsImported ? "" : ShortRate(Rates.SilverPerHour);
     public string LootValueRowText => LootValue + (HasMissingLootPrices ? " *" : "");
-    public string LootRowRate => Summary.LootItems == 0 ? "" : $"{UiFormat.Compact(Summary.LootItems)} items" + (HasRecordedDuration && Summary.LootValue > 0 ? $" · {ShortRate(Rates.LootValuePerHour)}" : "");
+    public string LootRowRate => HasRecordedDuration && Summary.LootValue > 0 ? ShortRate(Rates.LootValuePerHour) : "";
     public bool HasLoot => Summary.LootItems > 0;
     public string ResourceValueRowText => ResourceValueText + (Summary.MissingResourcePriceItems > 0 ? " *" : "");
-    public string GatheringRowDetails => "Gathered and fished" + (Summary.MissingResourcePriceItems > 0 ? $"\n{Summary.MissingResourcePriceItems:N0} items without EMV" : "");
+    public string GatheringRowDetails => (HasResources ? ResourceItemsText + (Summary.FishingItems > 0 ? $", {UiFormat.Compact(Summary.FishingItems)} of them fished" : "") : "Gathered and fished")
+        + (HasResources && HasRecordedDuration && !IsImported ? $"\n{UiFormat.Compact(Rates.ResourceItemsPerHour)} items / hour" : "")
+        + (Summary.MissingResourcePriceItems > 0 ? $"\n{Summary.MissingResourcePriceItems:N0} items without EMV" : "");
 
     public string TotalFame => IsImported ? UiText.Unavailable : UiFormat.Compact(Summary.Fame);
     public string TotalFameUnit => IsImported || !HasRecordedDuration ? "" : $"{UiFormat.Compact(Rates.FamePerHour)} / hour";
@@ -129,13 +132,7 @@ public sealed class ActivitySummaryPresentation
     public string PlayerKillsRowLabel => "PvP kills";
     public string PlayerKillsRowRate => Summary.NonLethalPlayerKills <= 0 ? "" : Summary.NonLethalPlayerKills == Summary.PlayerKills ? "non-lethal" : $"{Summary.NonLethalPlayerKills:N0} non-lethal";
 
-    public bool ShowGatheringCard => HasResources || IsImported;
-    public string ResourceItemsUnit => !HasRecordedDuration || IsImported ? "items" : $"items · {UiFormat.Compact(Rates.ResourceItemsPerHour)} / hour";
     public string ResourceValueRate => HasRecordedDuration && Summary.ResourceValue > 0 ? ShortRate(Rates.ResourceValuePerHour) : "";
-    public bool HasFishing => Summary.FishingItems > 0;
-    public string FishingItemsText => UiFormat.Compact(Summary.FishingItems);
-    public string FishingRowRate => Summary.FishingValue > 0 ? $"EMV {UiFormat.Compact(Summary.FishingValue)}" : "";
-    public string GatheringFameRowRateInCard => IsImported ? "" : GatheringFameRowRate;
 
     private string ShortRate(double perHour) => HasRecordedDuration ? $"{UiFormat.Compact(perHour)} / h" : "";
     private string ShortFameRate(double amount) => IsImported || !HasRecordedDuration ? "" : $"{UiFormat.Compact(ActivityProjection.GetFameRate(amount, Rates))} / h";

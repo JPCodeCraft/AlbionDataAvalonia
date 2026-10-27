@@ -151,7 +151,7 @@ public partial class ActivityHistoryViewModel
             SelectedPlayer = null;
             ResetMaps();
             Sessions.Clear();
-            if (IsImportedDetail) SelectedDetailTab = ActivityDetailTab.Items;
+            if (IsImportedDetail) SelectedDetailTab = ActivityDetailTab.Gathering;
             else if (IsCombined && SelectedDetailTab == ActivityDetailTab.Charts) SelectedDetailTab = ActivityDetailTab.Encounters;
         }
         finally { applyingSelection = false; }
@@ -197,7 +197,7 @@ public partial class ActivityHistoryViewModel
             SelectedEncounter = encounter is null ? null : new ActivityEncounterRow(encounter, Filters.Scope);
             if (SelectedEncounter is not null) Encounters.Add(SelectedEncounter);
             if (SelectedEncounter is not null && SelectedDetailTab == ActivityDetailTab.Maps) SelectedDetailTab = ActivityDetailTab.Encounters;
-            if (IsImportedDetail) SelectedDetailTab = ActivityDetailTab.Items;
+            if (IsImportedDetail) SelectedDetailTab = ActivityDetailTab.Gathering;
             ++detailChangeVersion;
         }
         finally { applyingSelection = false; }

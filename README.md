@@ -166,7 +166,7 @@ Each dungeon, Mists visit or stretch of open world is a **run** inside the sessi
 
 ### History
 
-**History** lists every saved session with its zones, length and silver. Pick one to see the same totals, then choose a run to see only that part. The tabs below break the session down into encounters, charts, players, killed mobs, items, a timeline, the maps you visited and your party.
+**History** lists every saved session with its zones, length and silver. Pick one to see the same totals, then choose a run to see only that part. The tabs below break the session down into encounters, charts, players, killed mobs, loot, gathering (fishing included), a timeline, the maps you visited and your party.
 
 Ctrl-click or Shift-click sessions to combine them, and use **Delete session…** to remove one.
 

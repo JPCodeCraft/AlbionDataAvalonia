@@ -9,10 +9,10 @@
              x:DataType="vm:ActivityViewModel" Classes="AppPage">
     <UserControl.Resources>
         <StreamGeometry x:Key="ActivityPartyIcon">M6,2.5 A2.5,2.5 0 1 0 6,7.5 A2.5,2.5 0 1 0 6,2.5 Z M1,14 C1,10.5 3,9 6,9 C9,9 11,10.5 11,14 Z M11.5,2.5 A2,2 0 1 0 11.5,6.5 A2,2 0 1 0 11.5,2.5 Z M12,8.5 C14,8.7 15.5,10 15.5,13 L12.3,13 C12.1,11 11.5,9.6 10.6,8.9 C11,8.6 11.5,8.5 12,8.5 Z</StreamGeometry>
-        <!-- The stat cards both tabs show: Silver, Fame, Combat and Kills, plus Gathering when something was gathered.
+        <!-- The stat cards both tabs show: Silver, Fame, Combat and Kills. Gathering sits in Silver and Fame, with fishing.
              A card with nothing to say (combat on an imported session) stays away; an empty row inside a card dims. -->
         <DataTemplate x:Key="SummaryTemplate" x:DataType="vm:ActivitySummaryPresentation">
-            <views:ResponsiveUniformGrid MaximumColumns="5" MinimumItemWidth="210" Margin="-3">
+            <views:ResponsiveUniformGrid MaximumColumns="4" MinimumItemWidth="210" Margin="-3">
                 <controls:StatCard Classes="Accent" Margin="3" Caption="SILVER" Value="{Binding TotalSilver}" Unit="{Binding TotalSilverUnit}" ToolTip.Tip="{Binding TotalSilverDetailsText}">
                     <StackPanel Spacing="3">
                         <controls:StatRow Label="Picked up" Value="{Binding Silver}" Rate="{Binding SilverRowRate}" IsVisible="{Binding !IsImported}" ToolTip.Tip="{Binding SilverDetailsText}" />
@@ -40,13 +40,6 @@
                         <controls:StatRow Label="PvP kills" Value="{Binding PlayerKills}" Rate="{Binding PlayerKillsRowRate}" Classes.Dim="{Binding !HasPlayerKills}" />
                         <controls:StatRow Label="Deaths" Value="{Binding DeathsText}" Rate="{Binding DeathsRowRate}" Classes.Dim="{Binding !HasDeaths}" />
                         <controls:StatRow Label="Knockdowns" Value="{Binding KnockdownsText}" Classes.Dim="{Binding !HasKnockdowns}" />
-                    </StackPanel>
-                </controls:StatCard>
-                <controls:StatCard Margin="3" Caption="GATHERING" Value="{Binding ResourceQuantityText}" Unit="{Binding ResourceItemsUnit}" ToolTip.Tip="{Binding ResourceValueDetailsText}" IsVisible="{Binding ShowGatheringCard}">
-                    <StackPanel Spacing="3">
-                        <controls:StatRow Label="EMV" Value="{Binding ResourceValueRowText}" Rate="{Binding ResourceValueRate}" />
-                        <controls:StatRow Label="Fame" Value="{Binding GatheringFame}" Rate="{Binding GatheringFameRowRateInCard}" Classes.Dim="{Binding !HasGatheringFame}" IsVisible="{Binding !IsImported}" />
-                        <controls:StatRow Label="Fished" Value="{Binding FishingItemsText}" Rate="{Binding FishingRowRate}" IsVisible="{Binding HasFishing}" />
                     </StackPanel>
                 </controls:StatCard>
             </views:ResponsiveUniformGrid>
@@ -443,17 +436,12 @@
                                     </DataGrid.Columns>
                                 </DataGrid>
                             </TabItem>
-                            <TabItem Header="Items">
-                                <Grid RowDefinitions="Auto,Auto,Auto,Auto" RowSpacing="12">
-                                    <StackPanel Spacing="4">
-                                        <controls:SegmentedSelector ItemsSource="{Binding Filters.LootScopeOptions}" SelectedItem="{Binding SelectedSessionLootScope, Mode=TwoWay}" AutomationProperties.Name="Session item scope" />
-                                        <controls:SegmentedSelector ItemsSource="{Binding Filters.ItemSourceOptions}" SelectedItem="{Binding SelectedSessionItemSource, Mode=TwoWay}" AutomationProperties.Name="Session item source" />
-                                    </StackPanel>
-                                    <Expander Grid.Row="1" Header="Gathered" IsVisible="{Binding HasSessionResources}" IsExpanded="False" Padding="0" HorizontalAlignment="Stretch">
-                                        <ItemsRepeater ItemsSource="{Binding SessionResources}" ItemTemplate="{StaticResource ActivityResourceTileTemplate}" Margin="8,8,8,2"><ItemsRepeater.Layout><UniformGridLayout MinItemWidth="236" MinItemHeight="56" ItemsStretch="None" /></ItemsRepeater.Layout></ItemsRepeater>
-                                    </Expander>
-                                    <Expander Grid.Row="2" Header="Loot" IsVisible="{Binding Detail.ShowLootPanel}" IsExpanded="False" Padding="0" HorizontalAlignment="Stretch">
-                                    <DataGrid ItemsSource="{Binding SessionLoot}" Classes="Compact" RowHeight="40" Height="{Binding SessionLoot.Count, Converter={x:Static views:ActivityView.HistoryLootTableHeightConverter}}" MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto">
+                            <!-- Loot and Gathering share one scope: whose items they show. -->
+                            <TabItem Header="Loot" IsEnabled="{Binding Detail.HasDetailedHistory}">
+                                <StackPanel Spacing="12">
+                                    <controls:SegmentedSelector ItemsSource="{Binding Filters.LootScopeOptions}" SelectedItem="{Binding SelectedSessionLootScope, Mode=TwoWay}" AutomationProperties.Name="Session loot scope" HorizontalAlignment="Left" />
+                                    <controls:EmptyState Classes="Inline" Message="No loot picked up." IsVisible="{Binding HasNoSessionLoot}" />
+                                    <DataGrid ItemsSource="{Binding SessionLoot}" IsVisible="{Binding !HasNoSessionLoot}" Classes="Compact" RowHeight="40" Height="{Binding SessionLoot.Count, Converter={x:Static views:ActivityView.HistoryLootTableHeightConverter}}" MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto">
                                         <DataGrid.Columns>
                                             <DataGridTextColumn Header="Time" Binding="{Binding TimeText}" SortMemberPath="CapturedAtUtc" />
                                             <DataGridTemplateColumn Header="Item" Width="*" MinWidth="200" CellTemplate="{StaticResource LootItemTemplate}" SortMemberPath="ItemName" />
@@ -468,15 +456,27 @@
                                             <DataGridTextColumn Header="Location" Binding="{Binding Location}" />
                                         </DataGrid.Columns>
                                     </DataGrid>
-                                    </Expander>
-                                    <Grid Grid.Row="3" RowDefinitions="Auto,Auto" RowSpacing="6">
-                                        <WrapPanel>
+                                    <StackPanel Spacing="6">
+                                        <WrapPanel IsVisible="{Binding !HasNoSessionLoot}">
                                             <Button Classes="UiAction" Content="Load more" Command="{Binding LoadMoreSessionLootCommand}" IsVisible="{Binding HasMoreSessionLoot}" Margin="0,0,8,0" />
                                             <views:ActivityLootExportBar Export="{Binding Export}" ExportCommand="{Binding ExportSessionLootCommand}" CanExport="{Binding Detail.CanExportLoot}" ShowLootLoggerLink="True" />
                                         </WrapPanel>
-                                        <TextBlock Grid.Row="1" Classes="UiLabel" Text="{Binding Export.StatusText}" IsVisible="{Binding Export.HasStatus}" TextWrapping="Wrap" />
-                                    </Grid>
-                                </Grid>
+                                        <TextBlock Classes="UiLabel" Text="{Binding Export.StatusText}" IsVisible="{Binding Export.HasStatus}" TextWrapping="Wrap" />
+                                    </StackPanel>
+                                </StackPanel>
+                            </TabItem>
+                            <!-- Gathering counts fishing too, as everywhere else. -->
+                            <TabItem Header="Gathering">
+                                <StackPanel Spacing="12">
+                                    <WrapPanel>
+                                        <controls:SegmentedSelector ItemsSource="{Binding Filters.LootScopeOptions}" SelectedItem="{Binding SelectedSessionLootScope, Mode=TwoWay}" AutomationProperties.Name="Session gathering scope" Margin="0,0,14,0" />
+                                        <TextBlock Text="{Binding SessionResourcesText}" IsVisible="{Binding HasSessionResources}" FontWeight="SemiBold" VerticalAlignment="Center" />
+                                    </WrapPanel>
+                                    <controls:EmptyState Classes="Inline" Message="No items gathered." IsVisible="{Binding HasNoSessionResources}" />
+                                    <ItemsRepeater ItemsSource="{Binding SessionResources}" ItemTemplate="{StaticResource ActivityResourceTileTemplate}" IsVisible="{Binding HasSessionResources}">
+                                        <ItemsRepeater.Layout><UniformGridLayout MinItemWidth="236" MinItemHeight="56" ItemsStretch="None" /></ItemsRepeater.Layout>
+                                    </ItemsRepeater>
+                                </StackPanel>
                             </TabItem>
                             <TabItem Header="Timeline" IsEnabled="{Binding Detail.HasDetailedHistory}">
                                 <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
