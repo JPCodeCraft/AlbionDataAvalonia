@@ -221,6 +221,24 @@
     <SolidColorBrush x:Key="DatePickerButtonBackgroundPressed" Color="{StaticResource UiInputHoverColor}" />
     <SolidColorBrush x:Key="DatePickerButtonBorderBrushPointerOver" Color="{StaticResource UiBorderStrongColor}" />
     <SolidColorBrush x:Key="DatePickerButtonBorderBrushPressed" Color="{StaticResource UiBorderStrongColor}" />
+    <SolidColorBrush x:Key="CalendarDatePickerBackgroundPointerOver" Color="{StaticResource UiInputHoverColor}" />
+    <SolidColorBrush x:Key="CalendarDatePickerBackgroundPressed" Color="{StaticResource UiInputHoverColor}" />
+    <SolidColorBrush x:Key="CalendarDatePickerBorderBrushPointerOver" Color="{StaticResource UiBorderStrongColor}" />
+    <SolidColorBrush x:Key="CalendarDatePickerBorderBrushPressed" Color="{StaticResource UiBorderStrongColor}" />
+    <SolidColorBrush x:Key="TimePickerButtonBackgroundPointerOver" Color="{StaticResource UiInputHoverColor}" />
+    <SolidColorBrush x:Key="TimePickerButtonBackgroundPressed" Color="{StaticResource UiInputHoverColor}" />
+    <SolidColorBrush x:Key="TimePickerButtonBorderBrushPointerOver" Color="{StaticResource UiBorderStrongColor}" />
+    <SolidColorBrush x:Key="TimePickerButtonBorderBrushPressed" Color="{StaticResource UiBorderStrongColor}" />
+    <!-- Fluent's time picker is 242 wide whatever it shows; hours and minutes need far less. -->
+    <x:Double x:Key="TimePickerThemeMinWidth">96</x:Double>
+    <!-- The calendar a date picker opens sits on the same surface as other drop-downs, in body text, with other months'
+         days dimmed and today's accent fill carrying the same dark text as accent buttons. -->
+    <SolidColorBrush x:Key="CalendarViewBackground" Color="{StaticResource UiSurfaceColor}" />
+    <SolidColorBrush x:Key="CalendarViewBorderBrush" Color="{StaticResource UiBorderColor}" />
+    <SolidColorBrush x:Key="CalendarViewOutOfScopeBackground" Color="Transparent" />
+    <SolidColorBrush x:Key="CalendarViewOutOfScopeForeground" Color="{StaticResource UiTextTertiaryColor}" />
+    <SolidColorBrush x:Key="CalendarViewTodayForeground" Color="{StaticResource UiOnAccentColor}" />
+    <StaticResource x:Key="CalendarFontSize" ResourceKey="UiFontSizeBody" />
     <SolidColorBrush x:Key="ExpanderHeaderBackground" Color="{StaticResource UiSurfaceColor}" />
     <SolidColorBrush x:Key="ExpanderHeaderBackgroundPointerOver" Color="{StaticResource UiInputColor}" />
     <SolidColorBrush x:Key="ExpanderHeaderBackgroundPressed" Color="{StaticResource UiSurfacePressedColor}" />
