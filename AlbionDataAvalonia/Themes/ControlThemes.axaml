@@ -378,7 +378,9 @@
                                   HorizontalScrollBarVisibility="Auto"
                                   VerticalScrollBarVisibility="Disabled"
                                   Padding="{TemplateBinding Padding}">
+                        <!-- The gap under the content keeps the thin scrollbar line off the bottom of the chips. -->
                         <ContentPresenter x:Name="PART_ContentPresenter"
+                                          Margin="0,0,0,4"
                                           Content="{TemplateBinding Content}"
                                           ContentTemplate="{TemplateBinding ContentTemplate}"
                                           HorizontalContentAlignment="{TemplateBinding HorizontalContentAlignment}" />

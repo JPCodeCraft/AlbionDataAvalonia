@@ -1,7 +1,8 @@
 <!-- Shared skins for Fluent controls. Pages and windows opt in with Classes="AppPage". -->
 <Styles xmlns="https://github.com/avaloniaui"
         xmlns:x="http://schemas.microsoft.com/winfx/2006/xaml"
-        xmlns:ui="using:AlbionDataAvalonia.Ui">
+        xmlns:ui="using:AlbionDataAvalonia.Ui"
+        xmlns:controls="using:AlbionDataAvalonia.Views.Controls">
 
     <Style Selector=".AppPage ComboBox, .AppPage TextBox, .AppPage DatePicker, .AppPage CalendarDatePicker, .AppPage TimePicker">
         <Setter Property="Background" Value="{DynamicResource UiInputBrush}" />
@@ -94,7 +95,11 @@
         <Setter Property="AutoGenerateColumns" Value="False" />
         <Setter Property="IsReadOnly" Value="True" />
     </Style>
-    <!-- Tables of items: smaller text, so their rows can be shorter. The grid's own font size doesn't reach its cells. -->
+    <!-- The DataGrid theme sizes its cells on its own (15), not on the control font size, so give them the body size. -->
+    <Style Selector=".AppPage DataGridCell">
+        <Setter Property="FontSize" Value="{DynamicResource UiFontSizeBody}" />
+    </Style>
+    <!-- Tables of items: smaller text, so their rows can be shorter. -->
     <Style Selector=".AppPage DataGrid.Compact DataGridCell">
         <Setter Property="FontSize" Value="{DynamicResource UiFontSizeSmall}" />
     </Style>
@@ -103,6 +108,10 @@
     </Style>
     <Style Selector=".AppPage ScrollBar">
         <Setter Property="Background" Value="Transparent" />
+    </Style>
+    <!-- A ScrollRail shows its scrollbar only while the pointer is over it; the fades say there is more. -->
+    <Style Selector="controls|ScrollRail:not(:pointerover) ScrollBar">
+        <Setter Property="Opacity" Value="0" />
     </Style>
     <Style Selector=".AppPage GridSplitter">
         <Setter Property="Background" Value="{DynamicResource UiBorderBrush}" />
