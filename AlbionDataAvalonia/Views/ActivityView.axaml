@@ -17,7 +17,7 @@
                     <StackPanel Spacing="3">
                         <controls:StatRow Label="Picked up" Value="{Binding Silver}" Rate="{Binding SilverRowRate}" IsVisible="{Binding !IsImported}" ToolTip.Tip="{Binding SilverDetailsText}" />
                         <controls:StatRow Label="Loot EMV" Value="{Binding LootValueRowText}" Rate="{Binding LootRowRate}" Classes.Dim="{Binding !HasLoot}" IsVisible="{Binding !IsImported}" ToolTip.Tip="{Binding ItemsDetailsText}" />
-                        <controls:StatRow Label="Gathering EMV" Value="{Binding ResourceValueRowText}" Rate="{Binding ResourceRowRate}" Classes.Dim="{Binding !HasResources}" ToolTip.Tip="{Binding GatheringRowDetails}" />
+                        <controls:StatRow Label="Gathering EMV" Value="{Binding ResourceValueRowText}" Rate="{Binding ResourceValueRate}" Classes.Dim="{Binding !HasResources}" ToolTip.Tip="{Binding GatheringRowDetails}" />
                     </StackPanel>
                 </controls:StatCard>
                 <controls:StatCard Classes="Accent" Margin="3" Caption="FAME" Value="{Binding TotalFame}" Unit="{Binding TotalFameUnit}" ToolTip.Tip="{Binding TotalFameDetailsText}" IsVisible="{Binding !IsImported}">

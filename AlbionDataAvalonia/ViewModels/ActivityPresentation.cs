@@ -106,7 +106,6 @@ public sealed class ActivitySummaryPresentation
     public string LootRowRate => Summary.LootItems == 0 ? "" : $"{UiFormat.Compact(Summary.LootItems)} items" + (HasRecordedDuration && Summary.LootValue > 0 ? $" · {ShortRate(Rates.LootValuePerHour)}" : "");
     public bool HasLoot => Summary.LootItems > 0;
     public string ResourceValueRowText => ResourceValueText + (Summary.MissingResourcePriceItems > 0 ? " *" : "");
-    public string ResourceRowRate => !HasResources ? "" : $"{UiFormat.Compact(Summary.ResourceItems)} items" + (HasRecordedDuration && Summary.ResourceValue > 0 ? $" · {ShortRate(Rates.ResourceValuePerHour)}" : "");
     public string GatheringRowDetails => "Gathered and fished" + (Summary.MissingResourcePriceItems > 0 ? $"\n{Summary.MissingResourcePriceItems:N0} items without EMV" : "");
 
     public string TotalFame => IsImported ? UiText.Unavailable : UiFormat.Compact(Summary.Fame);
