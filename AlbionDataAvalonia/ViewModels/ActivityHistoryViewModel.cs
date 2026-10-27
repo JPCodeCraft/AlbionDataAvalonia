@@ -27,7 +27,11 @@ public sealed record ActivityDetailHeader
     public string MapMetadataText { get; init; } = "";
     // Several combined sessions name the span they cover.
     public string SelectionText { get; init; } = "";
-    public string DurationText { get; init; } = "";
+    // "Session 56m 43s · Combat 13m 35s": the label is dim, the value bright.
+    public string TimeLabel { get; init; } = "Session";
+    public string TimeValue { get; init; } = "";
+    public string CombatTimeValue { get; init; } = "";
+    public string RunsText { get; init; } = "";
     public string ScopeText { get; init; } = "";
     public string TagsText { get; init; } = "";
     public string PartyText { get; init; } = "";
@@ -50,6 +54,9 @@ public sealed record ActivityDetailHeader
     public bool HasMapMetadata => MapMetadataText.Length > 0;
     public bool HasSelectionText => SelectionText.Length > 0;
     public bool HasParty => PartyText.Length > 0;
+    public bool HasCombatTime => CombatTimeValue.Length > 0;
+    public bool HasScopeText => ScopeText.Length > 0;
+    public bool HasTags => TagsText.Length > 0;
     public bool HasDetailedHistory => !IsImported;
     public string ImportedText => IsImported ? "Imported gathering totals" : "";
 }
@@ -153,10 +160,11 @@ public partial class ActivityHistoryViewModel : ObservableObject, IDisposable
                 : combined is not null ? $"{combined.Count:N0} sessions" : SelectedSession?.Title ?? SelectedPlaySession?.Title ?? "Select a session",
             MapMetadataText = map?.DetailsText ?? "",
             SelectionText = combined is null ? "" : CombinedText(combined, imported),
-            DurationText = map is not null ? $"Recorded time: {map.DurationText} · Combat time: {UiFormat.Duration(rates.CombatDurationSeconds)}"
-                : imported ? $"Duration: {UiFormat.Duration(rates.DurationSeconds)}" : SelectedEncounter is { } selected ? $"Combat time: {selected.DurationText}"
-                : SelectedSession is { } run ? $"Run time: {run.DurationText} · Combat time: {UiFormat.Duration(rates.CombatDurationSeconds)}"
-                : $"Session time: {UiFormat.Duration(rates.DurationSeconds)} · Combat time: {UiFormat.Duration(rates.CombatDurationSeconds)}",
+            TimeLabel = map is not null ? "Recorded" : imported ? "Duration" : SelectedEncounter is not null ? "Combat" : SelectedSession is not null ? "Run" : "Session",
+            TimeValue = map is not null ? map.DurationText : SelectedEncounter is { } selected ? selected.DurationText
+                : SelectedSession is { } run ? run.DurationText : UiFormat.Duration(rates.DurationSeconds),
+            CombatTimeValue = imported || SelectedEncounter is not null ? "" : UiFormat.Duration(rates.CombatDurationSeconds),
+            RunsText = UiFormat.Count(Sessions.Count, "run"),
             ScopeText = $"{SelectedPlayer?.Name ?? ""}{(isPartial ? $"{(SelectedPlayer is null ? "" : " · ")}Incomplete recording" : "")}",
             TagsText = map is not null ? ActivityDisplay.Tags(DetailSummary.Summary.Tags)
                 : SelectedSession is { } row ? ActivityDisplay.Tags(ActivityProjection.GetSummary(row.Source, Filters.Scope).Tags)

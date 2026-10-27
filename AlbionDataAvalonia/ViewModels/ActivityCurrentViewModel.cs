@@ -37,12 +37,14 @@ public partial class ActivityCurrentViewModel : ObservableObject, IDisposable
 
     [ObservableProperty] private string currentTitle = "No active session";
     [ObservableProperty] private string currentDescription = "Start playing to record activity.";
-    [ObservableProperty] private string currentDurationText = "Session time: 0:00";
+    // "Session 15m 38s": the label names the period, the value is its length.
+    [ObservableProperty] private string currentTimeLabel = "Session";
+    [ObservableProperty] private string currentTimeValue = "0:00";
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(CurrentCombatDurationText), nameof(CurrentTagsText))]
+    [NotifyPropertyChangedFor(nameof(CurrentCombatTimeValue), nameof(CurrentTagsText), nameof(HasCurrentTags))]
     private ActivitySummaryPresentation currentSummary = ActivitySummaryPresentation.Empty;
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowCurrentRuns))]
+    [NotifyPropertyChangedFor(nameof(ShowCurrentRuns), nameof(CurrentRunsText))]
     private ObservableCollection<ActivitySessionRow> currentRuns = new();
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasCurrentState))]
@@ -56,9 +58,11 @@ public partial class ActivityCurrentViewModel : ObservableObject, IDisposable
 
     public ActivityFilterState Filters => page.Filters;
     public ActivityLootExport Export => page.Export;
-    public string CurrentCombatDurationText => $"Combat time: {UiFormat.Duration(CurrentSummary.Rates.CombatDurationSeconds)}";
+    public string CurrentCombatTimeValue => UiFormat.Duration(CurrentSummary.Rates.CombatDurationSeconds);
     public string CurrentTagsText => ActivityDisplay.Tags(CurrentSummary.Summary.Tags);
+    public bool HasCurrentTags => CurrentTagsText.Length > 0;
     public bool ShowCurrentRuns => IsPlaySessionPeriod && CurrentRuns.Count > 0;
+    public string CurrentRunsText => UiFormat.Count(CurrentRuns.Count, "run");
     public bool HasCurrentState => !string.IsNullOrEmpty(CurrentStateText);
     public bool HasCurrentResources => CurrentResources.Count > 0;
 
@@ -76,7 +80,10 @@ public partial class ActivityCurrentViewModel : ObservableObject, IDisposable
     {
         if (Tracker is not null) UpdateCurrentPlayState(Tracker.GetCurrentContext(), nowUtc);
         if (currentSession is not null && SelectedPeriod.Value == ActivityPeriodMode.CurrentRun)
-            CurrentDurationText = $"Run time: {UiFormat.Duration(ActivityProjection.GetDurationSeconds(currentSession, nowUtc))}";
+        {
+            CurrentTimeLabel = "Run";
+            CurrentTimeValue = UiFormat.Duration(ActivityProjection.GetDurationSeconds(currentSession, nowUtc));
+        }
         else if (SelectedPeriod.Value != ActivityPeriodMode.CurrentRun)
             ApplyCurrentPeriodPresentation(nowUtc);
     }
@@ -165,7 +172,8 @@ public partial class ActivityCurrentViewModel : ObservableObject, IDisposable
         {
             var summary = ActivityProjection.GetSummary(current, scope);
             CurrentSummary = new(summary, ActivityProjection.GetRates(summary, current, combatTask.Result, DateTime.UtcNow), true);
-            CurrentDurationText = $"Run time: {UiFormat.Duration(ActivityProjection.GetDurationSeconds(current, DateTime.UtcNow))}";
+            CurrentTimeLabel = "Run";
+            CurrentTimeValue = UiFormat.Duration(ActivityProjection.GetDurationSeconds(current, DateTime.UtcNow));
             CurrentPeriodDescription = $"Since {UiFormat.LocalDateTime(current.StartedAtUtc)}";
         }
         else if (period == ActivityPeriodMode.CurrentRun) ClearCurrentPeriod();
@@ -246,6 +254,7 @@ public partial class ActivityCurrentViewModel : ObservableObject, IDisposable
             source => new ActivitySessionRow(source, scope), (row, source) => row.Update(source, scope), false);
         foreach (var row in CurrentRuns) row.IsLive = row.Id == liveId;
         if (hadRuns != CurrentRuns.Count > 0) OnPropertyChanged(nameof(ShowCurrentRuns));
+        OnPropertyChanged(nameof(CurrentRunsText));
         currentRunsPlaySessionId = playSession.Id;
         currentRunsReadVersion = version;
         currentRunsReadAtUtc = nowUtc;

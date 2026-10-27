@@ -86,7 +86,7 @@ public sealed class ActivitySummaryPresentation
     public bool HasMissingItemPrices => Summary.MissingPriceItems + Summary.MissingResourcePriceItems > 0;
     public string ResourceItemsText => $"{UiFormat.Compact(Summary.ResourceItems)} items gathered";
     public string ResourceQuantityText => UiFormat.Compact(Summary.ResourceItems);
-    public string ResourceBreakdownText => $"Gathering {UiFormat.Compact(Summary.GatheringItems)} · Fishing {UiFormat.Compact(Summary.FishingItems)}" + (Summary.UnclassifiedResourceItems > 0 ? $" · Other {UiFormat.Compact(Summary.UnclassifiedResourceItems)}" : "");
+    public string ResourceBreakdownText => $"Gathering {UiFormat.Compact(Summary.GatheringItems)}" + (Summary.FishingItems > 0 ? $" · Fishing {UiFormat.Compact(Summary.FishingItems)}" : "") + (Summary.UnclassifiedResourceItems > 0 ? $" · Other {UiFormat.Compact(Summary.UnclassifiedResourceItems)}" : "");
     public string ResourceValueText => Summary.ResourceValue == 0 && Summary.MissingResourcePriceItems > 0 ? UiText.Unavailable : UiFormat.Compact(Summary.ResourceValue);
     public string ResourceRateText => HasRecordedDuration ? $"{UiFormat.Compact(Rates.ResourceItemsPerHour)} items / hour · {ValueRateText(Summary.ResourceValue, Summary.MissingResourcePriceItems, Rates.ResourceValuePerHour)}" : "Hourly rate unavailable";
     public string ItemsCountText => $"{UiFormat.Compact(Summary.LootItems + Summary.ResourceItems)} items acquired";
@@ -97,6 +97,49 @@ public sealed class ActivitySummaryPresentation
     public string ResourceValueDetailsText => ResourceRateText + (Summary.MissingResourcePriceItems > 0 ? $"\n{Summary.MissingResourcePriceItems:N0} items without EMV" : "");
     private static string ValueRateText(long knownValue, long missingItems, double rate) => missingItems > 0 && knownValue == 0
         ? "EMV / hour unavailable" : $"{UiFormat.Compact(rate)} EMV / hour";
+
+    // The stat cards: Silver, Fame, Combat and Kills, plus Gathering when something was gathered. A headline per card,
+    // short "/ h" rates in the rows, and empty rows dimmed rather than hidden so the cards keep one shape.
+    public string TotalSilverUnit => HasRecordedDuration ? $"{TotalSilverPerHour} / hour" : "";
+    public string SilverRowRate => IsImported ? "" : ShortRate(Rates.SilverPerHour);
+    public string LootValueRowText => LootValue + (HasMissingLootPrices ? " *" : "");
+    public string LootRowRate => Summary.LootItems == 0 ? "" : $"{UiFormat.Compact(Summary.LootItems)} items" + (HasRecordedDuration && Summary.LootValue > 0 ? $" · {ShortRate(Rates.LootValuePerHour)}" : "");
+    public bool HasLoot => Summary.LootItems > 0;
+    public string ResourceValueRowText => ResourceValueText + (Summary.MissingResourcePriceItems > 0 ? " *" : "");
+    public string ResourceRowRate => !HasResources ? "" : $"{UiFormat.Compact(Summary.ResourceItems)} items" + (HasRecordedDuration && Summary.ResourceValue > 0 ? $" · {ShortRate(Rates.ResourceValuePerHour)}" : "");
+    public string GatheringRowDetails => "Gathered and fished" + (Summary.MissingResourcePriceItems > 0 ? $"\n{Summary.MissingResourcePriceItems:N0} items without EMV" : "");
+
+    public string TotalFame => IsImported ? UiText.Unavailable : UiFormat.Compact(Summary.Fame);
+    public string TotalFameUnit => IsImported || !HasRecordedDuration ? "" : $"{UiFormat.Compact(Rates.FamePerHour)} / hour";
+    public string TotalFameDetailsText => "PvE + PvP + gathering fame" + (HasUnknownFame ? " + fame without a known activity" : "");
+    public string PveFame => IsImported ? UiText.Unavailable : UiFormat.Compact(Summary.PveFame);
+    public string PvpFame => IsImported ? UiText.Unavailable : UiFormat.Compact(Summary.PvpFame);
+    public bool HasPveFame => Summary.PveFame > 0;
+    public bool HasGatheringFame => Summary.GatheringFame + Summary.FishingFame > 0;
+    public string PveFameRowRate => HasPveFame ? ShortFameRate(Summary.PveFame) : "";
+    public string PvpFameRowRate => HasPvpFame ? ShortFameRate(Summary.PvpFame) : "";
+    public string GatheringFameRowRate => HasGatheringFame ? ShortFameRate(Summary.GatheringFame + Summary.FishingFame) : "";
+
+    public string DamageDealtUnit => IsImported ? "" : $"dealt · {DamageRate}";
+    public string DeathsText => UiFormat.Compact(Summary.Deaths);
+    public string DeathsRowRate => Summary.NonLethalDeaths <= 0 ? "" : Summary.NonLethalDeaths == Summary.Deaths ? "non-lethal" : $"{Summary.NonLethalDeaths:N0} non-lethal";
+    public string KnockdownsText => UiFormat.Compact(Summary.Knockdowns);
+    public bool HasPlayerKills => Summary.PlayerKills > 0;
+    public bool HasDeaths => Summary.Deaths > 0;
+    public bool HasKnockdowns => Summary.Knockdowns > 0;
+    public string PlayerKillsRowLabel => "PvP kills";
+    public string PlayerKillsRowRate => Summary.NonLethalPlayerKills <= 0 ? "" : Summary.NonLethalPlayerKills == Summary.PlayerKills ? "non-lethal" : $"{Summary.NonLethalPlayerKills:N0} non-lethal";
+
+    public bool ShowGatheringCard => HasResources || IsImported;
+    public string ResourceItemsUnit => !HasRecordedDuration || IsImported ? "items" : $"items · {UiFormat.Compact(Rates.ResourceItemsPerHour)} / hour";
+    public string ResourceValueRate => HasRecordedDuration && Summary.ResourceValue > 0 ? ShortRate(Rates.ResourceValuePerHour) : "";
+    public bool HasFishing => Summary.FishingItems > 0;
+    public string FishingItemsText => UiFormat.Compact(Summary.FishingItems);
+    public string FishingRowRate => Summary.FishingValue > 0 ? $"EMV {UiFormat.Compact(Summary.FishingValue)}" : "";
+    public string GatheringFameRowRateInCard => IsImported ? "" : GatheringFameRowRate;
+
+    private string ShortRate(double perHour) => HasRecordedDuration ? $"{UiFormat.Compact(perHour)} / h" : "";
+    private string ShortFameRate(double amount) => IsImported || !HasRecordedDuration ? "" : $"{UiFormat.Compact(ActivityProjection.GetFameRate(amount, Rates))} / h";
     private string FameRateText(double amount) => Summary.IsLegacyAggregate || !HasRecordedDuration ? UiText.NotRecorded : $"{UiFormat.Compact(ActivityProjection.GetFameRate(amount, Rates))} / hour";
 
 }
