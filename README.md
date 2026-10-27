@@ -176,7 +176,7 @@ The chart shows damage or healing over time, with markers for kills, loot and ga
 
 ### Items
 
-**Items** adds up everything you looted and gathered across all your sessions. Search by item, player or source, filter by loot, gathering or fishing, and use **Export loot…** to save the list as a CSV file.
+**Items** adds up everything you looted and gathered across all your sessions. Use **Time** to see today, yesterday, the last 7 or 30 days, or a custom range of dates and times. Search by item, player or source, filter by loot or gathering (fishing counts as gathering), and use **Export loot…** to save the loot you see as a CSV file.
 
 Loot and gathered items are valued with AFM's estimated market value (EMV). Signing in to AFM lets the client look up values for items it hasn't priced yet.
 

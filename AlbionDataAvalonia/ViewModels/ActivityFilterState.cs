@@ -19,9 +19,10 @@ public partial class ActivityFilterState : ObservableObject
         [new(ActivityScope.Personal, "Personal"), new(ActivityScope.Party, "Party")];
     public IReadOnlyList<Option<ActivityScope>> LootScopeOptions { get; } =
         [new(ActivityScope.Personal, "Personal"), new(ActivityScope.Party, "Party"), new(ActivityScope.AllObserved, "Everyone")];
+    // Gathering includes fishing and older saves' mixed totals, as the Gathered totals do.
     public IReadOnlyList<Option<ActivityItemSources>> ItemSourceOptions { get; } =
         [new(ActivityItemSources.All, "All items"), new(ActivityItemSources.Loot, "Loot"),
-         new(ActivityItemSources.Gathering, "Gathering"), new(ActivityItemSources.Fishing, "Fishing")];
+         new(ActivityItemSources.Gathering | ActivityItemSources.Fishing | ActivityItemSources.LegacyMixed, "Gathering")];
 
     [ObservableProperty] private Option<ActivityScope> selectedScope = new(ActivityScope.Personal, "Personal");
     [ObservableProperty] private bool showAllActivities = true;

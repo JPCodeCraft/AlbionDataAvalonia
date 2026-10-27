@@ -12,7 +12,7 @@ using static AlbionDataAvalonia.ViewModels.ActivityReads;
 
 namespace AlbionDataAvalonia.ViewModels;
 
-/// <summary>The Activity page's Items tab: every recorded pickup and gathered item, with its own scope and search.</summary>
+/// <summary>The Activity page's Items tab: every recorded pickup and gathered item, with its own scope, period and search.</summary>
 public partial class ActivityItemsViewModel : ObservableObject, IDisposable
 {
     private readonly ActivityViewModel page;
@@ -24,7 +24,7 @@ public partial class ActivityItemsViewModel : ObservableObject, IDisposable
 
     [ObservableProperty] private Option<ActivityScope> selectedLootScope = new(ActivityScope.Personal, "Personal");
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowGlobalLootPanel), nameof(GlobalLootTotalsText))]
+    [NotifyPropertyChangedFor(nameof(ShowGlobalLootPanel), nameof(ShowGlobalLootList), nameof(GlobalLootTotalsText))]
     private Option<ActivityItemSources> selectedItemSource = new(ActivityItemSources.All, "All items");
     [ObservableProperty] private string lootSearch = "";
     [ObservableProperty]
@@ -35,21 +35,34 @@ public partial class ActivityItemsViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(HasGlobalResources))]
     private ObservableCollection<ActivityResourceRow> globalResources = new();
     [ObservableProperty] private bool hasMoreGlobalLoot;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowGlobalLootList))]
+    private bool hasGlobalLoot;
+    [ObservableProperty] private bool hasNoItems;
 
-    internal ActivityItemsViewModel(ActivityViewModel page) => this.page = page;
+    internal ActivityItemsViewModel(ActivityViewModel page)
+    {
+        this.page = page;
+        Time.Changed += ReloadIfShowing;
+    }
 
     public ActivityFilterState Filters => page.Filters;
     public ActivityLootExport Export => page.Export;
+    public ActivityTimeFilter Time { get; } = new();
     public bool HasGlobalResources => GlobalResources.Count > 0;
     public bool ShowGlobalLootPanel => (SelectedItemSource.Value & ActivityItemSources.Loot) != 0;
+    // Like Gathered, the loot list hides when nothing matches.
+    public bool ShowGlobalLootList => ShowGlobalLootPanel && HasGlobalLoot;
     public string GlobalLootTotalsText => string.Join(" · ", new[]
     {
-        ShowGlobalLootPanel ? $"Loot {UiFormat.Compact(GlobalLootSummary.Summary.LootItems)} items · EMV {GlobalLootSummary.LootValue}" : null,
+        ShowGlobalLootPanel ? $"Loot {UiFormat.Compact(GlobalLootSummary.Summary.LootItems)} {UiFormat.Noun(GlobalLootSummary.Summary.LootItems, "item")} · EMV {GlobalLootSummary.LootValue}" : null,
         SelectedItemSource.Value != ActivityItemSources.Loot ? $"Gathered {GlobalLootSummary.ResourceQuantityText} · EMV {GlobalLootSummary.ResourceValueText}" : null
     }.Where(value => value is not null));
     public string GlobalLootDetailsText => "Loot uses the Black Market EMV when available";
 
-    internal bool IsStale => itemReadVersion != page.ItemChangeVersion;
+    // A period moves on at midnight, so the list reloads then even when no new items arrive.
+    internal bool IsStale => itemReadVersion != page.ItemChangeVersion ||
+        displayedGlobalLootQuery is { } shown && Time.Window(DateTime.UtcNow) != (shown.FromUtc, shown.ToUtc);
 
     internal Task RefreshAsync() => IsStale ? LoadGlobalLootAsync(false, true) : Task.CompletedTask;
 
@@ -85,16 +98,28 @@ public partial class ActivityItemsViewModel : ObservableObject, IDisposable
         globalLootPage = pageIndex;
         HasMoreGlobalLoot = result.HasMore;
         if (summary is not null) GlobalLootSummary = new(summary, ActivityProjection.GetRates(summary, 0));
-        if (!append) itemReadVersion = dataVersion;
+        if (!append)
+        {
+            itemReadVersion = dataVersion;
+            HasGlobalLoot = GlobalLoot.Count > 0;
+            HasNoItems = !HasGlobalLoot && GlobalResources.Count == 0;
+        }
     }
 
-    private ActivityQuery GlobalItemsQuery() => new()
+    // The export reads the query the list last showed, so it keeps the same period and filters.
+    private ActivityQuery GlobalItemsQuery()
     {
-        Scope = SelectedLootScope.Value,
-        ItemsOnly = true,
-        ItemSources = SelectedItemSource.Value,
-        Search = EmptyToNull(LootSearch)
-    };
+        var (fromUtc, toUtc) = Time.Window(DateTime.UtcNow);
+        return new()
+        {
+            Scope = SelectedLootScope.Value,
+            ItemsOnly = true,
+            ItemSources = SelectedItemSource.Value,
+            Search = EmptyToNull(LootSearch),
+            FromUtc = fromUtc,
+            ToUtc = toUtc
+        };
+    }
 
     private void ReloadIfShowing()
     {
@@ -115,6 +140,7 @@ public partial class ActivityItemsViewModel : ObservableObject, IDisposable
 
     public void Dispose()
     {
+        Time.Changed -= ReloadIfShowing;
         itemsQueryCancellation.Cancel();
         itemsQueryCancellation.Dispose();
     }

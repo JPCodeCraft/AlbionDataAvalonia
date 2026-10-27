@@ -540,6 +540,22 @@
                             <controls:SegmentedSelector ItemsSource="{Binding Filters.ItemSourceOptions}" SelectedItem="{Binding SelectedItemSource, Mode=TwoWay}" AutomationProperties.Name="Item source" />
                         </WrapPanel>
                         <WrapPanel Margin="0,0,0,-8">
+                            <controls:FilterField Label="Time">
+                                <ComboBox ItemsSource="{Binding Time.PeriodOptions}" SelectedItem="{Binding Time.SelectedPeriod}" Width="140" />
+                            </controls:FilterField>
+                            <!-- An empty date leaves that side of the range open; the time shows once a date is set. -->
+                            <controls:FilterField Label="From" IsVisible="{Binding Time.IsCustom}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <CalendarDatePicker SelectedDate="{Binding Time.FromDate}" Watermark="Earliest" Width="150" AutomationProperties.Name="From date" />
+                                    <TimePicker SelectedTime="{Binding Time.FromTime}" IsVisible="{Binding Time.HasFromDate}" AutomationProperties.Name="From time" />
+                                </StackPanel>
+                            </controls:FilterField>
+                            <controls:FilterField Label="To" IsVisible="{Binding Time.IsCustom}">
+                                <StackPanel Orientation="Horizontal" Spacing="6">
+                                    <CalendarDatePicker SelectedDate="{Binding Time.ToDate}" Watermark="Now" Width="150" AutomationProperties.Name="To date" />
+                                    <TimePicker SelectedTime="{Binding Time.ToTime}" IsVisible="{Binding Time.HasToDate}" AutomationProperties.Name="To time" />
+                                </StackPanel>
+                            </controls:FilterField>
                             <controls:FilterField Label="Search loot">
                                 <TextBox Text="{Binding LootSearch}" Watermark="Item, player or source" Width="230">
                                     <TextBox.KeyBindings>
@@ -549,11 +565,12 @@
                             </controls:FilterField>
                             <Button Classes="UiAction UiPrimary" Content="Search" Command="{Binding ApplyLootFiltersCommand}" VerticalAlignment="Bottom" Margin="0,0,0,8" />
                         </WrapPanel>
+                        <TextBlock Classes="UiWarning" Text="The range ends before it starts, so nothing matches." IsVisible="{Binding Time.IsRangeReversed}" TextWrapping="Wrap" Margin="0,8,0,0" />
                     </StackPanel>
                     <Expander Header="Gathered" IsVisible="{Binding HasGlobalResources}" IsExpanded="False" Padding="0" HorizontalAlignment="Stretch">
                                         <ScrollViewer MinHeight="56" MaxHeight="108" HorizontalScrollBarVisibility="Disabled" Margin="8,8,8,2"><ItemsRepeater ItemsSource="{Binding GlobalResources}" ItemTemplate="{StaticResource ActivityResourceTileTemplate}"><ItemsRepeater.Layout><UniformGridLayout MinItemWidth="236" MinItemHeight="56" ItemsStretch="None" /></ItemsRepeater.Layout></ItemsRepeater></ScrollViewer>
                                     </Expander>
-                    <Expander Header="Loot" IsVisible="{Binding ShowGlobalLootPanel}" IsExpanded="False" Padding="0" HorizontalAlignment="Stretch">
+                    <Expander Header="Loot" IsVisible="{Binding ShowGlobalLootList}" IsExpanded="False" Padding="0" HorizontalAlignment="Stretch">
                     <DataGrid ItemsSource="{Binding GlobalLoot}" Classes="Compact" RowHeight="40" MaxHeight="420">
                         <DataGrid.Columns>
                             <DataGridTextColumn Header="Time" Binding="{Binding DateTimeText}" SortMemberPath="CapturedAtUtc" />
@@ -570,11 +587,13 @@
                         </DataGrid.Columns>
                     </DataGrid>
                     </Expander>
+                    <controls:EmptyState Classes="Inline" Message="No items to show." IsVisible="{Binding HasNoItems}"
+                                         Hint="Items you loot or gather while recording appear here. If you expected some, check the filters above." />
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                        <TextBlock Text="{Binding GlobalLootTotalsText}" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap" ToolTip.Tip="{Binding GlobalLootDetailsText}" />
+                        <TextBlock Text="{Binding GlobalLootTotalsText}" IsVisible="{Binding !HasNoItems}" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap" ToolTip.Tip="{Binding GlobalLootDetailsText}" />
                         <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
                             <Button Classes="UiAction" Content="Load more" Command="{Binding LoadMoreGlobalLootCommand}" IsVisible="{Binding HasMoreGlobalLoot}" />
-                            <views:ActivityLootExportBar Export="{Binding Export}" ExportCommand="{Binding ExportGlobalLootCommand}" CanExport="{Binding Export.CanStart}" IsVisible="{Binding ShowGlobalLootPanel}" />
+                            <views:ActivityLootExportBar Export="{Binding Export}" ExportCommand="{Binding ExportGlobalLootCommand}" CanExport="{Binding Export.CanStart}" IsVisible="{Binding ShowGlobalLootList}" />
                         </StackPanel>
                     </Grid>
                     <TextBlock Classes="UiLabel" Text="{Binding Export.StatusText}" IsVisible="{Binding Export.HasStatus}" TextWrapping="Wrap" />
