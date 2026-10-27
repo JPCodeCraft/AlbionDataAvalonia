@@ -1,7 +1,9 @@
 using AlbionDataAvalonia.ViewModels;
 using Avalonia;
 using Avalonia.Controls;
+using Avalonia.Data.Converters;
 using Avalonia.Interactivity;
+using Avalonia.Layout;
 using System.Windows.Input;
 
 namespace AlbionDataAvalonia.Views;
@@ -23,6 +25,9 @@ public partial class ActivityLootExportBar : UserControl
 
     public static readonly StyledProperty<bool> ShowLootLoggerLinkProperty =
         AvaloniaProperty.Register<ActivityLootExportBar, bool>(nameof(ShowLootLoggerLink));
+
+    public static readonly FuncValueConverter<HorizontalAlignment, WrapPanelItemsAlignment> WrapAlignmentConverter =
+        new(alignment => alignment == HorizontalAlignment.Right ? WrapPanelItemsAlignment.End : WrapPanelItemsAlignment.Start);
 
     public ActivityLootExportBar()
     {

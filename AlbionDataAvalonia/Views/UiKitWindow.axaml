@@ -148,6 +148,10 @@
                         </ItemsControl.ItemTemplate>
                     </ItemsControl>
                 </controls:ScrollRail>
+                <controls:ActionRow Width="520" HorizontalAlignment="Left">
+                    <controls:SegmentedSelector ItemsSource="{Binding Choices}" SelectedIndex="0" />
+                    <Button Classes="UiAction" Content="ActionRow action" />
+                </controls:ActionRow>
                 <WrapPanel>
                     <controls:FilterField Label="FilterField">
                         <TextBox Width="230" Watermark="Search" />

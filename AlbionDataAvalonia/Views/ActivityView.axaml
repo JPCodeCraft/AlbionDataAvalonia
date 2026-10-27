@@ -439,7 +439,15 @@
                             <!-- Loot and Gathering share one scope: whose items they show. -->
                             <TabItem Header="Loot" IsEnabled="{Binding Detail.HasDetailedHistory}">
                                 <StackPanel Spacing="12">
-                                    <controls:SegmentedSelector ItemsSource="{Binding Filters.LootScopeOptions}" SelectedItem="{Binding SelectedSessionLootScope, Mode=TwoWay}" AutomationProperties.Name="Session loot scope" HorizontalAlignment="Left" />
+                                    <!-- The scope on the left, the export and what it last did on the right. The segments keep 4px
+                                         under them for wrapping, so moving them down 2px centers them on the export button. -->
+                                    <controls:ActionRow>
+                                        <controls:SegmentedSelector ItemsSource="{Binding Filters.LootScopeOptions}" SelectedItem="{Binding SelectedSessionLootScope, Mode=TwoWay}" AutomationProperties.Name="Session loot scope" VerticalAlignment="Center" Margin="0,2,0,-2" />
+                                        <WrapPanel ItemsAlignment="End" ItemSpacing="12" LineSpacing="6" VerticalAlignment="Center" IsVisible="{Binding !HasNoSessionLoot}">
+                                            <TextBlock Classes="UiLabel" Text="{Binding Export.StatusText}" IsVisible="{Binding Export.HasStatus}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                            <views:ActivityLootExportBar Export="{Binding Export}" ExportCommand="{Binding ExportSessionLootCommand}" CanExport="{Binding Detail.CanExportLoot}" ShowLootLoggerLink="True" HorizontalAlignment="Right" />
+                                        </WrapPanel>
+                                    </controls:ActionRow>
                                     <controls:EmptyState Classes="Inline" Message="No loot picked up." IsVisible="{Binding HasNoSessionLoot}" />
                                     <DataGrid ItemsSource="{Binding SessionLoot}" IsVisible="{Binding !HasNoSessionLoot}" Classes="Compact" RowHeight="40" Height="{Binding SessionLoot.Count, Converter={x:Static views:ActivityView.HistoryLootTableHeightConverter}}" MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto">
                                         <DataGrid.Columns>
@@ -456,13 +464,7 @@
                                             <DataGridTextColumn Header="Location" Binding="{Binding Location}" />
                                         </DataGrid.Columns>
                                     </DataGrid>
-                                    <StackPanel Spacing="6">
-                                        <WrapPanel IsVisible="{Binding !HasNoSessionLoot}">
-                                            <Button Classes="UiAction" Content="Load more" Command="{Binding LoadMoreSessionLootCommand}" IsVisible="{Binding HasMoreSessionLoot}" Margin="0,0,8,0" />
-                                            <views:ActivityLootExportBar Export="{Binding Export}" ExportCommand="{Binding ExportSessionLootCommand}" CanExport="{Binding Detail.CanExportLoot}" ShowLootLoggerLink="True" />
-                                        </WrapPanel>
-                                        <TextBlock Classes="UiLabel" Text="{Binding Export.StatusText}" IsVisible="{Binding Export.HasStatus}" TextWrapping="Wrap" />
-                                    </StackPanel>
+                                    <Button Classes="UiAction" Content="Load more" Command="{Binding LoadMoreSessionLootCommand}" IsVisible="{Binding HasMoreSessionLoot}" HorizontalAlignment="Left" />
                                 </StackPanel>
                             </TabItem>
                             <!-- Gathering counts fishing too, as everywhere else. -->
@@ -559,10 +561,17 @@
                 <ScrollViewer HorizontalScrollBarVisibility="Disabled" DataContext="{Binding Items}" x:DataType="vm:ActivityItemsViewModel">
                 <StackPanel Spacing="12" Margin="0,8,12,8">
                     <StackPanel Spacing="4">
-                        <WrapPanel>
-                            <controls:SegmentedSelector ItemsSource="{Binding Filters.LootScopeOptions}" SelectedItem="{Binding SelectedLootScope, Mode=TwoWay}" AutomationProperties.Name="Item scope" Margin="0,0,12,0" />
-                            <controls:SegmentedSelector ItemsSource="{Binding Filters.ItemSourceOptions}" SelectedItem="{Binding SelectedItemSource, Mode=TwoWay}" AutomationProperties.Name="Item source" />
-                        </WrapPanel>
+                        <!-- The scope and source on the left, the export and what it last did on the right, lined up as on History › Loot. -->
+                        <controls:ActionRow>
+                            <WrapPanel ItemSpacing="12" LineSpacing="6" VerticalAlignment="Center" Margin="0,2,0,-2">
+                                <controls:SegmentedSelector ItemsSource="{Binding Filters.LootScopeOptions}" SelectedItem="{Binding SelectedLootScope, Mode=TwoWay}" AutomationProperties.Name="Item scope" />
+                                <controls:SegmentedSelector ItemsSource="{Binding Filters.ItemSourceOptions}" SelectedItem="{Binding SelectedItemSource, Mode=TwoWay}" AutomationProperties.Name="Item source" />
+                            </WrapPanel>
+                            <WrapPanel ItemsAlignment="End" ItemSpacing="12" LineSpacing="6" VerticalAlignment="Center" IsVisible="{Binding ShowGlobalLootList}">
+                                <TextBlock Classes="UiLabel" Text="{Binding Export.StatusText}" IsVisible="{Binding Export.HasStatus}" TextWrapping="Wrap" VerticalAlignment="Center" />
+                                <views:ActivityLootExportBar Export="{Binding Export}" ExportCommand="{Binding ExportGlobalLootCommand}" CanExport="{Binding Export.CanStart}" HorizontalAlignment="Right" />
+                            </WrapPanel>
+                        </controls:ActionRow>
                         <WrapPanel Margin="0,0,0,-8">
                             <controls:FilterField Label="Time">
                                 <ComboBox ItemsSource="{Binding Time.PeriodOptions}" SelectedItem="{Binding Time.SelectedPeriod}" Width="140" />
@@ -615,12 +624,8 @@
                                          Hint="Items you loot or gather while recording appear here. If you expected some, check the filters above." />
                     <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
                         <TextBlock Text="{Binding GlobalLootTotalsText}" IsVisible="{Binding !HasNoItems}" FontWeight="SemiBold" VerticalAlignment="Center" TextWrapping="Wrap" ToolTip.Tip="{Binding GlobalLootDetailsText}" />
-                        <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="8">
-                            <Button Classes="UiAction" Content="Load more" Command="{Binding LoadMoreGlobalLootCommand}" IsVisible="{Binding HasMoreGlobalLoot}" />
-                            <views:ActivityLootExportBar Export="{Binding Export}" ExportCommand="{Binding ExportGlobalLootCommand}" CanExport="{Binding Export.CanStart}" IsVisible="{Binding ShowGlobalLootList}" />
-                        </StackPanel>
+                        <Button Grid.Column="1" Classes="UiAction" Content="Load more" Command="{Binding LoadMoreGlobalLootCommand}" IsVisible="{Binding HasMoreGlobalLoot}" />
                     </Grid>
-                    <TextBlock Classes="UiLabel" Text="{Binding Export.StatusText}" IsVisible="{Binding Export.HasStatus}" TextWrapping="Wrap" />
                 </StackPanel>
                 </ScrollViewer>
             </TabItem>

@@ -7,7 +7,7 @@
              x:DataType="vm:ActivityStreamerViewModel">
     <UserControl.Resources>
         <ControlTheme x:Key="StreamerScopeButton" TargetType="RadioButton">
-            <Setter Property="Padding" Value="9,1" />
+            <Setter Property="Padding" Value="7,1" />
             <Setter Property="FontSize" Value="{DynamicResource UiFontSizeCaption}" />
             <Setter Property="Foreground" Value="{DynamicResource UiTextSecondaryBrush}" />
             <Setter Property="Background" Value="Transparent" />
@@ -55,12 +55,12 @@
         <Style Selector="TextBlock"><Setter Property="TextTrimming" Value="CharacterEllipsis" /></Style>
     </UserControl.Styles>
     <StackPanel Margin="8" Spacing="6">
-        <!-- Small: one card with the headline numbers only. -->
-        <Border Classes="StreamerCard" IsVisible="{Binding IsSmall}">
+        <!-- Small: one card with the headline numbers only, padded less so the session time fits beside the switch. -->
+        <Border Classes="StreamerCard" IsVisible="{Binding IsSmall}" Padding="8">
             <StackPanel Spacing="3" Grid.IsSharedSizeScope="True">
-                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                    <TextBlock Text="{Binding SessionTimeText}" Classes="StreamerLabel" VerticalAlignment="Center" />
-                    <ContentControl Grid.Column="1" Content="{Binding}" ContentTemplate="{StaticResource StreamerScopeSwitch}" />
+                <Grid ColumnDefinitions="*,Auto" ColumnSpacing="6">
+                    <TextBlock Text="{Binding SessionTimeText}" Classes="StreamerLabel" TextWrapping="Wrap" VerticalAlignment="Center" />
+                    <ContentControl Grid.Column="1" Content="{Binding}" ContentTemplate="{StaticResource StreamerScopeSwitch}" VerticalAlignment="Top" />
                 </Grid>
                 <Grid Classes="StreamerRow" IsVisible="{Binding Settings.StreamerShowSilver}">
                     <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" SharedSizeGroup="Label" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
@@ -68,11 +68,11 @@
                     <TextBlock Grid.Column="1" Text="{Binding Summary.TotalSilver}" Classes="StreamerSilver" />
                     <TextBlock Grid.Column="2" Text="{Binding SilverPerHourShortText}" Classes="StreamerLabel" />
                 </Grid>
-                <Grid Classes="StreamerRow" IsVisible="{Binding Settings.StreamerShowCombat}">
+                <Grid Classes="StreamerRow" IsVisible="{Binding ShowFame}">
                     <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" SharedSizeGroup="Label" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
                     <TextBlock Text="Fame" Classes="StreamerLabel" />
-                    <TextBlock Grid.Column="1" Text="{Binding Summary.CombatFame}" Classes="StreamerValue" />
-                    <TextBlock Grid.Column="2" Text="{Binding CombatFamePerHourShortText}" Classes="StreamerLabel" />
+                    <TextBlock Grid.Column="1" Text="{Binding Summary.TotalFame}" Classes="StreamerValue" />
+                    <TextBlock Grid.Column="2" Text="{Binding FamePerHourShortText}" Classes="StreamerLabel" />
                 </Grid>
                 <Grid Classes="StreamerRow" IsVisible="{Binding Settings.StreamerShowCombat}">
                     <Grid.ColumnDefinitions><ColumnDefinition Width="Auto" SharedSizeGroup="Label" /><ColumnDefinition Width="*" /><ColumnDefinition Width="Auto" /></Grid.ColumnDefinitions>
@@ -92,10 +92,14 @@
         <!-- Medium and large: one card per section; large adds the session name and breakdown lines. -->
         <Border Classes="StreamerCard" IsVisible="{Binding ShowCards}">
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="8">
-                <StackPanel Spacing="2">
-                    <TextBlock Classes="UiSectionTitle" Text="{Binding TitleText}" IsVisible="{Binding IsLarge}" />
+                <!-- Large has the run's name, then both times on one line; beside the switch, medium has room for one time per line. -->
+                <StackPanel Spacing="2" IsVisible="{Binding IsLarge}">
+                    <TextBlock Classes="UiSectionTitle" Text="{Binding TitleText}" />
                     <TextBlock Text="{Binding DurationText}" Classes="StreamerLabel" IsVisible="{Binding HasSession}" />
-                    <TextBlock Text="{Binding TitleText}" Classes="StreamerLabel" IsVisible="{Binding !HasSession}" />
+                </StackPanel>
+                <StackPanel Spacing="2" IsVisible="{Binding !IsLarge}">
+                    <TextBlock Text="{Binding SessionTimeText}" Classes="StreamerLabel" />
+                    <TextBlock Text="{Binding CombatTimeText}" Classes="StreamerLabel" IsVisible="{Binding HasSession}" />
                 </StackPanel>
                 <ContentControl Grid.Column="1" Content="{Binding}" ContentTemplate="{StaticResource StreamerScopeSwitch}" VerticalAlignment="Top" />
             </Grid>

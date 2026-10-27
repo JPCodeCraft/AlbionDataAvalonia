@@ -172,7 +172,7 @@ Ctrl-click or Shift-click sessions to combine them, and use **Delete session…*
 
 ![Activity over time for a session](docs/screenshots/activity-chart.png)
 
-The chart shows damage or healing over time, with markers for kills, loot and gathering, and the fights along the bottom. Use **Show** to filter by gathering, fishing, PvE or PvP, and **Replay** to play the session back.
+The chart shows damage or healing over time, with markers for kills, loot and gathering, and the fights along the bottom. Use **Show** to filter by gathering (fishing included), PvE or PvP, and **Replay** to play the session back.
 
 ### Items
 
