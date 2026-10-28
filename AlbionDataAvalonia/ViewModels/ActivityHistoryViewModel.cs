@@ -96,13 +96,20 @@ public partial class ActivityHistoryViewModel : ObservableObject, IDisposable
     [ObservableProperty] private ActivityPlayerColumns playerColumns = ActivityPlayerColumns.None;
     [ObservableProperty] private ObservableCollection<ActivityMobRow> mobs = new();
     [ObservableProperty] private ObservableCollection<ActivityLootRow> sessionLoot = new();
+    // History › Loot lists each pickup, or one row per item when grouped.
+    [ObservableProperty] private ObservableCollection<ActivityLootTotalRow> sessionLootTotals = new();
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowSessionLootList), nameof(ShowSessionLootTotals))]
+    private bool groupSessionLoot;
     [ObservableProperty] private ObservableCollection<ActivityEventRow> timeline = new();
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSessionResources))]
     private ObservableCollection<ActivityResourceRow> sessionResources = new();
     [ObservableProperty] private string sessionResourcesText = "";
     // Set when a read finds nothing, so an empty list doesn't flash its empty state while it loads.
-    [ObservableProperty] private bool hasNoSessionLoot;
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowSessionLootList), nameof(ShowSessionLootTotals))]
+    private bool hasNoSessionLoot;
     [ObservableProperty] private bool hasNoSessionResources;
     [ObservableProperty] private ActivitySessionRow? selectedSession;
     [ObservableProperty] private ActivityEncounterRow? selectedEncounter;
@@ -131,6 +138,8 @@ public partial class ActivityHistoryViewModel : ObservableObject, IDisposable
     }
 
     public bool HasSessionResources => SessionResources.Count > 0;
+    public bool ShowSessionLootList => !GroupSessionLoot && !HasNoSessionLoot;
+    public bool ShowSessionLootTotals => GroupSessionLoot && !HasNoSessionLoot;
     public bool HasPartyHistory => PartyHistory.Members.Count > 0;
     public bool HasPartyChanges => PartyHistory.Changes.Count > 0;
 
@@ -392,7 +401,7 @@ public partial class ActivityHistoryViewModel : ObservableObject, IDisposable
             }
             finally { applyingSelection = false; }
         }
-        else if (detailTab == ActivityDetailTab.KilledMobs)
+        else if (detailTab == ActivityDetailTab.Mobs)
         {
             var totals = await persistence.GetMobsAsync(query, cancellationToken);
             if (IsCurrentDetail(version, playSessionId) && DetailQuery() == query && SelectedDetailTab == detailTab) Mobs = new(totals.Select(total => new ActivityMobRow(total)));
@@ -476,6 +485,13 @@ public partial class ActivityHistoryViewModel : ObservableObject, IDisposable
     private async Task LoadSessionLootAsync(bool append, long? version = null, bool refresh = false)
     {
         if (page.Persistence is not { } persistence || SelectedPlaySession is null) return;
+        // Grouped by item, the list reads every item at once, so there is no more to load.
+        if (GroupSessionLoot)
+        {
+            if (!append) await LoadSessionLootTotalsAsync(persistence, version);
+            return;
+        }
+
         var query = DetailQuery(true);
         var cancellationToken = detailQueryCancellation.Token;
         var playSessionId = SelectedPlaySession.Id;
@@ -487,6 +503,18 @@ public partial class ActivityHistoryViewModel : ObservableObject, IDisposable
         sessionLootPage = pageIndex;
         HasMoreSessionLoot = result.HasMore;
         HasNoSessionLoot = SessionLoot.Count == 0;
+    }
+
+    private async Task LoadSessionLootTotalsAsync(ActivityPersistence persistence, long? version)
+    {
+        var query = DetailQuery(true);
+        var playSessionId = SelectedPlaySession?.Id;
+        var rows = await persistence.GetLootTotalsAsync(query, detailQueryCancellation.Token);
+        if (page.IsDisposed || !GroupSessionLoot || SelectedPlaySession?.Id != playSessionId || DetailQuery(true) != query ||
+            version is { } expected && detailVersion != expected) return;
+        SessionLootTotals = new(rows.Select(row => new ActivityLootTotalRow(row)));
+        HasMoreSessionLoot = false;
+        HasNoSessionLoot = rows.Count == 0;
     }
 
     private async Task RefreshSessionResourcesAsync(long version)
@@ -564,7 +592,19 @@ public partial class ActivityHistoryViewModel : ObservableObject, IDisposable
         ++detailChangeVersion; ++detailVersion;
         sessionLootPage = 0;
         SessionLoot.Clear();
+        SessionLootTotals = new();
         if (page.IsShowing(ActivityTab.History) && SelectedDetailTab is ActivityDetailTab.Loot or ActivityDetailTab.Gathering)
+            _ = page.RunSafelyAsync(RefreshDetailsAsync);
+    }
+
+    partial void OnGroupSessionLootChanged(bool value)
+    {
+        ++detailChangeVersion; ++detailVersion;
+        sessionLootPage = 0;
+        SessionLoot.Clear();
+        SessionLootTotals = new();
+        HasMoreSessionLoot = false;
+        if (page.IsShowing(ActivityTab.History) && SelectedDetailTab == ActivityDetailTab.Loot)
             _ = page.RunSafelyAsync(RefreshDetailsAsync);
     }
 
@@ -604,6 +644,7 @@ public partial class ActivityHistoryViewModel : ObservableObject, IDisposable
         }
         finally { applyingSelection = false; }
         Encounters.Clear(); Players.Clear(); Mobs.Clear(); SessionLoot.Clear(); Timeline.Clear(); HistoryLiveTimeline = null;
+        SessionLootTotals = new();
         encounterPage = timelinePage = sessionLootPage = 0;
         HasMoreEncounters = HasMoreSessionLoot = HasMoreTimeline = false;
         DetailSummary = ActivitySummaryPresentation.Empty;
@@ -631,6 +672,7 @@ public partial class ActivityHistoryViewModel : ObservableObject, IDisposable
     {
         timelinePage = sessionLootPage = 0;
         SessionLoot.Clear(); Timeline.Clear(); HistoryLiveTimeline = null;
+        SessionLootTotals = new();
         HasMoreSessionLoot = HasMoreTimeline = false;
     }
 

@@ -18,34 +18,32 @@
     </Window.Styles>
 
     <Grid RowDefinitions="Auto,*,Auto">
+        <!-- The zone's name sits on the map, so the bar only holds choices. When the window is too narrow for all
+             of them, the event and fade choices move under the run and map, and then the run's name shortens. -->
         <Border BorderBrush="{DynamicResource UiDividerBrush}" BorderThickness="0,0,0,1" Padding="12,8,12,4">
-            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="12">
-                <controls:SegmentedSelector ItemsSource="{Binding ModeOptions}" SelectedIndex="{Binding SelectedModeIndex}"
-                                                 AutomationProperties.Name="Map mode" VerticalAlignment="Center" />
-                <StackPanel Grid.Column="1" Orientation="Horizontal" Spacing="10" VerticalAlignment="Center" Margin="0,0,0,4">
-                    <ComboBox ItemsSource="{Binding Runs}" SelectedItem="{Binding SelectedRun}" IsVisible="{Binding IsHistory}"
-                              MinWidth="260" MaxWidth="420" AutomationProperties.Name="Run" PlaceholderText="No runs with positions yet">
+            <controls:ActionRow Spacing="8">
+                <Grid ColumnDefinitions="Auto,*,Auto">
+                    <controls:SegmentedSelector ItemsSource="{Binding ModeOptions}" SelectedIndex="{Binding SelectedModeIndex}"
+                                                AutomationProperties.Name="Map mode" VerticalAlignment="Center" />
+                    <ComboBox Grid.Column="1" ItemsSource="{Binding Runs}" SelectedItem="{Binding SelectedRun}" IsVisible="{Binding IsHistory}"
+                              MinWidth="200" MaxWidth="420" Margin="12,0,0,4" VerticalAlignment="Center"
+                              AutomationProperties.Name="Run" PlaceholderText="No runs with positions yet">
                         <ComboBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:ActivityMapRunOption">
                                 <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
                             </DataTemplate>
                         </ComboBox.ItemTemplate>
                     </ComboBox>
-                    <ComboBox ItemsSource="{Binding RunMaps}" SelectedItem="{Binding SelectedRunMap}" MinWidth="150"
-                              IsVisible="{Binding HasMultipleRunMaps}" AutomationProperties.Name="Map in this run">
+                    <ComboBox Grid.Column="2" ItemsSource="{Binding RunMaps}" SelectedItem="{Binding SelectedRunMap}" MinWidth="120" MaxWidth="240"
+                              Margin="10,0,0,4" VerticalAlignment="Center" IsVisible="{Binding HasMultipleRunMaps}" AutomationProperties.Name="Map in this run">
                         <ComboBox.ItemTemplate>
                             <DataTemplate x:DataType="vm:ActivityMapRunMapOption">
-                                <TextBlock Text="{Binding Label}" />
+                                <TextBlock Text="{Binding Label}" TextTrimming="CharacterEllipsis" />
                             </DataTemplate>
                         </ComboBox.ItemTemplate>
                     </ComboBox>
-                    <StackPanel VerticalAlignment="Center" Spacing="1">
-                        <TextBlock Classes="UiSectionTitle" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
-                        <TextBlock Text="{Binding Subtitle}" Classes="UiLabel"
-                                   IsVisible="{Binding Subtitle, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
-                    </StackPanel>
-                </StackPanel>
-                <StackPanel Grid.Column="2" Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
+                </Grid>
+                <StackPanel Orientation="Horizontal" Spacing="8" VerticalAlignment="Center">
                     <controls:SegmentedSelector ItemsSource="{Binding ScopeOptions}" SelectedIndex="{Binding SelectedScopeIndex}"
                                                      AutomationProperties.Name="Events shown"
                                                      ToolTip.Tip="Personal shows your own events. Party adds your party's, with a light ring, placed where you were when the client saw them. The path is always yours." />
@@ -53,15 +51,24 @@
                     <controls:SegmentedSelector ItemsSource="{Binding FadeOptions}" SelectedIndex="{Binding SelectedFadeIndex}"
                                                      AutomationProperties.Name="Fade path and events after" IsVisible="{Binding IsLive}" />
                 </StackPanel>
-            </Grid>
+            </controls:ActionRow>
         </Border>
 
         <Grid Grid.Row="1">
             <views:ActivityMapCanvas x:Name="MapCanvas" Scene="{Binding Scene}" Follow="{Binding Follow, Mode=TwoWay}" />
 
-            <Border Classes="UiOverlay" IsVisible="{Binding HasNote}" HorizontalAlignment="Left" VerticalAlignment="Top" Margin="12" MaxWidth="460">
-                <TextBlock Text="{Binding Note}" TextWrapping="Wrap" FontSize="{DynamicResource UiFontSizeSmall}" />
-            </Border>
+            <StackPanel HorizontalAlignment="Left" VerticalAlignment="Top" Margin="12" MaxWidth="460" Spacing="8">
+                <Border Classes="UiOverlay" IsVisible="{Binding HasPlace}" HorizontalAlignment="Left">
+                    <StackPanel Spacing="1">
+                        <TextBlock Classes="UiSectionTitle" Text="{Binding Title}" TextTrimming="CharacterEllipsis" />
+                        <TextBlock Text="{Binding Subtitle}" Classes="UiLabel" TextTrimming="CharacterEllipsis"
+                                   IsVisible="{Binding Subtitle, Converter={x:Static StringConverters.IsNotNullOrEmpty}}" />
+                    </StackPanel>
+                </Border>
+                <Border Classes="UiOverlay" IsVisible="{Binding HasNote}" HorizontalAlignment="Left">
+                    <TextBlock Text="{Binding Note}" TextWrapping="Wrap" FontSize="{DynamicResource UiFontSizeSmall}" />
+                </Border>
+            </StackPanel>
 
             <StackPanel HorizontalAlignment="Right" VerticalAlignment="Top" Margin="12" IsVisible="{Binding ShowFollow}">
                 <Border Classes="UiOverlay" IsVisible="{Binding Follow}">
@@ -130,19 +137,33 @@
             </StackPanel>
         </Grid>
 
-        <Border Grid.Row="2" IsVisible="{Binding IsHistory}" BorderBrush="{DynamicResource UiDividerBrush}" BorderThickness="0,1,0,0" Padding="12,8">
-            <Grid ColumnDefinitions="Auto,Auto,*,Auto,Auto" ColumnSpacing="10">
+        <!-- The replay's position and the visit's length, like a video's. Both share a width and draw digits at one
+             width, so the slider keeps still while the time runs. -->
+        <Border Grid.Row="2" IsVisible="{Binding IsHistory}" BorderBrush="{DynamicResource UiDividerBrush}" BorderThickness="0,1,0,0" Padding="12,8"
+                Grid.IsSharedSizeScope="True">
+            <Grid ColumnSpacing="10">
+                <Grid.ColumnDefinitions>
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="ReplayTime" />
+                    <ColumnDefinition Width="*" />
+                    <ColumnDefinition Width="Auto" SharedSizeGroup="ReplayTime" />
+                    <ColumnDefinition Width="Auto" />
+                    <ColumnDefinition Width="Auto" />
+                </Grid.ColumnDefinitions>
                 <Button Content="{Binding PlayButtonText}" Command="{Binding TogglePlayCommand}" Width="34" Height="34" CornerRadius="17"
                         HorizontalContentAlignment="Center" VerticalContentAlignment="Center" ToolTip.Tip="Replay this run"
                         AutomationProperties.Name="{Binding PlayButtonName}" />
-                <TextBlock Grid.Column="1" Text="{Binding TimelineStartText}" Classes="UiLabel" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="1" Text="{Binding TimelinePositionText}" Classes="UiLabel" VerticalAlignment="Center" TextAlignment="Right"
+                           FontFeatures="tnum" />
                 <Grid Grid.Column="2" VerticalAlignment="Center">
                     <views:ActivityMapTimelineTicks Ticks="{Binding Ticks}" Height="14" VerticalAlignment="Center" Opacity="0.85" />
                     <Slider Minimum="0" Maximum="{Binding TimelineMaximum}" Value="{Binding TimelineValue}" VerticalAlignment="Center"
                             ToolTip.Tip="{Binding TimelineNowText}" AutomationProperties.Name="Replay position" />
                 </Grid>
-                <TextBlock Grid.Column="3" Text="{Binding TimelineEndText}" Classes="UiLabel" VerticalAlignment="Center" />
-                <TextBlock Grid.Column="4" Text="{Binding RunSummaryText}" Classes="UiLabel" VerticalAlignment="Center" />
+                <TextBlock Grid.Column="3" Text="{Binding TimelineLengthText}" Classes="UiLabel" VerticalAlignment="Center" FontFeatures="tnum" />
+                <ComboBox Grid.Column="4" ItemsSource="{Binding SpeedOptions}" SelectedIndex="{Binding SelectedSpeedIndex}" Width="78" VerticalAlignment="Center"
+                          ToolTip.Tip="Playback speed" AutomationProperties.Name="Replay speed" />
+                <TextBlock Grid.Column="5" Text="{Binding RunSummaryText}" Classes="UiLabel" VerticalAlignment="Center" />
             </Grid>
         </Border>
     </Grid>

@@ -320,6 +320,9 @@ public sealed record ActivityRates(double DurationSeconds, double DamagePerSecon
 public sealed record ActivityResourceTotal(int? ItemId, int? Quality, string? UniqueName, string Name,
     ActivityResourceMethod Source, long Quantity, long KnownValue, long MissingPriceItems,
     long FullJournalValue = 0, long EmptyJournalValue = 0);
+// One item's loot added up the way the loot totals count it; BlackMarketPickups of the PricedPickups used the Black Market EMV.
+public sealed record ActivityLootTotal(int? ItemId, int? Quality, string? UniqueName, string Name, long Quantity, long KnownValue,
+    long MissingPriceItems, long Pickups, long PricedPickups, long BlackMarketPickups, DateTime LastPickedUpUtc);
 public sealed record ActivityImportResult(int ImportedSessions, int SkippedSessions, IReadOnlyList<string> Errors);
 public sealed record ActivityResourceDetails
 {

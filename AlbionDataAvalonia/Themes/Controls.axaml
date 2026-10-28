@@ -86,6 +86,11 @@
         <Setter Property="MinHeight" Value="30" />
         <Setter Property="Padding" Value="16,0,16,0" />
     </Style>
+    <!-- A tab under the pointer shows a faint bar where the accent bar goes, so the headers read as choices. -->
+    <Style Selector=".AppPage TabItem:pointerover:not(:selected):not(:disabled) /template/ Border#PART_SelectedPipe">
+        <Setter Property="IsVisible" Value="True" />
+        <Setter Property="Background" Value="{DynamicResource UiBorderStrongBrush}" />
+    </Style>
     <Style Selector=".AppPage DataGrid">
         <Setter Property="Background" Value="{DynamicResource UiSurfaceBrush}" />
         <Setter Property="BorderThickness" Value="0" />

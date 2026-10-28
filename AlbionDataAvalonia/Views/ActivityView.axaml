@@ -48,8 +48,11 @@
             <controls:ItemCell Classes="Compact" IconSize="28" ItemUniqueName="{Binding ItemUniqueName}" ImageQuality="{Binding ImageQuality}" Title="{Binding ItemName}" Subtitle="{Binding Quality}"
                                ToolTip.Tip="{Binding ItemTip}" />
         </DataTemplate>
-        <!-- History rows show the same item without hover details. -->
+        <!-- History rows show the same item without hover details, one pickup or all of an item's. -->
         <DataTemplate x:Key="LootItemTemplate" x:DataType="vm:ActivityLootRow">
+            <controls:ItemCell Classes="Compact" IconSize="28" ItemUniqueName="{Binding ItemUniqueName}" ImageQuality="{Binding ImageQuality}" Title="{Binding ItemName}" Subtitle="{Binding Quality}" />
+        </DataTemplate>
+        <DataTemplate x:Key="LootTotalItemTemplate" x:DataType="vm:ActivityLootTotalRow">
             <controls:ItemCell Classes="Compact" IconSize="28" ItemUniqueName="{Binding ItemUniqueName}" ImageQuality="{Binding ImageQuality}" Title="{Binding ItemName}" Subtitle="{Binding Quality}" />
         </DataTemplate>
         <!-- A killed mob as a tile beside the gathered ones: its portrait, name and kills. -->
@@ -379,24 +382,6 @@
                         </Grid>
                         <ContentControl Content="{Binding DetailSummary}" ContentTemplate="{StaticResource SummaryTemplate}" />
                         <TabControl SelectedIndex="{Binding SelectedDetailTabIndex, Mode=TwoWay}">
-                            <TabItem Header="Encounters" IsEnabled="{Binding Detail.HasDetailedHistory}">
-                                <Grid RowDefinitions="Auto,Auto" RowSpacing="6">
-                                    <DataGrid ItemsSource="{Binding Encounters}" Height="{Binding Encounters.Count, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}" MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto" SelectedItem="{Binding SelectedEncounter, Mode=TwoWay}" SelectionMode="Single">
-                                        <DataGrid.Columns>
-                                            <DataGridTextColumn Header="#" Binding="{Binding Number}" />
-                                            <DataGridTextColumn Header="Started" Binding="{Binding StartedText}" SortMemberPath="Source.StartedAtUtc" />
-                                            <DataGridTextColumn Header="Location" Binding="{Binding Location}" Width="*" />
-                                            <DataGridTextColumn Header="Type" Binding="{Binding Classification}" />
-                                            <DataGridTextColumn Header="Duration" Binding="{Binding DurationText}" SortMemberPath="Source.CombatDurationSeconds" />
-                                            <DataGridTextColumn Header="Damage" Binding="{Binding DamageText}" SortMemberPath="DamageDealt" />
-                                            <DataGridTextColumn Header="DPS" Binding="{Binding DamageRateText}" SortMemberPath="DamagePerSecond" />
-                                            <DataGridTextColumn Header="Healing" Binding="{Binding HealingText}" SortMemberPath="HealingDone" />
-                                            <DataGridTextColumn Header="HPS" Binding="{Binding HealingRateText}" SortMemberPath="HealingPerSecond" />
-                                        </DataGrid.Columns>
-                                    </DataGrid>
-                                    <Button Grid.Row="1" Classes="UiAction" Content="Load more" Command="{Binding LoadMoreEncountersCommand}" IsVisible="{Binding HasMoreEncounters}" HorizontalAlignment="Left" />
-                                </Grid>
-                            </TabItem>
                             <TabItem Header="Charts" IsEnabled="{Binding Detail.HasCharts}" ToolTip.ShowOnDisabled="True"
                                      ToolTip.Tip="{Binding Detail.ChartsTip}">
                                 <StackPanel Spacing="12">
@@ -404,52 +389,24 @@
                                     <views:ActivityLiveTimelineView Snapshot="{Binding HistoryLiveTimeline}" ReplaySnapshot="{Binding HistoryReplayTimeline}" ReplayWindowCommand="{Binding LoadHistoryReplayCommand}" ShowReplayControls="True" ChartMode="{Binding Filters.ChartMode, Mode=TwoWay}" IsRolling="False" ShowWindowSelector="False" Title="Activity over time" OpenEncounterCommand="{Binding OpenTimelineEncounterCommand}" />
                                 </StackPanel>
                             </TabItem>
-                            <TabItem Header="Players" IsEnabled="{Binding Detail.HasDetailedHistory}">
-                                <DataGrid x:Name="HistoryPlayersTable" ItemsSource="{Binding Players}" Height="{Binding Players.Count, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}" MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto" SelectedItem="{Binding SelectedPlayer, Mode=TwoWay}" SelectionMode="Single">
-                                    <DataGrid.Columns>
-                                        <DataGridTextColumn Header="Player" Binding="{Binding Name}" Width="*" MinWidth="160" />
-                                        <DataGridTextColumn Header="Group" Binding="{Binding Relationship}" />
-                                        <DataGridTextColumn Header="Damage dealt" Binding="{Binding DamageDealt}" SortMemberPath="Source.DamageDealt" />
-                                        <DataGridTextColumn Header="Damage received" Binding="{Binding DamageReceived}" SortMemberPath="Source.DamageReceived" />
-                                        <DataGridTextColumn Header="Healing done" Binding="{Binding HealingDone}" SortMemberPath="Source.HealingDone" />
-                                        <DataGridTextColumn Header="Healing received" Binding="{Binding HealingReceived}" SortMemberPath="Source.HealingReceived" />
-                                        <!-- Earnings columns appear only when the session recorded them. -->
-                                        <DataGridTextColumn Header="Fame" Binding="{Binding Fame}" SortMemberPath="Source.Fame" Tag="Fame" IsVisible="False" />
-                                        <DataGridTextColumn Header="Silver" Binding="{Binding Silver}" SortMemberPath="Source.SilverRaw" Tag="Silver" IsVisible="False" />
-                                        <DataGridTextColumn Header="Loot (items)" Binding="{Binding Loot}" SortMemberPath="Source.LootValue" Tag="Loot" IsVisible="False" />
-                                        <DataGridTextColumn Header="Gathered (items)" Binding="{Binding Gathered}" SortMemberPath="Source.GatheredValue" Tag="Gathered" IsVisible="False" />
-                                        <DataGridTextColumn Header="Deaths" Binding="{Binding Deaths}" SortMemberPath="Source.Deaths" Tag="Deaths" IsVisible="False" />
-                                    </DataGrid.Columns>
-                                </DataGrid>
-                            </TabItem>
-                            <TabItem Header="Killed mobs" IsEnabled="{Binding Detail.HasDetailedHistory}">
-                                <DataGrid ItemsSource="{Binding Mobs}" RowHeight="36" Height="{Binding Mobs.Count, Converter={x:Static views:ActivityView.HistoryMobTableHeightConverter}}" MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto">
-                                    <DataGrid.Columns>
-                                        <DataGridTemplateColumn Header="Mob" Width="*" SortMemberPath="Name">
-                                            <DataGridTemplateColumn.CellTemplate>
-                                                <DataTemplate x:DataType="vm:ActivityMobRow">
-                                                    <controls:MobCell MobUniqueName="{Binding MobUniqueName}" IconSize="32" Title="{Binding Name}" Margin="8,0" ToolTip.Tip="{Binding Tip}" />
-                                                </DataTemplate>
-                                            </DataGridTemplateColumn.CellTemplate>
-                                        </DataGridTemplateColumn>
-                                        <DataGridTextColumn Header="Kills" Binding="{Binding Count}" SortMemberPath="Kills" />
-                                    </DataGrid.Columns>
-                                </DataGrid>
-                            </TabItem>
                             <!-- Loot and Gathering share one scope: whose items they show. -->
                             <TabItem Header="Loot" IsEnabled="{Binding Detail.HasDetailedHistory}">
                                 <StackPanel Spacing="12">
-                                    <!-- The scope on the left, the export and what it last did on the right. The segments keep 4px
-                                         under them for wrapping, so moving them down 2px centers them on the export button. -->
+                                    <!-- The scope and grouping on the left, the export and what it last did on the right. The chips keep
+                                         4px under them for wrapping, so moving them down 2px centers them on the export button. -->
                                     <controls:ActionRow>
-                                        <controls:SegmentedSelector ItemsSource="{Binding Filters.LootScopeOptions}" SelectedItem="{Binding SelectedSessionLootScope, Mode=TwoWay}" AutomationProperties.Name="Session loot scope" VerticalAlignment="Center" Margin="0,2,0,-2" />
+                                        <WrapPanel ItemSpacing="12" LineSpacing="6" VerticalAlignment="Center" Margin="0,2,0,-2">
+                                            <controls:SegmentedSelector ItemsSource="{Binding Filters.LootScopeOptions}" SelectedItem="{Binding SelectedSessionLootScope, Mode=TwoWay}" AutomationProperties.Name="Session loot scope" />
+                                            <ToggleButton Theme="{StaticResource UiToggleChip}" Content="Group by item" IsChecked="{Binding GroupSessionLoot, Mode=TwoWay}"
+                                                          ToolTip.Tip="One row per item, with its pickups added up as in the Loot EMV total. The export still lists each pickup." />
+                                        </WrapPanel>
                                         <WrapPanel ItemsAlignment="End" ItemSpacing="12" LineSpacing="6" VerticalAlignment="Center" IsVisible="{Binding !HasNoSessionLoot}">
                                             <TextBlock Classes="UiLabel" Text="{Binding Export.StatusText}" IsVisible="{Binding Export.HasStatus}" TextWrapping="Wrap" VerticalAlignment="Center" />
                                             <views:ActivityLootExportBar Export="{Binding Export}" ExportCommand="{Binding ExportSessionLootCommand}" CanExport="{Binding Detail.CanExportLoot}" ShowLootLoggerLink="True" HorizontalAlignment="Right" />
                                         </WrapPanel>
                                     </controls:ActionRow>
                                     <controls:EmptyState Classes="Inline" Message="No loot picked up." IsVisible="{Binding HasNoSessionLoot}" />
-                                    <DataGrid ItemsSource="{Binding SessionLoot}" IsVisible="{Binding !HasNoSessionLoot}" Classes="Compact" RowHeight="40" Height="{Binding SessionLoot.Count, Converter={x:Static views:ActivityView.HistoryLootTableHeightConverter}}" MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto">
+                                    <DataGrid ItemsSource="{Binding SessionLoot}" IsVisible="{Binding ShowSessionLootList}" Classes="Compact" RowHeight="40" Height="{Binding SessionLoot.Count, Converter={x:Static views:ActivityView.HistoryLootTableHeightConverter}}" MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto">
                                         <DataGrid.Columns>
                                             <DataGridTextColumn Header="Time" Binding="{Binding TimeText}" SortMemberPath="CapturedAtUtc" />
                                             <DataGridTemplateColumn Header="Item" Width="*" MinWidth="200" CellTemplate="{StaticResource LootItemTemplate}" SortMemberPath="ItemName" />
@@ -462,6 +419,15 @@
                                             <DataGridTextColumn Header="Source guild" Binding="{Binding LootSourceGuild}" />
                                             <DataGridTextColumn Header="Source alliance" Binding="{Binding LootSourceAlliance}" />
                                             <DataGridTextColumn Header="Location" Binding="{Binding Location}" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                    <DataGrid ItemsSource="{Binding SessionLootTotals}" IsVisible="{Binding ShowSessionLootTotals}" Classes="Compact" RowHeight="40" Height="{Binding SessionLootTotals.Count, Converter={x:Static views:ActivityView.HistoryLootTableHeightConverter}}" MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto">
+                                        <DataGrid.Columns>
+                                            <DataGridTemplateColumn Header="Item" Width="*" MinWidth="200" CellTemplate="{StaticResource LootTotalItemTemplate}" SortMemberPath="ItemName" />
+                                            <DataGridTextColumn Header="Quantity" Binding="{Binding QuantityText}" SortMemberPath="Quantity" />
+                                            <DataGridTextColumn Header="EMV" Binding="{Binding ValueText}" SortMemberPath="Value" />
+                                            <DataGridTextColumn Header="Pickups" Binding="{Binding PickupsText}" SortMemberPath="Pickups" />
+                                            <DataGridTextColumn Header="Last picked up" Binding="{Binding LastPickedUpText}" SortMemberPath="LastPickedUpUtc" />
                                         </DataGrid.Columns>
                                     </DataGrid>
                                     <Button Classes="UiAction" Content="Load more" Command="{Binding LoadMoreSessionLootCommand}" IsVisible="{Binding HasMoreSessionLoot}" HorizontalAlignment="Left" />
@@ -480,15 +446,37 @@
                                     </ItemsRepeater>
                                 </StackPanel>
                             </TabItem>
-                            <TabItem Header="Timeline" IsEnabled="{Binding Detail.HasDetailedHistory}">
-                                <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
-                                    <ContentControl Content="{Binding Filters}" ContentTemplate="{StaticResource ActivityVisibilityTemplate}" />
-                                    <DataGrid x:Name="HistoryTimelineTable" Grid.Row="1" ItemsSource="{Binding Timeline}" Height="{Binding Timeline.Count, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}"
-                                              MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto">
-                                        <DataGrid.Columns><DataGridTextColumn Header="Time" Binding="{Binding TimeText}" SortMemberPath="CapturedAtUtc" /><DataGridTextColumn Header="Event" Binding="{Binding Kind}" /><DataGridTemplateColumn Header="Source" SortMemberPath="Source"><DataGridTemplateColumn.CellTemplate><DataTemplate x:DataType="vm:ActivityEventRow"><StackPanel Orientation="Horizontal" Spacing="6" Margin="12,0" VerticalAlignment="Center" ToolTip.Tip="{Binding SourceTip}"><Image Width="24" Height="24" Stretch="Uniform" IsVisible="{Binding HasSourceMob}" items:LazyMobImage.MobUniqueName="{Binding SourceMob}" /><TextBlock Text="{Binding Source}" VerticalAlignment="Center" /></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTemplateColumn Header="Target" SortMemberPath="Target"><DataGridTemplateColumn.CellTemplate><DataTemplate x:DataType="vm:ActivityEventRow"><StackPanel Orientation="Horizontal" Spacing="6" Margin="12,0" VerticalAlignment="Center" ToolTip.Tip="{Binding TargetTip}"><Image Width="24" Height="24" Stretch="Uniform" IsVisible="{Binding HasTargetMob}" items:LazyMobImage.MobUniqueName="{Binding TargetMob}" /><TextBlock Text="{Binding Target}" VerticalAlignment="Center" /></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTemplateColumn Header="Details" Width="*" MinWidth="160" SortMemberPath="Description"><DataGridTemplateColumn.CellTemplate><DataTemplate x:DataType="vm:ActivityEventRow"><StackPanel Orientation="Horizontal" Spacing="6" Margin="12,0" VerticalAlignment="Center" ToolTip.Tip="{Binding ItemTip}"><Image Width="24" Height="24" Stretch="Uniform" IsVisible="{Binding HasItem}" items:LazyItemImage.ItemUniqueName="{Binding ItemUniqueName}" items:LazyItemImage.Quality="{Binding ImageQuality}" /><TextBlock Text="{Binding Description}" VerticalAlignment="Center" /></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTextColumn Header="Location" Binding="{Binding Location}" /></DataGrid.Columns>
-                                    </DataGrid>
-                                    <Button Grid.Row="2" Classes="UiAction" Content="Load more" Command="{Binding LoadMoreTimelineCommand}" IsVisible="{Binding HasMoreTimeline}" HorizontalAlignment="Left" />
-                                </Grid>
+                            <TabItem Header="Mobs" IsEnabled="{Binding Detail.HasDetailedHistory}">
+                                <DataGrid ItemsSource="{Binding Mobs}" RowHeight="36" Height="{Binding Mobs.Count, Converter={x:Static views:ActivityView.HistoryMobTableHeightConverter}}" MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto">
+                                    <DataGrid.Columns>
+                                        <DataGridTemplateColumn Header="Mob" Width="*" SortMemberPath="Name">
+                                            <DataGridTemplateColumn.CellTemplate>
+                                                <DataTemplate x:DataType="vm:ActivityMobRow">
+                                                    <controls:MobCell MobUniqueName="{Binding MobUniqueName}" IconSize="32" Title="{Binding Name}" Margin="8,0" ToolTip.Tip="{Binding Tip}" />
+                                                </DataTemplate>
+                                            </DataGridTemplateColumn.CellTemplate>
+                                        </DataGridTemplateColumn>
+                                        <DataGridTextColumn Header="Kills" Binding="{Binding Count}" SortMemberPath="Kills" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
+                            </TabItem>
+                            <TabItem Header="Players" IsEnabled="{Binding Detail.HasDetailedHistory}">
+                                <DataGrid x:Name="HistoryPlayersTable" ItemsSource="{Binding Players}" Height="{Binding Players.Count, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}" MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto" SelectedItem="{Binding SelectedPlayer, Mode=TwoWay}" SelectionMode="Single">
+                                    <DataGrid.Columns>
+                                        <DataGridTextColumn Header="Player" Binding="{Binding Name}" Width="*" MinWidth="160" />
+                                        <DataGridTextColumn Header="Group" Binding="{Binding Relationship}" />
+                                        <DataGridTextColumn Header="Damage dealt" Binding="{Binding DamageDealt}" SortMemberPath="Source.DamageDealt" />
+                                        <DataGridTextColumn Header="Damage received" Binding="{Binding DamageReceived}" SortMemberPath="Source.DamageReceived" />
+                                        <DataGridTextColumn Header="Healing done" Binding="{Binding HealingDone}" SortMemberPath="Source.HealingDone" />
+                                        <DataGridTextColumn Header="Healing received" Binding="{Binding HealingReceived}" SortMemberPath="Source.HealingReceived" />
+                                        <!-- Earnings columns appear only when the session recorded them. -->
+                                        <DataGridTextColumn Header="Fame" Binding="{Binding Fame}" SortMemberPath="Source.Fame" Tag="Fame" IsVisible="False" />
+                                        <DataGridTextColumn Header="Silver" Binding="{Binding Silver}" SortMemberPath="Source.SilverRaw" Tag="Silver" IsVisible="False" />
+                                        <DataGridTextColumn Header="Loot (items)" Binding="{Binding Loot}" SortMemberPath="Source.LootValue" Tag="Loot" IsVisible="False" />
+                                        <DataGridTextColumn Header="Gathered (items)" Binding="{Binding Gathered}" SortMemberPath="Source.GatheredValue" Tag="Gathered" IsVisible="False" />
+                                        <DataGridTextColumn Header="Deaths" Binding="{Binding Deaths}" SortMemberPath="Source.Deaths" Tag="Deaths" IsVisible="False" />
+                                    </DataGrid.Columns>
+                                </DataGrid>
                             </TabItem>
                             <TabItem Header="Maps" IsEnabled="{Binding Detail.HasDetailedHistory}">
                                 <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
@@ -513,6 +501,24 @@
                                         </DataGrid.Columns>
                                     </DataGrid>
                                     <Button Grid.Row="2" Classes="UiAction" Content="Load more" Command="{Binding LoadMoreMapsCommand}" IsVisible="{Binding HasMoreMaps}" HorizontalAlignment="Left" />
+                                </Grid>
+                            </TabItem>
+                            <TabItem Header="Encounters" IsEnabled="{Binding Detail.HasDetailedHistory}">
+                                <Grid RowDefinitions="Auto,Auto" RowSpacing="6">
+                                    <DataGrid ItemsSource="{Binding Encounters}" Height="{Binding Encounters.Count, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}" MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto" SelectedItem="{Binding SelectedEncounter, Mode=TwoWay}" SelectionMode="Single">
+                                        <DataGrid.Columns>
+                                            <DataGridTextColumn Header="#" Binding="{Binding Number}" />
+                                            <DataGridTextColumn Header="Started" Binding="{Binding StartedText}" SortMemberPath="Source.StartedAtUtc" />
+                                            <DataGridTextColumn Header="Location" Binding="{Binding Location}" Width="*" />
+                                            <DataGridTextColumn Header="Type" Binding="{Binding Classification}" />
+                                            <DataGridTextColumn Header="Duration" Binding="{Binding DurationText}" SortMemberPath="Source.CombatDurationSeconds" />
+                                            <DataGridTextColumn Header="Damage" Binding="{Binding DamageText}" SortMemberPath="DamageDealt" />
+                                            <DataGridTextColumn Header="DPS" Binding="{Binding DamageRateText}" SortMemberPath="DamagePerSecond" />
+                                            <DataGridTextColumn Header="Healing" Binding="{Binding HealingText}" SortMemberPath="HealingDone" />
+                                            <DataGridTextColumn Header="HPS" Binding="{Binding HealingRateText}" SortMemberPath="HealingPerSecond" />
+                                        </DataGrid.Columns>
+                                    </DataGrid>
+                                    <Button Grid.Row="1" Classes="UiAction" Content="Load more" Command="{Binding LoadMoreEncountersCommand}" IsVisible="{Binding HasMoreEncounters}" HorizontalAlignment="Left" />
                                 </Grid>
                             </TabItem>
                             <TabItem Header="Party" IsEnabled="{Binding Detail.HasDetailedHistory}">
@@ -551,6 +557,16 @@
                                         </DataGrid>
                                     </StackPanel>
                                 </StackPanel>
+                            </TabItem>
+                            <TabItem Header="Timeline" IsEnabled="{Binding Detail.HasDetailedHistory}">
+                                <Grid RowDefinitions="Auto,Auto,Auto" RowSpacing="6">
+                                    <ContentControl Content="{Binding Filters}" ContentTemplate="{StaticResource ActivityVisibilityTemplate}" />
+                                    <DataGrid x:Name="HistoryTimelineTable" Grid.Row="1" ItemsSource="{Binding Timeline}" Height="{Binding Timeline.Count, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}"
+                                              MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto">
+                                        <DataGrid.Columns><DataGridTextColumn Header="Time" Binding="{Binding TimeText}" SortMemberPath="CapturedAtUtc" /><DataGridTextColumn Header="Event" Binding="{Binding Kind}" /><DataGridTemplateColumn Header="Source" SortMemberPath="Source"><DataGridTemplateColumn.CellTemplate><DataTemplate x:DataType="vm:ActivityEventRow"><StackPanel Orientation="Horizontal" Spacing="6" Margin="12,0" VerticalAlignment="Center" ToolTip.Tip="{Binding SourceTip}"><Image Width="24" Height="24" Stretch="Uniform" IsVisible="{Binding HasSourceMob}" items:LazyMobImage.MobUniqueName="{Binding SourceMob}" /><TextBlock Text="{Binding Source}" VerticalAlignment="Center" /></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTemplateColumn Header="Target" SortMemberPath="Target"><DataGridTemplateColumn.CellTemplate><DataTemplate x:DataType="vm:ActivityEventRow"><StackPanel Orientation="Horizontal" Spacing="6" Margin="12,0" VerticalAlignment="Center" ToolTip.Tip="{Binding TargetTip}"><Image Width="24" Height="24" Stretch="Uniform" IsVisible="{Binding HasTargetMob}" items:LazyMobImage.MobUniqueName="{Binding TargetMob}" /><TextBlock Text="{Binding Target}" VerticalAlignment="Center" /></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTemplateColumn Header="Details" Width="*" MinWidth="160" SortMemberPath="Description"><DataGridTemplateColumn.CellTemplate><DataTemplate x:DataType="vm:ActivityEventRow"><StackPanel Orientation="Horizontal" Spacing="6" Margin="12,0" VerticalAlignment="Center" ToolTip.Tip="{Binding ItemTip}"><Image Width="24" Height="24" Stretch="Uniform" IsVisible="{Binding HasItem}" items:LazyItemImage.ItemUniqueName="{Binding ItemUniqueName}" items:LazyItemImage.Quality="{Binding ImageQuality}" /><TextBlock Text="{Binding Description}" VerticalAlignment="Center" /></StackPanel></DataTemplate></DataGridTemplateColumn.CellTemplate></DataGridTemplateColumn><DataGridTextColumn Header="Location" Binding="{Binding Location}" /></DataGrid.Columns>
+                                    </DataGrid>
+                                    <Button Grid.Row="2" Classes="UiAction" Content="Load more" Command="{Binding LoadMoreTimelineCommand}" IsVisible="{Binding HasMoreTimeline}" HorizontalAlignment="Left" />
+                                </Grid>
                             </TabItem>
                         </TabControl>
                     </StackPanel>

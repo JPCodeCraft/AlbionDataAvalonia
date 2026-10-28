@@ -5,6 +5,7 @@ using Microsoft.Data.Sqlite;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Linq.Expressions;
 using System.Threading;
 using System.Threading.Tasks;
 
@@ -591,6 +592,35 @@ public sealed partial class ActivityPersistence
         var rows = await grouped.ToArrayAsync(cancellationToken);
         return rows.Select(x => new ActivityResourceTotal(x.ItemId, x.Quality, x.ItemUniqueName, x.ItemName,
             x.Source, x.Quantity, x.KnownValue, x.Missing, x.FullJournalValue, x.EmptyJournalValue)).ToArray();
+    }
+
+    // Each item's loot with the scope's own pickups only, as the loot totals count them: items taken from you and
+    // pickups still waiting for their quantity are left out, so the rows add up to the session's Loot EMV.
+    private async Task<IReadOnlyList<ActivityLootTotal>> GetLootTotalsCoreAsync(ActivityQuery filter, CancellationToken cancellationToken = default)
+    {
+        await using var context = contextFactory();
+        var counted = ActivityProjection.CountExpression(filter.Scope, nameof(ActivitySummary.LootItems), filter.ActorKey);
+        var isCounted = Expression.Lambda<Func<ActivityEvent, bool>>(Expression.GreaterThan(counted.Body, Expression.Constant(0L)), counted.Parameters);
+        var rows = await FilterEvents(context, filter with { LootOnly = true }).Where(isCounted)
+            .GroupBy(x => new { x.ItemId, x.Quality, x.ItemUniqueName, x.ItemName })
+            .Select(g => new
+            {
+                g.Key.ItemId,
+                g.Key.Quality,
+                g.Key.ItemUniqueName,
+                g.Key.ItemName,
+                Quantity = g.Sum(x => x.Quantity),
+                KnownValue = g.Sum(x => x.EstimatedUnitValue != null ? x.EstimatedUnitValue.Value * x.Quantity : 0),
+                Missing = g.Sum(x => x.EstimatedUnitValue == null ? x.Quantity : 0),
+                Pickups = g.LongCount(),
+                Priced = g.Sum(x => x.EstimatedUnitValue != null ? 1L : 0L),
+                BlackMarket = g.Sum(x => x.EstimatedUnitValue != null && ActivityDatabaseFunctions.JsonLong(x.DetailsJson, "$.BlackMarketEmv") == 1 ? 1L : 0L),
+                LastUtc = g.Max(x => x.CapturedAtUtc)
+            })
+            .OrderByDescending(x => x.KnownValue).ThenByDescending(x => x.Quantity).ThenBy(x => x.ItemName).ThenBy(x => x.Quality)
+            .ToArrayAsync(cancellationToken);
+        return rows.Select(x => new ActivityLootTotal(x.ItemId, x.Quality, x.ItemUniqueName, x.ItemName, x.Quantity, x.KnownValue, x.Missing,
+            x.Pickups, x.Priced, x.BlackMarket, x.LastUtc)).ToArray();
     }
 
     private async Task<ActivityLegacyImportInfo?> GetLegacyImportInfoCoreAsync(Guid sessionId, CancellationToken cancellationToken = default)

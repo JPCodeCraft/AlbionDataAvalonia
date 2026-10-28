@@ -330,6 +330,35 @@ public sealed class ActivityLootRow(ActivityEvent source)
     public string ContextDetails => Location;
 }
 
+// History › Loot grouped by item: one item's pickups added up, as the loot totals count them.
+public sealed class ActivityLootTotalRow(ActivityLootTotal source)
+{
+    public string ItemUniqueName => source.UniqueName ?? "";
+    public string ItemName => ActivityDisplay.ItemName(source.Name);
+    public int ImageQuality => source.Quality ?? 1;
+    public string Quality => ItemQuality.Format(source.Quality);
+    public long Quantity => source.Quantity;
+    public string QuantityText => UiFormat.Compact(source.Quantity);
+    // The table sorts by these; an item without any EMV sorts below every number.
+    public long? Value => source.PricedPickups > 0 ? source.KnownValue : null;
+    // Like a pickup's EMV, it says when the Black Market EMV priced it, and how many items had no EMV.
+    public string ValueText
+    {
+        get
+        {
+            if (Value is not { } value) return UiText.Unavailable;
+            var notes = new List<string>();
+            if (source.BlackMarketPickups == source.PricedPickups) notes.Add("Black Market EMV");
+            if (source.MissingPriceItems > 0) notes.Add($"{source.MissingPriceItems:N0} without EMV");
+            return UiFormat.Compact(value) + (notes.Count > 0 ? $" ({string.Join(", ", notes)})" : "");
+        }
+    }
+    public long Pickups => source.Pickups;
+    public string PickupsText => UiFormat.Whole(source.Pickups);
+    public DateTime LastPickedUpUtc => source.LastPickedUpUtc;
+    public string LastPickedUpText => UiFormat.LocalTime(source.LastPickedUpUtc);
+}
+
 public sealed class ActivityEventRow(ActivityEvent source)
 {
     public ActivityEvent SourceEvent { get; } = source;

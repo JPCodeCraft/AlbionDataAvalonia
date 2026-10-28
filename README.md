@@ -166,7 +166,7 @@ Each dungeon, Mists visit or stretch of open world is a **run** inside the sessi
 
 ### History
 
-**History** lists every saved session with its zones, length and silver. Pick one to see the same totals, then choose a run to see only that part. The tabs below break the session down into encounters, charts, players, killed mobs, loot, gathering (fishing included), a timeline, the maps you visited and your party.
+**History** lists every saved session with its zones, length and silver. Pick one to see the same totals, then choose a run to see only that part. The tabs below break the session down into charts, loot (each pickup, or grouped by item), gathering (fishing included), mobs, players, the maps you visited, encounters, your party and a timeline.
 
 Ctrl-click or Shift-click sessions to combine them, and use **Delete session…** to remove one.
 
@@ -187,7 +187,7 @@ Click **Open map** on the Activity page to open the map in its own window.
 ![The map replaying a run in Wyre Forest](docs/screenshots/activity-map.png)
 
 - **Live** follows you through the zone and draws your path, kills, loot, gathering, deaths, zone exits and map icons. Choose whether they fade after 1, 5 or 15 minutes, or never.
-- **History** replays any past run. Pick it from the list and press play, or drag along the timeline.
+- **History** replays any past run. Pick it from the list and press play, or drag along the timeline. Choose how fast it plays, from 1× to 64×; it starts at 2×.
 
 ### Streamer window
 

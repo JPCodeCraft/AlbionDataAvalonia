@@ -13,6 +13,7 @@ using CommunityToolkit.Mvvm.Input;
 using Serilog;
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Globalization;
 using System.Linq;
 using System.Net.Http;
@@ -31,7 +32,6 @@ public sealed record ActivityMapRunMapOption(string RawMapId, string Label, Date
 public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
 {
     private const double TimelineMax = 1000;
-    private static readonly TimeSpan ReplayLength = TimeSpan.FromSeconds(20);
     private static readonly TimeSpan FadeRefresh = TimeSpan.FromSeconds(1);
     // Without a minimap, the path is shown on a grid at least this many units across.
     private const double MinimumFallbackSize = 160;
@@ -42,6 +42,7 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
     private readonly UserSettings settings;
     private readonly DispatcherTimer liveTimer = new() { Interval = TimeSpan.FromMilliseconds(250) };
     private readonly DispatcherTimer replayTimer = new() { Interval = TimeSpan.FromMilliseconds(50) };
+    private readonly Stopwatch sinceReplayTick = new();
     private ActivityLiveMap live = ActivityLiveMap.Empty;
     private long liveVersion = -1;
     private DateTime liveRenderedAt;
@@ -64,14 +65,19 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
         selectedScopeIndex = settings.MapPartyEvents ? 1 : 0;
         selectedFadeIndex = Math.Max(0, Array.FindIndex(FadeOptionValues, x => x == settings.MapFadeMinutes));
         if (FadeOptionValues[selectedFadeIndex] != settings.MapFadeMinutes) selectedFadeIndex = 1;
+        selectedSpeedIndex = Array.IndexOf(SpeedValues, settings.MapReplaySpeed);
+        if (selectedSpeedIndex < 0) selectedSpeedIndex = Array.IndexOf(SpeedValues, 2);
         liveTimer.Tick += (_, _) => RefreshLive();
         replayTimer.Tick += (_, _) => AdvanceReplay();
     }
 
     private static readonly int[] FadeOptionValues = [1, 5, 15, 0];
+    // How many times faster than in game the replay runs.
+    private static readonly int[] SpeedValues = [1, 2, 4, 8, 16, 32, 64];
     public IReadOnlyList<Option<int>> ModeOptions { get; } = [new(0, "Live"), new(1, "History")];
     public IReadOnlyList<Option<int>> FadeOptions { get; } = [new(1, "1 min"), new(5, "5 min"), new(15, "15 min"), new(0, "Never")];
     public IReadOnlyList<Option<int>> ScopeOptions { get; } = [new(0, "Personal"), new(1, "Party")];
+    public IReadOnlyList<Option<int>> SpeedOptions { get; } = SpeedValues.Select(x => new Option<int>(x, $"{x}×")).ToArray();
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(IsLive), nameof(IsHistory), nameof(ShowFollow))]
@@ -81,7 +87,7 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
     [ObservableProperty] private int selectedScopeIndex;
     [ObservableProperty] private bool follow = true;
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(ShowFollow))]
+    [NotifyPropertyChangedFor(nameof(ShowFollow), nameof(HasPlace))]
     private ActivityMapScene? scene;
     [ObservableProperty] private string title = "Map";
     [ObservableProperty] private string subtitle = "";
@@ -109,14 +115,15 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
 
     [ObservableProperty] private ActivityMapRunMapOption? selectedRunMap;
     [ObservableProperty] private double timelineValue = TimelineMax;
+    [ObservableProperty] private int selectedSpeedIndex;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(PlayButtonText))]
     [NotifyPropertyChangedFor(nameof(PlayButtonName))]
     private bool isPlaying;
 
-    [ObservableProperty] private string timelineStartText = "";
-    [ObservableProperty] private string timelineEndText = "";
+    [ObservableProperty] private string timelinePositionText = "";
+    [ObservableProperty] private string timelineLengthText = "";
     [ObservableProperty] private string timelineNowText = "";
     [ObservableProperty] private string runSummaryText = "";
     [ObservableProperty] private IReadOnlyList<ActivityMapTick> ticks = [];
@@ -125,6 +132,8 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
     public bool IsHistory => SelectedModeIndex == 1;
     public bool ShowFollow => IsLive && Scene?.Position is not null;
     public bool HasNote => !string.IsNullOrEmpty(Note);
+    // The zone's name goes on the map once there is a map to show.
+    public bool HasPlace => Scene is not null;
     public bool HasRuns => Runs.Count > 0;
     public bool HasMultipleRunMaps => RunMaps.Count > 1;
     public string PlayButtonText => IsPlaying ? "❚❚" : "▶";
@@ -136,6 +145,7 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
         | (ShowGathering ? ActivityMapLayers.Gathering : 0) | (ShowDeaths ? ActivityMapLayers.Deaths : 0) | (ShowFeatures ? ActivityMapLayers.Features : 0);
 
     private double FadeSeconds => FadeOptionValues[Math.Clamp(SelectedFadeIndex, 0, FadeOptionValues.Length - 1)] * 60d;
+    private int Speed => SpeedValues[Math.Clamp(SelectedSpeedIndex, 0, SpeedValues.Length - 1)];
 
     public void Start()
     {
@@ -196,6 +206,8 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
         if (IsHistory) RebuildHistory();
     }
 
+    partial void OnSelectedSpeedIndexChanged(int value) => settings.MapReplaySpeed = Speed;
+
     [RelayCommand]
     private void TogglePlay()
     {
@@ -208,24 +220,36 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
         if (SelectedRunMap is null) return;
         if (TimelineValue >= TimelineMax) TimelineValue = 0;
         IsPlaying = true;
+        sinceReplayTick.Restart();
         replayTimer.Start();
     }
 
     [RelayCommand]
     private void FollowMe() => Follow = true;
 
+    // The replay moves on by the time that really passed, times the speed, so 1× takes as long as the visit did.
     private void AdvanceReplay()
     {
-        var next = TimelineValue + TimelineMax * replayTimer.Interval.TotalSeconds / ReplayLength.TotalSeconds;
-        TimelineValue = Math.Min(TimelineMax, next);
+        if (SelectedRunMap is not { } option)
+        {
+            StopReplay();
+            return;
+        }
+
+        var played = sinceReplayTick.Elapsed.TotalSeconds * Speed;
+        sinceReplayTick.Restart();
+        TimelineValue = Math.Min(TimelineMax, TimelineValue + TimelineMax * played / VisitSeconds(option));
         if (TimelineValue >= TimelineMax) StopReplay();
     }
 
     private void StopReplay()
     {
         replayTimer.Stop();
+        sinceReplayTick.Reset();
         IsPlaying = false;
     }
+
+    private static double VisitSeconds(ActivityMapRunMapOption option) => Math.Max(1, (option.EndUtc - option.StartUtc).TotalSeconds);
 
     private void Rebuild()
     {
@@ -398,8 +422,7 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
     private async Task LoadHistoryZoneAsync(ActivityMapRunMapOption option)
     {
         historyZone = null;
-        TimelineStartText = UiFormat.LocalShortTime(option.StartUtc);
-        TimelineEndText = UiFormat.LocalShortTime(option.EndUtc);
+        TimelineLengthText = UiFormat.Clock(option.EndUtc - option.StartUtc);
         UpdateHistoryDetails(option);
         TimelineValue = TimelineMax;
         RebuildHistory();
@@ -423,8 +446,9 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
         var zone = historyZone is { } view && view.RawMapId == option.RawMapId ? view : null;
         Title = zone?.Title ?? option.Label;
         Subtitle = zone?.Subtitle ?? "";
-        var until = TimelineValue >= TimelineMax ? (DateTime?)null
-            : option.StartUtc + TimeSpan.FromSeconds((option.EndUtc - option.StartUtc).TotalSeconds * TimelineValue / TimelineMax);
+        var played = TimeSpan.FromSeconds((option.EndUtc - option.StartUtc).TotalSeconds * TimelineValue / TimelineMax);
+        var until = TimelineValue >= TimelineMax ? (DateTime?)null : option.StartUtc + played;
+        TimelinePositionText = UiFormat.Clock(played);
         TimelineNowText = until is { } moment ? UiFormat.LocalTime(moment) : "";
         var markers = Shown(option.Markers);
         var points = option.Points.Select(x => (x.X, x.Y)).Concat(markers.Select(x => (x.X, x.Y))).ToArray();
@@ -520,7 +544,7 @@ public sealed partial class ActivityMapViewModel : ObservableObject, IDisposable
 
     private void UpdateHistoryDetails(ActivityMapRunMapOption option)
     {
-        var span = Math.Max(1, (option.EndUtc - option.StartUtc).TotalSeconds);
+        var span = VisitSeconds(option);
         Ticks = Shown(option.Markers).Select(x => new ActivityMapTick(Math.Clamp((x.CapturedAtUtc - option.StartUtc).TotalSeconds / span, 0, 1), x.Kind)).ToArray();
         if (runMap is not null) RunSummaryText = RunSummary(runMap, RunMaps, Shown(runMap.Markers));
     }

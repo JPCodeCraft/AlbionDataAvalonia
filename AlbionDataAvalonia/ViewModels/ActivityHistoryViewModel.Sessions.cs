@@ -152,7 +152,7 @@ public partial class ActivityHistoryViewModel
             ResetMaps();
             Sessions.Clear();
             if (IsImportedDetail) SelectedDetailTab = ActivityDetailTab.Gathering;
-            else if (IsCombined && SelectedDetailTab == ActivityDetailTab.Charts) SelectedDetailTab = ActivityDetailTab.Encounters;
+            else if (IsCombined && SelectedDetailTab == ActivityDetailTab.Charts) SelectedDetailTab = ActivityDetailTab.Loot;
         }
         finally { applyingSelection = false; }
         ResetDetailRows();
@@ -162,6 +162,7 @@ public partial class ActivityHistoryViewModel
     private void ResetDetailRows()
     {
         Encounters.Clear(); Players.Clear(); Mobs.Clear(); SessionLoot.Clear(); Timeline.Clear(); HistoryLiveTimeline = null;
+        SessionLootTotals = new();
         encounterPage = timelinePage = sessionLootPage = 0;
         HasMoreEncounters = HasMoreSessionLoot = HasMoreTimeline = false;
         DetailSummary = ActivitySummaryPresentation.Empty;
