@@ -52,6 +52,8 @@
     <Color x:Key="UiSurfaceSunkenColor">#262626</Color>
     <Color x:Key="UiInputColor">#424242</Color>
     <Color x:Key="UiInputHoverColor">#505050</Color>
+    <!-- The window colour with no alpha, for fades that end on the window. -->
+    <Color x:Key="UiWindowClearColor">#00303030</Color>
     <SolidColorBrush x:Key="UiWindowBrush" Color="{StaticResource UiWindowColor}" />
     <SolidColorBrush x:Key="UiSurfaceBrush" Color="{StaticResource UiSurfaceColor}" />
     <SolidColorBrush x:Key="UiSurfacePressedBrush" Color="{StaticResource UiSurfacePressedColor}" />
@@ -166,15 +168,15 @@
     <SolidColorBrush x:Key="UiBadgeWarningBrush" Color="#7A6230" />
     <SolidColorBrush x:Key="UiBadgeDangerBrush" Color="#70413D" />
 
-    <!-- Type scale. -->
+    <!-- Type scale. Body is also Fluent's ControlContentThemeFontSize below, so plain text and controls match. -->
     <x:Double x:Key="UiFontSizeCaption">11</x:Double>
     <x:Double x:Key="UiFontSizeSmall">12</x:Double>
     <x:Double x:Key="UiFontSizeCompact">13</x:Double>
-    <x:Double x:Key="UiFontSizeBody">14</x:Double>
-    <x:Double x:Key="UiFontSizeSection">16</x:Double>
-    <x:Double x:Key="UiFontSizeTitle">18</x:Double>
-    <x:Double x:Key="UiFontSizeHeading">20</x:Double>
-    <x:Double x:Key="UiFontSizeValueLarge">24</x:Double>
+    <x:Double x:Key="UiFontSizeBody">13</x:Double>
+    <x:Double x:Key="UiFontSizeSection">15</x:Double>
+    <x:Double x:Key="UiFontSizeTitle">16</x:Double>
+    <x:Double x:Key="UiFontSizeHeading">18</x:Double>
+    <x:Double x:Key="UiFontSizeValueLarge">20</x:Double>
     <FontFamily x:Key="UiMonoFontFamily">Cascadia Mono, Consolas, Menlo, DejaVu Sans Mono, monospace</FontFamily>
 
     <!-- Shape and spacing. -->
@@ -187,6 +189,8 @@
     <Thickness x:Key="UiBannerPadding">12,10</Thickness>
     <x:Double x:Key="UiDisabledOpacity">0.5</x:Double>
 
+    <!-- Fluent overrides: text in every control is body size (keep equal to UiFontSizeBody). -->
+    <x:Double x:Key="ControlContentThemeFontSize">13</x:Double>
     <!-- Fluent overrides: a plain Button is the secondary button. -->
     <Thickness x:Key="ButtonBorderThemeThickness">1</Thickness>
     <SolidColorBrush x:Key="ButtonBackground" Color="{StaticResource UiSurfaceColor}" />
@@ -217,6 +221,24 @@
     <SolidColorBrush x:Key="DatePickerButtonBackgroundPressed" Color="{StaticResource UiInputHoverColor}" />
     <SolidColorBrush x:Key="DatePickerButtonBorderBrushPointerOver" Color="{StaticResource UiBorderStrongColor}" />
     <SolidColorBrush x:Key="DatePickerButtonBorderBrushPressed" Color="{StaticResource UiBorderStrongColor}" />
+    <SolidColorBrush x:Key="CalendarDatePickerBackgroundPointerOver" Color="{StaticResource UiInputHoverColor}" />
+    <SolidColorBrush x:Key="CalendarDatePickerBackgroundPressed" Color="{StaticResource UiInputHoverColor}" />
+    <SolidColorBrush x:Key="CalendarDatePickerBorderBrushPointerOver" Color="{StaticResource UiBorderStrongColor}" />
+    <SolidColorBrush x:Key="CalendarDatePickerBorderBrushPressed" Color="{StaticResource UiBorderStrongColor}" />
+    <SolidColorBrush x:Key="TimePickerButtonBackgroundPointerOver" Color="{StaticResource UiInputHoverColor}" />
+    <SolidColorBrush x:Key="TimePickerButtonBackgroundPressed" Color="{StaticResource UiInputHoverColor}" />
+    <SolidColorBrush x:Key="TimePickerButtonBorderBrushPointerOver" Color="{StaticResource UiBorderStrongColor}" />
+    <SolidColorBrush x:Key="TimePickerButtonBorderBrushPressed" Color="{StaticResource UiBorderStrongColor}" />
+    <!-- Fluent's time picker is 242 wide whatever it shows; hours and minutes need far less. -->
+    <x:Double x:Key="TimePickerThemeMinWidth">96</x:Double>
+    <!-- The calendar a date picker opens sits on the same surface as other drop-downs, in body text, with other months'
+         days dimmed and today's accent fill carrying the same dark text as accent buttons. -->
+    <SolidColorBrush x:Key="CalendarViewBackground" Color="{StaticResource UiSurfaceColor}" />
+    <SolidColorBrush x:Key="CalendarViewBorderBrush" Color="{StaticResource UiBorderColor}" />
+    <SolidColorBrush x:Key="CalendarViewOutOfScopeBackground" Color="Transparent" />
+    <SolidColorBrush x:Key="CalendarViewOutOfScopeForeground" Color="{StaticResource UiTextTertiaryColor}" />
+    <SolidColorBrush x:Key="CalendarViewTodayForeground" Color="{StaticResource UiOnAccentColor}" />
+    <StaticResource x:Key="CalendarFontSize" ResourceKey="UiFontSizeBody" />
     <SolidColorBrush x:Key="ExpanderHeaderBackground" Color="{StaticResource UiSurfaceColor}" />
     <SolidColorBrush x:Key="ExpanderHeaderBackgroundPointerOver" Color="{StaticResource UiInputColor}" />
     <SolidColorBrush x:Key="ExpanderHeaderBackgroundPressed" Color="{StaticResource UiSurfacePressedColor}" />
@@ -248,9 +270,20 @@
     <SolidColorBrush x:Key="ComboBoxItemBackgroundSelectedPointerOver" Color="{StaticResource UiSelectedHoverColor}" />
     <SolidColorBrush x:Key="ComboBoxItemBackgroundSelectedPressed" Color="{StaticResource UiSelectedHoverColor}" />
 
-    <!-- Fluent overrides: compact tab headers for every TabControl. -->
-    <x:Double x:Key="TabItemHeaderFontSize">13</x:Double>
-    <x:Double x:Key="TabItemMinHeight">34</x:Double>
-    <Thickness x:Key="TabItemHeaderMargin">2,0,16,0</Thickness>
-    <FontWeight x:Key="TabItemHeaderThemeFontWeight">Normal</FontWeight>
+    <!-- Fluent overrides: tab headers for every TabControl, at section size and medium weight so a page's tabs stand
+         out from its text. Selected tabs keep the weight, so the headers don't shift; the accent bar and white text
+         mark the choice, and the others stay readable instead of fading into the page. -->
+    <x:Double x:Key="TabItemHeaderFontSize">15</x:Double>
+    <x:Double x:Key="TabItemMinHeight">40</x:Double>
+    <Thickness x:Key="TabItemHeaderMargin">2,0,20,0</Thickness>
+    <FontWeight x:Key="TabItemHeaderThemeFontWeight">Medium</FontWeight>
+    <x:Double x:Key="TabItemPipeThickness">3</x:Double>
+    <SolidColorBrush x:Key="TabItemHeaderForegroundUnselected" Color="{StaticResource UiTextSecondaryColor}" />
+    <SolidColorBrush x:Key="TabItemHeaderForegroundUnselectedPointerOver" Color="{StaticResource UiTextColor}" />
+    <SolidColorBrush x:Key="TabItemHeaderForegroundUnselectedPressed" Color="{StaticResource UiTextColor}" />
+    <!-- Fluent dims the selected tab under the pointer below the others; it stays white. -->
+    <SolidColorBrush x:Key="TabItemHeaderForegroundSelected" Color="{StaticResource UiTextColor}" />
+    <SolidColorBrush x:Key="TabItemHeaderForegroundSelectedPointerOver" Color="{StaticResource UiTextColor}" />
+    <SolidColorBrush x:Key="TabItemHeaderForegroundSelectedPressed" Color="{StaticResource UiTextColor}" />
+    <SolidColorBrush x:Key="TabItemHeaderSelectedPipeFill" Color="{StaticResource UiAccentColor}" />
 </ResourceDictionary>

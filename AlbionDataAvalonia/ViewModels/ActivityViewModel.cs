@@ -19,7 +19,7 @@ namespace AlbionDataAvalonia.ViewModels;
 public enum ActivityTab { Current, History, Items }
 
 /// <summary>The tabs of a session in History, in the order the view shows them.</summary>
-public enum ActivityDetailTab { Encounters, Charts, Players, KilledMobs, Items, Timeline, Maps, Party }
+public enum ActivityDetailTab { Charts, Loot, Gathering, Mobs, Players, Maps, Encounters, Party, Timeline }
 
 /// <summary>
 /// The Activity page: recording state, the toolbar and the refresh loop. Each tab has its own view model

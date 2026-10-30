@@ -86,17 +86,56 @@ public sealed class ActivitySummaryPresentation
     public bool HasMissingItemPrices => Summary.MissingPriceItems + Summary.MissingResourcePriceItems > 0;
     public string ResourceItemsText => $"{UiFormat.Compact(Summary.ResourceItems)} items gathered";
     public string ResourceQuantityText => UiFormat.Compact(Summary.ResourceItems);
-    public string ResourceBreakdownText => $"Gathering {UiFormat.Compact(Summary.GatheringItems)} · Fishing {UiFormat.Compact(Summary.FishingItems)}" + (Summary.UnclassifiedResourceItems > 0 ? $" · Other {UiFormat.Compact(Summary.UnclassifiedResourceItems)}" : "");
+    public string ResourceBreakdownText => $"Gathering {UiFormat.Compact(Summary.GatheringItems)}" + (Summary.FishingItems > 0 ? $" · Fishing {UiFormat.Compact(Summary.FishingItems)}" : "") + (Summary.UnclassifiedResourceItems > 0 ? $" · Other {UiFormat.Compact(Summary.UnclassifiedResourceItems)}" : "");
     public string ResourceValueText => Summary.ResourceValue == 0 && Summary.MissingResourcePriceItems > 0 ? UiText.Unavailable : UiFormat.Compact(Summary.ResourceValue);
     public string ResourceRateText => HasRecordedDuration ? $"{UiFormat.Compact(Rates.ResourceItemsPerHour)} items / hour · {ValueRateText(Summary.ResourceValue, Summary.MissingResourcePriceItems, Rates.ResourceValuePerHour)}" : "Hourly rate unavailable";
     public string ItemsCountText => $"{UiFormat.Compact(Summary.LootItems + Summary.ResourceItems)} items acquired";
     public string ItemsFooterText => $"{UiFormat.Compact(Summary.LootItems)} items"
         + (IsSessionAverage && HasRecordedDuration && (Summary.LootValue > 0 || !HasMissingLootPrices) ? $" · {UiFormat.Compact(Rates.LootValuePerHour)} / h" : "")
         + (HasMissingLootPrices ? " *" : "");
-    public string ItemsDetailsText => "Black Market EMV when available, otherwise EMV" + (HasMissingLootPrices ? $"\n{MissingLootPrices}" : "");
-    public string ResourceValueDetailsText => ResourceRateText + (Summary.MissingResourcePriceItems > 0 ? $"\n{Summary.MissingResourcePriceItems:N0} items without EMV" : "");
+    public string ItemsDetailsText => (HasLoot ? $"{LootItemsText}\n" : "") + "Black Market EMV when available, otherwise EMV"
+        + (HasMissingLootPrices ? $"\n{MissingLootPrices}" : "");
     private static string ValueRateText(long knownValue, long missingItems, double rate) => missingItems > 0 && knownValue == 0
         ? "EMV / hour unavailable" : $"{UiFormat.Compact(rate)} EMV / hour";
+
+    // The stat cards: Silver, Fame, Combat and Kills. A headline per card, short "/ h" rates in the rows,
+    // and empty rows dimmed rather than hidden so the cards keep one shape. The EMV rows have no room for
+    // item counts, so their hover cards carry them.
+    public string TotalSilverUnit => HasRecordedDuration ? $"{TotalSilverPerHour} / hour" : "";
+    public string SilverRowRate => IsImported ? "" : ShortRate(Rates.SilverPerHour);
+    public string LootValueRowText => LootValue + (HasMissingLootPrices ? " *" : "");
+    public string LootRowRate => HasRecordedDuration && Summary.LootValue > 0 ? ShortRate(Rates.LootValuePerHour) : "";
+    public bool HasLoot => Summary.LootItems > 0;
+    public string ResourceValueRowText => ResourceValueText + (Summary.MissingResourcePriceItems > 0 ? " *" : "");
+    public string GatheringRowDetails => (HasResources ? ResourceItemsText + (Summary.FishingItems > 0 ? $", {UiFormat.Compact(Summary.FishingItems)} of them fished" : "") : "Gathered and fished")
+        + (HasResources && HasRecordedDuration && !IsImported ? $"\n{UiFormat.Compact(Rates.ResourceItemsPerHour)} items / hour" : "")
+        + (Summary.MissingResourcePriceItems > 0 ? $"\n{Summary.MissingResourcePriceItems:N0} items without EMV" : "");
+
+    public string TotalFame => IsImported ? UiText.Unavailable : UiFormat.Compact(Summary.Fame);
+    public string TotalFameUnit => IsImported || !HasRecordedDuration ? "" : $"{UiFormat.Compact(Rates.FamePerHour)} / hour";
+    public string TotalFameDetailsText => "PvE + PvP + gathering fame" + (HasUnknownFame ? " + fame without a known activity" : "");
+    public string PveFame => IsImported ? UiText.Unavailable : UiFormat.Compact(Summary.PveFame);
+    public string PvpFame => IsImported ? UiText.Unavailable : UiFormat.Compact(Summary.PvpFame);
+    public bool HasPveFame => Summary.PveFame > 0;
+    public bool HasGatheringFame => Summary.GatheringFame + Summary.FishingFame > 0;
+    public string PveFameRowRate => HasPveFame ? ShortFameRate(Summary.PveFame) : "";
+    public string PvpFameRowRate => HasPvpFame ? ShortFameRate(Summary.PvpFame) : "";
+    public string GatheringFameRowRate => HasGatheringFame ? ShortFameRate(Summary.GatheringFame + Summary.FishingFame) : "";
+
+    public string DamageDealtUnit => IsImported ? "" : $"dealt · {DamageRate}";
+    public string DeathsText => UiFormat.Compact(Summary.Deaths);
+    public string DeathsRowRate => Summary.NonLethalDeaths <= 0 ? "" : Summary.NonLethalDeaths == Summary.Deaths ? "non-lethal" : $"{Summary.NonLethalDeaths:N0} non-lethal";
+    public string KnockdownsText => UiFormat.Compact(Summary.Knockdowns);
+    public bool HasPlayerKills => Summary.PlayerKills > 0;
+    public bool HasDeaths => Summary.Deaths > 0;
+    public bool HasKnockdowns => Summary.Knockdowns > 0;
+    public string PlayerKillsRowLabel => "PvP kills";
+    public string PlayerKillsRowRate => Summary.NonLethalPlayerKills <= 0 ? "" : Summary.NonLethalPlayerKills == Summary.PlayerKills ? "non-lethal" : $"{Summary.NonLethalPlayerKills:N0} non-lethal";
+
+    public string ResourceValueRate => HasRecordedDuration && Summary.ResourceValue > 0 ? ShortRate(Rates.ResourceValuePerHour) : "";
+
+    private string ShortRate(double perHour) => HasRecordedDuration ? $"{UiFormat.Compact(perHour)} / h" : "";
+    private string ShortFameRate(double amount) => IsImported || !HasRecordedDuration ? "" : $"{UiFormat.Compact(ActivityProjection.GetFameRate(amount, Rates))} / h";
     private string FameRateText(double amount) => Summary.IsLegacyAggregate || !HasRecordedDuration ? UiText.NotRecorded : $"{UiFormat.Compact(ActivityProjection.GetFameRate(amount, Rates))} / hour";
 
 }
@@ -289,6 +328,35 @@ public sealed class ActivityLootRow(ActivityEvent source)
         + (source.Evidence != ActivityEvidence.Confirmed ? "\nNot included in totals" : ""), ItemUniqueName, ImageQuality);
     public string RecipientDetails => $"{Recipient} · {Relationship}{(string.IsNullOrWhiteSpace(Guild) ? "" : $"\nGuild: {Guild}")}{(string.IsNullOrWhiteSpace(Alliance) ? "" : $"\nAlliance: {Alliance}")}";
     public string ContextDetails => Location;
+}
+
+// History › Loot grouped by item: one item's pickups added up, as the loot totals count them.
+public sealed class ActivityLootTotalRow(ActivityLootTotal source)
+{
+    public string ItemUniqueName => source.UniqueName ?? "";
+    public string ItemName => ActivityDisplay.ItemName(source.Name);
+    public int ImageQuality => source.Quality ?? 1;
+    public string Quality => ItemQuality.Format(source.Quality);
+    public long Quantity => source.Quantity;
+    public string QuantityText => UiFormat.Compact(source.Quantity);
+    // The table sorts by these; an item without any EMV sorts below every number.
+    public long? Value => source.PricedPickups > 0 ? source.KnownValue : null;
+    // Like a pickup's EMV, it says when the Black Market EMV priced it, and how many items had no EMV.
+    public string ValueText
+    {
+        get
+        {
+            if (Value is not { } value) return UiText.Unavailable;
+            var notes = new List<string>();
+            if (source.BlackMarketPickups == source.PricedPickups) notes.Add("Black Market EMV");
+            if (source.MissingPriceItems > 0) notes.Add($"{source.MissingPriceItems:N0} without EMV");
+            return UiFormat.Compact(value) + (notes.Count > 0 ? $" ({string.Join(", ", notes)})" : "");
+        }
+    }
+    public long Pickups => source.Pickups;
+    public string PickupsText => UiFormat.Whole(source.Pickups);
+    public DateTime LastPickedUpUtc => source.LastPickedUpUtc;
+    public string LastPickedUpText => UiFormat.LocalTime(source.LastPickedUpUtc);
 }
 
 public sealed class ActivityEventRow(ActivityEvent source)

@@ -96,6 +96,9 @@ public static class UiFormat
     /// <summary>The local date and time with seconds, for logs.</summary>
     public static string LocalTimestamp(DateTime utc) => ToLocal(utc).ToString("G", Culture);
 
+    /// <summary>The clock a time picker shows: "24HourClock" when the user's times run 0–23, else "12HourClock".</summary>
+    public static string ClockIdentifier => Culture.DateTimeFormat.ShortTimePattern.Contains('H') ? "24HourClock" : "12HourClock";
+
     /// <summary>Treats an unspecified kind as UTC, which is how the database stores times.</summary>
     public static DateTime ToLocal(DateTime value) =>
         (value.Kind == DateTimeKind.Unspecified ? DateTime.SpecifyKind(value, DateTimeKind.Utc) : value).ToLocalTime();

@@ -30,17 +30,16 @@ internal sealed class ActivityLiveTimelineCanvas : Control
         new("Damage received", ActivityPalette.Damage, sample => sample.DamageReceived),
         new("Healing received", ActivityPalette.Healing, sample => sample.HealingReceived)
     ];
+    // Fishing counts as gathering, as everywhere else; only its markers stay apart.
     private static readonly Series[] GatheringSeries =
     [
-        new("Gathering", ActivityPalette.Gathering, sample => sample.GatheringQuantity),
-        new("Fishing", ActivityPalette.Fishing, sample => sample.FishingQuantity)
+        new("Gathering", ActivityPalette.Gathering, sample => sample.GatheringQuantity + sample.FishingQuantity)
     ];
     private static readonly Series[] FameSeries =
     [
         new("PvE fame", ActivityPalette.Damage, sample => sample.PveFame),
         new("PvP fame", ActivityPalette.Kill, sample => sample.PvpFame),
-        new("Gathering fame", ActivityPalette.Gathering, sample => sample.GatheringFame),
-        new("Fishing fame", ActivityPalette.Fishing, sample => sample.FishingFame),
+        new("Gathering fame", ActivityPalette.Gathering, sample => sample.GatheringFame + sample.FishingFame),
         new("Unknown fame", ActivityPalette.Unknown, sample => sample.UnknownFame)
     ];
     private static ImmutablePen GridPen => UiPalette.Pen(UiPalette.Grid);

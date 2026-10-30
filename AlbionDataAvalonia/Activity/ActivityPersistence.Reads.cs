@@ -85,6 +85,8 @@ public sealed partial class ActivityPersistence
     }
     public Task<IReadOnlyList<ActivityResourceTotal>> GetResourceTotalsAsync(ActivityQuery filter, CancellationToken cancellationToken = default) =>
         ReadAsync(ct => GetResourceTotalsCoreAsync(filter, ct), cancellationToken);
+    public Task<IReadOnlyList<ActivityLootTotal>> GetLootTotalsAsync(ActivityQuery filter, CancellationToken cancellationToken = default) =>
+        ReadAsync(ct => GetLootTotalsCoreAsync(filter, ct), cancellationToken);
     public Task<ActivityLegacyImportInfo?> GetLegacyImportInfoAsync(Guid sessionId, CancellationToken cancellationToken = default) =>
         ReadAsync(ct => GetLegacyImportInfoCoreAsync(sessionId, ct), cancellationToken);
     public Task<IReadOnlyList<ActivityMobTotal>> GetMobsAsync(ActivityQuery filter, CancellationToken cancellationToken = default) =>

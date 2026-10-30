@@ -4,7 +4,9 @@
              xmlns:views="clr-namespace:AlbionDataAvalonia.Views"
              x:Class="AlbionDataAvalonia.Views.ActivityLootExportBar"
              x:DataType="views:ActivityLootExportBar">
-    <StackPanel Orientation="Horizontal" Spacing="8">
+    <!-- Wraps when its row is narrow; a right-aligned bar keeps its lines flush right. -->
+    <WrapPanel ItemSpacing="8" LineSpacing="6"
+               ItemsAlignment="{Binding $parent[views:ActivityLootExportBar].HorizontalAlignment, Converter={x:Static views:ActivityLootExportBar.WrapAlignmentConverter}}">
         <Button Classes="UiAction" Content="Export loot…" ToolTip.Tip="Export all pages"
                 IsEnabled="{Binding $parent[views:ActivityLootExportBar].CanExport}">
             <Button.Flyout>
@@ -22,5 +24,5 @@
                      Width="140" Height="6" VerticalAlignment="Center" />
         <Button Classes="UiLink" Content="Open AFM Loot Logger" Command="{Binding $parent[views:ActivityLootExportBar].Export.OpenLootLoggerCommand, FallbackValue={x:Null}}" VerticalAlignment="Center"
                 IsVisible="{Binding $parent[views:ActivityLootExportBar].ShowLootLoggerLink}" ToolTip.Tip="View your AFM CSV export on the website" />
-    </StackPanel>
+    </WrapPanel>
 </UserControl>

@@ -400,6 +400,21 @@ public class UserSettings : INotifyPropertyChanged
         }
     }
 
+    // How many times faster than in game the history map replays a visit.
+    private int mapReplaySpeed = 2;
+    public int MapReplaySpeed
+    {
+        get => mapReplaySpeed;
+        set
+        {
+            var clamped = Math.Clamp(value, 1, 64);
+            if (mapReplaySpeed == clamped) return;
+            mapReplaySpeed = clamped;
+            OnPropertyChanged(nameof(MapReplaySpeed));
+            Log.Information("Map replay speed set to {MapReplaySpeed}x", mapReplaySpeed);
+        }
+    }
+
     private void SetStreamerOption(ref bool field, bool value, string propertyName)
     {
         if (field == value) return;

@@ -166,17 +166,17 @@ Each dungeon, Mists visit or stretch of open world is a **run** inside the sessi
 
 ### History
 
-**History** lists every saved session with its zones, length and silver. Pick one to see the same totals, then choose a run to see only that part. The tabs below break the session down into encounters, charts, players, killed mobs, items, a timeline, the maps you visited and your party.
+**History** lists every saved session with its zones, length and silver. Pick one to see the same totals, then choose a run to see only that part. The tabs below break the session down into charts, loot (each pickup, or grouped by item), gathering (fishing included), mobs, players, the maps you visited, encounters, your party and a timeline.
 
 Ctrl-click or Shift-click sessions to combine them, and use **Delete session…** to remove one.
 
 ![Activity over time for a session](docs/screenshots/activity-chart.png)
 
-The chart shows damage or healing over time, with markers for kills, loot and gathering, and the fights along the bottom. Use **Show** to filter by gathering, fishing, PvE or PvP, and **Replay** to play the session back.
+The chart shows damage or healing over time, with markers for kills, loot and gathering, and the fights along the bottom. Use **Show** to filter by gathering (fishing included), PvE or PvP, and **Replay** to play the session back.
 
 ### Items
 
-**Items** adds up everything you looted and gathered across all your sessions. Search by item, player or source, filter by loot, gathering or fishing, and use **Export loot…** to save the list as a CSV file.
+**Items** adds up everything you looted and gathered across all your sessions. Use **Time** to see today, yesterday, the last 7 or 30 days, or a custom range of dates and times. Search by item, player or source, filter by loot or gathering (fishing counts as gathering), and use **Export loot…** to save the loot you see as a CSV file.
 
 Loot and gathered items are valued with AFM's estimated market value (EMV). Signing in to AFM lets the client look up values for items it hasn't priced yet.
 
@@ -187,7 +187,7 @@ Click **Open map** on the Activity page to open the map in its own window.
 ![The map replaying a run in Wyre Forest](docs/screenshots/activity-map.png)
 
 - **Live** follows you through the zone and draws your path, kills, loot, gathering, deaths, zone exits and map icons. Choose whether they fade after 1, 5 or 15 minutes, or never.
-- **History** replays any past run. Pick it from the list and press play, or drag along the timeline.
+- **History** replays any past run. Pick it from the list and press play, or drag along the timeline. Choose how fast it plays, from 1× to 64×; it starts at 2×.
 
 ### Streamer window
 

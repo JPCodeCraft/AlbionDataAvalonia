@@ -32,6 +32,7 @@ public sealed partial class ActivityStreamerViewModel : ViewModelBase, IDisposab
     [ObservableProperty] private string titleText = "Waiting for activity";
     [ObservableProperty] private string durationText = "";
     [ObservableProperty] private string sessionTimeText = "Waiting for activity";
+    [ObservableProperty] private string combatTimeText = "";
     [ObservableProperty] private ActivitySummaryPresentation summary = ActivitySummaryPresentation.Empty;
     [ObservableProperty] private ActivityLiveTimelineSnapshot? timeline;
 
@@ -48,7 +49,7 @@ public sealed partial class ActivityStreamerViewModel : ViewModelBase, IDisposab
         get => Settings.StreamerPartyTotals;
         set { if (value) Settings.StreamerPartyTotals = true; }
     }
-    public string SilverBreakdownText => $"Silver {Summary.Silver} · Loot EMV {Summary.LootValue} · Gathering EMV {Summary.ResourceValueText}";
+    public string SilverBreakdownText => $"Picked up {Summary.Silver} · Loot EMV {Summary.LootValue} · Gathering EMV {Summary.ResourceValueText}";
     public string KillsText => $"Mobs {Summary.MobKills} · PvP {Summary.PlayerKills}" +
         (string.IsNullOrEmpty(Summary.DeathsAndKnockdowns) ? "" : $" · {Summary.DeathsAndKnockdowns}");
     // Small shows one card of headline numbers; large adds the session name and breakdown lines.
@@ -57,7 +58,9 @@ public sealed partial class ActivityStreamerViewModel : ViewModelBase, IDisposab
     public bool ShowCards => !IsSmall;
     public double WindowWidth => Settings.StreamerSizeIndex switch { 0 => 250, 1 => 330, _ => 380 };
     public string SilverPerHourShortText => PerHourShort(Summary.Rates.SilverPerHour + Summary.Rates.LootValuePerHour + Summary.Rates.ResourceValuePerHour);
-    public string CombatFamePerHourShortText => PerHourShort(ActivityProjection.GetFameRate(Summary.Summary.CombatFame, Summary.Rates));
+    // Small's fame is the total, as on the Activity page, so it shows with either section it comes from.
+    public bool ShowFame => Settings.StreamerShowCombat || Settings.StreamerShowGathering;
+    public string FamePerHourShortText => PerHourShort(Summary.Rates.FamePerHour);
     public string DpsShortText => Summary.IsImported ? "" : $"{UiFormat.Compact(Summary.Rates.DamagePerSecond)} DPS";
     public string GatheredPerHourShortText => PerHourShort(Summary.Rates.ResourceValuePerHour);
     public bool ShowChart => Settings.StreamerShowChart && HasSession && !IsSmall;
@@ -87,7 +90,7 @@ public sealed partial class ActivityStreamerViewModel : ViewModelBase, IDisposab
         OnPropertyChanged(nameof(SilverBreakdownText));
         OnPropertyChanged(nameof(KillsText));
         OnPropertyChanged(nameof(SilverPerHourShortText));
-        OnPropertyChanged(nameof(CombatFamePerHourShortText));
+        OnPropertyChanged(nameof(FamePerHourShortText));
         OnPropertyChanged(nameof(DpsShortText));
         OnPropertyChanged(nameof(GatheredPerHourShortText));
     }
@@ -108,6 +111,7 @@ public sealed partial class ActivityStreamerViewModel : ViewModelBase, IDisposab
             OnPropertyChanged(nameof(IsPartyScope));
             OnPropertyChanged(nameof(ShowChart));
             OnPropertyChanged(nameof(ShowNothingSelected));
+            OnPropertyChanged(nameof(ShowFame));
             OnPropertyChanged(nameof(IsSmall));
             OnPropertyChanged(nameof(IsLarge));
             OnPropertyChanged(nameof(ShowCards));
@@ -155,7 +159,7 @@ public sealed partial class ActivityStreamerViewModel : ViewModelBase, IDisposab
         {
             HasSession = false;
             TitleText = SessionTimeText = context.Owner is null ? "Waiting for character" : "Waiting for activity";
-            DurationText = "";
+            DurationText = CombatTimeText = "";
             Summary = ActivitySummaryPresentation.Empty;
             Timeline = null;
             snapshot = null;
@@ -191,7 +195,8 @@ public sealed partial class ActivityStreamerViewModel : ViewModelBase, IDisposab
         HasSession = true;
         TitleText = context.Session is { } run ? ActivityDisplay.SessionTitle(run) : "Between runs";
         SessionTimeText = $"Session {UiFormat.Duration(seconds)}";
-        DurationText = $"{SessionTimeText} · Combat {UiFormat.Duration(combatSeconds)}";
+        CombatTimeText = $"Combat {UiFormat.Duration(combatSeconds)}";
+        DurationText = $"{SessionTimeText} · {CombatTimeText}";
 
         // The chart scrolls between reads, so it is read every other tick.
         if (!ShowChart || tickCount++ % 2 != 0) return;

@@ -141,7 +141,8 @@ public partial class ActivityCurrentViewModel
             var seconds = ActivityPlaySessionProjection.Seconds(currentPeriodFromUtc, end, playSession.AwaySeconds);
             var combat = ActivityPeriodProjection.GetRates(snapshot, currentPeriodFromUtc, end).CombatDurationSeconds;
             CurrentSummary = new(snapshot.Summary, ActivityProjection.GetRates(snapshot.Summary, seconds, combat), true);
-            CurrentDurationText = $"Session time: {UiFormat.Duration(seconds)}";
+            CurrentTimeLabel = "Session";
+            CurrentTimeValue = UiFormat.Duration(seconds);
             CurrentPeriodDescription = $"Started {UiFormat.LocalDateTime(playSession.StartedAtUtc)} · ends with End session or after 30 minutes without moving";
             CurrentPeriodWarning = "";
             if (snapshot.IsPartial) CurrentPeriodDescription += " · incomplete recording";
@@ -151,7 +152,8 @@ public partial class ActivityCurrentViewModel
         var presentationEndUtc = key.Mode == ActivityPeriodMode.LastHours ? currentPeriodToUtc : nowUtc;
         var rates = ActivityPeriodProjection.GetRates(snapshot, currentPeriodFromUtc, presentationEndUtc);
         CurrentSummary = new(snapshot.Summary, rates, true);
-        CurrentDurationText = $"Tracked time: {UiFormat.Duration(rates.DurationSeconds)}";
+        CurrentTimeLabel = "Tracked";
+        CurrentTimeValue = UiFormat.Duration(rates.DurationSeconds);
         var fromUtc = currentPeriodFromUtc;
         CurrentPeriodDescription = currentSession is not null
             ? $"Since {UiFormat.LocalDateTime(fromUtc)}"
@@ -172,12 +174,13 @@ public partial class ActivityCurrentViewModel
         currentPeriodReadAtUtc = DateTime.MinValue;
         CurrentSummary = ActivitySummaryPresentation.Empty;
         if (CurrentResources.Count > 0) CurrentResources = new();
-        CurrentDurationText = SelectedPeriod.Value switch
+        CurrentTimeLabel = SelectedPeriod.Value switch
         {
-            ActivityPeriodMode.PlaySession => "Session time: 0:00",
-            ActivityPeriodMode.CurrentRun => "Run time: 0:00",
-            _ => "Tracked time: 0:00"
+            ActivityPeriodMode.PlaySession => "Session",
+            ActivityPeriodMode.CurrentRun => "Run",
+            _ => "Tracked"
         };
+        CurrentTimeValue = "0:00";
         CurrentPeriodDescription = SelectedPeriod.Value == ActivityPeriodMode.LastHours ? "Waiting for your character" : "Waiting for activity";
         CurrentPeriodWarning = "";
     }

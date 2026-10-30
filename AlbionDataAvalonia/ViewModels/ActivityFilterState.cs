@@ -19,14 +19,15 @@ public partial class ActivityFilterState : ObservableObject
         [new(ActivityScope.Personal, "Personal"), new(ActivityScope.Party, "Party")];
     public IReadOnlyList<Option<ActivityScope>> LootScopeOptions { get; } =
         [new(ActivityScope.Personal, "Personal"), new(ActivityScope.Party, "Party"), new(ActivityScope.AllObserved, "Everyone")];
+    // Gathering includes fishing and older saves' mixed totals, as the Gathered totals do.
     public IReadOnlyList<Option<ActivityItemSources>> ItemSourceOptions { get; } =
         [new(ActivityItemSources.All, "All items"), new(ActivityItemSources.Loot, "Loot"),
-         new(ActivityItemSources.Gathering, "Gathering"), new(ActivityItemSources.Fishing, "Fishing")];
+         new(ActivityItemSources.Gathering | ActivityItemSources.Fishing | ActivityItemSources.LegacyMixed, "Gathering")];
 
     [ObservableProperty] private Option<ActivityScope> selectedScope = new(ActivityScope.Personal, "Personal");
     [ObservableProperty] private bool showAllActivities = true;
+    // Gathering covers fishing too; the chart and timeline never split them.
     [ObservableProperty] private bool showGathering;
-    [ObservableProperty] private bool showFishing;
     [ObservableProperty] private bool showPve;
     [ObservableProperty] private bool showPvp;
     [ObservableProperty] private bool showOther;
@@ -38,8 +39,7 @@ public partial class ActivityFilterState : ObservableObject
     public ActivityScope Scope => SelectedScope.Value;
 
     public ActivityCategories VisibleCategories => ShowAllActivities ? ActivityCategories.All :
-        (ShowGathering ? ActivityCategories.Gathering : ActivityCategories.None)
-        | (ShowFishing ? ActivityCategories.Fishing : ActivityCategories.None)
+        (ShowGathering ? ActivityCategories.Gathering | ActivityCategories.Fishing : ActivityCategories.None)
         | (ShowPve ? ActivityCategories.Pve : ActivityCategories.None)
         | (ShowPvp ? ActivityCategories.Pvp : ActivityCategories.None)
         | (ShowOther ? ActivityCategories.Other : ActivityCategories.None);
@@ -47,7 +47,6 @@ public partial class ActivityFilterState : ObservableObject
     partial void OnSelectedScopeChanged(Option<ActivityScope> value) => ScopeChanged?.Invoke();
     partial void OnShowAllActivitiesChanged(bool value) => ChangeVisibility(value, true);
     partial void OnShowGatheringChanged(bool value) => ChangeVisibility(value);
-    partial void OnShowFishingChanged(bool value) => ChangeVisibility(value);
     partial void OnShowPveChanged(bool value) => ChangeVisibility(value);
     partial void OnShowPvpChanged(bool value) => ChangeVisibility(value);
     partial void OnShowOtherChanged(bool value) => ChangeVisibility(value);
@@ -60,13 +59,13 @@ public partial class ActivityFilterState : ObservableObject
         changingVisibility = true;
         try
         {
-            if (all && selected) ShowGathering = ShowFishing = ShowPve = ShowPvp = ShowOther = false;
+            if (all && selected) ShowGathering = ShowPve = ShowPvp = ShowOther = false;
             else if (!all && selected) ShowAllActivities = false;
-            if (!ShowGathering && !ShowFishing && !ShowPve && !ShowPvp && !ShowOther) ShowAllActivities = true;
+            if (!ShowGathering && !ShowPve && !ShowPvp && !ShowOther) ShowAllActivities = true;
             if (!ShowAllActivities && !ShowOther && ChartMode != ActivityTimelineChartMode.Fame)
             {
-                if ((ShowGathering || ShowFishing) && !ShowPve && !ShowPvp) ChartMode = ActivityTimelineChartMode.Gathering;
-                else if ((ShowPve || ShowPvp) && !ShowGathering && !ShowFishing) ChartMode = ActivityTimelineChartMode.Combat;
+                if (ShowGathering && !ShowPve && !ShowPvp) ChartMode = ActivityTimelineChartMode.Gathering;
+                else if ((ShowPve || ShowPvp) && !ShowGathering) ChartMode = ActivityTimelineChartMode.Combat;
             }
         }
         finally { changingVisibility = false; }

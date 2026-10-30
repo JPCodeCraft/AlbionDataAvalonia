@@ -124,6 +124,35 @@
                     <controls:StatTile Classes="Text" Label="Text" Value="Ashvale" Width="160" Margin="0,0,8,8" />
                 </WrapPanel>
                 <WrapPanel>
+                    <controls:StatCard Classes="Accent" Caption="STATCARD ACCENT" Value="676k" Unit="715k / hour" Width="260" Margin="0,0,8,8">
+                        <StackPanel Spacing="3">
+                            <controls:StatRow Label="StatRow" Value="180k" Rate="190k / h" />
+                            <controls:StatRow Label="With a note" Value="496k *" Rate="779 items · 525k / h" />
+                            <controls:StatRow Classes="Dim" Label="StatRow.Dim" Value="0" />
+                        </StackPanel>
+                    </controls:StatCard>
+                    <controls:StatCard Caption="STATCARD" Value="145k" Unit="dealt · 177 DPS" Width="260" Margin="0,0,8,8">
+                        <StackPanel Spacing="3">
+                            <controls:StatRow Label="Damage received" Value="57,4k" Rate="70 DPS" />
+                            <controls:StatRow Label="Healing done" Value="22,1k" Rate="27 HPS" />
+                        </StackPanel>
+                    </controls:StatCard>
+                </WrapPanel>
+                <controls:ScrollRail Width="520" HorizontalAlignment="Left">
+                    <ItemsControl ItemsSource="{Binding RailChips}">
+                        <ItemsControl.ItemsPanel><ItemsPanelTemplate><StackPanel Orientation="Horizontal" Spacing="6" /></ItemsPanelTemplate></ItemsControl.ItemsPanel>
+                        <ItemsControl.ItemTemplate>
+                            <DataTemplate x:DataType="x:String">
+                                <Button Classes="UiChipButton" Content="{Binding}" />
+                            </DataTemplate>
+                        </ItemsControl.ItemTemplate>
+                    </ItemsControl>
+                </controls:ScrollRail>
+                <controls:ActionRow Width="520" HorizontalAlignment="Left">
+                    <controls:SegmentedSelector ItemsSource="{Binding Choices}" SelectedIndex="0" />
+                    <Button Classes="UiAction" Content="ActionRow action" />
+                </controls:ActionRow>
+                <WrapPanel>
                     <controls:FilterField Label="FilterField">
                         <TextBox Width="230" Watermark="Search" />
                     </controls:FilterField>

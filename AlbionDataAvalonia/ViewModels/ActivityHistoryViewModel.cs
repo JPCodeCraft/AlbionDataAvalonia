@@ -27,7 +27,11 @@ public sealed record ActivityDetailHeader
     public string MapMetadataText { get; init; } = "";
     // Several combined sessions name the span they cover.
     public string SelectionText { get; init; } = "";
-    public string DurationText { get; init; } = "";
+    // "Session 56m 43s · Combat 13m 35s": the label is dim, the value bright.
+    public string TimeLabel { get; init; } = "Session";
+    public string TimeValue { get; init; } = "";
+    public string CombatTimeValue { get; init; } = "";
+    public string RunsText { get; init; } = "";
     public string ScopeText { get; init; } = "";
     public string TagsText { get; init; } = "";
     public string PartyText { get; init; } = "";
@@ -44,12 +48,14 @@ public sealed record ActivityDetailHeader
     public bool CanShowOnMap { get; init; }
     public bool CanDelete { get; init; }
     public string DeleteButtonText { get; init; } = "Delete session…";
-    public bool ShowLootPanel { get; init; } = true;
     public bool CanExportLoot { get; init; }
 
     public bool HasMapMetadata => MapMetadataText.Length > 0;
     public bool HasSelectionText => SelectionText.Length > 0;
     public bool HasParty => PartyText.Length > 0;
+    public bool HasCombatTime => CombatTimeValue.Length > 0;
+    public bool HasScopeText => ScopeText.Length > 0;
+    public bool HasTags => TagsText.Length > 0;
     public bool HasDetailedHistory => !IsImported;
     public string ImportedText => IsImported ? "Imported gathering totals" : "";
 }
@@ -82,18 +88,29 @@ public partial class ActivityHistoryViewModel : ObservableObject, IDisposable
     [ObservableProperty] private int selectedDetailTabIndex;
     [ObservableProperty] private ActivityDetailHeader detail = ActivityDetailHeader.Empty;
     [ObservableProperty] private ActivitySummaryPresentation detailSummary = ActivitySummaryPresentation.Empty;
+    // Whose loot and gathering the Loot and Gathering tabs show.
     [ObservableProperty] private Option<ActivityScope> selectedSessionLootScope = new(ActivityScope.Personal, "Personal");
-    [ObservableProperty] private Option<ActivityItemSources> selectedSessionItemSource = new(ActivityItemSources.All, "All items");
     [ObservableProperty] private ObservableCollection<ActivitySessionRow> sessions = new();
     [ObservableProperty] private ObservableCollection<ActivityEncounterRow> encounters = new();
     [ObservableProperty] private ObservableCollection<ActivityPlayerRow> players = new();
     [ObservableProperty] private ActivityPlayerColumns playerColumns = ActivityPlayerColumns.None;
     [ObservableProperty] private ObservableCollection<ActivityMobRow> mobs = new();
     [ObservableProperty] private ObservableCollection<ActivityLootRow> sessionLoot = new();
+    // History › Loot lists each pickup, or one row per item when grouped.
+    [ObservableProperty] private ObservableCollection<ActivityLootTotalRow> sessionLootTotals = new();
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowSessionLootList), nameof(ShowSessionLootTotals))]
+    private bool groupSessionLoot;
     [ObservableProperty] private ObservableCollection<ActivityEventRow> timeline = new();
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(HasSessionResources))]
     private ObservableCollection<ActivityResourceRow> sessionResources = new();
+    [ObservableProperty] private string sessionResourcesText = "";
+    // Set when a read finds nothing, so an empty list doesn't flash its empty state while it loads.
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(ShowSessionLootList), nameof(ShowSessionLootTotals))]
+    private bool hasNoSessionLoot;
+    [ObservableProperty] private bool hasNoSessionResources;
     [ObservableProperty] private ActivitySessionRow? selectedSession;
     [ObservableProperty] private ActivityEncounterRow? selectedEncounter;
     [ObservableProperty] private ActivityPlayerRow? selectedPlayer;
@@ -121,6 +138,8 @@ public partial class ActivityHistoryViewModel : ObservableObject, IDisposable
     }
 
     public bool HasSessionResources => SessionResources.Count > 0;
+    public bool ShowSessionLootList => !GroupSessionLoot && !HasNoSessionLoot;
+    public bool ShowSessionLootTotals => GroupSessionLoot && !HasNoSessionLoot;
     public bool HasPartyHistory => PartyHistory.Members.Count > 0;
     public bool HasPartyChanges => PartyHistory.Changes.Count > 0;
 
@@ -129,8 +148,7 @@ public partial class ActivityHistoryViewModel : ObservableObject, IDisposable
         ActivityProjection.GetSummary(run, Filters.Scope).IsLegacyAggregate ? run : null;
     private bool IsImportedDetail => IsCombined ? selectedPlaySessions.All(row => row.IsImported) : ImportedRun is not null;
     private bool IsShowingMap => SelectedDetailTab == ActivityDetailTab.Maps && SelectedMap is not null;
-    private bool ShowsSessionLoot => (SelectedSessionItemSource.Value & ActivityItemSources.Loot) != 0;
-    private bool CanExportSessionLoot => Export.CanStart && SelectedPlaySession is not null && !IsImportedDetail && ShowsSessionLoot;
+    private bool CanExportSessionLoot => Export.CanStart && SelectedPlaySession is not null && !IsImportedDetail;
     private bool CanDeleteSelection => !IsCombined && (SelectedSession is { } run
         ? run.Source.State != ActivityState.Open && run.Id != page.Tracker?.CurrentSessionId
         : SelectedPlaySession is { IsOpen: false } playSession && playSession.Id != page.Tracker?.CurrentPlaySessionId);
@@ -153,10 +171,11 @@ public partial class ActivityHistoryViewModel : ObservableObject, IDisposable
                 : combined is not null ? $"{combined.Count:N0} sessions" : SelectedSession?.Title ?? SelectedPlaySession?.Title ?? "Select a session",
             MapMetadataText = map?.DetailsText ?? "",
             SelectionText = combined is null ? "" : CombinedText(combined, imported),
-            DurationText = map is not null ? $"Recorded time: {map.DurationText} · Combat time: {UiFormat.Duration(rates.CombatDurationSeconds)}"
-                : imported ? $"Duration: {UiFormat.Duration(rates.DurationSeconds)}" : SelectedEncounter is { } selected ? $"Combat time: {selected.DurationText}"
-                : SelectedSession is { } run ? $"Run time: {run.DurationText} · Combat time: {UiFormat.Duration(rates.CombatDurationSeconds)}"
-                : $"Session time: {UiFormat.Duration(rates.DurationSeconds)} · Combat time: {UiFormat.Duration(rates.CombatDurationSeconds)}",
+            TimeLabel = map is not null ? "Recorded" : imported ? "Duration" : SelectedEncounter is not null ? "Combat" : SelectedSession is not null ? "Run" : "Session",
+            TimeValue = map is not null ? map.DurationText : SelectedEncounter is { } selected ? selected.DurationText
+                : SelectedSession is { } run ? run.DurationText : UiFormat.Duration(rates.DurationSeconds),
+            CombatTimeValue = imported || SelectedEncounter is not null ? "" : UiFormat.Duration(rates.CombatDurationSeconds),
+            RunsText = UiFormat.Count(Sessions.Count, "run"),
             ScopeText = $"{SelectedPlayer?.Name ?? ""}{(isPartial ? $"{(SelectedPlayer is null ? "" : " · ")}Incomplete recording" : "")}",
             TagsText = map is not null ? ActivityDisplay.Tags(DetailSummary.Summary.Tags)
                 : SelectedSession is { } row ? ActivityDisplay.Tags(ActivityProjection.GetSummary(row.Source, Filters.Scope).Tags)
@@ -176,7 +195,6 @@ public partial class ActivityHistoryViewModel : ObservableObject, IDisposable
             CanShowOnMap = page.MapWindow is not null && MapRunId is not null,
             CanDelete = CanDeleteSelection,
             DeleteButtonText = SelectedSession is not null ? "Delete run…" : "Delete session…",
-            ShowLootPanel = ShowsSessionLoot && !imported,
             CanExportLoot = CanExportSessionLoot,
             // One time axis can't show sessions days apart.
             HasCharts = !imported && combined is null,
@@ -265,16 +283,16 @@ public partial class ActivityHistoryViewModel : ObservableObject, IDisposable
         detailQueryCancellation.Cancel();
     }
 
-    private ActivityQuery DetailQuery(bool lootOnly = false) => new()
+    // The Loot and Gathering tabs read items with their own scope.
+    private ActivityQuery DetailQuery(bool itemsOnly = false) => new()
     {
         PlaySessionId = IsCombined ? null : SelectedPlaySession?.Id,
         PlaySessionIds = combinedIds,
         SessionId = SelectedSession?.Id,
         EncounterId = SelectedEncounter?.Id,
         ActorKey = SelectedPlayer?.ActorId,
-        Scope = lootOnly ? SelectedSessionLootScope.Value : Filters.Scope,
-        ItemsOnly = lootOnly,
-        ItemSources = lootOnly ? SelectedSessionItemSource.Value : ActivityItemSources.All
+        Scope = itemsOnly ? SelectedSessionLootScope.Value : Filters.Scope,
+        ItemsOnly = itemsOnly
     };
 
     private async Task RefreshDetailsAsync()
@@ -383,12 +401,13 @@ public partial class ActivityHistoryViewModel : ObservableObject, IDisposable
             }
             finally { applyingSelection = false; }
         }
-        else if (detailTab == ActivityDetailTab.KilledMobs)
+        else if (detailTab == ActivityDetailTab.Mobs)
         {
             var totals = await persistence.GetMobsAsync(query, cancellationToken);
             if (IsCurrentDetail(version, playSessionId) && DetailQuery() == query && SelectedDetailTab == detailTab) Mobs = new(totals.Select(total => new ActivityMobRow(total)));
         }
-        else if (detailTab == ActivityDetailTab.Items) await LoadSessionLootAsync(false, version, true);
+        else if (detailTab == ActivityDetailTab.Loot) await LoadSessionLootAsync(false, version, true);
+        else if (detailTab == ActivityDetailTab.Gathering) await RefreshSessionResourcesAsync(version);
         else if (detailTab == ActivityDetailTab.Timeline) await LoadTimelineAsync(false, version, true);
         else if (detailTab == ActivityDetailTab.Party) await LoadPartyHistoryAsync(version, playSessionId, headers, run, cancellationToken);
         if (IsCurrentDetail(version, playSessionId) && DetailQuery() == query && SelectedDetailTab == detailTab)
@@ -466,6 +485,13 @@ public partial class ActivityHistoryViewModel : ObservableObject, IDisposable
     private async Task LoadSessionLootAsync(bool append, long? version = null, bool refresh = false)
     {
         if (page.Persistence is not { } persistence || SelectedPlaySession is null) return;
+        // Grouped by item, the list reads every item at once, so there is no more to load.
+        if (GroupSessionLoot)
+        {
+            if (!append) await LoadSessionLootTotalsAsync(persistence, version);
+            return;
+        }
+
         var query = DetailQuery(true);
         var cancellationToken = detailQueryCancellation.Token;
         var playSessionId = SelectedPlaySession.Id;
@@ -476,14 +502,39 @@ public partial class ActivityHistoryViewModel : ObservableObject, IDisposable
         page.Valuations?.RequestMissing(result.Items);
         sessionLootPage = pageIndex;
         HasMoreSessionLoot = result.HasMore;
-        await RefreshSessionResourcesAsync(query, version ?? detailVersion);
+        HasNoSessionLoot = SessionLoot.Count == 0;
     }
 
-    private async Task RefreshSessionResourcesAsync(ActivityQuery query, long version)
+    private async Task LoadSessionLootTotalsAsync(ActivityPersistence persistence, long? version)
+    {
+        var query = DetailQuery(true);
+        var playSessionId = SelectedPlaySession?.Id;
+        var rows = await persistence.GetLootTotalsAsync(query, detailQueryCancellation.Token);
+        if (page.IsDisposed || !GroupSessionLoot || SelectedPlaySession?.Id != playSessionId || DetailQuery(true) != query ||
+            version is { } expected && detailVersion != expected) return;
+        SessionLootTotals = new(rows.Select(row => new ActivityLootTotalRow(row)));
+        HasMoreSessionLoot = false;
+        HasNoSessionLoot = rows.Count == 0;
+    }
+
+    private async Task RefreshSessionResourcesAsync(long version)
     {
         if (page.Persistence is not { } persistence || SelectedPlaySession is not { } playSession) return;
+        var query = DetailQuery(true);
         var rows = await persistence.GetResourceTotalsAsync(query, detailQueryCancellation.Token);
-        if (IsCurrentDetail(version, playSession.Id) && DetailQuery(true) == query) SessionResources = new(rows.Select(row => new ActivityResourceRow(row)));
+        if (!IsCurrentDetail(version, playSession.Id) || DetailQuery(true) != query) return;
+        SessionResources = new(rows.Select(row => new ActivityResourceRow(row)));
+        SessionResourcesText = GatheredText(rows);
+        HasNoSessionResources = rows.Count == 0;
+    }
+
+    // "Gathered 1.2k (13 fished) · EMV 345k", like the totals on the Items tab. Fishing counts as gathering.
+    private static string GatheredText(IReadOnlyList<ActivityResourceTotal> rows)
+    {
+        var fished = rows.Where(row => row.Source == ActivityResourceMethod.Fishing).Sum(row => row.Quantity);
+        var value = rows.Sum(row => row.KnownValue);
+        return $"Gathered {UiFormat.Compact(rows.Sum(row => row.Quantity))}" + (fished > 0 ? $" ({UiFormat.Compact(fished)} fished)" : "") +
+            $" · EMV {(value == 0 && rows.Any(row => row.MissingPriceItems > 0) ? UiText.Unavailable : UiFormat.Compact(value))}";
     }
 
     private async Task LoadTimelineAsync(bool append, long? version = null, bool refresh = false)
@@ -541,15 +592,20 @@ public partial class ActivityHistoryViewModel : ObservableObject, IDisposable
         ++detailChangeVersion; ++detailVersion;
         sessionLootPage = 0;
         SessionLoot.Clear();
-        if (page.IsShowing(ActivityTab.History) && SelectedDetailTab == ActivityDetailTab.Items) _ = page.RunSafelyAsync(RefreshDetailsAsync);
+        SessionLootTotals = new();
+        if (page.IsShowing(ActivityTab.History) && SelectedDetailTab is ActivityDetailTab.Loot or ActivityDetailTab.Gathering)
+            _ = page.RunSafelyAsync(RefreshDetailsAsync);
     }
 
-    partial void OnSelectedSessionItemSourceChanged(Option<ActivityItemSources> value)
+    partial void OnGroupSessionLootChanged(bool value)
     {
-        UpdateDetail();
         ++detailChangeVersion; ++detailVersion;
         sessionLootPage = 0;
-        if (page.IsShowing(ActivityTab.History) && SelectedDetailTab == ActivityDetailTab.Items) _ = page.RunSafelyAsync(RefreshDetailsAsync);
+        SessionLoot.Clear();
+        SessionLootTotals = new();
+        HasMoreSessionLoot = false;
+        if (page.IsShowing(ActivityTab.History) && SelectedDetailTab == ActivityDetailTab.Loot)
+            _ = page.RunSafelyAsync(RefreshDetailsAsync);
     }
 
     partial void OnSelectedDetailTabIndexChanged(int oldValue, int newValue)
@@ -584,10 +640,11 @@ public partial class ActivityHistoryViewModel : ObservableObject, IDisposable
             SelectedEncounter = null;
             SelectedPlayer = null;
             ResetMaps();
-            if (IsImportedDetail) SelectedDetailTab = ActivityDetailTab.Items;
+            if (IsImportedDetail) SelectedDetailTab = ActivityDetailTab.Gathering;
         }
         finally { applyingSelection = false; }
         Encounters.Clear(); Players.Clear(); Mobs.Clear(); SessionLoot.Clear(); Timeline.Clear(); HistoryLiveTimeline = null;
+        SessionLootTotals = new();
         encounterPage = timelinePage = sessionLootPage = 0;
         HasMoreEncounters = HasMoreSessionLoot = HasMoreTimeline = false;
         DetailSummary = ActivitySummaryPresentation.Empty;
@@ -615,6 +672,7 @@ public partial class ActivityHistoryViewModel : ObservableObject, IDisposable
     {
         timelinePage = sessionLootPage = 0;
         SessionLoot.Clear(); Timeline.Clear(); HistoryLiveTimeline = null;
+        SessionLootTotals = new();
         HasMoreSessionLoot = HasMoreTimeline = false;
     }
 
