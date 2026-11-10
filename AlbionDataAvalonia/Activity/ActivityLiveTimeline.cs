@@ -152,7 +152,7 @@ internal static class ActivityLiveTimeline
         {
             entries = ItemEntries(events, kind, contribution);
             context = WithPlayer(context, first.SourceName);
-            lines.Add(ItemTotal(entries, kind));
+            lines.Add(ItemTotal(entries));
         }
         else if (kind == ActivityLiveTimelineMarkerKind.MobKill)
             entries = MobEntries(events, contribution);
@@ -251,7 +251,7 @@ internal static class ActivityLiveTimeline
             ? MergeEntries(group.SelectMany(marker => marker.Tooltip!.Entries!)) : null;
         List<string> lines;
         if (entries is not null)
-            lines = first.Kind == ActivityLiveTimelineMarkerKind.MobKill ? [] : [ItemTotal(entries, first.Kind)];
+            lines = first.Kind == ActivityLiveTimelineMarkerKind.MobKill ? [] : [ItemTotal(entries)];
         else
         {
             lines = group.Take(4).Select(marker =>
@@ -330,15 +330,13 @@ internal static class ActivityLiveTimeline
     private static ActivityTooltipEntry[] Sorted(IEnumerable<ActivityTooltipEntry> entries) => entries.Where(x => x.Count > 0)
         .OrderByDescending(x => x.Value).ThenByDescending(x => x.Count).ThenBy(x => x.Name, StringComparer.CurrentCulture).ToArray();
 
-    private static string ItemTotal(IReadOnlyCollection<ActivityTooltipEntry> entries, ActivityLiveTimelineMarkerKind kind)
+    private static string ItemTotal(IReadOnlyCollection<ActivityTooltipEntry> entries)
     {
         var count = entries.Sum(x => x.Count);
         var unpriced = entries.Sum(x => x.Unpriced);
         var value = entries.Sum(x => x.Value);
-        var trashed = kind == ActivityLiveTimelineMarkerKind.Trashed;
-        if (unpriced >= count && value == 0) return trashed ? "No EMV taken off" : "Total EMV unavailable";
-        return (trashed ? $"EMV taken off {UiFormat.Compact(value)}" : $"Total EMV {UiFormat.Compact(value)}")
-            + (unpriced > 0 ? $" · {UiFormat.Whole(unpriced)} without a price" : "");
+        if (unpriced >= count && value == 0) return "Total EMV unavailable";
+        return $"Total EMV {UiFormat.Compact(value)}" + (unpriced > 0 ? $" · {UiFormat.Whole(unpriced)} without a price" : "");
     }
 
     private static IEnumerable<string> EntryLines(IReadOnlyList<ActivityTooltipEntry>? entries) =>

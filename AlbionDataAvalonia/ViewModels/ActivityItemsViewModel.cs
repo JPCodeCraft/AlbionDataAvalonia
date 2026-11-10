@@ -55,13 +55,10 @@ public partial class ActivityItemsViewModel : ObservableObject, IDisposable
     public bool ShowGlobalLootList => ShowGlobalLootPanel && HasGlobalLoot;
     public string GlobalLootTotalsText => string.Join(" · ", new[]
     {
-        ShowGlobalLootPanel ? $"Loot {UiFormat.Compact(GlobalLootSummary.Summary.LootItems)} {UiFormat.Noun(GlobalLootSummary.Summary.LootItems, "item")}"
-            + Trashed(GlobalLootSummary.Summary.TrashedLootItems) + $" · EMV {GlobalLootSummary.LootValue}" : null,
-        SelectedItemSource.Value != ActivityItemSources.Loot ? $"Gathered {GlobalLootSummary.ResourceQuantityText}"
-            + Trashed(GlobalLootSummary.Summary.TrashedResourceItems) + $" · EMV {GlobalLootSummary.ResourceValueText}" : null
+        ShowGlobalLootPanel ? $"Loot {UiFormat.Compact(GlobalLootSummary.Summary.LootItems)} {UiFormat.Noun(GlobalLootSummary.Summary.LootItems, "item")} · EMV {GlobalLootSummary.LootValue}" : null,
+        SelectedItemSource.Value != ActivityItemSources.Loot ? $"Gathered {GlobalLootSummary.ResourceQuantityText} · EMV {GlobalLootSummary.ResourceValueText}" : null
     }.Where(value => value is not null));
-    public string GlobalLootDetailsText => "Loot uses the Black Market EMV when available. Trashed items are taken off the EMV.";
-    private static string Trashed(long items) => items > 0 ? $" ({UiFormat.Compact(items)} trashed)" : "";
+    public string GlobalLootDetailsText => "Loot uses the Black Market EMV when available";
 
     // A period moves on at midnight, so the list reloads then even when no new items arrive.
     internal bool IsStale => itemReadVersion != page.ItemChangeVersion ||

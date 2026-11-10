@@ -34,6 +34,8 @@
     <SolidColorBrush x:Key="UiWarningBrush" Color="{StaticResource UiWarningColor}" />
     <SolidColorBrush x:Key="UiDangerBrush" Color="{StaticResource UiDangerColor}" />
     <SolidColorBrush x:Key="UiDangerTintBrush" Color="#26FF7043" />
+    <!-- Rows of trashed items in loot tables: a fainter danger tint. -->
+    <Color x:Key="UiTrashedRowColor">#1CFF7043</Color>
     <SolidColorBrush x:Key="UiDangerTintHoverBrush" Color="#40FF7043" />
     <SolidColorBrush x:Key="UiDangerEdgeBrush" Color="#8CFF7043" />
     <SolidColorBrush x:Key="UiDangerTextBrush" Color="#FFAB91" />

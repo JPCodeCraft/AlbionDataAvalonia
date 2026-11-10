@@ -1,3 +1,4 @@
+using AlbionDataAvalonia.Ui;
 using AlbionDataAvalonia.ViewModels;
 using Avalonia;
 using Avalonia.Controls;
@@ -20,6 +21,9 @@ public partial class ActivityView : UserControl
     public static readonly FuncValueConverter<int, double> HistoryMobTableHeightConverter = new(count => 52 + Math.Max(0, count) * 36d);
     public static readonly FuncValueConverter<int, double> HistoryLootTableHeightConverter = new(count => 52 + Math.Max(0, count) * 40d);
     public static readonly FuncValueConverter<double, double> HistoryTimelineViewportHeightConverter = new(height => Math.Clamp(height - 120, 240, 640));
+    // A trashed item's row gets a faint tint; other rows keep the table's own background.
+    public static readonly FuncValueConverter<bool, object?> TrashedRowBackgroundConverter =
+        new(trashed => trashed ? UiPalette.Brush("UiTrashedRowColor") : AvaloniaProperty.UnsetValue);
 
     private ActivityViewModel? activeViewModel;
     private bool isAttached;
