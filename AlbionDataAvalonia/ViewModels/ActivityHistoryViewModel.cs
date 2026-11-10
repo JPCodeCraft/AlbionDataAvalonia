@@ -529,11 +529,12 @@ public partial class ActivityHistoryViewModel : ObservableObject, IDisposable
     }
 
     // "Gathered 1.2k (13 fished) · EMV 345k", like the totals on the Items tab. Fishing counts as gathering.
+    // Like the tiles and the EMV, it counts what's left after trashing.
     private static string GatheredText(IReadOnlyList<ActivityResourceTotal> rows)
     {
-        var fished = rows.Where(row => row.Source == ActivityResourceMethod.Fishing).Sum(row => row.Quantity);
+        var fished = rows.Where(row => row.Source == ActivityResourceMethod.Fishing).Sum(row => row.Quantity - row.TrashedQuantity);
         var value = rows.Sum(row => row.KnownValue);
-        return $"Gathered {UiFormat.Compact(rows.Sum(row => row.Quantity))}" + (fished > 0 ? $" ({UiFormat.Compact(fished)} fished)" : "") +
+        return $"Gathered {UiFormat.Compact(rows.Sum(row => row.Quantity - row.TrashedQuantity))}" + (fished > 0 ? $" ({UiFormat.Compact(fished)} fished)" : "") +
             $" · EMV {(value == 0 && rows.Any(row => row.MissingPriceItems > 0) ? UiText.Unavailable : UiFormat.Compact(value))}";
     }
 

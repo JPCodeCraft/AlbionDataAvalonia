@@ -87,7 +87,8 @@ public sealed class ActivitySummaryPresentation
     public bool HasResources => Summary.ResourceItems > 0;
     public bool HasMissingItemPrices => Summary.MissingPriceItems + Summary.MissingResourcePriceItems > 0;
     public string ResourceItemsText => $"{UiFormat.Compact(Summary.ResourceItems)} items gathered";
-    public string ResourceQuantityText => UiFormat.Compact(Summary.ResourceItems);
+    // What's left after trashing, like the EMV beside it.
+    public string ResourceQuantityText => UiFormat.Compact(Summary.ResourceItems - Summary.TrashedResourceItems);
     public string ResourceBreakdownText => $"Gathering {UiFormat.Compact(Summary.GatheringItems)}" + (Summary.FishingItems > 0 ? $" · Fishing {UiFormat.Compact(Summary.FishingItems)}" : "") + (Summary.UnclassifiedResourceItems > 0 ? $" · Other {UiFormat.Compact(Summary.UnclassifiedResourceItems)}" : "");
     public string ResourceValueText => Summary.ResourceValue == 0 && Summary.MissingResourcePriceItems > 0 ? UiText.Unavailable : UiFormat.Compact(Summary.ResourceValue);
     public string ResourceRateText => HasRecordedDuration ? $"{UiFormat.Compact(Rates.ResourceItemsPerHour)} items / hour · {ValueRateText(Summary.ResourceValue, Summary.MissingResourcePriceItems, Rates.ResourceValuePerHour)}" : "Hourly rate unavailable";
