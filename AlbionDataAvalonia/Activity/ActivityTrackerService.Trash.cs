@@ -17,29 +17,22 @@ public sealed partial class ActivityTrackerService
 
     private void ObserveAcquisition(ActivityEvent value) => trashLedger.Observe(value, playSession?.Id, CurrentPlayRun);
 
-    // The game client asks to destroy an item when the player confirms the trash can. The
-    // removal that follows names the item; the request is logged to confirm what it carries.
+    // The game client asks to destroy an item when the player confirms the trash can. Parameter 0 is the
+    // item's object id (seen in game); the removal of that object that follows is the trashed item.
     internal void ObserveDestroyRequest(RequestPacket packet)
     {
         lock (sync)
         {
             var at = Utc(packet.CapturedAt);
-            Log.Debug("Activity: destroy item request {Parameters}", Describe(packet));
+            long? objectId = packet.Parameters.TryGetValue(0, out var raw) ? raw switch
+            {
+                byte x => x, short x => x, int x => x, long x => x, _ => null
+            } : null;
+            Log.Debug("Activity: destroy item request for object {ObjectId}", objectId);
             if (disposed || !CanRecord || at < mapEnteredAt || !SameConnection(packet.ConnectionId, packet.MessageIdentity)) return;
-            loot.ObserveDestroyRequest(at);
+            loot.ObserveDestroyRequest(objectId, at);
         }
     }
-
-    private static string Describe(RequestPacket packet) => string.Join(", ", packet.Parameters
-        .Where(x => x.Key != 253).OrderBy(x => x.Key).Select(x => $"{x.Key}={Describe(x.Value)}"));
-
-    private static string Describe(object? value) => value switch
-    {
-        null => "null",
-        byte[] bytes => bytes.Length == 16 ? new Guid(bytes).ToString() : Convert.ToHexString(bytes),
-        Array array => "[" + string.Join(" ", array.Cast<object?>().Take(16).Select(Describe)) + (array.Length > 16 ? " …" : "") + "]",
-        _ => Convert.ToString(value, System.Globalization.CultureInfo.InvariantCulture) ?? ""
-    };
 
     /// <summary>
     /// The captured character destroyed quantity of an item. Only what this play session picked up, gathered or

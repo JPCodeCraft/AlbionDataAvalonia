@@ -46,6 +46,7 @@ internal sealed partial class ActivityLootCollector : IDisposable
     private readonly Dictionary<long, RecordedObject> recordedObjects = new();
     private DateTime nonLootMoveUntil;
     private DateTime destroyUntil;
+    private long? destroyObjectId;
     private Guid? inventory;
     private DateTime lastCacheSweep;
 
@@ -476,12 +477,16 @@ internal sealed partial class ActivityLootCollector : IDisposable
         membership[objectId] = destination;
     }
 
-    internal void ObserveDestroyRequest(DateTime at) => destroyUntil = at + DestroyWindow;
+    internal void ObserveDestroyRequest(long? objectId, DateTime at)
+    {
+        destroyUntil = at + DestroyWindow;
+        destroyObjectId = objectId;
+    }
 
-    // One destroy request removes one stack, or part of it, from the character's own inventory.
+    // One destroy request removes the stack it names, or part of it, from the character's own inventory.
     private void Destroyed(long objectId, long? quantity, DateTime at, string? origin, string proof)
     {
-        if (at > destroyUntil || objectId <= 0) return;
+        if (at > destroyUntil || objectId <= 0 || destroyObjectId is { } named && named != objectId) return;
         var bound = Membership(objectId, at);
         var own = bound != Guid.Empty && (bound == inventory || !(TryContainer(bound, at, out var container) && TrySource(container.SourceId, at, out _)));
         if (!own || GetItem(objectId, at) is not { Id: > 0 } item)
@@ -492,6 +497,7 @@ internal sealed partial class ActivityLootCollector : IDisposable
         var amount = quantity ?? item.Quantity;
         if (amount <= 0) return;
         destroyUntil = default;
+        destroyObjectId = null;
         tracker.RecordTrashed(item.Id, item.UniqueName, item.Name, item.Quality, amount, objectId, at, origin, proof);
     }
 
@@ -1070,7 +1076,7 @@ internal sealed partial class ActivityLootCollector : IDisposable
     public void Reset()
     {
         ResetRecordingCorrelations(); items.Clear(); pendingInventoryMetadata.Clear(); sources.Clear(); containers.Clear(); membership.Clear();
-        allocations.Clear(); chestRecipients.Clear(); partyChests.Clear(); inventory = null; nonLootMoveUntil = default; destroyUntil = default; lastCacheSweep = default;
+        allocations.Clear(); chestRecipients.Clear(); partyChests.Clear(); inventory = null; nonLootMoveUntil = default; destroyUntil = default; destroyObjectId = null; lastCacheSweep = default;
     }
     public void ForgetSession(Guid id) { recent.RemoveAll(x => x.Event.SessionId == id); ResetCandidates(); }
     public void ForgetUnassigned()
