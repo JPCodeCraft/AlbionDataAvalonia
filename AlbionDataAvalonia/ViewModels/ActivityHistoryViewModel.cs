@@ -532,8 +532,10 @@ public partial class ActivityHistoryViewModel : ObservableObject, IDisposable
     private static string GatheredText(IReadOnlyList<ActivityResourceTotal> rows)
     {
         var fished = rows.Where(row => row.Source == ActivityResourceMethod.Fishing).Sum(row => row.Quantity);
+        var trashed = rows.Sum(row => row.TrashedQuantity);
         var value = rows.Sum(row => row.KnownValue);
         return $"Gathered {UiFormat.Compact(rows.Sum(row => row.Quantity))}" + (fished > 0 ? $" ({UiFormat.Compact(fished)} fished)" : "") +
+            (trashed > 0 ? $" · {UiFormat.Compact(trashed)} trashed" : "") +
             $" · EMV {(value == 0 && rows.Any(row => row.MissingPriceItems > 0) ? UiText.Unavailable : UiFormat.Compact(value))}";
     }
 

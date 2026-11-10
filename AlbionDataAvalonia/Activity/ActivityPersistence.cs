@@ -77,11 +77,15 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                             unpriced = unpriced.Where(x => x.Kind == ActivityEventKind.Gathered && x.ItemUniqueName != null &&
                                 x.ItemUniqueName.EndsWith("_FULL") && (x.Quality == 1 || x.Quality == null));
                         else if (!price.LootBasis)
-                            unpriced = unpriced.Where(x => (x.Kind == ActivityEventKind.Gathered || x.Kind == ActivityEventKind.FishingReward) &&
+                            unpriced = unpriced.Where(x => (x.Kind == ActivityEventKind.Gathered || x.Kind == ActivityEventKind.FishingReward ||
+                                    x.Kind == ActivityEventKind.Trashed && (x.LootSourceKind == "Gathered" || x.LootSourceKind == "FishingReward")) &&
                                 (x.Quality == quality || x.Quality == null && quality == 1) &&
                                 !(x.Kind == ActivityEventKind.Gathered && x.ItemUniqueName != null && x.ItemUniqueName.Contains("_JOURNAL_") && x.ItemUniqueName.EndsWith("_FULL")));
-                        else if (quality == 0) unpriced = unpriced.Where(x => x.Kind == ActivityEventKind.Loot && x.Quality == null);
-                        else unpriced = unpriced.Where(x => x.Kind == ActivityEventKind.Loot && x.Quality == quality);
+                        // Trashed items take the price of the kind they were counted as.
+                        else if (quality == 0) unpriced = unpriced.Where(x => (x.Kind == ActivityEventKind.Loot ||
+                            x.Kind == ActivityEventKind.Trashed && x.LootSourceKind == "Loot") && x.Quality == null);
+                        else unpriced = unpriced.Where(x => (x.Kind == ActivityEventKind.Loot ||
+                            x.Kind == ActivityEventKind.Trashed && x.LootSourceKind == "Loot") && x.Quality == quality);
                         return await unpriced.OrderBy(x => x.CapturedAtUtc).ThenBy(x => x.Id).Take(250).ToArrayAsync(readCancellation);
                     }, cancellationToken).ConfigureAwait(false);
                     if (missing.Length == 0) break;

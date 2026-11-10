@@ -91,6 +91,9 @@ internal static class ActivityPacketSubscriptions
         {
             if (packet.OperationCode == (int)OperationCodes.ExitEnterCancel)
                 activity.CancelEntranceSelection(packet);
+            // Confirming the trash can; the removal that follows says which item went.
+            if (packet.OperationCode == (int)OperationCodes.InventoryDestroyItem)
+                activity.ObserveDestroyRequest(packet);
             if (packet.OperationCode is (int)OperationCodes.InventorySplitStack or (int)OperationCodes.InventorySplitStackInto
                 or (int)OperationCodes.InventoryStack or (int)OperationCodes.InventoryAddToStacks
                 or (int)OperationCodes.InventoryDestroyItem or (int)OperationCodes.InventoryDropAll)

@@ -14,7 +14,10 @@ public enum ActivityEventKind
     Damage, Healing, Fame, Silver, Loot, MobKilled, PlayerKilled, Death,
     Knockdown, Location, CaptureGap, OutcomeEvidence,
     Gathered, FishingReward, LegacyGatheringAggregate, LegacyImportMarker,
-    PartyJoined, PartyLeft
+    PartyJoined, PartyLeft,
+    // An item the captured character destroyed that this play session had picked up, gathered or fished.
+    // LootSourceKind names the kind it was counted as (Loot, Gathered or FishingReward); it takes that value back.
+    Trashed
 }
 [Flags]
 public enum ActivityTags { None = 0, Gathering = 1, Pve = 2, Pvp = 4 }
@@ -224,9 +227,15 @@ public sealed record ActivitySummary
     public double? UnknownFameAmount { get; init; }
     public long SilverRaw { get; init; }
     public long UnknownSilverEvents { get; init; }
+    // Net of trashed loot; TrashedLootValue is the part taken back, so the loot picked up is their sum.
     public long LootValue { get; init; }
     public long LootItems { get; init; }
     public long MissingPriceItems { get; init; }
+    public long TrashedLootItems { get; init; }
+    public long TrashedLootValue { get; init; }
+    // Gathering and fishing values are net of trashed resources in the same way.
+    public long TrashedResourceItems { get; init; }
+    public long TrashedResourceValue { get; init; }
     public long MobKills { get; init; }
     public long PlayerKills { get; init; }
     public long Deaths { get; init; }
@@ -317,12 +326,15 @@ public sealed record ActivityRates(double DurationSeconds, double DamagePerSecon
     double ResourceItemsPerHour = 0, double ResourceValuePerHour = 0);
 
 // Filled journals also total the full and empty journal EMVs behind their known value.
+// KnownValue is net of the TrashedQuantity of these resources that the character trashed; Quantity is what was gathered.
 public sealed record ActivityResourceTotal(int? ItemId, int? Quality, string? UniqueName, string Name,
     ActivityResourceMethod Source, long Quantity, long KnownValue, long MissingPriceItems,
-    long FullJournalValue = 0, long EmptyJournalValue = 0);
+    long FullJournalValue = 0, long EmptyJournalValue = 0, long TrashedQuantity = 0);
 // One item's loot added up the way the loot totals count it; BlackMarketPickups of the PricedPickups used the Black Market EMV.
+// KnownValue is net of TrashedValue, the EMV of the TrashedQuantity the character trashed; Quantity is what was picked up.
 public sealed record ActivityLootTotal(int? ItemId, int? Quality, string? UniqueName, string Name, long Quantity, long KnownValue,
-    long MissingPriceItems, long Pickups, long PricedPickups, long BlackMarketPickups, DateTime LastPickedUpUtc);
+    long MissingPriceItems, long Pickups, long PricedPickups, long BlackMarketPickups, DateTime LastPickedUpUtc,
+    long TrashedQuantity = 0, long TrashedValue = 0);
 public sealed record ActivityImportResult(int ImportedSessions, int SkippedSessions, IReadOnlyList<string> Errors);
 public sealed record ActivityResourceDetails
 {

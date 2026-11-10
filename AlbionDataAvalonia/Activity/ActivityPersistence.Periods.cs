@@ -200,9 +200,11 @@ public sealed partial class ActivityPersistence
                 EmptyJournalValue = g.Sum(x => x.EstimatedUnitValue != null && x.ItemUniqueName != null && x.ItemUniqueName.EndsWith("_FULL")
                     ? x.Quantity * (ActivityDatabaseFunctions.JsonLong(x.DetailsJson, "$.EmptyJournalUnitValue") ?? 0) : 0)
             }).ToArrayAsync(cancellationToken);
-        var resources = rows.Select(x => new ActivityResourceTotal(x.ItemId, x.Quality, x.ItemUniqueName, x.Name ?? "",
+        var gathered = rows.Select(x => new ActivityResourceTotal(x.ItemId, x.Quality, x.ItemUniqueName, x.Name ?? "",
             x.Kind == ActivityEventKind.Gathered ? ActivityResourceMethod.Gathering : ActivityResourceMethod.Fishing,
-            x.Quantity, x.KnownValue, x.Missing, x.FullJournalValue, x.EmptyJournalValue)).ToDictionary(ResourceKey);
+            x.Quantity, x.KnownValue, x.Missing, x.FullJournalValue, x.EmptyJournalValue)).ToArray();
+        var trashed = await TrashedResourcesAsync(events, query.Scope, null, cancellationToken);
+        var resources = (trashed.Length == 0 ? gathered : MergeTrashedResources(gathered, trashed)).ToDictionary(ResourceKey);
         var contribution = ActivityProjection.ContributionFor(query.Scope, null);
         foreach (var value in after.Values)
         {
@@ -268,13 +270,18 @@ public sealed partial class ActivityPersistence
             if (!InPeriod(value)) return;
             var amount = contribution(value);
             summary = ActivityProjection.Add(summary, amount, sign);
-            if (amount.ResourceItems <= 0) return;
+            if (amount.ResourceItems <= 0 && amount.TrashedResourceItems <= 0) return;
             var journal = ActivityJournals.Values(value);
-            var total = new ActivityResourceTotal(value.ItemId, value.Quality, value.ItemUniqueName, value.ItemName,
-                ActivityClassification.ResourceMethod(value), amount.ResourceItems, amount.ResourceValue, amount.MissingResourcePriceItems,
-                (journal?.Full ?? 0) * amount.ResourceItems, (journal?.Empty ?? 0) * amount.ResourceItems);
+            // A trashed resource joins its gathered row with its value taken off.
+            var total = amount.TrashedResourceItems > 0
+                ? new ActivityResourceTotal(value.ItemId, value.Quality, value.ItemUniqueName, value.ItemName,
+                    value.LootSourceKind == nameof(ActivityEventKind.FishingReward) ? ActivityResourceMethod.Fishing : ActivityResourceMethod.Gathering,
+                    0, amount.ResourceValue, 0, TrashedQuantity: amount.TrashedResourceItems)
+                : new ActivityResourceTotal(value.ItemId, value.Quality, value.ItemUniqueName, value.ItemName,
+                    ActivityClassification.ResourceMethod(value), amount.ResourceItems, amount.ResourceValue, amount.MissingResourcePriceItems,
+                    (journal?.Full ?? 0) * amount.ResourceItems, (journal?.Empty ?? 0) * amount.ResourceItems);
             var key = ResourceKey(total);
-            var prior = resources.GetValueOrDefault(key) ?? total with { Quantity = 0, KnownValue = 0, MissingPriceItems = 0 };
+            var prior = resources.GetValueOrDefault(key) ?? total with { Quantity = 0, KnownValue = 0, MissingPriceItems = 0, TrashedQuantity = 0 };
             resources[key] = prior with
             {
                 Name = string.IsNullOrWhiteSpace(total.Name) ? prior.Name : total.Name,
@@ -282,7 +289,8 @@ public sealed partial class ActivityPersistence
                 KnownValue = prior.KnownValue + sign * total.KnownValue,
                 MissingPriceItems = prior.MissingPriceItems + sign * total.MissingPriceItems,
                 FullJournalValue = prior.FullJournalValue + sign * total.FullJournalValue,
-                EmptyJournalValue = prior.EmptyJournalValue + sign * total.EmptyJournalValue
+                EmptyJournalValue = prior.EmptyJournalValue + sign * total.EmptyJournalValue,
+                TrashedQuantity = prior.TrashedQuantity + sign * total.TrashedQuantity
             };
         }
     }
@@ -322,6 +330,10 @@ public sealed partial class ActivityPersistence
             LootValue = g.Sum(x => x.LootValue),
             LootItems = g.Sum(x => x.LootItems),
             MissingPriceItems = g.Sum(x => x.MissingPriceItems),
+            TrashedLootItems = g.Sum(x => x.TrashedLootItems),
+            TrashedLootValue = g.Sum(x => x.TrashedLootValue),
+            TrashedResourceItems = g.Sum(x => x.TrashedResourceItems),
+            TrashedResourceValue = g.Sum(x => x.TrashedResourceValue),
             MobKills = g.Sum(x => x.MobKills),
             PlayerKills = g.Sum(x => x.PlayerKills),
             Deaths = g.Sum(x => x.Deaths),

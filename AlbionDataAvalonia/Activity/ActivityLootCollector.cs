@@ -21,6 +21,8 @@ internal sealed partial class ActivityLootCollector : IDisposable
     private static readonly TimeSpan MetadataLifetime = TimeSpan.FromMinutes(10);
     private static readonly TimeSpan CorrelationWindow = TimeSpan.FromSeconds(3);
     private static readonly TimeSpan EmptyChestWindow = TimeSpan.FromSeconds(30);
+    // How long after the player's destroy request the item's removal may follow.
+    private static readonly TimeSpan DestroyWindow = TimeSpan.FromSeconds(3);
     private readonly ActivityTrackerService tracker;
     private readonly ItemEstimatedMarketValueService values;
     private readonly ItemsIdsService itemNames;
@@ -43,6 +45,7 @@ internal sealed partial class ActivityLootCollector : IDisposable
     private readonly Dictionary<long, DateTime> emptyChests = new();
     private readonly Dictionary<long, RecordedObject> recordedObjects = new();
     private DateTime nonLootMoveUntil;
+    private DateTime destroyUntil;
     private Guid? inventory;
     private DateTime lastCacheSweep;
 
@@ -198,6 +201,7 @@ internal sealed partial class ActivityLootCollector : IDisposable
                 Put(put.ItemObjectId, put.ContainerId, at, ActivityTrackerService.Origin(packet, "InventoryPut"), record);
                 break;
             case InventoryDeleteItemEvent deleted:
+                if (record) Destroyed(deleted.ItemObjectId, null, at, ActivityTrackerService.Origin(packet, "Trashed"), "DestroyRequestAndInventoryDelete");
                 Removed(deleted.ItemObjectId, at, ActivityTrackerService.Origin(packet, "InventoryDelete"), record: record);
                 break;
             case PartyLootItemsEvent party:
@@ -362,6 +366,9 @@ internal sealed partial class ActivityLootCollector : IDisposable
             emv ?? sameItem?.Emv, blackMarketEmv ?? sameItem?.BlackMarketEmv);
         items[objectId] = next;
         if (!record) return;
+        // A stack that shrinks right after the player's destroy request lost that many to the trash.
+        if (quantity is > 0 && old is not null && old.Id == itemId && next.Quantity < old.Quantity && at <= destroyUntil)
+            Destroyed(objectId, old.Quantity - next.Quantity, at, null, "DestroyRequestAndStackDecrease");
         // Gains during inventory rearrangement still confirm loot, but cannot prove fishing rewards.
         var disrupted = at <= nonLootMoveUntil;
         if (Membership(objectId, at) == inventory && quantity is > 0 && validatedSimple
@@ -467,6 +474,25 @@ internal sealed partial class ActivityLootCollector : IDisposable
             }
         }
         membership[objectId] = destination;
+    }
+
+    internal void ObserveDestroyRequest(DateTime at) => destroyUntil = at + DestroyWindow;
+
+    // One destroy request removes one stack, or part of it, from the character's own inventory.
+    private void Destroyed(long objectId, long? quantity, DateTime at, string? origin, string proof)
+    {
+        if (at > destroyUntil || objectId <= 0) return;
+        var bound = Membership(objectId, at);
+        var own = bound != Guid.Empty && (bound == inventory || !(TryContainer(bound, at, out var container) && TrySource(container.SourceId, at, out _)));
+        if (!own || GetItem(objectId, at) is not { Id: > 0 } item)
+        {
+            Log.Debug("Activity: removal of {ObjectId} after a destroy request is not a known item of the inventory", objectId);
+            return;
+        }
+        var amount = quantity ?? item.Quantity;
+        if (amount <= 0) return;
+        destroyUntil = default;
+        tracker.RecordTrashed(item.Id, item.UniqueName, item.Name, item.Quality, amount, objectId, at, origin, proof);
     }
 
     private Candidate? Removed(long objectId, DateTime at, string? origin, long? sourceId = null, bool record = true,
@@ -1044,7 +1070,7 @@ internal sealed partial class ActivityLootCollector : IDisposable
     public void Reset()
     {
         ResetRecordingCorrelations(); items.Clear(); pendingInventoryMetadata.Clear(); sources.Clear(); containers.Clear(); membership.Clear();
-        allocations.Clear(); chestRecipients.Clear(); partyChests.Clear(); inventory = null; nonLootMoveUntil = default; lastCacheSweep = default;
+        allocations.Clear(); chestRecipients.Clear(); partyChests.Clear(); inventory = null; nonLootMoveUntil = default; destroyUntil = default; lastCacheSweep = default;
     }
     public void ForgetSession(Guid id) { recent.RemoveAll(x => x.Event.SessionId == id); ResetCandidates(); }
     public void ForgetUnassigned()

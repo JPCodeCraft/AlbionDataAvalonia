@@ -39,7 +39,7 @@ public static class ActivityClassification
 {
     public const int TagVersion = 7;
     public static bool IsResource(ActivityEventKind kind) => kind is ActivityEventKind.Gathered or ActivityEventKind.FishingReward or ActivityEventKind.LegacyGatheringAggregate;
-    public static bool IsItem(ActivityEventKind kind) => kind == ActivityEventKind.Loot || IsResource(kind);
+    public static bool IsItem(ActivityEventKind kind) => kind is ActivityEventKind.Loot or ActivityEventKind.Trashed || IsResource(kind);
     public static bool IsParty(ActivityEventKind kind) => kind is ActivityEventKind.PartyJoined or ActivityEventKind.PartyLeft;
     public static bool IsTemporal(ActivityEventKind kind) => kind is not (ActivityEventKind.LegacyGatheringAggregate or ActivityEventKind.LegacyImportMarker);
     public static ActivityResourceMethod ResourceMethod(ActivityEvent value) => ResourceMethodValue(value);
@@ -176,6 +176,9 @@ public static class ActivityClassification
                 ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.Method") == (long)ActivityResourceMethod.Fishing ||
                 e.Kind == ActivityEventKind.Fame && ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.FameCategory") == (long)ActivityFameCategory.Fishing) ||
             loot && e.Kind == ActivityEventKind.Loot || fame && e.Kind == ActivityEventKind.Fame || silver && e.Kind == ActivityEventKind.Silver ||
+            // A trashed item shows wherever the kind it was counted as shows.
+            e.Kind == ActivityEventKind.Trashed && (loot && e.LootSourceKind == "Loot" || gathering && e.LootSourceKind == "Gathered" ||
+                fishing && e.LootSourceKind == "FishingReward") ||
             outcomes && (e.Kind == ActivityEventKind.Death || e.Kind == ActivityEventKind.PlayerKilled || e.Kind == ActivityEventKind.MobKilled || e.Kind == ActivityEventKind.Knockdown) ||
             combat && (e.Kind == ActivityEventKind.Damage || e.Kind == ActivityEventKind.Healing) ||
             e.Kind == ActivityEventKind.Fame &&

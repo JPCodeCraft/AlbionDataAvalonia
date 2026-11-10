@@ -46,7 +46,17 @@ public static class ActivityProjection
                 (actorKey == null || e.SourceActorId == actorKey) &&
                 (all || e.SourceRelationship == ActorRelationship.Self || (party && e.SourceRelationship == ActorRelationship.Party)) ? 1 : 0,
             // Everyone also counts items taken by an unknown player, such as from a public chest.
+            // Loot the character trashed comes off again, so Loot EMV is what the session kept.
             LootValue = !e.IsRetracted && e.Kind == ActivityEventKind.Loot && (e.Evidence == ActivityEvidence.Confirmed || all && e.Evidence == ActivityEvidence.Inferred) && e.EstimatedUnitValue != null &&
+                (actorKey == null || e.SourceActorId == actorKey) &&
+                (all || e.SourceRelationship == ActorRelationship.Self || (party && e.SourceRelationship == ActorRelationship.Party)) ? e.EstimatedUnitValue.Value * e.Quantity :
+                !e.IsRetracted && e.Kind == ActivityEventKind.Trashed && e.LootSourceKind == "Loot" && e.EstimatedUnitValue != null &&
+                (actorKey == null || e.SourceActorId == actorKey) &&
+                (all || e.SourceRelationship == ActorRelationship.Self || (party && e.SourceRelationship == ActorRelationship.Party)) ? -(e.EstimatedUnitValue.Value * e.Quantity) : 0,
+            TrashedLootItems = !e.IsRetracted && e.Kind == ActivityEventKind.Trashed && e.LootSourceKind == "Loot" &&
+                (actorKey == null || e.SourceActorId == actorKey) &&
+                (all || e.SourceRelationship == ActorRelationship.Self || (party && e.SourceRelationship == ActorRelationship.Party)) ? e.Quantity : 0,
+            TrashedLootValue = !e.IsRetracted && e.Kind == ActivityEventKind.Trashed && e.LootSourceKind == "Loot" && e.EstimatedUnitValue != null &&
                 (actorKey == null || e.SourceActorId == actorKey) &&
                 (all || e.SourceRelationship == ActorRelationship.Self || (party && e.SourceRelationship == ActorRelationship.Party)) ? e.EstimatedUnitValue.Value * e.Quantity : 0,
             LootItems = !e.IsRetracted && e.Kind == ActivityEventKind.Loot && (e.Evidence == ActivityEvidence.Confirmed || all && e.Evidence == ActivityEvidence.Inferred) &&
@@ -92,7 +102,12 @@ public static class ActivityProjection
                 (e.Kind == ActivityEventKind.LegacyGatheringAggregate ? ActivityDatabaseFunctions.JsonLong(e.DetailsJson, "$.Legacy.RecordedTotalValue") == null : e.EstimatedUnitValue == null) &&
                 (actorKey == null || e.SourceActorId == actorKey) && (all || e.SourceRelationship == ActorRelationship.Self || party && e.SourceRelationship == ActorRelationship.Party) ? e.Quantity : 0,
             LegacyAggregateEvents = !e.IsRetracted && e.Kind == ActivityEventKind.LegacyGatheringAggregate &&
-                (all || e.SourceRelationship == ActorRelationship.Self || party && e.SourceRelationship == ActorRelationship.Party) ? 1 : 0
+                (all || e.SourceRelationship == ActorRelationship.Self || party && e.SourceRelationship == ActorRelationship.Party) ? 1 : 0,
+            TrashedResourceItems = !e.IsRetracted && e.Kind == ActivityEventKind.Trashed && (e.LootSourceKind == "Gathered" || e.LootSourceKind == "FishingReward") &&
+                (actorKey == null || e.SourceActorId == actorKey) && (all || e.SourceRelationship == ActorRelationship.Self || party && e.SourceRelationship == ActorRelationship.Party) ? e.Quantity : 0,
+            TrashedResourceValue = !e.IsRetracted && e.Kind == ActivityEventKind.Trashed && (e.LootSourceKind == "Gathered" || e.LootSourceKind == "FishingReward") && e.EstimatedUnitValue != null &&
+                (actorKey == null || e.SourceActorId == actorKey) && (all || e.SourceRelationship == ActorRelationship.Self || party && e.SourceRelationship == ActorRelationship.Party)
+                    ? e.EstimatedUnitValue.Value * e.Quantity : 0
         };
         var parameter = original.Parameters[0];
         var bindings = ((MemberInitExpression)original.Body).Bindings.Cast<MemberAssignment>().ToList();
@@ -111,8 +126,9 @@ public static class ActivityProjection
         AddCount(nameof(ActivitySummary.GatheringEvents), ActivityClassification.GatheringExpression(scope, actorKey));
         AddCount(nameof(ActivitySummary.PveEvents), ActivityClassification.PveExpression(scope, actorKey));
         AddCount(nameof(ActivitySummary.PvpEvents), ActivityClassification.PvpExpression(scope, actorKey));
-        AddValue(nameof(ActivitySummary.GatheringValue), nameof(ActivitySummary.GatheringItems));
-        AddValue(nameof(ActivitySummary.FishingValue), nameof(ActivitySummary.FishingItems));
+        // Trashed resources take their value back from the method they were counted under.
+        AddValue(nameof(ActivitySummary.GatheringValue), nameof(ActivitySummary.GatheringItems), e => e.LootSourceKind == "Gathered");
+        AddValue(nameof(ActivitySummary.FishingValue), nameof(ActivitySummary.FishingItems), e => e.LootSourceKind == "FishingReward");
         AddValue(nameof(ActivitySummary.UnclassifiedResourceValue), nameof(ActivitySummary.UnclassifiedResourceItems));
         AddNonLethal(nameof(ActivitySummary.NonLethalPlayerKills), nameof(ActivitySummary.PlayerKills));
         AddNonLethal(nameof(ActivitySummary.NonLethalDeaths), nameof(ActivitySummary.Deaths));
@@ -136,12 +152,20 @@ public static class ActivityProjection
             var fame = bindings.Single(x => x.Member.Name == nameof(ActivitySummary.Fame)).Expression;
             bindings.Add(Expression.Bind(typeof(ActivitySummary).GetProperty(property)!, Expression.Condition(predicate, fame, Expression.Constant(0d))));
         }
-        void AddValue(string property, string quantityProperty)
+        void AddValue(string property, string quantityProperty, Expression<Func<ActivityEvent, bool>>? trashedFrom = null)
         {
             var eligible = Expression.GreaterThan(bindings.Single(x => x.Member.Name == quantityProperty).Expression, Expression.Constant(0L));
             var value = new ParameterSubstitution(ActivityClassification.ItemValueExpression.Parameters[0], parameter).Visit(ActivityClassification.ItemValueExpression.Body)!;
+            Expression otherwise = Expression.Constant(0L);
+            if (trashedFrom is not null)
+            {
+                var trashed = Expression.AndAlso(
+                    Expression.GreaterThan(bindings.Single(x => x.Member.Name == nameof(ActivitySummary.TrashedResourceItems)).Expression, Expression.Constant(0L)),
+                    new ParameterSubstitution(trashedFrom.Parameters[0], parameter).Visit(trashedFrom.Body)!);
+                otherwise = Expression.Condition(trashed, Expression.Negate(Expression.Coalesce(value, Expression.Constant(0L))), Expression.Constant(0L));
+            }
             bindings.Add(Expression.Bind(typeof(ActivitySummary).GetProperty(property)!, Expression.Condition(eligible,
-                Expression.Coalesce(value, Expression.Constant(0L)), Expression.Constant(0L))));
+                Expression.Coalesce(value, Expression.Constant(0L)), otherwise)));
         }
     }
     private sealed class ParameterSubstitution(ParameterExpression source, ParameterExpression target) : ExpressionVisitor
@@ -245,6 +269,10 @@ public static class ActivityProjection
         LootValue = a.LootValue + sign * b.LootValue,
         LootItems = a.LootItems + sign * b.LootItems,
         MissingPriceItems = a.MissingPriceItems + sign * b.MissingPriceItems,
+        TrashedLootItems = a.TrashedLootItems + sign * b.TrashedLootItems,
+        TrashedLootValue = a.TrashedLootValue + sign * b.TrashedLootValue,
+        TrashedResourceItems = a.TrashedResourceItems + sign * b.TrashedResourceItems,
+        TrashedResourceValue = a.TrashedResourceValue + sign * b.TrashedResourceValue,
         MobKills = a.MobKills + sign * b.MobKills,
         PlayerKills = a.PlayerKills + sign * b.PlayerKills,
         Deaths = a.Deaths + sign * b.Deaths,

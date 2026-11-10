@@ -41,7 +41,11 @@ public sealed class ActivitySummaryPresentation
     public string TotalSilver => UiFormat.Compact(Summary.Silver + Summary.LootValue + Summary.ResourceValue);
     public string TotalSilverPerHour => HasRecordedDuration ? UiFormat.Compact(Rates.SilverPerHour + Rates.LootValuePerHour + Rates.ResourceValuePerHour) : UiText.Unavailable;
     public string TotalSilverDetailsText => (IsImported ? "Imported gathering EMV only" : "Silver + loot EMV + gathering EMV")
+        + (HasTrashed ? $"\nTrashed items are taken off: {UiFormat.Compact(Summary.TrashedLootValue + Summary.TrashedResourceValue)} silver" : "")
         + (HasMissingItemPrices || HasUnknownSilver ? "\nExcludes items without EMV and unknown silver" : "");
+    // Items the character trashed come off the EMV they were counted in; the hover cards say how much.
+    public bool HasTrashed => Summary.TrashedLootItems + Summary.TrashedResourceItems > 0;
+    private string TrashedText(long items, long value) => $"{UiFormat.Count(items, "item")} trashed, {UiFormat.Compact(value)} EMV taken off";
     public string Silver => Summary.IsLegacyAggregate ? UiText.Unavailable : UiFormat.Compact(Summary.Silver);
     public string LootValue => Summary.LootValue == 0 && Summary.MissingLootPriceCount > 0 ? UiText.Unavailable : UiFormat.Compact(Summary.LootValue);
     public string LootItemsText => $"{UiFormat.Compact(Summary.LootItems)} items picked up";
@@ -94,6 +98,7 @@ public sealed class ActivitySummaryPresentation
         + (IsSessionAverage && HasRecordedDuration && (Summary.LootValue > 0 || !HasMissingLootPrices) ? $" · {UiFormat.Compact(Rates.LootValuePerHour)} / h" : "")
         + (HasMissingLootPrices ? " *" : "");
     public string ItemsDetailsText => (HasLoot ? $"{LootItemsText}\n" : "") + "Black Market EMV when available, otherwise EMV"
+        + (Summary.TrashedLootItems > 0 ? $"\n{TrashedText(Summary.TrashedLootItems, Summary.TrashedLootValue)}" : "")
         + (HasMissingLootPrices ? $"\n{MissingLootPrices}" : "");
     private static string ValueRateText(long knownValue, long missingItems, double rate) => missingItems > 0 && knownValue == 0
         ? "EMV / hour unavailable" : $"{UiFormat.Compact(rate)} EMV / hour";
@@ -109,6 +114,7 @@ public sealed class ActivitySummaryPresentation
     public string ResourceValueRowText => ResourceValueText + (Summary.MissingResourcePriceItems > 0 ? " *" : "");
     public string GatheringRowDetails => (HasResources ? ResourceItemsText + (Summary.FishingItems > 0 ? $", {UiFormat.Compact(Summary.FishingItems)} of them fished" : "") : "Gathered and fished")
         + (HasResources && HasRecordedDuration && !IsImported ? $"\n{UiFormat.Compact(Rates.ResourceItemsPerHour)} items / hour" : "")
+        + (Summary.TrashedResourceItems > 0 ? $"\n{TrashedText(Summary.TrashedResourceItems, Summary.TrashedResourceValue)}" : "")
         + (Summary.MissingResourcePriceItems > 0 ? $"\n{Summary.MissingResourcePriceItems:N0} items without EMV" : "");
 
     public string TotalFame => IsImported ? UiText.Unavailable : UiFormat.Compact(Summary.Fame);
@@ -298,15 +304,18 @@ public sealed class ActivityLootRow(ActivityEvent source)
     public int ImageQuality => source.Quality ?? 1;
     public string Quality => ItemQuality.Format(source.Quality);
     // The table sorts by these; rows without a quantity or an EMV sort below every number.
-    public long? Quantity => source.Quantity > 0 ? source.Quantity : null;
-    public long? Value => source.Quantity > 0 ? ActivityProjection.GetLootValue(source) : null;
-    public string AmountText => source.Quantity > 0 ? UiFormat.Compact(source.Quantity) : source.Evidence == ActivityEvidence.Supplemental ? "Pending" : UiText.Unknown;
+    // A trashed item is listed with what it took off: its quantity and EMV count down.
+    public bool IsTrashed => source.Kind == ActivityEventKind.Trashed;
+    private int Sign => IsTrashed ? -1 : 1;
+    public long? Quantity => source.Quantity > 0 ? Sign * source.Quantity : null;
+    public long? Value => source.Quantity > 0 ? Sign * ActivityProjection.GetLootValue(source) : null;
+    public string AmountText => source.Quantity > 0 ? UiFormat.Compact(Sign * source.Quantity) : source.Evidence == ActivityEvidence.Supplemental ? "Pending" : UiText.Unknown;
     public string UnitValueText => source.EstimatedUnitValue is { } value ? UiFormat.Compact(value) : UiText.Unavailable;
     public string ValueText => source.Quantity <= 0 ? source.Evidence == ActivityEvidence.Supplemental ? "Quantity pending" : "Unknown quantity" : ActivityProjection.GetLootValue(source) is { } value
-        ? UiFormat.Compact(value) + (EmvName == BlackMarketEmv ? $" ({BlackMarketEmv})" : "") : UiText.Unavailable;
+        ? UiFormat.Compact(Sign * value) + (EmvName == BlackMarketEmv ? $" ({BlackMarketEmv})" : "") : UiText.Unavailable;
     private const string BlackMarketEmv = "Black Market EMV";
     // Loot prefers the Black Market EMV; rows priced before the kind was recorded cannot tell which.
-    private string EmvName => source.Kind != ActivityEventKind.Loot ? "EMV" : ActivityItemValuationService.IsBlackMarketEmv(source) switch
+    private string EmvName => ActivityItemValuationService.ValuedAs(source) != ActivityEventKind.Loot ? "EMV" : ActivityItemValuationService.IsBlackMarketEmv(source) switch
     {
         true => BlackMarketEmv,
         false => "EMV",
@@ -317,6 +326,7 @@ public sealed class ActivityLootRow(ActivityEvent source)
         ActivityEventKind.Gathered => "Gathering",
         ActivityEventKind.FishingReward => "Fishing",
         ActivityEventKind.LegacyGatheringAggregate => "Gathering",
+        ActivityEventKind.Trashed => "Trashed",
         _ => ActivityDisplay.LootSource(source.LootSourceName, source.LootSourceKind)
     };
     public string Location => string.IsNullOrWhiteSpace(source.LocationName) ? UiText.Unavailable : source.LocationName;
@@ -324,8 +334,10 @@ public sealed class ActivityLootRow(ActivityEvent source)
     public ActivityTip ItemTip => new(ItemName, Quality + "\n" + (source.EstimatedUnitValue is null
         ? "EMV unavailable" : $"{EmvName} each: {UnitValueText} silver")
         + (source.EstimatedUnitValue is not null && source.Quality is null
-            ? source.Kind == ActivityEventKind.Loot ? $"\nAverage {EmvName} across qualities 1-4" : "\nNormal-quality EMV" : "")
+            ? ActivityItemValuationService.ValuedAs(source) == ActivityEventKind.Loot ? $"\nAverage {EmvName} across qualities 1-4" : "\nNormal-quality EMV" : "")
+        + (IsTrashed ? $"\nTrashed: taken off {TrashedFrom}" : "")
         + (source.Evidence != ActivityEvidence.Confirmed ? "\nNot included in totals" : ""), ItemUniqueName, ImageQuality);
+    private string TrashedFrom => ActivityItemValuationService.ValuedAs(source) == ActivityEventKind.Loot ? "Loot EMV" : "Gathering EMV";
     public string RecipientDetails => $"{Recipient} · {Relationship}{(string.IsNullOrWhiteSpace(Guild) ? "" : $"\nGuild: {Guild}")}{(string.IsNullOrWhiteSpace(Alliance) ? "" : $"\nAlliance: {Alliance}")}";
     public string ContextDetails => Location;
 }
@@ -338,7 +350,8 @@ public sealed class ActivityLootTotalRow(ActivityLootTotal source)
     public int ImageQuality => source.Quality ?? 1;
     public string Quality => ItemQuality.Format(source.Quality);
     public long Quantity => source.Quantity;
-    public string QuantityText => UiFormat.Compact(source.Quantity);
+    // What was picked up, and how many of those were trashed since; the EMV is what's left.
+    public string QuantityText => UiFormat.Compact(source.Quantity) + (source.TrashedQuantity > 0 ? $" ({UiFormat.Compact(source.TrashedQuantity)} trashed)" : "");
     // The table sorts by these; an item without any EMV sorts below every number.
     public long? Value => source.PricedPickups > 0 ? source.KnownValue : null;
     // Like a pickup's EMV, it says when the Black Market EMV priced it, and how many items had no EMV.
@@ -377,6 +390,7 @@ public sealed class ActivityEventRow(ActivityEvent source)
         ActivityEventKind.LegacyGatheringAggregate => "Imported gathering total",
         ActivityEventKind.Silver => "Silver picked up",
         ActivityEventKind.Loot => "Loot picked up",
+        ActivityEventKind.Trashed => "Trashed",
         ActivityEventKind.Knockdown => "Knocked down",
         ActivityEventKind.Location => "Location changed",
         ActivityEventKind.LegacyImportMarker => "Imported gathering",
@@ -400,7 +414,7 @@ public sealed class ActivityEventRow(ActivityEvent source)
     public ActivityTip? TargetTip => HasTargetMob ? new(Target, Mob: TargetMob) : null;
     // Loot, gathering and fishing rows show the item's icon beside their details.
     public string ItemUniqueName => source.Kind is ActivityEventKind.Loot or ActivityEventKind.Gathered or ActivityEventKind.FishingReward
-        or ActivityEventKind.LegacyGatheringAggregate ? source.ItemUniqueName ?? "" : "";
+        or ActivityEventKind.LegacyGatheringAggregate or ActivityEventKind.Trashed ? source.ItemUniqueName ?? "" : "";
     public bool HasItem => ItemUniqueName.Length > 0;
     public int ImageQuality => source.Quality is >= 1 and <= 5 ? source.Quality.Value : 1;
     public ActivityTip? ItemTip => HasItem ? new(ActivityDisplay.ItemName(source.ItemName), ItemQuality.Format(source.Quality), ItemUniqueName, ImageQuality) : null;
@@ -412,7 +426,7 @@ public sealed class ActivityEventRow(ActivityEvent source)
         ActivityEventKind.Fame => UiFormat.Compact(ActivityProjection.Contribution(source, ActivityScope.AllObserved).Fame),
         ActivityEventKind.Damage or ActivityEventKind.Healing => UiFormat.Compact(source.Amount),
         ActivityEventKind.Silver => source.HasKnownNetSilver ? $"{source.SilverRaw / 10000d:N0} silver" : "Amount unknown",
-        ActivityEventKind.Loot or ActivityEventKind.Gathered or ActivityEventKind.FishingReward or ActivityEventKind.LegacyGatheringAggregate => source.Quantity > 0 ? $"{UiFormat.Compact(source.Quantity)} × {ActivityDisplay.ItemName(source.ItemName)}" : $"Quantity unknown · {ActivityDisplay.ItemName(source.ItemName)}",
+        ActivityEventKind.Loot or ActivityEventKind.Gathered or ActivityEventKind.FishingReward or ActivityEventKind.LegacyGatheringAggregate or ActivityEventKind.Trashed => source.Quantity > 0 ? $"{UiFormat.Compact(source.Quantity)} × {ActivityDisplay.ItemName(source.ItemName)}" : $"Quantity unknown · {ActivityDisplay.ItemName(source.ItemName)}",
         ActivityEventKind.PartyJoined or ActivityEventKind.PartyLeft => ActivityPartyDetails.Parse(source.DetailsJson) is { PartySize: > 0 } party
             ? party.PartySize == 1 ? "Now solo" : $"Party size {party.PartySize:N0}" : "",
         _ => ""
@@ -526,11 +540,14 @@ public sealed class ActivityResourceRow(ActivityResourceTotal source)
     public int ImageQuality => source.Quality ?? 1;
     public string Method => source.Source switch { ActivityResourceMethod.Gathering => "Gathering", ActivityResourceMethod.Fishing => "Fishing", _ => "Gathered resources" };
     public string QuantityText => UiFormat.Compact(source.Quantity);
-    public string ValueText => source.KnownValue == 0 && source.MissingPriceItems > 0 ? UiText.Unavailable : UiFormat.Compact(source.KnownValue);
+    private string EmvText => source.KnownValue == 0 && source.MissingPriceItems > 0 ? UiText.Unavailable : UiFormat.Compact(source.KnownValue);
+    public string ValueText => EmvText + (source.TrashedQuantity > 0 ? $" · {UiFormat.Compact(source.TrashedQuantity)} trashed" : "");
     public bool HasMissingPrices => source.MissingPriceItems > 0;
     public string ValueLabel => "Total EMV";
     public string MissingPricesText => source.MissingPriceItems > 0 ? $"{source.MissingPriceItems:N0} without EMV" : "";
-    public ActivityTip Tip => new(ItemName, $"{ItemQuality.Format(source.Quality)}\n{QuantityText} items · EMV {ValueText} silver" +
+    // The EMV is what's left after the trashed ones came off.
+    private string TrashedText => source.TrashedQuantity > 0 ? $"\n{UiFormat.Compact(source.TrashedQuantity)} trashed, taken off the EMV" : "";
+    public ActivityTip Tip => new(ItemName, $"{ItemQuality.Format(source.Quality)}\n{QuantityText} items · EMV {EmvText} silver" + TrashedText +
         (JournalValueText is { } journal ? $"\n{journal}" : "") +
         (HasMissingPrices ? $"\n{MissingPricesText}" : ""), ItemUniqueName, ImageQuality);
 

@@ -329,9 +329,10 @@ public sealed partial class ActivityPersistence
                     d.TargetActorId == x.TargetActorId && d.SessionId == x.SessionId && d.CapturedAtUtc <= x.CapturedAtUtc)));
         if (!string.IsNullOrWhiteSpace(filter.Location)) query = query.Where(x => x.LocationName.Contains(filter.Location) || x.RawMapId.Contains(filter.Location));
         if (filter.Kind is { } kind) query = query.Where(x => x.Kind == kind);
-        if (filter.LootOnly) query = query.Where(x => x.Kind == ActivityEventKind.Loot);
+        // Item lists show trashed items beside the pickups they came from; Kind = Loot leaves them out (the loot export).
+        if (filter.LootOnly) query = query.Where(x => x.Kind == ActivityEventKind.Loot || x.Kind == ActivityEventKind.Trashed && x.LootSourceKind == "Loot");
         if (filter.ItemsOnly) query = query.Where(x => x.Kind == ActivityEventKind.Loot || x.Kind == ActivityEventKind.Gathered ||
-            x.Kind == ActivityEventKind.FishingReward || x.Kind == ActivityEventKind.LegacyGatheringAggregate);
+            x.Kind == ActivityEventKind.FishingReward || x.Kind == ActivityEventKind.LegacyGatheringAggregate || x.Kind == ActivityEventKind.Trashed);
         if (filter.ItemsOnly && filter.ItemSources != ActivityItemSources.All)
         {
             var sources = filter.ItemSources;
@@ -339,10 +340,12 @@ public sealed partial class ActivityPersistence
             var gathering = (sources & ActivityItemSources.Gathering) != 0;
             var fishing = (sources & ActivityItemSources.Fishing) != 0;
             var mixed = (sources & ActivityItemSources.LegacyMixed) != 0;
-            query = query.Where(x => loot && x.Kind == ActivityEventKind.Loot ||
-                gathering && (x.Kind == ActivityEventKind.Gathered || x.Kind == ActivityEventKind.LegacyGatheringAggregate &&
+            query = query.Where(x => loot && (x.Kind == ActivityEventKind.Loot || x.Kind == ActivityEventKind.Trashed && x.LootSourceKind == "Loot") ||
+                gathering && (x.Kind == ActivityEventKind.Gathered || x.Kind == ActivityEventKind.Trashed && x.LootSourceKind == "Gathered" ||
+                    x.Kind == ActivityEventKind.LegacyGatheringAggregate &&
                     ActivityDatabaseFunctions.JsonLong(x.DetailsJson, "$.Method") == (long)ActivityResourceMethod.Gathering) ||
-                fishing && (x.Kind == ActivityEventKind.FishingReward || x.Kind == ActivityEventKind.LegacyGatheringAggregate &&
+                fishing && (x.Kind == ActivityEventKind.FishingReward || x.Kind == ActivityEventKind.Trashed && x.LootSourceKind == "FishingReward" ||
+                    x.Kind == ActivityEventKind.LegacyGatheringAggregate &&
                     ActivityDatabaseFunctions.JsonLong(x.DetailsJson, "$.Method") == (long)ActivityResourceMethod.Fishing) ||
                 mixed && x.Kind == ActivityEventKind.LegacyGatheringAggregate &&
                     (ActivityDatabaseFunctions.JsonLong(x.DetailsJson, "$.Method") == 0 || ActivityDatabaseFunctions.JsonLong(x.DetailsJson, "$.Method") == (long)ActivityResourceMethod.Mixed));
@@ -400,6 +403,10 @@ public sealed partial class ActivityPersistence
                 LootValue = g.Sum(x => x.LootValue),
                 LootItems = g.Sum(x => x.LootItems),
                 MissingPriceItems = g.Sum(x => x.MissingPriceItems),
+                TrashedLootItems = g.Sum(x => x.TrashedLootItems),
+                TrashedLootValue = g.Sum(x => x.TrashedLootValue),
+                TrashedResourceItems = g.Sum(x => x.TrashedResourceItems),
+                TrashedResourceValue = g.Sum(x => x.TrashedResourceValue),
                 MobKills = g.Sum(x => x.MobKills),
                 PlayerKills = g.Sum(x => x.PlayerKills),
                 Deaths = g.Sum(x => x.Deaths),
@@ -453,7 +460,7 @@ public sealed partial class ActivityPersistence
         var earnings = await FilterEvents(context, filter).Where(x => x.SourceActorId != null && x.SourceKind == ActivityActorKind.Player &&
                 (all || x.SourceRelationship == ActorRelationship.Self || (party && x.SourceRelationship == ActorRelationship.Party)) &&
                 (x.Kind == ActivityEventKind.Fame || x.Kind == ActivityEventKind.Silver || x.Kind == ActivityEventKind.Loot ||
-                    x.Kind == ActivityEventKind.Gathered || x.Kind == ActivityEventKind.FishingReward))
+                    x.Kind == ActivityEventKind.Gathered || x.Kind == ActivityEventKind.FishingReward || x.Kind == ActivityEventKind.Trashed))
             .GroupBy(x => new { x.SourceActorId, x.SourceName, x.SourceRelationship })
             .Select(g => new
             {
@@ -466,12 +473,16 @@ public sealed partial class ActivityPersistence
                         ? (ActivityDatabaseFunctions.JsonLong(x.DetailsJson, "$.RawFixedPointComponents.12") ?? 0) / 10000d : 0) : 0),
                 SilverRaw = g.Sum(x => x.Kind == ActivityEventKind.Silver && x.Evidence == ActivityEvidence.Confirmed && x.HasKnownNetSilver ? x.SilverRaw : 0),
                 LootItems = g.Sum(x => x.Kind == ActivityEventKind.Loot && x.Evidence == ActivityEvidence.Confirmed ? x.Quantity : 0),
+                // Trashed items come off the values they were counted in, as in the session totals.
                 LootValue = g.Sum(x => x.Kind == ActivityEventKind.Loot && x.Evidence == ActivityEvidence.Confirmed && x.EstimatedUnitValue != null
-                    ? x.EstimatedUnitValue.Value * x.Quantity : 0),
+                    ? x.EstimatedUnitValue.Value * x.Quantity
+                    : x.Kind == ActivityEventKind.Trashed && x.LootSourceKind == "Loot" && x.EstimatedUnitValue != null ? -(x.EstimatedUnitValue.Value * x.Quantity) : 0),
                 GatheredItems = g.Sum(x => (x.Kind == ActivityEventKind.Gathered || x.Kind == ActivityEventKind.FishingReward) &&
                     x.Evidence == ActivityEvidence.Confirmed ? x.Quantity : 0),
                 GatheredValue = g.Sum(x => (x.Kind == ActivityEventKind.Gathered || x.Kind == ActivityEventKind.FishingReward) &&
-                    x.Evidence == ActivityEvidence.Confirmed && x.EstimatedUnitValue != null ? x.EstimatedUnitValue.Value * x.Quantity : 0)
+                    x.Evidence == ActivityEvidence.Confirmed && x.EstimatedUnitValue != null ? x.EstimatedUnitValue.Value * x.Quantity
+                    : x.Kind == ActivityEventKind.Trashed && (x.LootSourceKind == "Gathered" || x.LootSourceKind == "FishingReward") && x.EstimatedUnitValue != null
+                        ? -(x.EstimatedUnitValue.Value * x.Quantity) : 0)
             }).Take(250).ToListAsync(cancellationToken);
         var deaths = await FilterEvents(context, filter).Where(x => x.Kind == ActivityEventKind.Death && x.Evidence == ActivityEvidence.Confirmed &&
                 x.TargetActorId != null && x.TargetKind == ActivityActorKind.Player &&
@@ -590,9 +601,53 @@ public sealed partial class ActivityPersistence
             .OrderByDescending(x => x.KnownValue).ThenBy(x => x.ItemName).ThenBy(x => x.ItemId).ThenBy(x => x.Quality).ThenBy(x => x.Source);
         // Only one row per resource variant is materialized, not individual pickups.
         var rows = await grouped.ToArrayAsync(cancellationToken);
-        return rows.Select(x => new ActivityResourceTotal(x.ItemId, x.Quality, x.ItemUniqueName, x.ItemName,
+        var totals = rows.Select(x => new ActivityResourceTotal(x.ItemId, x.Quality, x.ItemUniqueName, x.ItemName,
             x.Source, x.Quantity, x.KnownValue, x.Missing, x.FullJournalValue, x.EmptyJournalValue)).ToArray();
+        var trashed = await TrashedResourcesAsync(FilterEvents(context, filter), filter.Scope, filter.ActorKey, cancellationToken);
+        return trashed.Length == 0 ? totals : MergeTrashedResources(totals, trashed).OrderByDescending(x => x.KnownValue)
+            .ThenBy(x => x.Name).ThenBy(x => x.ItemId).ThenBy(x => x.Quality).ThenBy(x => x.Source).ToArray();
     }
+
+    // Trashed resources by item and method, as negative values to merge into the resource totals.
+    private static async Task<ActivityResourceTotal[]> TrashedResourcesAsync(IQueryable<ActivityEvent> events, ActivityScope scope, string? actorKey,
+        CancellationToken cancellationToken)
+    {
+        var counted = ActivityProjection.CountExpression(scope, nameof(ActivitySummary.TrashedResourceItems), actorKey);
+        var isCounted = Expression.Lambda<Func<ActivityEvent, bool>>(Expression.GreaterThan(counted.Body, Expression.Constant(0L)), counted.Parameters);
+        var rows = await events.Where(isCounted)
+            .GroupBy(x => new { x.ItemId, x.Quality, x.ItemUniqueName, x.LootSourceKind })
+            .Select(g => new
+            {
+                g.Key.ItemId,
+                g.Key.Quality,
+                g.Key.ItemUniqueName,
+                g.Key.LootSourceKind,
+                Name = g.Max(x => x.ItemName),
+                Quantity = g.Sum(x => x.Quantity),
+                Value = g.Sum(x => x.EstimatedUnitValue == null ? 0 : x.Quantity * x.EstimatedUnitValue.Value)
+            }).ToArrayAsync(cancellationToken);
+        return rows.Select(x => new ActivityResourceTotal(x.ItemId, x.Quality, x.ItemUniqueName, x.Name ?? "",
+            x.LootSourceKind == nameof(ActivityEventKind.FishingReward) ? ActivityResourceMethod.Fishing : ActivityResourceMethod.Gathering,
+            0, -x.Value, 0, TrashedQuantity: x.Quantity)).ToArray();
+    }
+
+    // A resource's trashed amount joins its gathered row; one trashed without a row in view keeps its own.
+    internal static IEnumerable<ActivityResourceTotal> MergeTrashedResources(IEnumerable<ActivityResourceTotal> totals,
+        IEnumerable<ActivityResourceTotal> trashed)
+    {
+        var merged = totals.ToDictionary(ResourceTotalKey);
+        foreach (var value in trashed)
+        {
+            var key = ResourceTotalKey(value);
+            merged[key] = merged.TryGetValue(key, out var row)
+                ? row with { KnownValue = row.KnownValue + value.KnownValue, TrashedQuantity = row.TrashedQuantity + value.TrashedQuantity }
+                : value;
+        }
+        return merged.Values;
+    }
+
+    internal static (int? ItemId, int? Quality, string? UniqueName, ActivityResourceMethod Source) ResourceTotalKey(ActivityResourceTotal value) =>
+        (value.ItemId, value.Quality, value.UniqueName, value.Source);
 
     // Each item's loot with the scope's own pickups only, as the loot totals count them: items taken from you and
     // pickups still waiting for their quantity are left out, so the rows add up to the session's Loot EMV.
@@ -619,8 +674,38 @@ public sealed partial class ActivityPersistence
             })
             .OrderByDescending(x => x.KnownValue).ThenByDescending(x => x.Quantity).ThenBy(x => x.ItemName).ThenBy(x => x.Quality)
             .ToArrayAsync(cancellationToken);
-        return rows.Select(x => new ActivityLootTotal(x.ItemId, x.Quality, x.ItemUniqueName, x.ItemName, x.Quantity, x.KnownValue, x.Missing,
-            x.Pickups, x.Priced, x.BlackMarket, x.LastUtc)).ToArray();
+        var totals = rows.Select(x => new ActivityLootTotal(x.ItemId, x.Quality, x.ItemUniqueName, x.ItemName, x.Quantity, x.KnownValue, x.Missing,
+            x.Pickups, x.Priced, x.BlackMarket, x.LastUtc)).ToList();
+        // Trashed loot stays on its item's row, taken off its EMV, so the rows still add up to Loot EMV.
+        var trashedCount = ActivityProjection.CountExpression(filter.Scope, nameof(ActivitySummary.TrashedLootItems), filter.ActorKey);
+        var isTrashed = Expression.Lambda<Func<ActivityEvent, bool>>(Expression.GreaterThan(trashedCount.Body, Expression.Constant(0L)), trashedCount.Parameters);
+        var trashed = await FilterEvents(context, filter with { LootOnly = true }).Where(isTrashed)
+            .GroupBy(x => new { x.ItemId, x.Quality, x.ItemUniqueName, x.ItemName })
+            .Select(g => new
+            {
+                g.Key.ItemId,
+                g.Key.Quality,
+                g.Key.ItemUniqueName,
+                g.Key.ItemName,
+                Quantity = g.Sum(x => x.Quantity),
+                Value = g.Sum(x => x.EstimatedUnitValue != null ? x.EstimatedUnitValue.Value * x.Quantity : 0),
+                LastUtc = g.Max(x => x.CapturedAtUtc)
+            }).ToArrayAsync(cancellationToken);
+        if (trashed.Length == 0) return totals;
+        foreach (var value in trashed)
+        {
+            var index = totals.FindIndex(x => x.ItemId == value.ItemId && x.Quality == value.Quality && x.UniqueName == value.ItemUniqueName);
+            if (index < 0)
+                totals.Add(new ActivityLootTotal(value.ItemId, value.Quality, value.ItemUniqueName, value.ItemName, 0, -value.Value, 0, 0, 1, 0,
+                    value.LastUtc, value.Quantity, value.Value));
+            else totals[index] = totals[index] with
+            {
+                KnownValue = totals[index].KnownValue - value.Value,
+                TrashedQuantity = totals[index].TrashedQuantity + value.Quantity,
+                TrashedValue = totals[index].TrashedValue + value.Value
+            };
+        }
+        return totals.OrderByDescending(x => x.KnownValue).ThenByDescending(x => x.Quantity).ThenBy(x => x.Name).ThenBy(x => x.Quality).ToArray();
     }
 
     private async Task<ActivityLegacyImportInfo?> GetLegacyImportInfoCoreAsync(Guid sessionId, CancellationToken cancellationToken = default)

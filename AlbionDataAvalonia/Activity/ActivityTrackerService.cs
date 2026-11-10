@@ -949,6 +949,7 @@ public sealed partial class ActivityTrackerService : IDisposable
         value = valuations.Observe(FillAffiliations(value));
         persistence.Amend(value);
         TrackLiveMarker(value);
+        ObserveAcquisition(value);
         return value;
     }
 
@@ -1015,6 +1016,7 @@ public sealed partial class ActivityTrackerService : IDisposable
     {
         persistence.Retract(id, revision);
         RemoveLiveMarker(id);
+        trashLedger.Retract(id);
     }
     internal void RequestEstimate(int itemId, string uniqueName, int quality)
     {
@@ -1056,6 +1058,7 @@ public sealed partial class ActivityTrackerService : IDisposable
         if (value.PositionX is not null && !IsPlaced(value.Kind)) value = value with { PositionX = null, PositionY = null };
         TrackLiveMarker(value);
         if (!persistence.Create(value)) { storageSuspended = true; gathering.Reset(); fameCollector.Reset(); }
+        else ObserveAcquisition(value);
         if (session is not null && value.SessionId == session.Id)
         {
             session = session with

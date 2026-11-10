@@ -17,7 +17,7 @@ public sealed class ActivityItemValuationService(ItemEstimatedMarketValueService
 {
     public ActivityEvent Observe(ActivityEvent value)
     {
-        if (value.Kind is not (ActivityEventKind.Loot or ActivityEventKind.Gathered or ActivityEventKind.FishingReward) ||
+        if (value.Kind is not (ActivityEventKind.Loot or ActivityEventKind.Gathered or ActivityEventKind.FishingReward or ActivityEventKind.Trashed) ||
             value.EstimatedUnitValue is not null || value.ItemId is not > 0 ||
             value.Quality is not null and not (>= 1 and <= 5) ||
             string.IsNullOrWhiteSpace(value.ItemUniqueName) || !int.TryParse(value.Server, out var server)) return value;
@@ -27,7 +27,7 @@ public sealed class ActivityItemValuationService(ItemEstimatedMarketValueService
         // Pickups without quality use an explicitly labelled estimate without inventing
         // the quality of the actual item: loot averages qualities 1-4, resources use normal quality.
         var quality = BasisQuality(value);
-        if (value.Kind == ActivityEventKind.Loot)
+        if (ValuedAs(value) == ActivityEventKind.Loot)
         {
             if (LootEstimate(values, server, value.ItemId.Value, value.Quality) is { } loot)
                 return WithPrice(value, loot.Price, DateTime.UtcNow, quality, loot.BlackMarket);
@@ -62,14 +62,18 @@ public sealed class ActivityItemValuationService(ItemEstimatedMarketValueService
                 ? new ActivityLootPrice(x.Server, x.ItemId!.Value, 1, x.EstimatedUnitValue!.Value, x.PriceObservedAtUtc ?? DateTime.UtcNow,
                     FullJournalValue: journal.Full, EmptyJournalValue: journal.Empty)
                 : new ActivityLootPrice(x.Server, x.ItemId!.Value, BasisQuality(x),
-                    x.EstimatedUnitValue!.Value, x.PriceObservedAtUtc ?? DateTime.UtcNow, x.Kind == ActivityEventKind.Loot, IsBlackMarketEmv(x) == true))
+                    x.EstimatedUnitValue!.Value, x.PriceObservedAtUtc ?? DateTime.UtcNow, ValuedAs(x) == ActivityEventKind.Loot, IsBlackMarketEmv(x) == true))
             .Where(x => x.UnitValue > 0 || x.FullJournalValue is not null)
             .DistinctBy(x => (x.Server, x.ItemId, x.Quality, x.LootBasis, x.FullJournalValue is not null)).ToArray();
         if (prices.Length > 0) _ = FillAsync(prices);
     }
 
     /// <summary>Quality used for an estimate; 0 marks the loot average over qualities 1-4.</summary>
-    internal static int BasisQuality(ActivityEvent value) => value.Quality ?? (value.Kind == ActivityEventKind.Loot ? 0 : 1);
+    internal static int BasisQuality(ActivityEvent value) => value.Quality ?? (ValuedAs(value) == ActivityEventKind.Loot ? 0 : 1);
+
+    /// <summary>The kind whose valuation an item uses: a trashed item is valued as what it was counted as.</summary>
+    internal static ActivityEventKind ValuedAs(ActivityEvent value) => value.Kind != ActivityEventKind.Trashed ? value.Kind
+        : Enum.TryParse<ActivityEventKind>(value.LootSourceKind, out var kind) ? kind : ActivityEventKind.Loot;
 
     // Loot keeps the loot log's valuation: Black Market EMV before EMV, packet values before
     // cached ones, and the average of qualities 1-4 when the pickup does not reveal its quality.
