@@ -44,6 +44,7 @@ public static class ActivityPalette
         ActivityLiveTimelineMarkerKind.Fame => Fame,
         ActivityLiveTimelineMarkerKind.Silver => Silver,
         ActivityLiveTimelineMarkerKind.Party => Party,
+        ActivityLiveTimelineMarkerKind.Trashed => Unknown,
         _ => Fishing
     };
 

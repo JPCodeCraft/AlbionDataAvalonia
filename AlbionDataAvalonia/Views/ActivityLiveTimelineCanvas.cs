@@ -540,7 +540,8 @@ internal sealed class ActivityLiveTimelineCanvas : Control
         ActivityLiveTimelineMarkerKind.Death => 7,
         ActivityLiveTimelineMarkerKind.PlayerKill => 6,
         ActivityLiveTimelineMarkerKind.Knockdown => 5,
-        ActivityLiveTimelineMarkerKind.Loot or ActivityLiveTimelineMarkerKind.Gathering or ActivityLiveTimelineMarkerKind.Fishing => 4,
+        ActivityLiveTimelineMarkerKind.Loot or ActivityLiveTimelineMarkerKind.Gathering or ActivityLiveTimelineMarkerKind.Fishing
+            or ActivityLiveTimelineMarkerKind.Trashed => 4,
         ActivityLiveTimelineMarkerKind.MobKill or ActivityLiveTimelineMarkerKind.Party => 3,
         ActivityLiveTimelineMarkerKind.Fame => 2,
         _ => 1
@@ -600,6 +601,17 @@ internal sealed class ActivityLiveTimelineCanvas : Control
                 context.DrawLine(pen, center + new Vector(0, 1.5), center + new Vector(1, 5));
                 context.DrawLine(pen, center + new Vector(1.5, 0.5), center + new Vector(5, 0.5));
                 context.DrawLine(pen, center + new Vector(5, 0.5), center + new Vector(6, 4));
+                break;
+            case ActivityLiveTimelineMarkerKind.Trashed:
+                // A bin: lid with a handle, a tapered body and a rib.
+                context.DrawLine(pen, center + new Vector(-5.5, -4), center + new Vector(5.5, -4));
+                context.DrawLine(pen, center + new Vector(-1.5, -4), center + new Vector(-1.5, -6));
+                context.DrawLine(pen, center + new Vector(-1.5, -6), center + new Vector(1.5, -6));
+                context.DrawLine(pen, center + new Vector(1.5, -6), center + new Vector(1.5, -4));
+                context.DrawLine(pen, center + new Vector(-4, -4), center + new Vector(-3, 6));
+                context.DrawLine(pen, center + new Vector(-3, 6), center + new Vector(3, 6));
+                context.DrawLine(pen, center + new Vector(3, 6), center + new Vector(4, -4));
+                context.DrawLine(pen, center + new Vector(0, -1.5), center + new Vector(0, 3.5));
                 break;
             case ActivityLiveTimelineMarkerKind.Fame:
                 context.DrawLine(pen, center + new Vector(-5, 0), center + new Vector(5, 0));

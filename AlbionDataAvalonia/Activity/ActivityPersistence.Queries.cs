@@ -156,7 +156,7 @@ public sealed partial class ActivityPersistence
                 x.Kind == ActivityEventKind.Death || x.Kind == ActivityEventKind.Knockdown ||
                 x.Kind == ActivityEventKind.Loot || x.Kind == ActivityEventKind.Fame || x.Kind == ActivityEventKind.Silver ||
                 x.Kind == ActivityEventKind.Gathered || x.Kind == ActivityEventKind.FishingReward ||
-                x.Kind == ActivityEventKind.PartyJoined || x.Kind == ActivityEventKind.PartyLeft)
+                x.Kind == ActivityEventKind.PartyJoined || x.Kind == ActivityEventKind.PartyLeft || x.Kind == ActivityEventKind.Trashed)
             .OrderByDescending(x => x.Kind == ActivityEventKind.Death || x.Kind == ActivityEventKind.PlayerKilled || x.Kind == ActivityEventKind.Knockdown)
             .ThenByDescending(x => x.CapturedAtUtc).ThenByDescending(x => x.CaptureOrder).ThenBy(x => x.Id);
         // The result is already bounded. Offset pages would repeat the same sort for each 250 rows.

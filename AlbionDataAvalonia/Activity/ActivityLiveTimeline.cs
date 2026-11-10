@@ -8,7 +8,7 @@ using System.Text.Json;
 
 namespace AlbionDataAvalonia.Activity;
 
-public enum ActivityLiveTimelineMarkerKind { MobKill, PlayerKill, Death, Knockdown, Loot, Fame, Silver, Gathering, Fishing, Party, Overflow }
+public enum ActivityLiveTimelineMarkerKind { MobKill, PlayerKill, Death, Knockdown, Loot, Fame, Silver, Gathering, Fishing, Party, Trashed, Overflow }
 public enum ActivityTimelineChartMode { Combat, Gathering, Fame }
 
 /// <summary>Per-second rates over the snapshot's sample interval, including each fame category once.</summary>
@@ -75,6 +75,7 @@ internal static class ActivityLiveTimeline
             if (amount.SilverRaw > 0 || amount.UnknownSilverEvents > 0) candidates.Add((observation, ActivityLiveTimelineMarkerKind.Silver));
             if (amount.GatheringItems > 0) candidates.Add((observation, ActivityLiveTimelineMarkerKind.Gathering));
             if (amount.FishingItems > 0) candidates.Add((observation, ActivityLiveTimelineMarkerKind.Fishing));
+            if (Trashed(amount) > 0) candidates.Add((observation, ActivityLiveTimelineMarkerKind.Trashed));
         }
         // Nearby awards share a marker only when their recipient, fame category and originating encounter agree.
         // A chest burst also requires the same loot source. Critical outcomes remain individually visible.
@@ -125,6 +126,7 @@ internal static class ActivityLiveTimeline
             ActivityLiveTimelineMarkerKind.Fame => FameLabel(ActivityClassification.GetFameCategory(first)),
             ActivityLiveTimelineMarkerKind.Gathering => "Harvested",
             ActivityLiveTimelineMarkerKind.Fishing => "Caught",
+            ActivityLiveTimelineMarkerKind.Trashed => "Trashed",
             _ => "Silver picked up"
         };
         var amount = kind switch
@@ -137,6 +139,7 @@ internal static class ActivityLiveTimeline
             ActivityLiveTimelineMarkerKind.Fame => summary.Fame,
             ActivityLiveTimelineMarkerKind.Gathering => summary.GatheringItems,
             ActivityLiveTimelineMarkerKind.Fishing => summary.FishingItems,
+            ActivityLiveTimelineMarkerKind.Trashed => Trashed(summary),
             _ => summary.Silver
         };
         var unknown = kind == ActivityLiveTimelineMarkerKind.Silver && summary.UnknownSilverEvents > 0;
@@ -144,11 +147,12 @@ internal static class ActivityLiveTimeline
         var lines = new List<string>();
         IReadOnlyList<ActivityTooltipEntry>? entries = null;
         var context = first.LocationName;
-        if (kind is ActivityLiveTimelineMarkerKind.Loot or ActivityLiveTimelineMarkerKind.Gathering or ActivityLiveTimelineMarkerKind.Fishing)
+        if (kind is ActivityLiveTimelineMarkerKind.Loot or ActivityLiveTimelineMarkerKind.Gathering or ActivityLiveTimelineMarkerKind.Fishing
+            or ActivityLiveTimelineMarkerKind.Trashed)
         {
             entries = ItemEntries(events, kind, contribution);
             context = WithPlayer(context, first.SourceName);
-            lines.Add(ItemTotal(entries));
+            lines.Add(ItemTotal(entries, kind));
         }
         else if (kind == ActivityLiveTimelineMarkerKind.MobKill)
             entries = MobEntries(events, contribution);
@@ -247,7 +251,7 @@ internal static class ActivityLiveTimeline
             ? MergeEntries(group.SelectMany(marker => marker.Tooltip!.Entries!)) : null;
         List<string> lines;
         if (entries is not null)
-            lines = first.Kind == ActivityLiveTimelineMarkerKind.MobKill ? [] : [ItemTotal(entries)];
+            lines = first.Kind == ActivityLiveTimelineMarkerKind.MobKill ? [] : [ItemTotal(entries, first.Kind)];
         else
         {
             lines = group.Take(4).Select(marker =>
@@ -277,13 +281,33 @@ internal static class ActivityLiveTimeline
         .Select(group =>
         {
             var first = group.First();
-            var amounts = group.Select(contribution).ToArray();
+            var amounts = group.Select(x => (Event: x, Amount: contribution(x))).ToArray();
             return new ActivityTooltipEntry(ActivityTooltipIcon.Item, first.ItemUniqueName ?? "",
                 first.Quality is >= 1 and <= 5 ? first.Quality.Value : 1, DisplayName(first.ItemName, first.ItemUniqueName, "Unknown item"),
-                amounts.Sum(x => kind == ActivityLiveTimelineMarkerKind.Loot ? x.LootItems : kind == ActivityLiveTimelineMarkerKind.Gathering ? x.GatheringItems : x.FishingItems),
-                amounts.Sum(x => kind == ActivityLiveTimelineMarkerKind.Loot ? x.LootValue : kind == ActivityLiveTimelineMarkerKind.Gathering ? x.GatheringValue : x.FishingValue),
-                amounts.Sum(x => kind == ActivityLiveTimelineMarkerKind.Loot ? x.MissingPriceItems : x.MissingResourcePriceItems));
+                amounts.Sum(x => kind switch
+                {
+                    ActivityLiveTimelineMarkerKind.Loot => x.Amount.LootItems,
+                    ActivityLiveTimelineMarkerKind.Gathering => x.Amount.GatheringItems,
+                    ActivityLiveTimelineMarkerKind.Trashed => Trashed(x.Amount),
+                    _ => x.Amount.FishingItems
+                }),
+                amounts.Sum(x => kind switch
+                {
+                    ActivityLiveTimelineMarkerKind.Loot => x.Amount.LootValue,
+                    ActivityLiveTimelineMarkerKind.Gathering => x.Amount.GatheringValue,
+                    ActivityLiveTimelineMarkerKind.Trashed => x.Amount.TrashedLootValue + x.Amount.TrashedResourceValue,
+                    _ => x.Amount.FishingValue
+                }),
+                amounts.Sum(x => kind switch
+                {
+                    ActivityLiveTimelineMarkerKind.Loot => x.Amount.MissingPriceItems,
+                    ActivityLiveTimelineMarkerKind.Trashed => x.Event.EstimatedUnitValue is null ? Trashed(x.Amount) : 0,
+                    _ => x.Amount.MissingResourcePriceItems
+                }));
         }));
+
+    // Items the character trashed, taken off the loot and gathering EMVs.
+    private static long Trashed(ActivitySummary value) => value.TrashedLootItems + value.TrashedResourceItems;
 
     // Mobs that share a name (the tiers of one mob) share a row, with the most common one's portrait.
     private static ActivityTooltipEntry[] MobEntries(IEnumerable<ActivityEvent> events, Func<ActivityEvent, ActivitySummary> contribution) =>
@@ -306,13 +330,15 @@ internal static class ActivityLiveTimeline
     private static ActivityTooltipEntry[] Sorted(IEnumerable<ActivityTooltipEntry> entries) => entries.Where(x => x.Count > 0)
         .OrderByDescending(x => x.Value).ThenByDescending(x => x.Count).ThenBy(x => x.Name, StringComparer.CurrentCulture).ToArray();
 
-    private static string ItemTotal(IReadOnlyCollection<ActivityTooltipEntry> entries)
+    private static string ItemTotal(IReadOnlyCollection<ActivityTooltipEntry> entries, ActivityLiveTimelineMarkerKind kind)
     {
         var count = entries.Sum(x => x.Count);
         var unpriced = entries.Sum(x => x.Unpriced);
         var value = entries.Sum(x => x.Value);
-        if (unpriced >= count && value == 0) return "Total EMV unavailable";
-        return $"Total EMV {UiFormat.Compact(value)}" + (unpriced > 0 ? $" · {UiFormat.Whole(unpriced)} without a price" : "");
+        var trashed = kind == ActivityLiveTimelineMarkerKind.Trashed;
+        if (unpriced >= count && value == 0) return trashed ? "No EMV taken off" : "Total EMV unavailable";
+        return (trashed ? $"EMV taken off {UiFormat.Compact(value)}" : $"Total EMV {UiFormat.Compact(value)}")
+            + (unpriced > 0 ? $" · {UiFormat.Whole(unpriced)} without a price" : "");
     }
 
     private static IEnumerable<string> EntryLines(IReadOnlyList<ActivityTooltipEntry>? entries) =>

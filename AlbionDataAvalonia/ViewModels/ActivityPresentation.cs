@@ -49,6 +49,7 @@ public sealed class ActivitySummaryPresentation
     public string Silver => Summary.IsLegacyAggregate ? UiText.Unavailable : UiFormat.Compact(Summary.Silver);
     public string LootValue => Summary.LootValue == 0 && Summary.MissingLootPriceCount > 0 ? UiText.Unavailable : UiFormat.Compact(Summary.LootValue);
     public string LootItemsText => $"{UiFormat.Compact(Summary.LootItems)} items picked up";
+    public string LootFooterText => LootItemsText + (Summary.TrashedLootItems > 0 ? $" · {UiFormat.Compact(Summary.TrashedLootItems)} trashed" : "");
     public string MobKills => Summary.IsLegacyAggregate ? UiText.Unavailable : UiFormat.Compact(Summary.MobKills);
     public string PlayerKills => Summary.IsLegacyAggregate ? UiText.Unavailable : UiFormat.Compact(Summary.PlayerKills);
     public string DamageRate => Summary.IsLegacyAggregate ? UiText.NotRecorded : $"{UiFormat.Compact(Rates.DamagePerSecond)} DPS";
