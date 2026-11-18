@@ -540,7 +540,7 @@
                                 <StackPanel Spacing="12">
                                     <controls:EmptyState Classes="Inline" Message="No party members were recorded." IsVisible="{Binding !HasPartyHistory}" />
                                     <TextBlock Text="{Binding PartyHistory.SummaryText}" IsVisible="{Binding HasPartyHistory}" Classes="UiLabel" />
-                                    <DataGrid ItemsSource="{Binding PartyHistory.Members}" IsVisible="{Binding HasPartyHistory}" Height="{Binding PartyHistory.MemberCount, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}" MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto">
+                                    <DataGrid ItemsSource="{Binding PartyMembers}" IsVisible="{Binding HasPartyHistory}" Height="{Binding PartyHistory.MemberCount, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}" MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto">
                                         <DataGrid.Columns>
                                             <DataGridTextColumn Header="Member" Binding="{Binding Name}" Width="*" MinWidth="160" />
                                             <DataGridTextColumn Header="Joined" Binding="{Binding JoinedText}" SortMemberPath="FirstSeenUtc" />
@@ -550,7 +550,7 @@
                                     </DataGrid>
                                     <StackPanel Spacing="6" IsVisible="{Binding HasPartyChanges}">
                                         <TextBlock Text="Changes" Classes="UiSectionTitle" />
-                                        <DataGrid ItemsSource="{Binding PartyHistory.Changes}" Height="{Binding PartyHistory.ChangeCount, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}" MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto">
+                                        <DataGrid ItemsSource="{Binding PartyChanges}" Height="{Binding PartyHistory.ChangeCount, Converter={x:Static views:ActivityView.HistoryTableHeightConverter}}" MaxHeight="{Binding #HistorySessionDetailScroll.Bounds.Height, Converter={x:Static views:ActivityView.HistoryTimelineViewportHeightConverter}}" VerticalScrollBarVisibility="Auto">
                                             <DataGrid.Columns>
                                                 <DataGridTextColumn Header="Time" Binding="{Binding TimeText}" SortMemberPath="AtUtc" />
                                                 <DataGridTemplateColumn Header="Change" SortMemberPath="Change">

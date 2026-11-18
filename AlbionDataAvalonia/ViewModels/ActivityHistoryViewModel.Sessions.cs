@@ -162,7 +162,7 @@ public partial class ActivityHistoryViewModel
     private void ResetDetailRows()
     {
         Encounters.Clear(); Players.Clear(); Mobs.Clear(); SessionLoot.Clear(); Timeline.Clear(); HistoryLiveTimeline = null;
-        SessionLootTotals = new();
+        SessionLootTotals.Clear();
         encounterPage = timelinePage = sessionLootPage = 0;
         HasMoreEncounters = HasMoreSessionLoot = HasMoreTimeline = false;
         DetailSummary = ActivitySummaryPresentation.Empty;
