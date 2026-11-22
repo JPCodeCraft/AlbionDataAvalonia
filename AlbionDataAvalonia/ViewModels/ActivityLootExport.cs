@@ -78,8 +78,14 @@ public partial class ActivityLootExport : ObservableObject, IDisposable
         }
         catch (Exception error)
         {
+            // Nothing was written yet, so say why the file could not be made.
             Log.Error(error, "Could not open the loot export file.");
-            StatusText = "Export failed. The file may be incomplete.";
+            StatusText = error switch
+            {
+                UnauthorizedAccessException => "Couldn't save there because access was denied. Choose another folder.",
+                IOException => "Couldn't save the file. Close it if another program has it open, or choose another name.",
+                _ => "Couldn't start the export."
+            };
         }
         finally
         {
@@ -130,7 +136,9 @@ public partial class ActivityLootExport : ObservableObject, IDisposable
         catch (Exception error)
         {
             Log.Error(error, "Failed to export loot.");
-            StatusText = "Export failed. The file may be incomplete.";
+            StatusText = error is IOException or UnauthorizedAccessException
+                ? "Couldn't finish writing the file. The disk may be full or the file in use. The file may be incomplete."
+                : "Export failed. The file may be incomplete.";
         }
         finally
         {
