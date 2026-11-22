@@ -2,6 +2,7 @@ using Albion.Network;
 using AlbionDataAvalonia.Activity.Models;
 using Serilog;
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using System.Text.Json;
 
@@ -57,9 +58,13 @@ public sealed partial class ActivityTrackerService
         foreach (var group in parts.GroupBy(x => (x.Kind, Run: CurrentPlayRun ?? x.RunId)))
         {
             var amount = group.Sum(x => x.Quantity);
-            var unit = group.All(x => x.UnitValue is not null)
-                ? (long)Math.Round(group.Sum(x => (double)x.UnitValue!.Value * x.Quantity) / amount) : (long?)null;
-            var blackMarket = group.Select(x => x.BlackMarket).Distinct().ToArray() is [var only] ? only : null;
+            // Loot saved with both EMVs takes back the one chosen now, which a setting change may have moved.
+            var lootEmvs = group.All(x => x.Emvs is not null) ? new ActivityLootEmvs(
+                WeightedUnit(group, x => x.Emvs!.Value.Royal), WeightedUnit(group, x => x.Emvs!.Value.BlackMarket)) : (ActivityLootEmvs?)null;
+            var chosen = lootEmvs?.Pick(ActivityItemValuationService.LootEmvChoice);
+            var unit = chosen?.Price ?? WeightedUnit(group, x => x.UnitValue);
+            var blackMarket = chosen is { } pick ? pick.BlackMarket
+                : group.Select(x => x.BlackMarket).Distinct().ToArray() is [var only] ? only : null;
             var latest = group.First();
             var value = WithSource(Stamp(ActivityEventKind.Trashed, at, index == 0 ? origin : $"{origin}:{index}"), actors.Local) with
             {
@@ -75,11 +80,21 @@ public sealed partial class ActivityTrackerService
                 DetailsJson = JsonSerializer.Serialize(new { Proof = proof, ItemObjectId = objectId, DestroyedQuantity = quantity })
             };
             value = unit is { } price
-                ? ActivityItemValuationService.WithPrice(value, price, at, ActivityItemValuationService.BasisQuality(value), blackMarket)
+                ? ActivityItemValuationService.WithPrice(value, price, at, ActivityItemValuationService.BasisQuality(value), blackMarket,
+                    lootEmvs is { HasAny: true } ? lootEmvs : null)
                 : valuations.Observe(value);
             Log.Debug("Activity: trashed {Item} x{Quantity} of x{Destroyed} comes off {Kind}", value.ItemUniqueName, amount, quantity, group.Key.Kind);
             Persist(value);
             index++;
         }
+    }
+
+    // The quantity-weighted unit value of the parts, when every part has one.
+    private static long? WeightedUnit(IEnumerable<ActivityTrashLedger.Part> parts, Func<ActivityTrashLedger.Part, long?> unit)
+    {
+        var all = parts.ToArray();
+        var amount = all.Sum(x => x.Quantity);
+        return amount > 0 && all.All(x => unit(x) is not null)
+            ? (long)Math.Round(all.Sum(x => (double)unit(x)!.Value * x.Quantity) / amount) : null;
     }
 }

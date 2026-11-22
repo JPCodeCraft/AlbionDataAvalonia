@@ -208,6 +208,12 @@ public partial class SettingsViewModel : ViewModelBase
     public string AppVersionText => $"AFM Data Client {ClientUpdater.GetVersion() ?? UiText.Unknown}";
     public string UpdatesText => IsWindows ? "Updates install by themselves." : "You'll see a notice when an update is ready.";
 
+    public IReadOnlyList<Option<int>> LootEmvOptions { get; } = [new(0, "Black Market EMV"), new(1, "Royal EMV")];
+    public string LootEmvText => (UserSettings.LootEmvIndex == 1
+            ? "Loot uses the Royal EMV, the value in-game chests show. Items without one use the Black Market EMV."
+            : "Loot uses the Black Market EMV when the item has one, otherwise the Royal EMV.")
+        + "\nSwitching also updates loot picked up since this update, totals included. Older loot keeps its value.";
+
     public IReadOnlyList<Option<int>> StreamerSizeOptions { get; } = [new(0, "Small"), new(1, "Medium"), new(2, "Large")];
     public IReadOnlyList<Option<int>> StreamerChartModeOptions { get; } = [new(0, "Combat"), new(1, "Gathering"), new(2, "Fame")];
 
@@ -368,6 +374,7 @@ public partial class SettingsViewModel : ViewModelBase
             return;
         }
 
+        if (e.PropertyName == nameof(UserSettings.LootEmvIndex)) OnPropertyChanged(nameof(LootEmvText));
         if (e.PropertyName == nameof(UserSettings.StreamerSizeIndex))
         {
             OnPropertyChanged(nameof(StreamerSizeText));

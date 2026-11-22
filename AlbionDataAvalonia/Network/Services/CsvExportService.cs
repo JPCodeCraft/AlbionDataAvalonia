@@ -138,7 +138,7 @@ public class CsvExportService
             "Picked Up UTC", "Server", "Player", "Player Alliance", "Player Guild",
             "Party Member At Pickup", "Source Type", "Source", "Source Alliance", "Source Guild",
             "Location", "Location ID", "Item Unique Name", "Item", "Quality",
-            "Amount", "Unit EMV", "Total EMV"
+            "Amount", "Unit EMV", "Total EMV", "Unit Royal EMV", "Unit Black Market EMV"
         }));
 
         for (var index = 0; index < records.Count; index++)
@@ -146,6 +146,14 @@ public class CsvExportService
             cancellationToken.ThrowIfCancellationRequested();
             var record = records[index];
             var serverName = AlbionServers.TryParse(record.Server, out var server) ? server?.Name ?? string.Empty : string.Empty;
+            // Unit EMV is the one Settings › Trackers chose; both EMVs follow when the pickup kept them,
+            // and older pickups fill the column of the one they used.
+            var emvs = ActivityItemValuationService.LootEmvsOf(record) ?? (record.EstimatedUnitValue, ActivityItemValuationService.IsBlackMarketEmv(record)) switch
+            {
+                ({ } price, false) => new ActivityLootEmvs(price, null),
+                ({ } price, true) => new ActivityLootEmvs(null, price),
+                _ => default
+            };
             var line = string.Join(delimiter, new[]
             {
                 Escape(FormatUtc(record.CapturedAtUtc), delimiter),
@@ -170,7 +178,9 @@ public class CsvExportService
                 Escape(ItemQuality.Format(record.Quality), delimiter),
                 record.Quantity > 0 ? record.Quantity.ToString(culture) : string.Empty,
                 record.EstimatedUnitValue?.ToString(culture) ?? string.Empty,
-                record.Quantity > 0 ? ActivityProjection.GetLootValue(record)?.ToString(culture) ?? string.Empty : string.Empty
+                record.Quantity > 0 ? ActivityProjection.GetLootValue(record)?.ToString(culture) ?? string.Empty : string.Empty,
+                emvs.Royal?.ToString(culture) ?? string.Empty,
+                emvs.BlackMarket?.ToString(culture) ?? string.Empty
             });
 
             await writer.WriteLineAsync(line);

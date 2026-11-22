@@ -91,10 +91,13 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                     if (missing.Length == 0) break;
                     foreach (var observation in missing)
                     {
+                        // A loot price takes the EMV chosen now, which a setting change since it was read may have moved.
+                        var (unitValue, blackMarket) = price.LootBasis && price.Emvs?.Pick(ActivityItemValuationService.LootEmvChoice) is { } pick
+                            ? pick : (price.UnitValue, price.BlackMarket);
                         var priced = price is { FullJournalValue: { } full, EmptyJournalValue: { } empty }
                             ? ActivityJournals.WithPrice(observation, full, empty, price.ObservedAtUtc)
-                            : ActivityItemValuationService.WithPrice(observation, price.UnitValue,
-                                price.ObservedAtUtc, price.Quality, price.LootBasis ? price.BlackMarket : null);
+                            : ActivityItemValuationService.WithPrice(observation, unitValue,
+                                price.ObservedAtUtc, price.Quality, price.LootBasis ? blackMarket : null, price.LootBasis ? price.Emvs : null);
                         var patch = new EventCommand(priced, true, true);
                         while (!Enqueue(patch)) await FlushAsync(cancellationToken).ConfigureAwait(false);
                     }
@@ -298,7 +301,7 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                         if (previous.Quantity > 0 && observation.EstimatedUnitValue > long.MaxValue / previous.Quantity) break;
                         observation = ActivityItemValuationService.WithPrice(previous, observation.EstimatedUnitValue.Value,
                             observation.PriceObservedAtUtc ?? DateTime.UtcNow, ActivityItemValuationService.BasisQuality(previous),
-                            ActivityItemValuationService.IsBlackMarketEmv(observation));
+                            ActivityItemValuationService.IsBlackMarketEmv(observation), ActivityItemValuationService.LootEmvsOf(observation));
                     }
                     else if (previous is not null && previous.Revision >= observation.Revision) break;
                     if (previous is not null)
@@ -323,7 +326,7 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
                         if (frozenPrice)
                             observation = ActivityItemValuationService.WithPrice(observation, previous.EstimatedUnitValue!.Value,
                                 previous.PriceObservedAtUtc ?? DateTime.UtcNow, ActivityItemValuationService.BasisQuality(previous),
-                                ActivityItemValuationService.IsBlackMarketEmv(previous)) with
+                                ActivityItemValuationService.IsBlackMarketEmv(previous), ActivityItemValuationService.LootEmvsOf(previous)) with
                             { PriceObservedAtUtc = previous.PriceObservedAtUtc };
                     }
                     else if (observation.OriginKey is { } origin &&
@@ -411,6 +414,7 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
         if (command is FlushCommand) return;
         if (command is ImportLegacyCommand import) { import.Result = await ImportLegacyRunsAsync(cancellationToken); return; }
         if (command is RebuildTagsCommand) { await RebuildTagsAsync(cancellationToken); return; }
+        if (command is RevalueLootCommand revalue) { await ExecuteRevalueLootAsync(revalue.Choice, cancellationToken); return; }
         if (command is CleanupCommand cleanup) { await ExecuteCleanupAsync(cleanup, cancellationToken); return; }
         if (command is CompactCommand) { await ExecuteCompactAsync(cancellationToken); return; }
         if (command is DeletePlaySessionCommand deletePlay) { await ExecuteDeletePlaySessionAsync(deletePlay, cancellationToken); return; }
