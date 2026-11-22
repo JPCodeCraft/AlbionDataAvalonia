@@ -414,7 +414,13 @@ public sealed partial class ActivityPersistence : IAsyncDisposable
         if (command is FlushCommand) return;
         if (command is ImportLegacyCommand import) { import.Result = await ImportLegacyRunsAsync(cancellationToken); return; }
         if (command is RebuildTagsCommand) { await RebuildTagsAsync(cancellationToken); return; }
-        if (command is RevalueLootCommand revalue) { await ExecuteRevalueLootAsync(revalue.Choice, cancellationToken); return; }
+        if (command is RevalueLootCommand revalue)
+        {
+            // Re-valuing is upkeep: a failure keeps the values already saved instead of pausing recording to retry it.
+            try { await ExecuteRevalueLootAsync(revalue.Choice, cancellationToken); }
+            catch (Exception error) when (error is not OperationCanceledException) { Log.Warning(error, "Could not value saved loot at the chosen EMV."); }
+            return;
+        }
         if (command is CleanupCommand cleanup) { await ExecuteCleanupAsync(cleanup, cancellationToken); return; }
         if (command is CompactCommand) { await ExecuteCompactAsync(cancellationToken); return; }
         if (command is DeletePlaySessionCommand deletePlay) { await ExecuteDeletePlaySessionAsync(deletePlay, cancellationToken); return; }
