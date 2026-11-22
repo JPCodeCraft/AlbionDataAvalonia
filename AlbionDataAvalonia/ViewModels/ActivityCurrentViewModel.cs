@@ -54,7 +54,13 @@ public partial class ActivityCurrentViewModel : ObservableObject, IDisposable
     [NotifyPropertyChangedFor(nameof(HasCurrentResources))]
     private ObservableCollection<ActivityResourceRow> currentResources = new();
 
-    internal ActivityCurrentViewModel(ActivityViewModel page) => this.page = page;
+    internal ActivityCurrentViewModel(ActivityViewModel page)
+    {
+        this.page = page;
+        ChatCopy = new ActivityChatCopy(page.Clipboard);
+    }
+
+    public ActivityChatCopy ChatCopy { get; }
 
     public ActivityFilterState Filters => page.Filters;
     public ActivityLootExport Export => page.Export;
@@ -296,6 +302,19 @@ public partial class ActivityCurrentViewModel : ObservableObject, IDisposable
     }
 
     [RelayCommand] private Task OpenTimelineEncounterAsync(Guid encounterId) => page.History.OpenEncounterAsync(encounterId);
+
+    // Your party's damage or healing in the period shown (the session, the current run or the last hours), for the game chat.
+    [RelayCommand]
+    private Task CopyForChat(ActivityChatMetric metric) => ChatCopy.CopyAsync(async () =>
+    {
+        if (page.Persistence is not { } persistence || CurrentPeriodQuery(DateTime.UtcNow) is not { } period) return null;
+        var query = period with { Scope = ActivityScope.Party };
+        var title = IsLastHoursPeriod ? $"Last {UiFormat.Count((long)LastHours, "hour")}" : CurrentTitle;
+        var totals = persistence.GetPlayersAsync(query);
+        var seconds = persistence.GetCombatDurationSecondsAsync(query);
+        await Task.WhenAll(totals, seconds);
+        return ActivityChatCopy.Build(metric, title, seconds.Result, totals.Result);
+    });
 
     public void Dispose()
     {

@@ -160,13 +160,13 @@ Each dungeon, Mists visit or stretch of open world is a **run** inside the sessi
 
 ### Current
 
-**Current** shows the session you're playing right now: total silver and silver per hour, damage and healing with DPS and HPS, combat fame, silver picked up, loot value, kills, and everything you gathered and fished. Switch between the whole **Session**, the **Current run** or the **Last X hours**. A chart at the bottom follows the last 5, 10 or 15 minutes.
+**Current** shows the session you're playing right now: total silver and silver per hour, damage and healing with DPS and HPS, combat fame, silver picked up, loot value, kills, and everything you gathered and fished. Switch between the whole **Session**, the **Current run** or the **Last X hours**. A chart at the bottom follows the last 5, 10 or 15 minutes. **Copy for chat** copies your party's top 5 by damage or healing, with their DPS or HPS, as one line you can paste in the game chat.
 
 ![The Current tab during a session](docs/screenshots/activity-current.png)
 
 ### History
 
-**History** lists every saved session with its zones, length and silver. Pick one to see the same totals, then choose a run to see only that part. The tabs below break the session down into charts, loot (each pickup, or grouped by item), gathering (fishing included), mobs, players, the maps you visited, encounters, your party and a timeline.
+**History** lists every saved session with its zones, length and silver. Pick one to see the same totals, then choose a run to see only that part. The tabs below break the session down into charts, loot (each pickup, or grouped by item), gathering (fishing included), mobs, players, the maps you visited, encounters, your party and a timeline. **Copy for chat** on **Players** does the same as on Current for the session, run or fight you picked.
 
 Ctrl-click or Shift-click sessions to combine them, and use **Delete session…** to remove one.
 
