@@ -28,7 +28,7 @@ public partial class ActivityItemsViewModel : ObservableObject, IDisposable
     private Option<ActivityItemSources> selectedItemSource = new(ActivityItemSources.All, "All items");
     [ObservableProperty] private string lootSearch = "";
     [ObservableProperty]
-    [NotifyPropertyChangedFor(nameof(GlobalLootTotalsText))]
+    [NotifyPropertyChangedFor(nameof(GlobalLootTotalsText), nameof(GlobalLootDetailsText))]
     private ActivitySummaryPresentation globalLootSummary = ActivitySummaryPresentation.Empty;
     [ObservableProperty] private ObservableCollection<ActivityLootRow> globalLoot = new();
     [ObservableProperty]
@@ -60,7 +60,7 @@ public partial class ActivityItemsViewModel : ObservableObject, IDisposable
     }.Where(value => value is not null));
     // Counts what's left after trashing, like the EMV beside it.
     private long LootLeft => GlobalLootSummary.Summary.LootItems - GlobalLootSummary.Summary.TrashedLootItems;
-    public string GlobalLootDetailsText => "Loot uses the Black Market EMV when available";
+    public string GlobalLootDetailsText => $"Loot uses the {ActivityDisplay.LootEmvBasis}";
 
     // A period moves on at midnight, so the list reloads then even when no new items arrive.
     internal bool IsStale => itemReadVersion != page.ItemChangeVersion ||

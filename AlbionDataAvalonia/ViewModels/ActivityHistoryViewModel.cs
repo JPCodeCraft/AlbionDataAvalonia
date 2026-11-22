@@ -130,8 +130,11 @@ public partial class ActivityHistoryViewModel : ObservableObject, IDisposable
     internal ActivityHistoryViewModel(ActivityViewModel page)
     {
         this.page = page;
+        ChatCopy = new ActivityChatCopy(page.Clipboard);
         page.Export.PropertyChanged += OnExportChanged;
     }
+
+    public ActivityChatCopy ChatCopy { get; }
 
     public ActivityFilterState Filters => page.Filters;
     public ActivityLootExport Export => page.Export;
@@ -722,6 +725,21 @@ public partial class ActivityHistoryViewModel : ObservableObject, IDisposable
 
     [RelayCommand] private void ClearPlayer() => SelectedPlayer = null;
     [RelayCommand] private void ClearRun() => SelectedSession = null;
+
+    // Your party's damage or healing in what is selected (sessions, a run or a fight), as one line for the game chat.
+    [RelayCommand]
+    private Task CopyForChat(ActivityChatMetric metric) => ChatCopy.CopyAsync(async () =>
+    {
+        if (page.Persistence is not { } persistence || SelectedPlaySession is null) return null;
+        var query = DetailQuery() with { ActorKey = null, Scope = ActivityScope.Party };
+        var title = SelectedEncounter is { } fight
+            ? $"Fight {fight.Source.Number}" + (string.IsNullOrWhiteSpace(fight.Source.LocationName) ? "" : $", {fight.Source.LocationName}")
+            : SelectedSession?.Title ?? (IsCombined ? $"{selectedPlaySessions.Count} sessions" : SelectedPlaySession.Title);
+        var totals = persistence.GetPlayersAsync(query);
+        var seconds = persistence.GetCombatDurationSecondsAsync(query);
+        await Task.WhenAll(totals, seconds);
+        return ActivityChatCopy.Build(metric, title, seconds.Result, totals.Result);
+    });
 
     // Each export uses the exact query of the loot list it is opened from, across all pages.
     [RelayCommand]

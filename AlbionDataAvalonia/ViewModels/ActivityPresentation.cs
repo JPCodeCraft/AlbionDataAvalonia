@@ -96,7 +96,7 @@ public sealed class ActivitySummaryPresentation
     public string ItemsFooterText => $"{UiFormat.Compact(Summary.LootItems)} items"
         + (IsSessionAverage && HasRecordedDuration && (Summary.LootValue > 0 || !HasMissingLootPrices) ? $" · {UiFormat.Compact(Rates.LootValuePerHour)} / h" : "")
         + (HasMissingLootPrices ? " *" : "");
-    public string ItemsDetailsText => (HasLoot ? $"{LootItemsText}\n" : "") + "Black Market EMV when available, otherwise EMV"
+    public string ItemsDetailsText => (HasLoot ? $"{LootItemsText}\n" : "") + ActivityDisplay.LootEmvBasis
         + (Summary.TrashedLootItems > 0 ? $"\n{TrashedText(Summary.TrashedLootItems)}" : "")
         + (HasMissingLootPrices ? $"\n{MissingLootPrices}" : "");
     private static string ValueRateText(long knownValue, long missingItems, double rate) => missingItems > 0 && knownValue == 0
@@ -313,12 +313,12 @@ public sealed class ActivityLootRow(ActivityEvent source)
     public string ValueText => source.Quantity <= 0 ? source.Evidence == ActivityEvidence.Supplemental ? "Quantity pending" : "Unknown quantity" : ActivityProjection.GetLootValue(source) is { } value
         ? UiFormat.Compact(Sign * value) + (EmvName == BlackMarketEmv ? $" ({BlackMarketEmv})" : "") : UiText.Unavailable;
     private const string BlackMarketEmv = "Black Market EMV";
-    // Loot prefers the Black Market EMV; rows priced before the kind was recorded cannot tell which.
+    // Loot uses the EMV chosen in Settings › Trackers; rows priced before the kind was recorded cannot tell which.
     private string EmvName => ActivityItemValuationService.ValuedAs(source) != ActivityEventKind.Loot ? "EMV" : ActivityItemValuationService.IsBlackMarketEmv(source) switch
     {
         true => BlackMarketEmv,
-        false => "EMV",
-        null => "Black Market EMV or EMV"
+        false => "Royal EMV",
+        null => "Black Market EMV or Royal EMV"
     };
     public string Source => source.Kind switch
     {
@@ -435,6 +435,10 @@ public sealed class ActivityEventRow(ActivityEvent source)
 
 internal static class ActivityDisplay
 {
+    /// <summary>Which EMV loot uses, as chosen in Settings › Trackers.</summary>
+    public static string LootEmvBasis => ActivityItemValuationService.LootEmvChoice == ActivityLootEmv.Royal
+        ? "Royal EMV when available, otherwise Black Market EMV"
+        : "Black Market EMV when available, otherwise Royal EMV";
     public static string Server(string value) => string.IsNullOrWhiteSpace(value) ? "Unknown server" : int.TryParse(value, out var id) ? AlbionServers.Get(id)?.Name ?? value : value;
     public static string EncounterKind(ActivityEncounterKind value) => value switch
     { ActivityEncounterKind.Pve => "PvE", ActivityEncounterKind.Pvp => "PvP", _ => value.ToString() };

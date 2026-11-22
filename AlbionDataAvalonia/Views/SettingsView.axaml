@@ -177,6 +177,10 @@
                                               Hint="{Binding ActivityRecordingStatus, StringFormat='Saves combat, gathering, fishing and loot into local sessions.&#10;{0}'}">
                             <ToggleSwitch IsChecked="{Binding UserSettings.ActivityRecordingEnabled}" />
                         </controls:SettingsRow>
+                        <controls:SettingsRow Classes="Stacked" Title="Loot value" Hint="{Binding LootEmvText}">
+                            <controls:SegmentedSelector ItemsSource="{Binding LootEmvOptions}" SelectedIndex="{Binding UserSettings.LootEmvIndex}"
+                                                        AutomationProperties.Name="Loot value" />
+                        </controls:SettingsRow>
                         <controls:SettingsRow>
                             <Expander Classes="Plain" Header="How sessions work" IsExpanded="False"
                                       HorizontalAlignment="Stretch" HorizontalContentAlignment="Stretch">

@@ -318,8 +318,24 @@ public sealed record ActivityMobTotal(string MobId, string Name, long Kills, lon
 public sealed record ActivityRecordingStatus(bool IsSuspended, int PendingChanges, string? Error);
 // LootBasis prices value loot only; quality 0 then fills loot whose quality is unknown.
 // A journal price fills journals filled while gathering, and carries the full and empty EMVs behind it.
+// A loot price also carries both EMVs it was picked from, so the pickup can be valued at the other one later.
 public sealed record ActivityLootPrice(string Server, int ItemId, int Quality, long UnitValue, DateTime ObservedAtUtc,
-    bool LootBasis = false, bool BlackMarket = false, long? FullJournalValue = null, long? EmptyJournalValue = null);
+    bool LootBasis = false, bool BlackMarket = false, long? FullJournalValue = null, long? EmptyJournalValue = null,
+    ActivityLootEmvs? Emvs = null);
+
+// Which EMV values loot: the Black Market EMV when the item has one (the default), or the Royal EMV that in-game chests show.
+public enum ActivityLootEmv { BlackMarket, Royal }
+
+// The Royal and Black Market EMVs a loot pickup can be valued at; either can be missing. Older pickups saved only the one they used.
+public readonly record struct ActivityLootEmvs(long? Royal, long? BlackMarket)
+{
+    public bool HasAny => Royal is > 0 || BlackMarket is > 0;
+
+    /// <summary>The chosen EMV, or the other one when the item has none of the chosen kind.</summary>
+    public (long Price, bool BlackMarket)? Pick(ActivityLootEmv choice) => choice == ActivityLootEmv.Royal
+        ? Royal is > 0 ? (Royal.Value, false) : BlackMarket is > 0 ? (BlackMarket.Value, true) : null
+        : BlackMarket is > 0 ? (BlackMarket.Value, true) : Royal is > 0 ? (Royal.Value, false) : null;
+}
 public sealed record ActivityRates(double DurationSeconds, double DamagePerSecond,
     double HealingPerSecond, double FamePerHour, double SilverPerHour, double LootValuePerHour,
     double DamageReceivedPerSecond, double HealingReceivedPerSecond, double CombatDurationSeconds = 0,

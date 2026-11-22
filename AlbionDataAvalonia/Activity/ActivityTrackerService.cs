@@ -94,6 +94,9 @@ public sealed partial class ActivityTrackerService : IDisposable
         gathering = new ActivityGatheringCollector(this, loot, values, items);
         fameCollector = new ActivityFameCollector(achievements);
         timer = new Timer(_ => Tick(), null, TimeSpan.FromSeconds(1), TimeSpan.FromSeconds(1));
+        // Loot saved with both EMVs follows the setting; this also finishes a change the app closed during.
+        ActivityItemValuationService.LootEmvChoice = LootEmvChoice;
+        _ = RevalueLootAsync(LootEmvChoice);
         settings.UserSettings.PropertyChanged += SettingsChanged;
         persistence.StatusChanged += StorageChanged;
         persistence.SessionDeleted += SessionDeleted;
@@ -1277,7 +1280,23 @@ public sealed partial class ActivityTrackerService : IDisposable
         : b is ActivityEncounterKind.Unknown or ActivityEncounterKind.Healing ? a : b;
 
     private void SettingsChanged(object? sender, PropertyChangedEventArgs e)
-    { if (e.PropertyName == nameof(UserSettings.ActivityRecordingEnabled)) SetRecordingEnabled(settings.UserSettings.ActivityRecordingEnabled); }
+    {
+        if (e.PropertyName == nameof(UserSettings.ActivityRecordingEnabled)) SetRecordingEnabled(settings.UserSettings.ActivityRecordingEnabled);
+        else if (e.PropertyName == nameof(UserSettings.LootEmvIndex))
+        {
+            ActivityItemValuationService.LootEmvChoice = LootEmvChoice;
+            _ = RevalueLootAsync(LootEmvChoice);
+        }
+    }
+
+    private ActivityLootEmv LootEmvChoice => settings.UserSettings.LootEmvIndex == 1 ? ActivityLootEmv.Royal : ActivityLootEmv.BlackMarket;
+
+    private async Task RevalueLootAsync(ActivityLootEmv choice)
+    {
+        try { await persistence.RevalueLootAsync(choice).ConfigureAwait(false); }
+        catch (Exception error) when (error is OperationCanceledException or ObjectDisposedException) { }
+        catch (Exception error) { Log.Warning(error, "Could not value saved loot at the chosen EMV."); }
+    }
     private void StorageChanged(ActivityRecordingStatus status)
     {
         lock (sync)

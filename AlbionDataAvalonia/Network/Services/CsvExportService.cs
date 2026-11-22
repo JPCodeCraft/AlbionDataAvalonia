@@ -8,6 +8,7 @@ using AlbionDataAvalonia.Network.Models;
 using Microsoft.EntityFrameworkCore;
 using Serilog;
 using System;
+using System.Buffers.Binary;
 using System.Collections.Generic;
 using System.Globalization;
 using System.IO;
@@ -35,12 +36,8 @@ public class CsvExportService
 
         using var writer = new StreamWriter(stream, Encoding.UTF8);
 
-        // Write header - matches the columns shown in TradesView.axaml DataGrid
-        await writer.WriteLineAsync(string.Join(delimiter, new[]
-        {
-            "Server", "Player", "Received", "Type", "Operation", "Quality",
-            "Item", "Location", "Full Location", "Amount", "Unit Silver", "Total Silver", "Order Amount"
-        }));
+        // The shared trades CSV, so the mobile export reads the same.
+        await writer.WriteLineAsync(TradeCsv.Header(delimiter));
 
         using var db = new LocalContext();
         // An order that expired with nothing filled has no trade, but its setup fee was paid, so its mail
@@ -49,7 +46,7 @@ public class CsvExportService
                 .Where(x => !x.Deleted && x.IsSet && x.PartialAmount == 0 && x.TotalAmount > 0 && x.AuctionType != AuctionType.unknown)
                 .AsNoTracking()
                 .ToListAsync(cancellationToken))
-            .Select(mail => new Trade(mail))
+            .Select(mail => new Trade(mail) { Id = UnfilledOrderId(mail) })
             .OrderByDescending(x => x.DateTime)
             .ToList();
         var tradeCount = await db.Trades.Where(x => !x.Deleted && x.Amount > 0).CountAsync(cancellationToken);
@@ -73,24 +70,11 @@ public class CsvExportService
             var fullName = location?.FriendlyName ?? "";
             var itemName = itemsIdsService.GetUsNameByUniqueName(trade.ItemId);
 
-            var line = string.Join(delimiter, new[]
-            {
-                Escape(server?.Name ?? "", delimiter),
-                Escape(trade.PlayerName, delimiter),
-                Escape(trade.DateTime.ToString(culture), delimiter),
-                Escape(trade.TradeTypeFormatted, delimiter),
-                Escape(trade.TradeOperationFormatted, delimiter),
-                Escape(trade.QualityLevelFormatted, delimiter),
-                Escape(itemName, delimiter),
-                Escape(marketName, delimiter),
-                Escape(fullName, delimiter),
-                trade.Amount.ToString(culture),
-                trade.Amount == 0 && trade.UnitSilver == 0 ? "" : trade.UnitSilver.ToString("F2", culture),
-                trade.TotalSilver.ToString("F0", culture),
-                trade.OrderAmount?.ToString(culture) ?? ""
-            });
+            var row = new TradeCsvRow(trade.Id, server?.Name ?? "", trade.PlayerName, trade.DateTime, trade.Type, trade.Operation,
+                trade.QualityLevel, trade.ItemId, itemName, marketName, fullName, trade.Amount, trade.UnitSilver, trade.TotalSilver,
+                trade.OrderAmount);
 
-            await writer.WriteLineAsync(line);
+            await writer.WriteLineAsync(TradeCsv.Line(row, delimiter, culture));
             processed++;
         }
 
@@ -154,7 +138,7 @@ public class CsvExportService
             "Picked Up UTC", "Server", "Player", "Player Alliance", "Player Guild",
             "Party Member At Pickup", "Source Type", "Source", "Source Alliance", "Source Guild",
             "Location", "Location ID", "Item Unique Name", "Item", "Quality",
-            "Amount", "Unit EMV", "Total EMV"
+            "Amount", "Unit EMV", "Total EMV", "Unit Royal EMV", "Unit Black Market EMV"
         }));
 
         for (var index = 0; index < records.Count; index++)
@@ -162,6 +146,14 @@ public class CsvExportService
             cancellationToken.ThrowIfCancellationRequested();
             var record = records[index];
             var serverName = AlbionServers.TryParse(record.Server, out var server) ? server?.Name ?? string.Empty : string.Empty;
+            // Unit EMV is the one Settings › Trackers chose; both EMVs follow when the pickup kept them,
+            // and older pickups fill the column of the one they used.
+            var emvs = ActivityItemValuationService.LootEmvsOf(record) ?? (record.EstimatedUnitValue, ActivityItemValuationService.IsBlackMarketEmv(record)) switch
+            {
+                ({ } price, false) => new ActivityLootEmvs(price, null),
+                ({ } price, true) => new ActivityLootEmvs(null, price),
+                _ => default
+            };
             var line = string.Join(delimiter, new[]
             {
                 Escape(FormatUtc(record.CapturedAtUtc), delimiter),
@@ -186,7 +178,9 @@ public class CsvExportService
                 Escape(ItemQuality.Format(record.Quality), delimiter),
                 record.Quantity > 0 ? record.Quantity.ToString(culture) : string.Empty,
                 record.EstimatedUnitValue?.ToString(culture) ?? string.Empty,
-                record.Quantity > 0 ? ActivityProjection.GetLootValue(record)?.ToString(culture) ?? string.Empty : string.Empty
+                record.Quantity > 0 ? ActivityProjection.GetLootValue(record)?.ToString(culture) ?? string.Empty : string.Empty,
+                emvs.Royal?.ToString(culture) ?? string.Empty,
+                emvs.BlackMarket?.ToString(culture) ?? string.Empty
             });
 
             await writer.WriteLineAsync(line);
@@ -276,17 +270,15 @@ public class CsvExportService
             .Trim();
     }
 
-    private static string Escape(string value, string delimiter)
+    private static string Escape(string value, string delimiter) => TradeCsv.Escape(value, delimiter);
+
+    // An unfilled order has no saved trade, so its row id is made from the server and mail id and stays the same in
+    // every export: 0000000S-0000-0000-MMMM-MMMMMMMMMMMM. Saved trades have random version 4 ids, so the two never meet.
+    private static Guid UnfilledOrderId(AlbionMail mail)
     {
-        if (string.IsNullOrEmpty(value))
-            return "";
-
-        // If value contains delimiter, quotes, or newlines, wrap in quotes and escape internal quotes
-        if (value.Contains(delimiter) || value.Contains('"') || value.Contains('\n') || value.Contains('\r'))
-        {
-            return "\"" + value.Replace("\"", "\"\"") + "\"";
-        }
-
-        return value;
+        Span<byte> bytes = stackalloc byte[16];
+        BinaryPrimitives.WriteInt32BigEndian(bytes[..4], mail.AlbionServerId);
+        BinaryPrimitives.WriteInt64BigEndian(bytes[8..], mail.Id);
+        return new Guid(bytes, bigEndian: true);
     }
 }

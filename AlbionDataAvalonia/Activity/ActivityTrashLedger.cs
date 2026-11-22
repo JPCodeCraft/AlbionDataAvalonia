@@ -36,7 +36,8 @@ internal sealed class ActivityTrashLedger
         var trashed = entries.TryGetValue(value.Id, out var old) ? Math.Min(old.Trashed, value.Quantity) : 0;
         if (old is null && entries.Count >= MaximumEntries) return;
         entries[value.Id] = new Entry(value.Kind, value.ItemId.Value, value.Quality, value.ItemUniqueName, value.ItemName,
-            value.Quantity, value.EstimatedUnitValue, ActivityItemValuationService.IsBlackMarketEmv(value), runId, value.CapturedAtUtc)
+            value.Quantity, value.EstimatedUnitValue, ActivityItemValuationService.IsBlackMarketEmv(value), runId, value.CapturedAtUtc,
+            ActivityItemValuationService.LootEmvsOf(value))
         { Trashed = trashed };
     }
 
@@ -56,7 +57,7 @@ internal sealed class ActivityTrashLedger
         {
             var taken = Math.Min(left, entry.Remaining);
             entry.Trashed += taken;
-            parts.Add(new Part(entry.Kind, entry.RunId, taken, entry.UnitValue, entry.BlackMarket, entry.Quality, entry.UniqueName, entry.Name));
+            parts.Add(new Part(entry.Kind, entry.RunId, taken, entry.UnitValue, entry.BlackMarket, entry.Quality, entry.UniqueName, entry.Name, entry.Emvs));
             left -= taken;
             if (left == 0) break;
         }
@@ -72,12 +73,12 @@ internal sealed class ActivityTrashLedger
     }
 
     private sealed record Entry(ActivityEventKind Kind, int ItemId, int? Quality, string? UniqueName, string Name, long Quantity,
-        long? UnitValue, bool? BlackMarket, Guid RunId, DateTime At)
+        long? UnitValue, bool? BlackMarket, Guid RunId, DateTime At, ActivityLootEmvs? Emvs)
     {
         public long Trashed { get; set; }
         public long Remaining => Quantity - Trashed;
     }
 
     internal sealed record Part(ActivityEventKind Kind, Guid RunId, long Quantity, long? UnitValue, bool? BlackMarket, int? Quality,
-        string? UniqueName, string Name);
+        string? UniqueName, string Name, ActivityLootEmvs? Emvs = null);
 }

@@ -160,13 +160,13 @@ Each dungeon, Mists visit or stretch of open world is a **run** inside the sessi
 
 ### Current
 
-**Current** shows the session you're playing right now: total silver and silver per hour, damage and healing with DPS and HPS, combat fame, silver picked up, loot value, kills, and everything you gathered and fished. Switch between the whole **Session**, the **Current run** or the **Last X hours**. A chart at the bottom follows the last 5, 10 or 15 minutes.
+**Current** shows the session you're playing right now: total silver and silver per hour, damage and healing with DPS and HPS, combat fame, silver picked up, loot value, kills, and everything you gathered and fished. Switch between the whole **Session**, the **Current run** or the **Last X hours**. A chart at the bottom follows the last 5, 10 or 15 minutes. **Copy for chat** copies your party's top 5 by damage or healing, with their DPS or HPS, as one line you can paste in the game chat.
 
 ![The Current tab during a session](docs/screenshots/activity-current.png)
 
 ### History
 
-**History** lists every saved session with its zones, length and silver. Pick one to see the same totals, then choose a run to see only that part. The tabs below break the session down into charts, loot (each pickup, or grouped by item), gathering (fishing included), mobs, players, the maps you visited, encounters, your party and a timeline.
+**History** lists every saved session with its zones, length and silver. Pick one to see the same totals, then choose a run to see only that part. The tabs below break the session down into charts, loot (each pickup, or grouped by item), gathering (fishing included), mobs, players, the maps you visited, encounters, your party and a timeline. **Copy for chat** on **Players** does the same as on Current for the session, run or fight you picked.
 
 Ctrl-click or Shift-click sessions to combine them, and use **Delete session…** to remove one.
 
@@ -178,7 +178,7 @@ The chart shows damage or healing over time, with markers for kills, loot and ga
 
 **Items** adds up everything you looted and gathered across all your sessions. Use **Time** to see today, yesterday, the last 7 or 30 days, or a custom range of dates and times. Search by item, player or source, filter by loot or gathering (fishing counts as gathering), and use **Export loot…** to save the loot you see as a CSV file.
 
-Loot and gathered items are valued with AFM's estimated market value (EMV). Signing in to AFM lets the client look up values for items it hasn't priced yet.
+Loot and gathered items are valued with AFM's estimated market value (EMV). Signing in to AFM lets the client look up values for items it hasn't priced yet. Loot uses the Black Market EMV when an item has one. To match the value in-game chests show, choose **Royal EMV** under **Loot value** in Settings › Trackers. Loot picked up since this option was added switches with it, totals included. The AFM CSV export has both EMVs in its last two columns.
 
 ### Map
 
@@ -199,7 +199,7 @@ Press **Disable recording** on the Activity page, or turn off **Record activity*
 
 ## Trades
 
-**Trades** keeps every instant buy and sell you make at the market, plus completed buy and sell orders read from your market mails. Filter by item, server, trade type, operation and location, select rows to see their total and average price, and export them to CSV. The CSV's **Order Amount** column holds each order's full size, and orders that expired with nothing filled are listed too, with an amount of 0, so you can work out what their setup fees cost. Signed-in users can also send trades to their AFM Portfolio.
+**Trades** keeps every instant buy and sell you make at the market, plus completed buy and sell orders read from your market mails. Filter by item, server, trade type, operation and location, select rows to see their total and average price, and export them to CSV. The CSV's **Order Amount** column holds each order's full size, and orders that expired with nothing filled are listed too, with an amount of 0, so you can work out what their setup fees cost. The last three columns, **Trade ID**, **Item ID** (such as `T4_BAG@1`) and **Time (UTC)**, give each row a fixed id, the game's id for the item and the time in UTC, which helps when you import the file again. The Android app's Export CSV makes the same file. Signed-in users can also send trades to their AFM Portfolio.
 
 ![The Trades page](docs/screenshots/trades.png)
 

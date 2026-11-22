@@ -56,13 +56,13 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     private bool isRecordingEnabled = true;
     [ObservableProperty] private bool canStartSession;
 
-    public ActivityViewModel() : this(null, null, null, null, null, export: null) { }
+    public ActivityViewModel() : this(null, null, null, null, null, export: null, clipboard: null) { }
 
     public ActivityViewModel(ActivityTrackerService tracker, ActivityPersistence persistence, CsvExportService csvExportService,
         ActivityItemValuationService? valuations = null, PartyTrackerService? partyTracker = null,
         ActivityStreamerWindowService? streamerWindow = null, ActivityMapWindowService? mapWindow = null,
-        IDialogService? dialogs = null, IFileDialogService? files = null)
-        : this(tracker, persistence, valuations, mapWindow, dialogs, new ActivityLootExport(persistence, csvExportService, files))
+        IDialogService? dialogs = null, IFileDialogService? files = null, IClipboardService? clipboard = null)
+        : this(tracker, persistence, valuations, mapWindow, dialogs, new ActivityLootExport(persistence, csvExportService, files), clipboard)
     {
         tracker.Changed += OnActivityChanged;
         persistence.StatusChanged += OnPersistenceStatusChanged;
@@ -74,9 +74,10 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     }
 
     private ActivityViewModel(ActivityTrackerService? tracker, ActivityPersistence? persistence, ActivityItemValuationService? valuations,
-        ActivityMapWindowService? mapWindow, IDialogService? dialogs, ActivityLootExport? export)
+        ActivityMapWindowService? mapWindow, IDialogService? dialogs, ActivityLootExport? export, IClipboardService? clipboard)
     {
         Tracker = tracker;
+        Clipboard = clipboard;
         Persistence = persistence;
         Valuations = valuations;
         MapWindow = mapWindow;
@@ -102,6 +103,7 @@ public partial class ActivityViewModel : ViewModelBase, IDisposable
     internal ActivityItemValuationService? Valuations { get; }
     internal ActivityMapWindowService? MapWindow { get; }
     internal IDialogService? Dialogs { get; }
+    internal IClipboardService? Clipboard { get; }
     internal bool IsActive => isActive;
     internal bool IsDisposed => isDisposed;
     // Current's loot and the Items tab both read items, so saved item changes count once for both.

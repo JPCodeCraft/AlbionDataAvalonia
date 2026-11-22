@@ -259,6 +259,21 @@ public class UserSettings : INotifyPropertyChanged
         }
     }
 
+    // Loot is valued at the Black Market EMV when there is one (0), or at the Royal EMV that in-game chests show (1).
+    private int lootEmvIndex;
+    public int LootEmvIndex
+    {
+        get => lootEmvIndex;
+        set
+        {
+            value = Math.Clamp(value, 0, 1);
+            if (lootEmvIndex == value) return;
+            lootEmvIndex = value;
+            OnPropertyChanged(nameof(LootEmvIndex));
+            Log.Information("Loot value set to {LootEmv}", value == 1 ? "Royal EMV" : "Black Market EMV");
+        }
+    }
+
     // The streamer window shows only the sections chosen here.
     private bool streamerShowSilver = true;
     public bool StreamerShowSilver { get => streamerShowSilver; set => SetStreamerOption(ref streamerShowSilver, value, nameof(StreamerShowSilver)); }
