@@ -112,6 +112,13 @@ public partial class App : Application
         //LOGGING
         SetupLogging(services.GetRequiredService<ListSink>());
 
+        //AN UPDATE DOWNLOADED IN AN EARLIER SESSION INSTALLS NOW, BEFORE ANYTHING OPENS THE DATABASE
+        if (ClientUpdater.TryStartDownloadedUpdate())
+        {
+            Log.CloseAndFlush();
+            Environment.Exit(0);
+        }
+
         //MIGRATIONS
         using (var db = new LocalContext())
         {
@@ -265,14 +272,15 @@ public partial class App : Application
                 settings.AppSettings.FileNameFormat,
                 settings.UserSettings.JoinBetaProgram);
 
-            if (!updateResult.UpdateAvailable || updateResult.Update == null)
+            if (OperatingSystem.IsWindows())
             {
+                // Downloads only: the player installs it with Update now, or it installs on the next start.
+                await ClientUpdater.PrepareUpdateAsync(updateResult);
                 return;
             }
 
-            if (OperatingSystem.IsWindows())
+            if (!updateResult.UpdateAvailable || updateResult.Update == null)
             {
-                await ClientUpdater.InstallUpdateAsync(updateResult.Update);
                 return;
             }
 
@@ -282,6 +290,11 @@ public partial class App : Application
             }
         };
         _updateTimer.Start();
+        settings.UserSettings.PropertyChanged += (_, e) =>
+        {
+            if (e.PropertyName == nameof(UserSettings.JoinBetaProgram))
+                ClientUpdater.OnUpdateChannelChanged(settings.UserSettings.JoinBetaProgram);
+        };
 
         try
         {
@@ -611,6 +624,7 @@ public static class ServiceCollectionExtensions
         collection.AddSingleton<IClipboardService, ClipboardService>();
         collection.AddSingleton<IFileDialogService, FileDialogService>();
 
+        collection.AddSingleton<ClientUpdateViewModel>();
         collection.AddSingleton<MainViewModel>();
         collection.AddSingleton<SettingsViewModel>();
         collection.AddSingleton<LogsViewModel>();

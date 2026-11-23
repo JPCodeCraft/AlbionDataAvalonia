@@ -389,7 +389,13 @@
             <ScrollViewer VerticalScrollBarVisibility="Auto" HorizontalScrollBarVisibility="Disabled">
                 <StackPanel Classes="Page">
                     <controls:SettingsGroup Header="VERSION">
-                        <controls:SettingsRow Title="{Binding AppVersionText}" Hint="{Binding UpdatesText}" />
+                        <controls:SettingsRow Title="{Binding AppVersionText}" Hint="{Binding UpdatesText}">
+                            <Button Classes="UiAction"
+                                    IsVisible="{Binding Update.IsReady}"
+                                    Content="{Binding Update.InstallButtonText}"
+                                    Command="{Binding Update.InstallCommand}"
+                                    ToolTip.Tip="{Binding Update.ReadyMessage}" />
+                        </controls:SettingsRow>
                     </controls:SettingsGroup>
 
                     <controls:SettingsGroup Header="LINKS">

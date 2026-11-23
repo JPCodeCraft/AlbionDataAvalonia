@@ -5,6 +5,7 @@
 	xmlns:mc="http://schemas.openxmlformats.org/markup-compatibility/2006"
 	xmlns:vm="clr-namespace:AlbionDataAvalonia.ViewModels"
 	xmlns:views="clr-namespace:AlbionDataAvalonia.Views"
+	xmlns:controls="clr-namespace:AlbionDataAvalonia.Views.Controls"
 	mc:Ignorable="d" d:DesignWidth="800" d:DesignHeight="450"
 	x:Class="AlbionDataAvalonia.Views.MainView"
 	x:DataType="vm:MainViewModel">
@@ -111,6 +112,16 @@
 
 			<!-- Capture State Section: summarizes the Main tab checklist -->
 			<StackPanel Grid.Row="1" Grid.Column="0" Grid.ColumnSpan="2">
+				<!-- An update downloaded in the background. It never installs while the client runs. -->
+				<controls:InfoBanner Kind="Info" Classes="Stacked" Margin="10,0,10,10"
+					IsVisible="{Binding Update.IsReady}"
+					Title="Update ready"
+					Message="{Binding Update.ReadyMessage}">
+					<Button Classes="UiAction"
+						Content="{Binding Update.InstallButtonText}"
+						Command="{Binding Update.InstallCommand}"
+						ToolTip.Tip="Closes the client, installs the update and opens the client again." />
+				</controls:InfoBanner>
 				<Button Classes="UiCardButton" Margin="10,0,10,10"
 					Command="{Binding ShowDashboardCommand}"
 					ToolTip.Tip="{Binding Setup.StatusTooltip}">
