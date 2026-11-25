@@ -127,6 +127,15 @@ public class TradeService
         }
     }
 
+    // Quick Sell and Quick Purchase Loadouts confirm several instant trades in one reply.
+    public async Task AddTradesAsync(IEnumerable<Trade> trades)
+    {
+        foreach (var trade in trades)
+        {
+            await AddTradeToDb(trade);
+        }
+    }
+
     public async Task DeleteTrade(Guid id)
     {
         try
