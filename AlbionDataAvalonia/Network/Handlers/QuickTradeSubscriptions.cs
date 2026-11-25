@@ -38,11 +38,6 @@ internal static class QuickTradeSubscriptions
             if (playerState.CheckOkToUpload()) tracker.LoadoutOffersListed(value, playerState.Location.Id);
             return Task.CompletedTask;
         });
-        builder.SubscribeRequest<AuctionBuyLoadoutOfferRequest>((int)OperationCodes.AuctionBuyLoadoutOffer, value =>
-        {
-            tracker.LoadoutPurchaseRequested(value);
-            return Task.CompletedTask;
-        });
         builder.SubscribeResponse<AuctionBuyLoadoutOfferResponse>((int)OperationCodes.AuctionBuyLoadoutOffer,
             value => Save(tracker.LoadoutPurchaseCompleted(value), playerState, tradeService));
     }
