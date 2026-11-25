@@ -250,7 +250,10 @@ public sealed class DiagnosticsReport
             $"reference data: {DescribeReferenceData()}", $"map data: {mapData}"));
         text.AppendLine(Indent + (ClientUpdater.LastCheck is { } check
             ? $"Update check: {check.Summary}, {UiFormat.TimeAgo(check.CheckedUtc, now)}"
-            : "Update check: not run yet"));
+            : "Update check: not run yet")
+            + (ClientUpdater.ReadyUpdate is { } ready
+                ? $"; {ready.Version} downloaded {UiFormat.TimeAgo(ready.DownloadedUtc, now)}, waiting for Update now or a restart"
+                : string.Empty));
     }
 
     private static string DescribeReferenceData()

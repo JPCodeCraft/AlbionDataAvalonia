@@ -35,7 +35,7 @@ The client runs on anything that runs Albion Online; on macOS it needs macOS 14 
 1. Download `AFMDataClientSetup_v_x.x.x.x.exe` from the [latest release](https://github.com/JPCodeCraft/AlbionDataAvalonia/releases/latest).
 2. Run the installer. If no capture driver is installed yet, it installs WinPcap for you.
 3. The client opens when setup finishes. It starts with Windows, and closing the window keeps it running in the system tray. To quit, right-click the tray icon and choose Exit.
-4. Updates download and install by themselves.
+4. Updates download by themselves. When one is ready, the sidebar shows **Update now**; if you don't click it, the update installs the next time the client starts.
 
 If the Main tab says the capture driver is missing, click **Download Npcap**, install [Npcap](https://npcap.com/#download) with the default options, and click **Check again**.
 

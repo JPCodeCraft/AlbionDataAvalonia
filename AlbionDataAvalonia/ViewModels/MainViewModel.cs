@@ -236,12 +236,17 @@ public partial class MainViewModel : ViewModelBase
     private CancellationTokenSource? loginCancellationTokenSource;
     private bool loginCanceledByUser;
 
+    /// <summary>The Update now notice in the sidebar and the tray menu.</summary>
+    public ClientUpdateViewModel Update { get; }
+
     public MainViewModel()
     {
+        Update = new ClientUpdateViewModel();
     }
 
-    public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, PlayerIdentityService playerIdentityService, SettingsManager settingsManager, SettingsViewModel settingsViewModel, LogsViewModel logsViewModel, TradesViewModel tradesViewModel, ActivityViewModel activityViewModel, LegendaryViewModel legendaryViewModel, Uploader uploader, AuthService authService, PacketDiagnostics? packetDiagnostics = null, IClipboardService? clipboard = null, DiagnosticsReport? diagnosticsReport = null)
+    public MainViewModel(NetworkListenerService networkListener, PlayerState playerState, PlayerIdentityService playerIdentityService, SettingsManager settingsManager, SettingsViewModel settingsViewModel, LogsViewModel logsViewModel, TradesViewModel tradesViewModel, ActivityViewModel activityViewModel, LegendaryViewModel legendaryViewModel, Uploader uploader, AuthService authService, PacketDiagnostics? packetDiagnostics = null, IClipboardService? clipboard = null, DiagnosticsReport? diagnosticsReport = null, ClientUpdateViewModel? clientUpdate = null)
     {
+        Update = clientUpdate ?? new ClientUpdateViewModel();
         _playerState = playerState;
         _playerIdentityService = playerIdentityService;
         _networkListener = networkListener;

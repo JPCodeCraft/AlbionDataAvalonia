@@ -109,9 +109,13 @@ public partial class SettingsViewModel : ViewModelBase
         }
     }
 
+    /// <summary>The Update now button in Settings › About.</summary>
+    public ClientUpdateViewModel Update { get; }
+
     public SettingsViewModel()
     {
         UserSettings = new UserSettings();
+        Update = new ClientUpdateViewModel();
     }
 
     public SettingsViewModel(
@@ -125,8 +129,10 @@ public partial class SettingsViewModel : ViewModelBase
         DataCleanupService? dataCleanup = null,
         PacketDiagnostics? packetDiagnostics = null,
         IDialogService? dialogs = null,
-        IClipboardService? clipboard = null)
+        IClipboardService? clipboard = null,
+        ClientUpdateViewModel? clientUpdate = null)
     {
+        Update = clientUpdate ?? new ClientUpdateViewModel();
         _settingsManager = settingsManager;
         _playerState = playerState;
         this.activityTracker = activityTracker;
@@ -206,7 +212,9 @@ public partial class SettingsViewModel : ViewModelBase
         : "Stable builds only.";
 
     public string AppVersionText => $"AFM Data Client {ClientUpdater.GetVersion() ?? UiText.Unknown}";
-    public string UpdatesText => IsWindows ? "Updates install by themselves." : "You'll see a notice when an update is ready.";
+    public string UpdatesText => IsWindows
+        ? "Updates download by themselves and install the next time the client starts. Update now installs one right away."
+        : "You'll see a notice when an update is ready.";
 
     public IReadOnlyList<Option<int>> LootEmvOptions { get; } = [new(0, "Black Market EMV"), new(1, "Royal EMV")];
     public string LootEmvText => (UserSettings.LootEmvIndex == 1

@@ -37,6 +37,7 @@
 				<TrayIcon.Menu>
 					<NativeMenu x:DataType="vm:MainViewModel">
 						<NativeMenuItem Header="Show Window" Command="{Binding ShowMainWindowCommand}"/>
+						<NativeMenuItem Header="Update now" IsVisible="{Binding Update.IsReady}" Command="{Binding Update.InstallCommand}"/>
 						<NativeMenuItem Header="Exit" Command="{Binding ExitCommand}"/>
 					</NativeMenu>
 				</TrayIcon.Menu>
