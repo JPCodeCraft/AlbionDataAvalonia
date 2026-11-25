@@ -287,9 +287,12 @@ namespace AlbionDataAvalonia.Network.Services
                 builder.AddResponseHandler(new ReadMailResponseHandler(_playerState, _mailService));
                 builder.AddResponseHandler(new AuctionBuyOfferResponseHandler(_playerState, _tradeService));
                 builder.AddResponseHandler(new AuctionSellSpecificItemRequestResponseHandler(_playerState, _tradeService));
+                builder.AddResponseHandler(new AuctionSellRequestResponseHandler(_tradeService));
                 // REQUEST
                 builder.AddRequestHandler(new AuctionBuyOfferRequestHandler(_playerState, _tradeService));
                 builder.AddRequestHandler(new AuctionSellSpecificItemRequestRequestHandler(_playerState, _tradeService));
+                builder.AddRequestHandler(new AuctionSellRequestRequestHandler(_playerState, _tradeService));
+                QuickSellPacketLog.Register(builder);
 
                 ActivityPacketSubscriptions.Register(builder, _activityTracker);
                 builder.ObserveHandledPackets(_packetDiagnostics.Write, () => _packetDiagnostics.IsEnabled);
